@@ -1,13 +1,13 @@
 longlian:
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    host: 192.168.75.131
-    port: 3306
-    database: longlian
-    username: root
-    password: 3516
+    driver-class-name: ${DB_DRIVER_CLASS_NAME}
+    host: ${DB_HOST}
+    port: ${DB_PORT}
+    database: ${DB_DATABASE}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   redis:
-    host: 192.168.75.131
-    port: 6379
-    password: 3516
-    database: 1
+    host: ${REDIS_HOST}
+    port: ${REDIS_PORT}
+    password: ${REDIS_PASSWORD}
+    database: ${REDIS_DATABASE:1}

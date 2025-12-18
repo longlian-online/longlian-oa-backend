@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @Schema(description = "通用返回结果")
 public class Result<T> {
-    @Schema(description = "状态码：200成功，4xx客户端错误，5xx服务端错误，1xxx业务错误")
+    @Schema(description = "状态码：2000成功，4xxx客户端错误，5xxx服务端错误，1xxx业务错误")
     private int code;
 
     @Schema(description = "操作提示信息")
@@ -39,7 +39,7 @@ public class Result<T> {
      * @param data 业务数据（泛型T）
      */
     public static <T> Result<T> success(T data) {
-        // 使用ResultCode.SUCCESS的默认状态码（200）和提示（操作成功）
+        // 使用ResultCode.SUCCESS的默认状态码（2000）和提示（操作成功）
         return new Result<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMsg(), data);
     }
 
@@ -50,7 +50,7 @@ public class Result<T> {
      * @param data 业务数据
      */
     public static <T> Result<T> success(String msg, T data) {
-        // 状态码仍用200，提示信息自定义
+        // 状态码仍用2000，提示信息自定义
         return new Result<>(ResultCode.SUCCESS.getCode(), msg, data);
     }
 
@@ -60,7 +60,7 @@ public class Result<T> {
      * @param msg 自定义提示信息
      */
     public static <T> Result<T> fail(String msg) {
-        // 状态码用ResultCode.FAIL（500），提示信息自定义
+        // 状态码用ResultCode.FAIL（5000），提示信息自定义
         return new Result<>(ResultCode.FAIL.getCode(), msg, null);
     }
 }
