@@ -13,7 +13,7 @@
 │  ├─entity
 │  ├─mapper
 │  └─service // 服务层
-│        ├─component // liteflow 组件
+│        ├─component
 │        └─impl
 └─generator // 代码生成器
 ```
