@@ -2,29 +2,66 @@ package online.longlian.generator;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.io.FileSystemResource;
 
+import java.util.Properties;
 
 public class CodeGenerator {
+
     public static void main(String[] args) {
-        FastAutoGenerator.create("url", "root", "123456")
-                .globalConfig(builder -> {
-                    builder.author("longlian") // 设置作者
-                            .enableSwagger() // 开启 swagger 模式
-                            .outputDir("app\\src\\main\\java"); // 指定输出目录
-                })
-                .packageConfig(builder ->
-                        builder.parent("online.longlian") // 设置父包名
-                                .moduleName("app") // 设置父包模块名
+        ConfigurableEnvironment env = loadSpringEnv();
+
+        String url = env.getProperty("spring.datasource.url");
+        String username = env.getProperty("spring.datasource.username");
+        String password = env.getProperty("spring.datasource.password");
+
+        FastAutoGenerator.create(url, username, password)
+                .globalConfig(builder -> builder
+                        .author("longlian")
+                        .enableSwagger()
+                        .outputDir("app\\src\\main\\java")
                 )
-                .strategyConfig(builder ->
-                        builder.addExclude() // 设置需要生成的表名
-                                .entityBuilder()
-                                .enableLombok()
-                                .enableTableFieldAnnotation()
-                                .controllerBuilder()
-                                .enableRestStyle()
+                .packageConfig(builder -> builder
+                        .parent("online.longlian")
+                        .moduleName("app")
+                        .entity("pojo.entity")
                 )
-                .templateEngine(new FreemarkerTemplateEngine()) // 使用Freemarker引擎模板，默认的是Velocity引擎模板dd
+                .strategyConfig(builder -> builder
+                        .addInclude("user")
+                        .entityBuilder()
+                        .enableLombok()
+                        .enableTableFieldAnnotation()
+                        .controllerBuilder()
+                        .enableRestStyle()
+                )
+                .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
+    }
+
+    private static ConfigurableEnvironment loadSpringEnv() {
+        AnnotationConfigServletWebServerApplicationContext context =
+                new AnnotationConfigServletWebServerApplicationContext();
+
+        ConfigurableEnvironment env = context.getEnvironment();
+        env.setActiveProfiles("dev");
+
+        loadYaml(env, "app/src/main/resources/application-dev.yml", "devYaml");
+
+        loadYaml(env, "app/src/main/resources/application.yml", "appYaml");
+
+        return env;
+    }
+
+    private static void loadYaml(ConfigurableEnvironment env, String path, String name) {
+        YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
+        yaml.setResources(new FileSystemResource(path));
+        Properties properties = yaml.getObject();
+        env.getPropertySources().addLast(
+                new PropertiesPropertySource(name, properties)
+        );
     }
 }

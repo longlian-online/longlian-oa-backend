@@ -1,4 +1,4 @@
-package online.longlian.app.dto;
+package online.longlian.app.pojo.dto;
 import lombok.Getter;
 
 @Getter
