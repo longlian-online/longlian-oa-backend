@@ -22,8 +22,6 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
-liteflow:
-  rule-source: config/flow.xml
 springdoc:
   # Swagger UI 访问路径（默认 /swagger-ui.html）
   swagger-ui:
