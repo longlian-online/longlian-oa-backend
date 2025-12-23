@@ -13,3 +13,7 @@ longlian:
     database: ${REDIS_DATABASE:1}  cache:
     type: redis
 debug: true
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
