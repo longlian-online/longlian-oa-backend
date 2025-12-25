@@ -11,14 +11,11 @@ longlian:
     port: ${REDIS_PORT}
     password: ${REDIS_PASSWORD}
     database: ${REDIS_DATABASE:1}
-    cache:
-    type: redis
-debug: true
-
-mybatis-plus:
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-# 开发环境：开启Swagger
+cache:
+  type: redis
+# 测试环境调试开关关闭
+debug: false
+# 测试环境开启Swagger（和dev一致）
 springdoc:
   swagger-ui:
     enabled: true
