@@ -7,15 +7,29 @@
 
 # Project Structure
 
-```
-├─app
-│  ├─controller
-│  ├─entity
-│  ├─mapper
-│  └─service // 服务层
-│        ├─component
-│        └─impl
-└─generator // 代码生成器
+app
+├── .mvn
+├── src
+│   └── main
+│       └── java
+│           └── online.longlian.app
+│               ├── common                  //通用代码
+│               ├── config                  //配置文件
+│               ├── controller              //业务
+│               │   ├── admin
+│               │   └── home
+│               ├── mapper                  
+│               │   ├── xml
+│               │   └── UserMapper
+│               ├── pojo                    //实体
+│               │   ├── dto
+│               │   ├── entity
+│               │   └── vo
+│               ├── service                 //服务层
+│               │   ├── impl
+│               │   └── IUserService
+│               └── AppApplication
+└─generator                                  // 代码生成器
 ```
 
 # Quick Start
