@@ -12,5 +12,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @since 2025-12-26
  */
 public interface IUserService extends IService<User> {
-
+    User getByIdCached(Long id);
 }

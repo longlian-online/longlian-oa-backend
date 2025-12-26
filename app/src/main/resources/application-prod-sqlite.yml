@@ -1,0 +1,18 @@
+longlian:
+  datasource:
+    type: sqlite
+  cache:
+    type: local
+
+spring:
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:./data/longlian.db
+
+# 生产环境关闭调试、关闭Swagger
+debug: false
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false

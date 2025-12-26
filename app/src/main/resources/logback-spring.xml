@@ -1,30 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+scan: 开启配置文件热扫描（修改配置无需重启应用）
+scanPeriod: 扫描间隔，单位支持 seconds/minutes/hours
+debug: 关闭logback自身调试日志（生产环境建议false）
+-->
 <configuration scan="true" scanPeriod="60 seconds" debug="false">
-    <!-- 日志输出格式 -->
+    <!-- 1. 全局变量定义 -->
+    <!-- 日志输出格式：包含时间、线程、日志级别、类名、日志信息 -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n" />
-    <!-- 日志路径：优先读取环境变量 LOG_PATH，无则用默认值 -->
+    <!-- 日志存储路径：优先读取环境变量LOG_PATH，无则使用用户目录下的logs/longlian-oa -->
     <property name="LOG_PATH" value="${LOG_PATH:-${user.home}/logs/longlian-oa}" />
-
-    <!-- 控制台输出 -->
+    <property name="LOG_CHARSET" value="UTF-8" />
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
-            <charset>UTF-8</charset>
+            <charset>${LOG_CHARSET}</charset>
         </encoder>
     </appender>
 
-    <!-- 文件输出（按天滚动） -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <immediateFlush>true</immediateFlush>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 日志文件命名规则：app-2025-12-26.log -->
             <fileNamePattern>${LOG_PATH}/app-%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>30</maxHistory> <!-- 保留30天日志 -->
+            <!-- 日志保留天数：30天（超过自动删除） -->
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
-            <charset>UTF-8</charset>
+            <charset>${LOG_CHARSET}</charset>
         </encoder>
     </appender>
-    <!-- 不同环境的日志级别（配合spring.profiles.active） -->
     <springProfile name="dev">
         <root level="DEBUG">
             <appender-ref ref="CONSOLE" />
@@ -39,7 +49,15 @@
     </springProfile>
     <springProfile name="prod">
         <root level="WARN">
-            <appender-ref ref="FILE" /> <!-- 生产环境关闭控制台输出 -->
+            <appender-ref ref="FILE" />
+        </root>
+    </springProfile>
+
+    <!-- 当未指定spring.profiles.active时，使用此默认配置 -->
+    <springProfile name="!dev &amp; !sit &amp; !prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
         </root>
     </springProfile>
 </configuration>

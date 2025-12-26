@@ -1,35 +1,29 @@
 spring:
   application:
-    name: "longlian-oa"
+    name: longlian-oa
   profiles:
-    active: dev          # 根据部署环境动态切换（如dev/sit/prod）
+    active: dev-sqlite
   main:
     allow-circular-references: true
-  datasource:
-    driver-class-name: ${longlian.datasource.driver-class-name}
-    url: jdbc:mysql://${longlian.datasource.host}:${longlian.datasource.port}/${longlian.datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${longlian.datasource.username}
-    password: ${longlian.datasource.password}
-  data:
-    redis:
-      host: ${longlian.redis.host}
-      port: ${longlian.redis.port}
-      password: ${longlian.redis.password}
-      database: ${longlian.redis.database}
+
 mybatis-plus:
   global-config:
     db-config:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
-# Swagger默认关闭，由各环境配置决定是否开启
-springdoc:  # 注意：Spring Boot 3.x用的是springdoc（不是swagger）
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+# Swagger 配置
+# 核心原则：默认关闭，由各环境配置（dev/test/prod）决定是否开启
+springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
-  packages-to-scan:  # 扫描所有模块的Controller包
+  api-docs:
+    # 默认关闭 API 文档生成（各环境通过 profile 覆盖此配置）
+    enabled: false
+  packages-to-scan:
     - online.longlian.app.controller.admin
     - online.longlian.app.controller.user
-  api-docs:
-    enabled: false

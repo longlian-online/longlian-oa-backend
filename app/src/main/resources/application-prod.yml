@@ -1,18 +1,22 @@
 longlian:
   datasource:
-    driver-class-name: ${DB_DRIVER_CLASS_NAME}
-    host: ${DB_HOST}
-    port: ${DB_PORT}
-    database: ${DB_DATABASE}
+    type: mysql
+  cache:
+    type: redis
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-  redis:
-    host: ${REDIS_HOST}
-    port: ${REDIS_PORT}
-    password: ${REDIS_PASSWORD}
-    database: ${REDIS_DATABASE:1}
-cache:
-  type: redis
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE:1}
+
 # 生产环境关闭调试、关闭Swagger
 debug: false
 springdoc:
