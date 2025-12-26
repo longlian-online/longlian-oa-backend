@@ -23,12 +23,13 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 # Swagger默认关闭，由各环境配置决定是否开启
-springdoc:
+springdoc:  # 注意：Spring Boot 3.x用的是springdoc（不是swagger）
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
-    enabled: false  # 默认关闭
-  packages-to-scan: online.longlian.app.controller
+  packages-to-scan:  # 扫描所有模块的Controller包
+    - online.longlian.admin.controller
+    - online.longlian.user.controller
   api-docs:
-    enabled: false  # 默认关闭
+    enabled: false

@@ -15,8 +15,8 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 
 import java.util.Arrays;
 
-@SpringBootApplication(scanBasePackages = "online.longlian.app")
-@MapperScan("online.longlian.app.mapper")
+@SpringBootApplication(scanBasePackages = "online.longlian")
+@MapperScan("online.longlian")
 @EnableCaching
 public class AppApplication {
 

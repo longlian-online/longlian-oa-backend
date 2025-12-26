@@ -1,4 +1,5 @@
-package online.longlian.app.pojo.dto;
+package online.longlian.result;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 /**
