@@ -6,7 +6,7 @@
 </div>
 
 # Project Structure
-
+```
 app
 ├── .mvn
 ├── src
