@@ -29,7 +29,7 @@ springdoc:  # 注意：Spring Boot 3.x用的是springdoc（不是swagger）
     operationsSorter: method
     tagsSorter: alpha
   packages-to-scan:  # 扫描所有模块的Controller包
-    - online.longlian.admin.controller
-    - online.longlian.user.controller
+    - online.longlian.app.controller.admin
+    - online.longlian.app.controller.user
   api-docs:
     enabled: false

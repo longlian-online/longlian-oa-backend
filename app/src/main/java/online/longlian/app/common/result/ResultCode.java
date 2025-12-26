@@ -1,4 +1,4 @@
-package online.longlian.result;
+package online.longlian.app.common.result;
 
 import lombok.Getter;
 

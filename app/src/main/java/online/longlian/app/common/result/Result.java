@@ -1,4 +1,4 @@
-package online.longlian.result;
+package online.longlian.app.common.result;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;

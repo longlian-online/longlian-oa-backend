@@ -33,12 +33,6 @@
     <modules>
         <module>generator</module>
         <module>app</module>
-        <module>longlian-api-admin</module>
-        <module>longlian-api-user</module>
-        <module>longlian-service</module>
-        <module>longlian-pojo</module>
-        <module>longlian-common</module>
-        <module>longlian-dao</module>
     </modules>
     <dependencyManagement>
         <dependencies>
