@@ -7,6 +7,7 @@ import online.longlian.app.pojo.dto.CreateResourceReq;
 import online.longlian.app.pojo.vo.CreateResourceRes;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.PresignedUpload;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,6 +17,8 @@ public class ResourceService {
 
     private final StorageServiceFactory storageFactory;
 
+    @Value("${storage.type}")
+    ResourceStorageType storageType;
 
     public ResourceService(ResourceMapper resourceMapper, StorageServiceFactory storageFactory) {
         this.resourceMapper = resourceMapper;
@@ -25,7 +28,7 @@ public class ResourceService {
     public CreateResourceRes create(CreateResourceReq req) {
 
         Resource resource = Resource.builder()
-                .storageType(ResourceStorageType.COS)
+                .storageType(storageType)
                 .extend(req.getExt())
                 .type(req.getType())
                 .size(req.getSize())
@@ -39,7 +42,7 @@ public class ResourceService {
         resourceMapper.updateById(resource); // 更新 key
         // 生成预签名上传信息
         StorageService storageService =
-                storageFactory.get(resource.getStorageType());
+                storageFactory.get(storageType);
         PresignedUpload upload =
                 storageService.generatePresignedUpload(resource);
 

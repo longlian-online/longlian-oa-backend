@@ -19,16 +19,16 @@ import java.util.Date;
 @Service
 public class CosStorageService implements StorageService {
 
-    @Value("${cos.bucket}")
+    @Value("${storage.cos.bucket}")
     private String bucket;
 
-    @Value("${cos.region}")
+    @Value("${storage.cos.region}")
     private String region;
 
-    @Value("${cos.secret-id}")
+    @Value("${storage.cos.secret-id}")
     private String secretId;
 
-    @Value("${cos.secret-key}")
+    @Value("${storage.cos.secret-key}")
     private String secretKey;
 
     @Override

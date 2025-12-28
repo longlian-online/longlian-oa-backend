@@ -28,10 +28,12 @@ springdoc:
     - online.longlian.app.controller.admin
     - online.longlian.app.controller.user
 storage:
+  type: Local   # Local 或 COS
   local:
     upload-url:
-cos:
-  bucket:
-  region:
-  secret-id:
-  secret-key:
+    base-path:
+  cos:
+    bucket:
+    region:
+    secret-id:
+    secret-key:

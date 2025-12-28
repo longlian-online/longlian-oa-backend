@@ -1,5 +1,6 @@
 package online.longlian.app.service.resource;
 
+import lombok.Value;
 import online.longlian.app.common.enumeration.ResourceStorageType;
 import online.longlian.app.service.resource.impl.CosStorageService;
 import online.longlian.app.service.resource.impl.LocalStorageService;
