@@ -1,4 +1,4 @@
-package online.longlian.app.service;
+package online.longlian.app.service.user;
 
 import online.longlian.app.pojo.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;

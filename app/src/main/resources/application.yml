@@ -2,7 +2,7 @@ spring:
   application:
     name: longlian-oa
   profiles:
-    active: dev-sqlite
+    active: dev
   main:
     allow-circular-references: true
 
@@ -27,3 +27,11 @@ springdoc:
   packages-to-scan:
     - online.longlian.app.controller.admin
     - online.longlian.app.controller.user
+storage:
+  local:
+    upload-url:
+cos:
+  bucket:
+  region:
+  secret-id:
+  secret-key:

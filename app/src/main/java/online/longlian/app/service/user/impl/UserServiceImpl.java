@@ -1,8 +1,8 @@
-package online.longlian.app.service.impl;
+package online.longlian.app.service.user.impl;
 
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.service.IUserService;
+import online.longlian.app.service.user.IUserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
