@@ -1,7 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.PresignedUpload;
+import online.longlian.app.pojo.bo.PresignedUpload;
 import online.longlian.app.service.resource.StorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

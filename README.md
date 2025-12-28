@@ -16,18 +16,21 @@ app
 │               ├── common                  //通用代码
 │               ├── config                  //配置文件
 │               ├── controller              //业务
-│               │   ├── admin
+│               │   ├── admin               
 │               │   └── home
 │               ├── mapper                  
 │               │   ├── xml
 │               │   └── UserMapper
-│               ├── pojo                    //实体
-│               │   ├── dto
-│               │   ├── entity
-│               │   └── vo
+│               ├── pojo                    // 项目数据对象层
+│               │   ├── dto                 //封装前端请求数据以及数据传输对象
+│               │   ├── entity              //与数据库表结构一一对应
+│               │   └── vo                  //封装后端响应给前端的数据
+│               │   └── bo                  //封装业务逻辑的对象
 │               ├── service                 //服务层
-│               │   ├── impl
-│               │   └── IUserService
+│               │   ├── resource            //service模块划分
+│               │   │   └── impl
+│               │   ├── user
+│               │   │   └── impl
 │               └── AppApplication
 └─generator                                  // 代码生成器
 ```

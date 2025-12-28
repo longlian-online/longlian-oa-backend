@@ -1,7 +1,7 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.PresignedUpload;
+import online.longlian.app.pojo.bo.PresignedUpload;
 
 public interface StorageService {
 

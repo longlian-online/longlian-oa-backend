@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo;
+package online.longlian.app.pojo.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
