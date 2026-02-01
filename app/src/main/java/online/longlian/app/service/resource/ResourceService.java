@@ -4,10 +4,10 @@ import cn.hutool.core.util.IdUtil;
 import online.longlian.app.common.enumeration.ResourceStatus;
 import online.longlian.app.common.enumeration.ResourceStorageType;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.dto.CreateResourceReq;
-import online.longlian.app.pojo.dto.CreateResourceRes;
+import online.longlian.app.pojo.dto.CreateResourceReqDTO;
+import online.longlian.app.pojo.dto.CreateResourceResDTO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.bo.PresignedUpload;
+import online.longlian.app.pojo.dto.PresignedUploadDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +26,7 @@ public class ResourceService {
         this.storageFactory = storageFactory;
     }
 
-    public CreateResourceRes create(CreateResourceReq req) {
+    public CreateResourceResDTO create(CreateResourceReqDTO req) {
 
         Resource resource = Resource.builder()
                 .id(IdUtil.getSnowflakeNextId())  //雪花算法生成ID
@@ -41,11 +41,11 @@ public class ResourceService {
         resource.setKey(key);
         // 生成预签名上传信息
         StorageService storageService = storageFactory.get(storageType);
-        PresignedUpload upload = storageService.generatePresignedUpload(resource);
+        PresignedUploadDTO upload = storageService.generatePresignedUpload(resource);
 
         resourceMapper.insert(resource);
 
-        return new CreateResourceRes(
+        return new CreateResourceResDTO(
                 resource.getId().toString(),
                 upload.getUploadUrl(),
                 upload.getKey(),

@@ -8,7 +8,7 @@ import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.bo.PresignedUpload;
+import online.longlian.app.pojo.dto.PresignedUploadDTO;
 import online.longlian.app.service.resource.StorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class CosStorageService implements StorageService {
     }
 
     @Override
-    public PresignedUpload generatePresignedUpload(Resource resource) {
+    public PresignedUploadDTO generatePresignedUpload(Resource resource) {
 
         // 设置预签名 URL 过期时间（当前时间 + 10 分钟）
         Date expiration = new Date(System.currentTimeMillis() + 10 * 60 * 1000);
@@ -56,7 +56,7 @@ public class CosStorageService implements StorageService {
 
         URL url = cosClient.generatePresignedUrl(request);
 
-        return new PresignedUpload(url.toString(), resource.getKey());
+        return new PresignedUploadDTO(url.toString(), resource.getKey());
     }
 
 }

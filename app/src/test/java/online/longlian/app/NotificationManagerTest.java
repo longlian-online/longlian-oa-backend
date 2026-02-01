@@ -1,7 +1,7 @@
 package online.longlian.app;
 
 import online.longlian.app.common.enumeration.NotificationType;
-import online.longlian.app.pojo.dto.NotificationRequest;
+import online.longlian.app.pojo.dto.NotificationReqDTO;
 import online.longlian.app.service.notify.NotificationManager;
 import online.longlian.app.service.notify.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +34,7 @@ class NotificationManagerTest {
     @Test
     void testSendEmail() {
         // 构建通知请求
-        NotificationRequest request = new NotificationRequest();
+        NotificationReqDTO request = new NotificationReqDTO();
         request.setReceiver("test@qq.com");
         request.setTitle("测试邮件");
         request.setContent("这是一封测试邮件");

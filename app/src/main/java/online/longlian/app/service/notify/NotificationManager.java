@@ -1,7 +1,7 @@
 package online.longlian.app.service.notify;
 
 import online.longlian.app.common.enumeration.NotificationType;
-import online.longlian.app.pojo.dto.NotificationRequest;
+import online.longlian.app.pojo.dto.NotificationReqDTO;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +33,7 @@ public class NotificationManager {
         }
     }
 
-    public void send(NotificationRequest request) {
+    public void send(NotificationReqDTO request) {
         NotificationService service = serviceMap.get(notificationType);
         if (service == null) {
             throw new IllegalArgumentException("未实现的通知类型: " + notificationType);

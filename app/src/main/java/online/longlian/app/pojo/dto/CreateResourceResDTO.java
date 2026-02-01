@@ -6,7 +6,7 @@ import online.longlian.app.common.enumeration.ResourceStorageType;
 
 @Data
 @AllArgsConstructor
-public class CreateResourceRes {
+public class CreateResourceResDTO {
 
     private String resourceId;
     private String uploadUrl;

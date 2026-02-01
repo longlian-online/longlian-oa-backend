@@ -1,7 +1,7 @@
 package online.longlian.app.service.notify;
 
 import online.longlian.app.common.enumeration.NotificationType;
-import online.longlian.app.pojo.dto.NotificationRequest;
+import online.longlian.app.pojo.dto.NotificationReqDTO;
 
 public interface NotificationService {
 
@@ -13,5 +13,5 @@ public interface NotificationService {
     /**
      * 发送通知
      */
-    void send(NotificationRequest request);
+    void send(NotificationReqDTO request);
 }

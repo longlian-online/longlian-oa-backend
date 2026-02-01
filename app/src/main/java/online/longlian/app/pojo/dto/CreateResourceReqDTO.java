@@ -6,7 +6,7 @@ import online.longlian.app.common.enumeration.ResourceType;
 
 @Data
 @AllArgsConstructor
-public class CreateResourceReq {
+public class CreateResourceReqDTO {
     private String ext;
     private ResourceType type;
     private Integer size;

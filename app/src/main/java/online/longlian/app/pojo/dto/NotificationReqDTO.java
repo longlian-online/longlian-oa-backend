@@ -3,7 +3,7 @@ package online.longlian.app.pojo.dto;
 import lombok.Data;
 
 @Data
-public class NotificationRequest {
+public class NotificationReqDTO {
 
     /** 接收人（邮箱 / 手机号 / QQ号） */
     private String receiver;
