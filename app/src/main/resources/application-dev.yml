@@ -12,7 +12,16 @@ spring:
     url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-
+    druid:
+      initial-size: 5
+      max-active: 20
+      min-idle: 5
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1
+      filters: stat,wall,logback
+      connection-properties: druid.stat.slowSqlMillis=2000;druid.stat.logSlowSql=true
   # Redis 配置（默认启用，如果 CACHE_TYPE=redis）
   data:
     redis:
@@ -25,7 +34,7 @@ spring:
 sqlite:
   datasource:
     driver-class-name: org.sqlite.JDBC
-    url: jdbc:sqlite:./data/longlian.db
+    url: ${SQLITE_URL}
 
 
 springdoc:
