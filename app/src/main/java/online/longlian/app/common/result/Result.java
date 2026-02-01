@@ -26,42 +26,20 @@ public class Result<T> {
         this.data = data;
     }
 
-    /**
-     * 操作成功，无业务数据
-     * return Result.success();
-     */
     public static <T> Result<T> success() {
-        // 复用带数据的方法，data传null
         return success(null);
     }
-    /**
-     * 操作成功，带业务数据
-     * return Result.success(userVO); return Result.success(userList);
-     * @param data 业务数据（泛型T）
-     */
+
     public static <T> Result<T> success(T data) {
-        // 使用ResultCode.SUCCESS的默认状态码（2000）和提示（操作成功）
         return new Result<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMsg(), data);
     }
-
-    /**
-     * 操作成功，自定义提示信息+业务数据（如“添加用户成功”）
-     * return Result.success("添加用户成功", userVO);
-     * @param msg 自定义提示信息
-     * @param data 业务数据
-     */
     public static <T> Result<T> success(String msg, T data) {
-        // 状态码仍用2000，提示信息自定义
         return new Result<>(ResultCode.SUCCESS.getCode(), msg, data);
     }
-
-    /**
-     * 操作失败，自定义提示信息
-     * return Result.fail("密码格式错误");
-     * @param msg 自定义提示信息
-     */
-    public static <T> Result<T> fail(String msg) {
-        // 状态码用ResultCode.FAIL（5000），提示信息自定义
-        return new Result<>(ResultCode.FAIL.getCode(), msg, null);
+    public static <T> Result<T> fail(int code ,String msg) {
+        return new Result<>(code, msg, null);
+    }
+    public static <T> Result<T> fail(ResultCode resultCode) {
+        return new Result<>(resultCode.getCode(), resultCode.getMsg(),null);
     }
 }
