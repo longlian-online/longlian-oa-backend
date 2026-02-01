@@ -7,8 +7,7 @@ debug: 关闭logback自身调试日志（生产环境建议false）
 <configuration scan="true" scanPeriod="60 seconds" debug="false">
     <!-- 1. 全局变量定义 -->
     <!-- 日志输出格式：包含时间、线程、日志级别、类名、日志信息 -->
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n" />
-    <!-- 日志存储路径：优先读取环境变量LOG_PATH，无则使用用户目录下的logs/longlian-oa -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{traceId}] %logger{50} - %msg%n" />
     <property name="LOG_PATH" value="${LOG_PATH:-${user.home}/logs/longlian-oa}" />
     <property name="LOG_CHARSET" value="UTF-8" />
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
