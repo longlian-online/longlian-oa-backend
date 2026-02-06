@@ -27,15 +27,25 @@ public class DataSourceConfig {
     }
 
     @Bean(destroyMethod = "close")
-    @ConfigurationProperties(prefix = "spring.datasource")
     @ConditionalOnProperty(
             prefix = "longlian.datasource",
             name = "type",
             havingValue = "mysql",
             matchIfMissing = true
     )
-    public DruidDataSource mysqlDataSource() {
-        return new DruidDataSource();
+    public DruidDataSource mysqlDataSource(
+            @Value("${DB_HOST}") String host,
+            @Value("${DB_PORT}") int port,
+            @Value("${DB_DATABASE}") String database,
+            @Value("${DB_USERNAME}") String username,
+            @Value("${DB_PASSWORD}") String password
+    ) {
+        DruidDataSource ds = new DruidDataSource();
+        ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        ds.setUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false");
+        ds.setUsername(username);
+        ds.setPassword(password);
+        return ds;
     }
 
     @Bean

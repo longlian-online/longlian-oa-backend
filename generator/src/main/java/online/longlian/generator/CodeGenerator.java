@@ -30,14 +30,31 @@ public class CodeGenerator {
                         .moduleName("app")
                         .entity("pojo.entity")
                 )
-                .strategyConfig(builder -> builder
-                        .addInclude("user")
-                        .entityBuilder()
-                        .enableLombok()
-                        .enableTableFieldAnnotation()
-                        .controllerBuilder()
-                        .disable()
-                )
+                .strategyConfig(builder -> {
+                    builder.addInclude(
+                                    "permission",    // 权限表
+                                    "resource",      // 资源存储表
+                                    "role",          // 角色表
+                                    "role_permission",// 角色权限关联表
+                                    "user",          // 系统用户表
+                                    "user_role"      // 用户角色关联表
+                            )
+                            .entityBuilder()
+                            .enableLombok()
+                            .enableTableFieldAnnotation()
+                            .naming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
+                            .columnNaming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
+
+                            .controllerBuilder()
+                            .disable()
+                            .serviceBuilder()
+                            .formatServiceFileName("%sService")
+                            .formatServiceImplFileName("%sServiceImpl")
+                            .mapperBuilder()
+                            .enableMapperAnnotation()
+                            .formatMapperFileName("%sMapper")
+                            .formatXmlFileName("%sMapper");
+                })
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
     }

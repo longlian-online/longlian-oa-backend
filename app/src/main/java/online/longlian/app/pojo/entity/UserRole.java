@@ -1,6 +1,9 @@
 package online.longlian.app.pojo.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Getter;
@@ -12,7 +15,7 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 系统用户表
+ * 用户角色关联表
  * </p>
  *
  * @author longlian
@@ -21,53 +24,32 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
-@TableName("user")
-@ApiModel(value = "User对象", description = "系统用户表")
-public class User implements Serializable {
+@TableName("user_role")
+@ApiModel(value = "UserRole对象", description = "用户角色关联表")
+public class UserRole implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * 用户ID
+     * 主键ID
      */
-    @ApiModelProperty("用户ID")
+    @ApiModelProperty("主键ID")
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
-     * 用户名
+     * 用户ID
      */
-    @TableField("username")
-    @ApiModelProperty("用户名")
-    private String username;
+    @TableField("user_id")
+    @ApiModelProperty("用户ID")
+    private Long userId;
 
     /**
-     * 密码
+     * 角色ID
      */
-    @ApiModelProperty("密码")
-    @TableField("password")
-    private String password;
-
-    /**
-     * 昵称
-     */
-    @ApiModelProperty("昵称")
-    @TableField("nickname")
-    private String nickname;
-
-    /**
-     * 邮箱
-     */
-    @TableField("email")
-    @ApiModelProperty("邮箱")
-    private String email;
-
-    /**
-     * 状态 1-启用 0-禁用
-     */
-    @TableField("status")
-    @ApiModelProperty("状态 1-启用 0-禁用")
-    private Integer status;
+    @TableField("role_id")
+    @ApiModelProperty("角色ID")
+    private Long roleId;
 
     /**
      * 创建时间
@@ -88,6 +70,5 @@ public class User implements Serializable {
      */
     @TableField("delete_at")
     @ApiModelProperty("删除时间")
-    @TableLogic
     private LocalDateTime deleteAt;
 }

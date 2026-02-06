@@ -1,5 +1,6 @@
 package online.longlian.app.pojo.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -36,7 +37,7 @@ public class Resource implements Serializable {
     /**
      * 资源唯一ID（CUID）
      */
-    @TableId("id")
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     @ApiModelProperty("资源唯一ID（CUID）")
     private Long id;
 

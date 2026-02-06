@@ -21,9 +21,9 @@ spring:
 mybatis-plus:
   global-config:
     db-config:
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      logic-delete-field: delete_at
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 # Swagger 配置
@@ -51,3 +51,8 @@ storage:
     secret-key:
 notify:
   type: EMAIL
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer
