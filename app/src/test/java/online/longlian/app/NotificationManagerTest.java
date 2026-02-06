@@ -1,49 +1,31 @@
 package online.longlian.app;
 
-import online.longlian.app.common.enumeration.NotificationType;
-import online.longlian.app.pojo.dto.NotificationReqDTO;
 import online.longlian.app.service.notify.NotificationManager;
-import online.longlian.app.service.notify.NotificationService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-import java.util.Collections;
-
-import static org.mockito.Mockito.*;
-
+/**
+ * 集成测试：加载 Spring 上下文，使用真实的邮件服务发送邮件
+ * ActiveProfiles 指定使用 dev 环境配置（对应你的 spring.profiles.active=dev）
+ */
+@SpringBootTest // 关键：启动 Spring 上下文，加载所有配置和 Bean
+@ActiveProfiles("dev") // 加载 dev 环境的配置文件（如 application-dev.yml）
 class NotificationManagerTest {
 
+    // 注入 Spring 容器中真实的 NotificationManager（包含真实的 EmailNotificationService）
+    @Autowired
     private NotificationManager notificationManager;
-    private NotificationService emailService;
-
-    @Value("${notify.type}")
-    private NotificationType notificationType;
-    @BeforeEach
-    void setUp() {
-        // 创建 Mock 邮件服务
-        emailService = Mockito.mock(NotificationService.class);
-        when(emailService.getType()).thenReturn(notificationType);
-
-        // 初始化 NotificationManager
-        notificationManager = new NotificationManager(Collections.singletonList(emailService));
-        notificationManager.init(); // 手动触发 @PostConstruct
-    }
 
     @Test
-    void testSendEmail() {
-        // 构建通知请求
-        NotificationReqDTO request = new NotificationReqDTO();
-        request.setReceiver("test@qq.com");
-        request.setTitle("测试邮件");
-        request.setContent("这是一封测试邮件");
+    void testSendRealEmail() {
+        // 测试收件人（替换为你自己的QQ邮箱）
+        String receiver = "test@qq.com";
 
-        // 调用 send
-        notificationManager.send(request);
+        // 调用真实的发送逻辑
+        notificationManager.send(receiver,"test:123456");
 
-        // 验证 emailService.send 被调用一次
-        verify(emailService, times(1)).send(request);
+        System.out.println("邮件发送请求已提交，请检查收件箱/垃圾箱！");
     }
-    
 }

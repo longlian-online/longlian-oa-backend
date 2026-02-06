@@ -5,9 +5,9 @@ import online.longlian.app.common.enumeration.ResourceStatus;
 import online.longlian.app.common.enumeration.ResourceStorageType;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.dto.CreateResourceReqDTO;
-import online.longlian.app.pojo.dto.CreateResourceResDTO;
+import online.longlian.app.pojo.vo.CreateResourceResVO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.dto.PresignedUploadDTO;
+import online.longlian.app.pojo.bo.PresignedUploadBO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +26,7 @@ public class ResourceService {
         this.storageFactory = storageFactory;
     }
 
-    public CreateResourceResDTO create(CreateResourceReqDTO req) {
+    public CreateResourceResVO create(CreateResourceReqDTO req) {
 
         Resource resource = Resource.builder()
                 .id(IdUtil.getSnowflakeNextId())  //雪花算法生成ID
@@ -34,18 +34,18 @@ public class ResourceService {
                 .extend(req.getExt())
                 .type(req.getType())
                 .size(req.getSize())
-                .status(ResourceStatus.Initial)
+                .status(ResourceStatus.INITIAL)
                 .build();
         // 生成 key
         String key = buildResourceKey(resource);
         resource.setKey(key);
         // 生成预签名上传信息
         StorageService storageService = storageFactory.get(storageType);
-        PresignedUploadDTO upload = storageService.generatePresignedUpload(resource);
+        PresignedUploadBO upload = storageService.generatePresignedUpload(resource);
 
         resourceMapper.insert(resource);
 
-        return new CreateResourceResDTO(
+        return new CreateResourceResVO(
                 resource.getId().toString(),
                 upload.getUploadUrl(),
                 upload.getKey(),

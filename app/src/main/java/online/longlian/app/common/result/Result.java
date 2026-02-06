@@ -1,5 +1,6 @@
 package online.longlian.app.common.result;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 /**
@@ -16,9 +17,8 @@ public class Result<T> {
     private String msg;
 
     @Schema(description = "业务数据（成功时返回，失败时为null）")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private T data;
-
-    private Result() {}
 
     private Result(int code, String msg, T data) {
         this.code = code;
@@ -26,12 +26,8 @@ public class Result<T> {
         this.data = data;
     }
 
-    public static <T> Result<T> success() {
-        return success(null);
-    }
-
-    public static <T> Result<T> success(T data) {
-        return new Result<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMsg(), data);
+    public static <T> Result<T> success(String msg) {
+        return new Result<>(ResultCode.SUCCESS.getCode(), msg, null);
     }
     public static <T> Result<T> success(String msg, T data) {
         return new Result<>(ResultCode.SUCCESS.getCode(), msg, data);

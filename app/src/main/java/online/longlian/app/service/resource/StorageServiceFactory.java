@@ -19,7 +19,7 @@ public class StorageServiceFactory {
 
     public StorageService get(ResourceStorageType type) {
         return switch (type) {
-            case Local -> localStorageService;
+            case LOCAL -> localStorageService;
             case COS -> cosStorageService;
         };
     }

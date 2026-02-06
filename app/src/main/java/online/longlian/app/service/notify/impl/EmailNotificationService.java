@@ -1,7 +1,7 @@
 package online.longlian.app.service.notify.impl;
 
+import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.enumeration.NotificationType;
-import online.longlian.app.pojo.dto.NotificationReqDTO;
 import online.longlian.app.service.notify.NotificationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
@@ -27,12 +27,12 @@ public class EmailNotificationService implements NotificationService {
     }
 
     @Override
-    public void send(NotificationReqDTO request) {
+    public void send(String receiver,String code) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
-        message.setTo(request.getReceiver());
-        message.setSubject(request.getTitle());
-        message.setText(request.getContent());
+        message.setTo(receiver);
+        message.setSubject(CommonConstants.NOTIFY_TITLE);
+        message.setText(CommonConstants.NOTIFY_CONTENT + code);
         mailSender.send(message);
     }
 }

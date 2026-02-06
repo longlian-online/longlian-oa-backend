@@ -8,12 +8,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.ThreadLocalUtil;
 import online.longlian.app.pojo.bo.UserBO;
-import online.longlian.app.service.security.UserDetailImpl;
+import online.longlian.app.common.security.UserDetailImpl;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -48,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             // 校验 token
             if (!jwtUtil.validateToken(token)) {
-                throw new RuntimeException();
+                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
             Claims claims = jwtUtil.parseToken(token);
@@ -57,13 +59,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Redis 验证 token
             Object redisToken = redisTemplate.opsForValue().get(RedisConstants.TOKEN + userId);
             if (redisToken == null || !Objects.equals(redisToken.toString(), token)) {
-                throw new RuntimeException();
+                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
             String json = Objects.requireNonNull(redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId)).toString();
             UserDetailImpl userDetailImpl = JSON.parseObject(json, UserDetailImpl.class);
             if (userDetailImpl == null) {
-                throw new RuntimeException();
+                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
             // 设置 Spring Security 上下文
