@@ -8,6 +8,7 @@ import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.service.notify.NotificationManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -19,10 +20,6 @@ public class VerifyCodeService {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final NotificationManager notificationManager;
-    // 发件人邮箱（从配置文件获取）
-    @Value("${spring.mail.username}")
-    private String fromEmail;
-
     /**
      * 生成6位数字验证码
      */
@@ -36,20 +33,35 @@ public class VerifyCodeService {
             log.warn("{}发送验证码过于频繁，需等待{}秒", receiver, CommonConstants.CODE_LIMIT);
             return false;
         }
-        // 2. 生成验证码
+        stringRedisTemplate.opsForValue().set(
+                RedisConstants.LIMIT_KEY + receiver,
+                "1",
+                CommonConstants.CODE_LIMIT,
+                TimeUnit.SECONDS
+        );
+        // 2. 异步发送验证码
+        asyncSendCode(receiver);
+        return true;
+    }
+    /**
+     * 异步发送验证码
+     */
+    @Async("verifyCodeExecutor")
+    public void asyncSendCode(String receiver) {
         String code = generateCode();
-        // 3. 发送简单邮件
         try {
             notificationManager.send(receiver, code);
             log.info("{}验证码发送成功：{}", receiver, code);
+            stringRedisTemplate.opsForValue().set(
+                    RedisConstants.CODE_KEY + receiver,
+                    code,
+                    CommonConstants.CODE_EXPIRE,
+                    TimeUnit.SECONDS
+            );
         } catch (Exception e) {
-            log.error("{}验证码发送失败", receiver);
-            return false;
+            log.error("{}验证码发送失败", receiver, e);
+            stringRedisTemplate.delete(RedisConstants.LIMIT_KEY + receiver);
         }
-        // 4. Redis存储验证码（5分钟有效期）
-        stringRedisTemplate.opsForValue().set(RedisConstants.CODE_KEY + receiver, code, CommonConstants.CODE_EXPIRE, TimeUnit.SECONDS);
-        stringRedisTemplate.opsForValue().set(RedisConstants.LIMIT_KEY + receiver, "1", CommonConstants.CODE_LIMIT, TimeUnit.SECONDS);
-        return true;
     }
 
     public boolean validateCode(String receiver, String code) {

@@ -40,7 +40,7 @@ public class UserContoller  {
         if (!verifyCodeService.sendCode(email)){
             throw new AppException(ResultCode.OPERATION_FAIL);
         }
-        return Result.success("验证码发送成功");
+        return Result.success("验证码发送请求已提交，请注意查收邮箱");
     }
     @PreAuthorize("hasAuthority('test:hello')")
     @GetMapping("/hello")
