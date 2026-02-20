@@ -30,7 +30,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             throw new AppException();
         }
         // 查询用户权限
-        List<String> permissions = userMapper.selectPermissionByUserId(user.getId());
+        List<Long> roleIds = userMapper.selectRoleIdsByUserId(user.getId());
+        List<String> permissions = userMapper.selectPermissionCodesByRoleIds(roleIds);
         List<GrantedAuthority> authorities = permissions.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());

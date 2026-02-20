@@ -18,26 +18,43 @@ import java.util.List;
  */
 @Mapper
 public interface UserMapper extends BaseMapper<User> {
+    /**
+     * 根据用户ID查询关联的角色ID列表
+     */
     @Select("""
-        SELECT DISTINCT p.perm_code
-            FROM user_role ur
-            JOIN role r
-                ON ur.role_id = r.id
-               AND r.status = 1
-            JOIN role_permission rp
-                ON rp.role_id = r.id
-            JOIN permission p
-                ON p.id = rp.permission_id
-               AND p.status = 1
-            WHERE ur.user_id = #{userId}
-              AND ur.delete_at IS NULL
-              AND rp.delete_at IS NULL
-              AND p.delete_at IS NULL;
+        SELECT DISTINCT ur.role_id
+        FROM user_role ur
+        JOIN role r ON ur.role_id = r.id AND r.status = 1
+        WHERE ur.user_id = #{userId} AND ur.delete_at IS NULL
     """)
-    List<String> selectPermissionByUserId(Long userId);
-    @Select("SELECT DISTINCT r.role_code " +
-            "FROM user_role ur " +
-            "JOIN role r ON ur.role_id = r.id AND r.status = 1 " +
-            "WHERE ur.user_id = #{userId} AND ur.delete_at IS NULL")
+    List<Long> selectRoleIdsByUserId(@Param("userId") Long userId);
+
+    /**
+     * 根据角色ID列表查询权限编码
+     */
+    @Select({
+            "<script>",
+            "SELECT DISTINCT p.perm_code",
+            "FROM role_permission rp",
+            "JOIN permission p ON rp.permission_id = p.id ",
+            "    AND p.status = 1 ",
+            "    AND p.delete_at IS NULL",
+            "WHERE rp.role_id IN ",
+            "    <foreach collection='roleIds' item='roleId' open='(' separator=',' close=')'>",
+            "        #{roleId}",
+            "    </foreach>",
+            "AND rp.delete_at IS NULL",
+            "</script>"
+    })
+    List<String> selectPermissionCodesByRoleIds(@Param("roleIds") List<Long> roleIds);
+    /**
+     * 查询用户关联的角色编码
+     */
+    @Select("""
+        SELECT DISTINCT r.role_code
+        FROM user_role ur
+        JOIN role r ON ur.role_id = r.id AND r.status = 1
+        WHERE ur.user_id = #{userId} AND ur.delete_at IS NULL
+    """)
     List<String> selectRoleByUserId(@Param("userId") Long userId);
 }
