@@ -1,6 +1,7 @@
 package online.longlian.app.controller.user;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
@@ -10,6 +11,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
 
+import online.longlian.app.pojo.vo.LoginVO;
 import online.longlian.app.service.user.UserService;
 
 import online.longlian.app.service.VerifyCodeService;
@@ -28,11 +30,11 @@ public class UserContoller  {
     private final UserService userService;
     private final VerifyCodeService verifyCodeService;
     @PostMapping("/login/pwd")
-    public Result<Map<String, Object>> loginByPwd(@RequestBody LoginByPwdDTO loginByPwdDTO) {
+    public Result<LoginVO> loginByPwd(@RequestBody LoginByPwdDTO loginByPwdDTO) {
         return userService.loginByPwd(loginByPwdDTO);
     }
     @PostMapping("/login/code")
-    public Result<Map<String, Object>> loginByCode(@RequestBody LoginByCodeDTO loginByCodeDTO) {
+    public Result<LoginVO> loginByCode(@RequestBody LoginByCodeDTO loginByCodeDTO) {
         return userService.loginByCode(loginByCodeDTO);
     }
     @GetMapping("/send-code")
@@ -41,6 +43,10 @@ public class UserContoller  {
             throw new AppException(ResultCode.OPERATION_FAIL);
         }
         return Result.success("验证码发送请求已提交，请注意查收邮箱");
+    }
+    @PostMapping("/logout")
+    public Result<Void> logout(HttpServletRequest request) {
+        return userService.logout(request);
     }
     @PreAuthorize("hasAuthority('test:hello')")
     @GetMapping("/hello")

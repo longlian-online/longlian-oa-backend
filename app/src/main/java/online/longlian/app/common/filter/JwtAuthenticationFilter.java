@@ -7,9 +7,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.common.util.ThreadLocalUtil;
 import online.longlian.app.pojo.bo.UserBO;
 import online.longlian.app.common.security.UserDetailImpl;
@@ -32,6 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, Object> redisTemplate;
     private final AuthenticationEntryPoint authenticationEntryPoint;
+    private final RedisBlacklistUtil redisBlacklistUtil;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -46,21 +49,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
-
+        request.setAttribute(CommonConstants.CURRENT_TOKEN, token);
         try {
-            // 校验 token
-            if (!jwtUtil.validateToken(token)) {
+            if (redisBlacklistUtil.isInBlacklist(token)) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
-
-            Claims claims = jwtUtil.parseToken(token);
+            Claims claims = jwtUtil.parseTokenIfValid(token);
+            if (claims == null) {
+                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
+            }
             long userId = Long.parseLong(claims.getSubject());
-
-            // Redis 验证 token
-            Object redisToken = redisTemplate.opsForValue().get(RedisConstants.TOKEN + userId);
-            if (redisToken == null || !Objects.equals(redisToken.toString(), token)) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
-            }
 
             String json = Objects.requireNonNull(redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId)).toString();
             UserDetailImpl userDetailImpl = JSON.parseObject(json, UserDetailImpl.class);

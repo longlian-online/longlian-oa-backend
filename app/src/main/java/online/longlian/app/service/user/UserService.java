@@ -1,12 +1,12 @@
 package online.longlian.app.service.user;
 
+import jakarta.servlet.http.HttpServletRequest;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
 import online.longlian.app.pojo.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-
-import java.util.Map;
+import online.longlian.app.pojo.vo.LoginVO;
 
 /**
  * <p>
@@ -17,7 +17,9 @@ import java.util.Map;
  * @since 2026-02-04
  */
 public interface UserService extends IService<User> {
-    Result<Map<String, Object>> loginByPwd(LoginByPwdDTO loginByPwdDTO);
+    Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO);
 
-    Result<Map<String, Object>> loginByCode(LoginByCodeDTO loginByCodeDTO);
+    Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO);
+
+    Result<Void> logout(HttpServletRequest request);
 }

@@ -1,6 +1,7 @@
 package online.longlian.app.common.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -39,6 +40,25 @@ public class JwtUtil {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+    public Claims parseTokenIfValid(String token) {
+        try {
+            return parseToken(token);
+        } catch (ExpiredJwtException e) {
+            return null; // token 过期返回 null
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    public long getRemainingTimeSeconds(String token) {
+        try {
+            Claims claims = parseToken(token);
+            Date expireDate = claims.getExpiration();
+            long remaining = (expireDate.getTime() - System.currentTimeMillis()) / 1000;
+            return Math.max(remaining, 0);
+        } catch (Exception e) {
+            return 0;
         }
     }
 }
