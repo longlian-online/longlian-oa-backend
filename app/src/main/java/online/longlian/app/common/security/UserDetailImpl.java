@@ -28,6 +28,10 @@ public class UserDetailImpl implements UserDetails {
 
     private Integer status;
 
+    private List<String> roles;
+
+    private List<String> permissions;
+
     private List<GrantedAuthority> authorities;
     @JsonIgnore
     private boolean accountNonExpired = true;

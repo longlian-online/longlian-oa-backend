@@ -25,6 +25,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -85,6 +86,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         );
         LoginVO loginVO = new LoginVO();
         loginVO.setToken(token);
+        loginVO.setRoles(userDetail.getRoles());
         return Result.success("登录成功", loginVO);
     }
     @Override

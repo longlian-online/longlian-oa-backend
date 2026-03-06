@@ -47,7 +47,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         UserDetailImpl userDetailImpl = new UserDetailImpl();
         BeanUtils.copyProperties(user, userDetailImpl);
         userDetailImpl.setAuthorities(authorities);
-
+        userDetailImpl.setPermissions(permissions);
+        userDetailImpl.setRoles(roles);
         return userDetailImpl;
     }
 }
