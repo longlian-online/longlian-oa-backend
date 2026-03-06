@@ -8,22 +8,22 @@ import java.util.Collection;
 /**
  * 邮箱密码认证令牌
  */
-public class EmailPasswordAuthenticationToken extends AbstractAuthenticationToken {
+public class MyUsernamePasswordAuthenticationToken extends AbstractAuthenticationToken {
     // 存储邮箱（认证前：principal为邮箱，credentials为密码；认证后：principal为UserDetails）
     private final Object principal;
     // 存储密码
     private Object credentials;
 
     // 1. 认证前构造器：未认证状态
-    public EmailPasswordAuthenticationToken(String email, String password) {
+    public MyUsernamePasswordAuthenticationToken(String username, String password) {
         super(null);
-        this.principal = email;
+        this.principal = username;
         this.credentials = password;
         setAuthenticated(false); // 必须手动设置为未认证
     }
 
     // 2. 认证后构造器：已认证状态（由AuthenticationProvider调用）
-    public EmailPasswordAuthenticationToken(Object principal, Object credentials, Collection<? extends GrantedAuthority> authorities) {
+    public MyUsernamePasswordAuthenticationToken(Object principal, Object credentials, Collection<? extends GrantedAuthority> authorities) {
         super(authorities);
         this.principal = principal;
         this.credentials = credentials;

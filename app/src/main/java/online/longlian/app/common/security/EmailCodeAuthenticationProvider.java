@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
-    private final UserDetailsService userDetailsService;
+    private final UserDetailsServiceImpl userDetailsServiceImpl;
     private final VerifyCodeService verifyCodeService;
 
     @Override
@@ -31,7 +31,7 @@ public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
         }
 
         // 3. 按邮箱查询用户
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+        UserDetails userDetails = userDetailsServiceImpl.loadUserByEmailOnly(email);
 
         // 4. 认证成功：返回已认证令牌
         return new EmailCodeAuthenticationToken(userDetails, null, userDetails.getAuthorities());

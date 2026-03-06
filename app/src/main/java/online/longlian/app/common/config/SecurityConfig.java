@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
-import online.longlian.app.common.security.EmailPasswordAuthenticationProvider;
+import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvider;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +30,7 @@ public class SecurityConfig {
     private final AuthenticationEntryPoint authenticationEntryPoint;
     private final AccessDeniedHandler accessDeniedHandler;
     private final TraceIdFilter traceIdFilter;
-    private final EmailPasswordAuthenticationProvider emailPasswordProvider;
+    private final MyUsernamePasswordAuthenticationProvider emailPasswordProvider;
     private final EmailCodeAuthenticationProvider emailCodeProvider;
     private final UserDetailsServiceImpl userDetailsService;
     @Bean

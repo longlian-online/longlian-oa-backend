@@ -3,6 +3,7 @@ package online.longlian.app.common.security;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.User;
 import org.springframework.beans.BeanUtils;
@@ -23,13 +24,37 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private final UserMapper userMapper;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // 查询用户信息
-        User user = userMapper.selectOne(new QueryWrapper<User>().eq("email", email));
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+        // 查询用户信息（支持用户名/邮箱）
+        User user = userMapper.selectOne(new QueryWrapper<User>()
+                .eq("username", usernameOrEmail)
+                .or()
+                .eq("email", usernameOrEmail));
         if (user == null) {
-            throw new AppException();
+            throw new AppException(ResultCode.USER_NOT_EXIT);
         }
-        // 查询用户权限
+        return get(user);
+    }
+
+    public UserDetails loadUserByUsernameOnly(String username) throws UsernameNotFoundException {
+        User user = userMapper.selectOne(new QueryWrapper<User>()
+                .eq("username", username));
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return get(user);
+    }
+    public UserDetails loadUserByEmailOnly(String email) throws UsernameNotFoundException {
+        // 仅匹配email字段，禁止用户名登录
+        User user = userMapper.selectOne(new QueryWrapper<User>()
+                .eq("email", email));
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return get(user);
+    }
+
+    private UserDetailImpl get(User user) {
         List<Long> roleIds = userMapper.selectRoleIdsByUserId(user.getId());
         List<String> permissions = userMapper.selectPermissionCodesByRoleIds(roleIds);
         List<GrantedAuthority> authorities = permissions.stream()

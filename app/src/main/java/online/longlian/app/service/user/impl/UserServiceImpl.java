@@ -13,7 +13,7 @@ import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.common.util.ThreadLocalUtil;
 import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
-import online.longlian.app.common.security.EmailPasswordAuthenticationToken;
+import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken;
 import online.longlian.app.common.security.EmailCodeAuthenticationToken;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.pojo.entity.User;
@@ -25,7 +25,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -43,8 +42,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         try {
             Authentication authentication =
                     authenticationManager.authenticate(
-                            new EmailPasswordAuthenticationToken(
-                                    loginByPwdDTO.getEmail(),
+                            new MyUsernamePasswordAuthenticationToken(
+                                    loginByPwdDTO.getUsername(),
                                     loginByPwdDTO.getPassword()
                             )
                     );

@@ -8,18 +8,17 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * 邮箱密码认证提供者：实现邮箱+密码的认证逻辑
+ * 用户名密码认证提供者：实现用户名+密码的认证逻辑
  */
 @Component
 @RequiredArgsConstructor
-public class EmailPasswordAuthenticationProvider implements AuthenticationProvider {
+public class MyUsernamePasswordAuthenticationProvider implements AuthenticationProvider {
 
-    private final UserDetailsService userDetailsService;
+    private final UserDetailsServiceImpl userDetailsServiceImpl;
 
     private final PasswordEncoder passwordEncoder;
 
@@ -28,12 +27,12 @@ public class EmailPasswordAuthenticationProvider implements AuthenticationProvid
      */
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        // 1. 从认证令牌中获取邮箱和密码
-        String email = (String) authentication.getPrincipal();
+        // 1. 从认证令牌中获取用户名和密码
+        String username = (String) authentication.getPrincipal();
         String password = (String) authentication.getCredentials();
 
-        // 2. 按邮箱查询用户（调用自定义UserDetailsService）
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+        // 2. 按用户名查询用户（调用自定义UserDetailsService）
+        UserDetails userDetails = userDetailsServiceImpl.loadUserByUsernameOnly(username);
 
         // 3. 验证密码
         if (!passwordEncoder.matches(password, userDetails.getPassword())) {
@@ -41,7 +40,7 @@ public class EmailPasswordAuthenticationProvider implements AuthenticationProvid
         }
 
         // 4. 认证成功：返回已认证的令牌（封装UserDetails和权限）
-        return new EmailPasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        return new MyUsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 
     /**
@@ -49,6 +48,6 @@ public class EmailPasswordAuthenticationProvider implements AuthenticationProvid
      */
     @Override
     public boolean supports(Class<?> authentication) {
-        return EmailPasswordAuthenticationToken.class.isAssignableFrom(authentication);
+        return MyUsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
     }
 }
