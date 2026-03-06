@@ -20,6 +20,8 @@ public enum ResultCode {
 
     DATA_NOT_EXIT(4006,"数据不存在"),
 
+    USER_NOT_EXIT(4007,"用户不存在"),
+
     FAIL(5000, "系统内部异常");
     private final int code;
     private final String msg;

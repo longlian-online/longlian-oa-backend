@@ -1,13 +1,13 @@
 package online.longlian.app.common.security;
 
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.service.VerifyCodeService;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,7 +27,7 @@ public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
 
         // 2. 验证验证码
         if (!verifyCodeService.validateCode(email, code)) {
-            throw new BadCredentialsException("验证码错误或已过期");
+            throw new AppException(ResultCode.OPERATION_FAIL,"验证码错误或已过期");
         }
 
         // 3. 按邮箱查询用户

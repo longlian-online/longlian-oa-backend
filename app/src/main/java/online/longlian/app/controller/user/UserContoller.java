@@ -40,7 +40,7 @@ public class UserContoller  {
     @GetMapping("/send-code")
     public Result<Void> sendCode(@RequestParam String email) {
         if (!verifyCodeService.sendCode(email)){
-            throw new AppException(ResultCode.OPERATION_FAIL);
+            throw new AppException(ResultCode.OPERATION_FAIL,"验证码发送失败");
         }
         return Result.success("验证码发送请求已提交，请注意查收邮箱");
     }

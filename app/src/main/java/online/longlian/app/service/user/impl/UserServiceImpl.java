@@ -39,34 +39,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final RedisBlacklistUtil redisBlacklistUtil;
     @Override
     public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
-        try {
-            Authentication authentication =
-                    authenticationManager.authenticate(
-                            new MyUsernamePasswordAuthenticationToken(
-                                    loginByPwdDTO.getUsername(),
-                                    loginByPwdDTO.getPassword()
-                            )
-                    );
-            return doLogin(authentication);
-        } catch (AuthenticationException e) {
-            throw new AppException(ResultCode.USERNAME_OR_PASSWORD_ERROR);
-        }
+        Authentication authentication =
+                authenticationManager.authenticate(
+                        new MyUsernamePasswordAuthenticationToken(
+                                loginByPwdDTO.getUsername(),
+                                loginByPwdDTO.getPassword()
+                        )
+                );
+        return doLogin(authentication);
     }
 
     @Override
     public Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO) {
-        try {
-            Authentication authentication =
-                    authenticationManager.authenticate(
-                            new EmailCodeAuthenticationToken(
-                                    loginByCodeDTO.getEmail(),
-                                    loginByCodeDTO.getCode()
-                            )
-                    );
-            return doLogin(authentication);
-        } catch (AuthenticationException e) {
-            throw new AppException(ResultCode.OPERATION_FAIL);
-        }
+        Authentication authentication =
+                authenticationManager.authenticate(
+                        new EmailCodeAuthenticationToken(
+                                loginByCodeDTO.getEmail(),
+                                loginByCodeDTO.getCode()
+                        )
+                );
+        return doLogin(authentication);
     }
 
     private Result<LoginVO> doLogin(Authentication authentication) {
@@ -90,23 +82,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
     @Override
     public Result<Void> logout(HttpServletRequest request) {
-        try {
-            // 1. 验证令牌有效性
-            String token = (String) request.getAttribute(CommonConstants.CURRENT_TOKEN);
-            if (token == null) {
-                throw new AppException(ResultCode.UNAUTHORIZED);
-            }
-            // 2. 获取令牌剩余有效期，加入黑名单
-            long remainingSeconds = jwtUtil.getRemainingTimeSeconds(token);
-            redisBlacklistUtil.addToBlacklist(token, remainingSeconds);
-
-            // 3. 清理用户缓存
-            Long userId = ThreadLocalUtil.getUserBO().getId();
-            redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
-
-            return Result.success("登出成功");
-        } catch (Exception e) {
-            throw new AppException(ResultCode.OPERATION_FAIL);
+        // 1. 验证令牌有效性
+        String token = (String) request.getAttribute(CommonConstants.CURRENT_TOKEN);
+        if (token == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
         }
+        // 2. 获取令牌剩余有效期，加入黑名单
+        long remainingSeconds = jwtUtil.getRemainingTimeSeconds(token);
+        redisBlacklistUtil.addToBlacklist(token, remainingSeconds);
+
+        // 3. 清理用户缓存
+        Long userId = ThreadLocalUtil.getUserBO().getId();
+        redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
+
+        return Result.success("登出成功");
     }
 }

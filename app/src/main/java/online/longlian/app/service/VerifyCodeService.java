@@ -4,14 +4,17 @@ import cn.hutool.core.util.RandomUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.constants.PatternConstants;
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.service.notify.NotificationManager;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -28,10 +31,11 @@ public class VerifyCodeService {
     }
 
     public boolean sendCode(String receiver) {
-        // 1. 1分钟内是否已发送
+        if (!isValidEmail(receiver)) {
+            throw new AppException(ResultCode.OPERATION_FAIL,"邮箱格式不合法");
+        }
         if (stringRedisTemplate.hasKey(RedisConstants.LIMIT_KEY + receiver)) {
-            log.warn("{}发送验证码过于频繁，需等待{}秒", receiver, CommonConstants.CODE_LIMIT);
-            return false;
+            throw new AppException(ResultCode.OPERATION_FAIL,"发送验证码过于频繁");
         }
         stringRedisTemplate.opsForValue().set(
                 RedisConstants.LIMIT_KEY + receiver,
@@ -63,13 +67,11 @@ public class VerifyCodeService {
             stringRedisTemplate.delete(RedisConstants.LIMIT_KEY + receiver);
         }
     }
-
     public boolean validateCode(String receiver, String code) {
         // 1. 检查Redis中是否存在验证码
         String redisCode = stringRedisTemplate.opsForValue().get(RedisConstants.CODE_KEY + receiver);
         if (redisCode == null) {
-            log.warn("{}验证码已过期或未发送", receiver);
-            return false;
+            throw new AppException(ResultCode.OPERATION_FAIL,"验证码已过期或未发送");
         }
         // 2. 校验验证码是否一致
         boolean isValid = redisCode.equals(code);
@@ -78,5 +80,12 @@ public class VerifyCodeService {
             stringRedisTemplate.delete(RedisConstants.CODE_KEY + receiver);
         }
         return isValid;
+    }
+
+    private boolean isValidEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return false;
+        }
+        return Pattern.compile(PatternConstants.EMAIL_PATTERN).matcher(email.trim()).matches();
     }
 }

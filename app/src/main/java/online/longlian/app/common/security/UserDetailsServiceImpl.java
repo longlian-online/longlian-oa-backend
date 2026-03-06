@@ -33,7 +33,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
-        return get(user);
+        return buildUserDetails(user);
     }
 
     public UserDetails loadUserByUsernameOnly(String username) throws UsernameNotFoundException {
@@ -42,7 +42,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
-        return get(user);
+        return buildUserDetails(user);
     }
     public UserDetails loadUserByEmailOnly(String email) throws UsernameNotFoundException {
         // 仅匹配email字段，禁止用户名登录
@@ -51,10 +51,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
-        return get(user);
+        return buildUserDetails(user);
     }
 
-    private UserDetailImpl get(User user) {
+    private UserDetailImpl buildUserDetails(User user) {
         List<Long> roleIds = userMapper.selectRoleIdsByUserId(user.getId());
         List<String> permissions = userMapper.selectPermissionCodesByRoleIds(roleIds);
         List<GrantedAuthority> authorities = permissions.stream()

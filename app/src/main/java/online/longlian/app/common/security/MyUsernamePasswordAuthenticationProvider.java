@@ -2,9 +2,9 @@ package online.longlian.app.common.security;
 
 
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -36,7 +36,7 @@ public class MyUsernamePasswordAuthenticationProvider implements AuthenticationP
 
         // 3. 验证密码
         if (!passwordEncoder.matches(password, userDetails.getPassword())) {
-            throw new BadCredentialsException(ResultCode.USERNAME_OR_PASSWORD_ERROR.getMsg());
+            throw new AppException(ResultCode.USERNAME_OR_PASSWORD_ERROR);
         }
 
         // 4. 认证成功：返回已认证的令牌（封装UserDetails和权限）
