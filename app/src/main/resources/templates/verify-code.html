@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证码通知</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            width: 600px;
+            max-width: 100%;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        .header img {
+            max-width: 300px;
+            height: auto;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .code {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 30px 0;
+            text-align: center;
+            letter-spacing: 5px;
+        }
+        .footer {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 30px;
+            color: #7f8c8d;
+            padding-top: 20px;
+            border-top: 1px solid #eeeeee;
+        }
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h3>验证码通知</h3>
+        <img src="https://cdn.casbin.org/img/casdoor-logo_1185x256.png" alt="Logo" width="300">
+    </div>
+    <div class="content">
+        <p>尊敬的${receiver}，您好！</p>
+        <p>您的验证码如下，有效期5分钟，请尽快使用：</p>
+        <div class="code">${code}</div>
+        <p>感谢您的使用！</p>
+        <p>技术支持团队</p>
+    </div>
+    <hr style="border: none; border-top: 1px solid #eeeeee;">
+    <div class="footer">
+        <p>本邮件由系统自动发送，请勿回复。如有疑问，请联系客服。</p>
+        <p>更多信息请访问 <a href="https://your-domain.com">https://your-domain.com</a></p>
+    </div>
+</div>
+</body>
+</html>

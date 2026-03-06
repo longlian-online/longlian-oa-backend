@@ -51,6 +51,9 @@ storage:
     secret-key:
 notify:
   type: EMAIL
+  email:
+    template:
+      path: classpath:templates/verify-code.html
 jwt:
   secret: ${JWT_SECRET}
   expiration: 86400
