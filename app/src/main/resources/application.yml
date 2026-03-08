@@ -21,7 +21,7 @@ spring:
 mybatis-plus:
   global-config:
     db-config:
-      logic-delete-field: delete_at
+      logic-delete-field: deleted_at
       logic-delete-value: now()
       logic-not-delete-value: 'null'
   configuration:
