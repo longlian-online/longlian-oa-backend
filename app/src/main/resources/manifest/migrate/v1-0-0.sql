@@ -159,7 +159,6 @@ CREATE TABLE `project_type` (
                                 `id` bigint NOT NULL COMMENT '企划类型ID',
                                 `org_id` bigint NOT NULL COMMENT '所属组织ID',
                                 `name` varchar(50) NOT NULL COMMENT '类型名称（如：漫画/小说/美术/视频）',
-                                `code` tinyint NOT NULL DEFAULT 0 COMMENT '类型编码（1-MANGA 2-NOVEL 3-ART 4-VIDEO）',
                                 `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
                                 `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态 1-启用 0-禁用',
                                 `creator_id` bigint NOT NULL COMMENT '创建人ID',
@@ -234,6 +233,7 @@ CREATE TABLE `item_task_flow` (
                                   `id` bigint NOT NULL COMMENT '项目任务流ID',
                                   `item_id` bigint NOT NULL COMMENT '所属项目ID',
                                   `project_id` bigint NOT NULL COMMENT '所属企划ID',
+                                  `task_template_id` bigint NOT NULL COMMENT '关联任务模板ID',
                                   `name` varchar(100) NOT NULL COMMENT '任务流名称（继承自任务模板）',
                                   `description` varchar(500) DEFAULT '' COMMENT '任务流说明',
                                   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -271,8 +271,7 @@ CREATE TABLE `task_instance` (
                                  `base_task_id` bigint NOT NULL COMMENT '关联原子任务ID',
                                  `task_template_id` bigint NOT NULL COMMENT '关联任务模板ID',
                                  `assignee_id` bigint DEFAULT NULL COMMENT '接取人ID',
-                                 `status` tinyint NOT NULL DEFAULT 1 COMMENT '任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-SUBMITTED(已提交) 4-COMPLETED(已完成) 5-REJECTED(已打回)',
-                                 `reject_reason` varchar(500) DEFAULT '' COMMENT '打回原因',
+                                 `status` tinyint NOT NULL DEFAULT 1 COMMENT '任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)',
                                  `submitted_at` datetime DEFAULT NULL COMMENT '提交时间',
                                  `completed_at` datetime DEFAULT NULL COMMENT '完成时间',
                                  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -285,22 +284,37 @@ CREATE TABLE `task_instance` (
 CREATE TABLE `task_submission` (
                                    `id` bigint NOT NULL,
                                    `project_id` bigint NOT NULL COMMENT '所属企划ID',
+                                   `item_id` bigint NOT NULL COMMENT '所属项目ID',
                                    `task_instance_id` bigint NOT NULL COMMENT '所属任务实例ID',
                                    `base_task_id` bigint NOT NULL COMMENT '关联原子任务ID',
                                    `submitter_id` bigint NOT NULL COMMENT '提交人ID',
                                    `file_id` bigint DEFAULT NULL COMMENT '上传文件ID',
                                    `metadata` json DEFAULT NULL COMMENT '元数据',
-                                   `status` tinyint NOT NULL DEFAULT 1 COMMENT '提交状态 1-SUBMITTED(已提交) 2-APPROVED(已通过) 3-REJECTED(已拒绝)',
-                                   `reviewer_id` bigint DEFAULT NULL COMMENT '审核人ID',
-                                   `reviewed_at` datetime DEFAULT NULL COMMENT '审核时间',
-                                   `review_comment` varchar(500) DEFAULT '' COMMENT '审核意见',
+                                   `status` tinyint NOT NULL DEFAULT 1 COMMENT '提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)',
+                                   `reviewer_id` bigint DEFAULT NULL COMMENT '审核人ID（打回操作人）',
+                                   `reviewed_at` datetime DEFAULT NULL COMMENT '审核/打回时间',
+                                   `review_comment` varchar(500) DEFAULT '' COMMENT '审核/打回意见',
                                    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                    `deleted_at` datetime DEFAULT NULL,
                                    PRIMARY KEY (`id`) USING BTREE,
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务提交记录表';
 
--- 3.11 企划 - 工坊关联表 project_workshop
+-- 3.11 用户操作记录表 user_operation_log
+CREATE TABLE `user_operation_log` (
+                                      `id` bigint NOT NULL,
+                                      `user_id` bigint NOT NULL COMMENT '操作人ID',
+                                      `project_id` bigint NOT NULL COMMENT '所属企划ID',
+                                      `item_id` bigint DEFAULT NULL COMMENT '所属项目ID',
+                                      `operation_type` tinyint NOT NULL COMMENT '操作类型 1-TASK_CLAIM(接取任务) 2-TASK_SUBMIT(提交任务) 3-TASK_ABANDON(放弃任务) 4-TASK_REJECT(打回任务) 5-TASK_RESET(重置任务) 6-FILE_DOWNLOAD(下载任务)',
+                                      `request_body` json DEFAULT NULL COMMENT '操作请求体',
+                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+                                      `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                      `deleted_at` datetime DEFAULT NULL,
+                                      PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户操作记录表';
+
+-- 3.12 企划 - 工坊关联表 project_workshop
 CREATE TABLE `project_workshop` (
                                     `id` bigint NOT NULL,
                                     `project_id` bigint NOT NULL COMMENT '企划ID',
