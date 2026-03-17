@@ -7,8 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import online.longlian.app.common.enumeration.FileProcessStatus;
 import online.longlian.app.common.enumeration.StorageType;
-import org.checkerframework.checker.units.qual.N;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 @Builder
 public class FileStorage implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**

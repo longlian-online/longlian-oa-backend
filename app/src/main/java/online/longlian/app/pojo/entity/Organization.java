@@ -1,6 +1,5 @@
 package online.longlian.app.pojo.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -15,48 +14,48 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 角色表
+ * 组织表
  * </p>
  *
  * @author longlian
- * @since 2026-02-04
+ * @since 2026-03-17
  */
 @Getter
 @Setter
 @ToString
-@TableName("role")
-@Schema(name = "Role", description = "角色表")
-public class Role implements Serializable {
+@TableName("organization")
+@Schema(name = "Organization", description = "组织表")
+public class Organization implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * 角色ID
+     * 组织ID
      */
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    @Schema(description = "角色ID")
+    @TableId("id")
+    @Schema(description = "组织ID")
     private Long id;
 
     /**
-     * 角色编码（ADMIN / USER）
+     * 组织名称
      */
-    @TableField("role_code")
-    @Schema(description = "角色编码（ADMIN / USER）")
-    private String roleCode;
+    @TableField("name")
+    @Schema(description = "组织名称")
+    private String name;
 
     /**
-     * 角色名称
+     * 组织头像
      */
-    @TableField("role_name")
-    @Schema(description = "角色名称")
-    private String roleName;
+    @TableField("avatar_file_id")
+    @Schema(description = "组织头像文件ID")
+    private Long avatarFileId;
 
     /**
-     * 角色描述
+     * 组织简介
      */
     @TableField("description")
-    @Schema(description = "角色描述")
+    @Schema(description = "组织简介")
     private String description;
 
     /**
@@ -64,26 +63,24 @@ public class Role implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-启用 0-禁用")
-    private Integer status;
+    private Byte status;
 
     /**
-     * 创建时间
+     * 创建人ID
      */
-    @TableField("create_at")
+    @TableField("creator_id")
+    @Schema(description = "创建人ID")
+    private Long creatorId;
+
+    @TableField("created_at")
     @Schema(description = "创建时间")
-    private LocalDateTime createAt;
+    private LocalDateTime createdAt;
 
-    /**
-     * 更新时间
-     */
-    @TableField("update_at")
+    @TableField("updated_at")
     @Schema(description = "更新时间")
-    private LocalDateTime updateAt;
+    private LocalDateTime updatedAt;
 
-    /**
-     * 删除时间
-     */
-    @TableField("delete_at")
+    @TableField("deleted_at")
     @Schema(description = "删除时间")
-    private LocalDateTime deleteAt;
+    private LocalDateTime deletedAt;
 }

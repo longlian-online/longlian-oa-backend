@@ -4,13 +4,12 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -26,85 +25,86 @@ import java.time.LocalDateTime;
 @Setter
 @ToString
 @TableName("permission")
-@ApiModel(value = "Permission对象", description = "权限表")
+@Schema(name = "Permission", description = "权限表")
 public class Permission implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
      * 权限ID
      */
-    @ApiModelProperty("权限ID")
     @TableId(value = "id", type = IdType.ASSIGN_ID)
+    @Schema(description = "权限ID")
     private Long id;
 
     /**
      * 权限编码 user:add
      */
     @TableField("perm_code")
-    @ApiModelProperty("权限编码 user:add")
+    @Schema(description = "权限编码 user:add")
     private String permCode;
 
     /**
      * 权限名称
      */
     @TableField("perm_name")
-    @ApiModelProperty("权限名称")
+    @Schema(description = "权限名称")
     private String permName;
 
     /**
      * 类型 1-菜单 2-按钮 3-接口
      */
     @TableField("perm_type")
-    @ApiModelProperty("类型 1-菜单 2-按钮 3-接口")
+    @Schema(description = "类型 1-菜单 2-按钮 3-接口")
     private Integer permType;
 
     /**
      * 前端路由 / 接口路径
      */
     @TableField("path")
-    @ApiModelProperty("前端路由 / 接口路径")
+    @Schema(description = "前端路由 / 接口路径")
     private String path;
 
     /**
      * 父权限ID
      */
     @TableField("parent_id")
-    @ApiModelProperty("父权限ID")
+    @Schema(description = "父权限ID")
     private Long parentId;
 
     /**
      * 排序
      */
     @TableField("sort")
-    @ApiModelProperty("排序")
+    @Schema(description = "排序")
     private Integer sort;
 
     /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")
-    @ApiModelProperty("状态 1-启用 0-禁用")
+    @Schema(description = "状态 1-启用 0-禁用")
     private Integer status;
 
     /**
      * 创建时间
      */
     @TableField("create_at")
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private LocalDateTime createAt;
 
     /**
      * 更新时间
      */
     @TableField("update_at")
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private LocalDateTime updateAt;
 
     /**
      * 删除时间
      */
     @TableField("delete_at")
-    @ApiModelProperty("删除时间")
+    @Schema(description = "删除时间")
     private LocalDateTime deleteAt;
 }
