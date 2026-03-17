@@ -1,4 +1,4 @@
-package online.longlian.app.common.hander;
+package online.longlian.app.common.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;

@@ -19,6 +19,7 @@ import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.vo.LoginVO;
+import online.longlian.app.service.resource.FileStorageService;
 import online.longlian.app.service.user.UserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -37,6 +38,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedisBlacklistUtil redisBlacklistUtil;
+    private final FileStorageService fileStorageService;
     @Override
     public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
         Authentication authentication =
@@ -75,9 +77,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 RedisConstants.EXPIRE_TIME,
                 TimeUnit.SECONDS
         );
-        LoginVO loginVO = new LoginVO();
-        loginVO.setToken(token);
-        loginVO.setRoles(userDetail.getRoles());
+        //存当前所在组织
+        redisTemplate.opsForValue().set(RedisConstants.CURRENT_ORG + userId,
+                userDetail.getDefaultOrgId(),
+                RedisConstants.EXPIRE_TIME,
+                TimeUnit.SECONDS
+        );
+        LoginVO loginVO = LoginVO.builder()
+                .avatarFileUrl(fileStorageService.getFileAccessUrl(userDetail.getAvatarFileId()))
+                .nickname(userDetail.getNickname())
+                .token(token)
+                .roles(userDetail.getRoles())
+                .defaultOrgId(userDetail.getDefaultOrgId())
+                .build();
         return Result.success("登录成功", loginVO);
     }
     @Override

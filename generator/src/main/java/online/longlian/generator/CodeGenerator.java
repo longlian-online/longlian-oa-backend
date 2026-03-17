@@ -32,12 +32,27 @@ public class CodeGenerator {
                 )
                 .strategyConfig(builder -> {
                     builder.addInclude(
-                                    "permission",    // 权限表
-                                    "resource",      // 资源存储表
-                                    "role",          // 角色表
-                                    "role_permission",// 角色权限关联表
-                                    "user",          // 系统用户表
-                                    "user_role"      // 用户角色关联表
+                                    "base_task",
+                                    "file_storage",
+                                    "group_application",
+                                    "item",
+                                    "item_task_flow",
+                                    "item_task_node",
+                                    "organization",
+                                    "organization_member",
+                                    "permission",
+                                    "project",
+                                    "project_type",
+                                    "project_workshop",
+                                    "role",
+                                    "role_permission",
+                                    "task_instance",
+                                    "task_submission",
+                                    "task_template",
+                                    "task_template_node",
+                                    "user",
+                                    "user_operation_log",
+                                    "user_role"
                             )
                             .entityBuilder()
                             .enableLombok()
@@ -47,9 +62,6 @@ public class CodeGenerator {
 
                             .controllerBuilder()
                             .disable()
-                            .serviceBuilder()
-                            .formatServiceFileName("%sService")
-                            .formatServiceImplFileName("%sServiceImpl")
                             .mapperBuilder()
                             .enableMapperAnnotation()
                             .formatMapperFileName("%sMapper")

@@ -28,6 +28,10 @@ public class UserDetailImpl implements UserDetails {
 
     private Integer status;
 
+    private Long avatarFileId;
+
+    private Long defaultOrgId;
+
     private List<String> roles;
 
     private List<String> permissions;
