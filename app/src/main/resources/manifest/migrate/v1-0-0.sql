@@ -59,7 +59,8 @@ CREATE TABLE `user` (
                         `password` varchar(100) NOT NULL COMMENT '密码（加密存储）',
                         `nickname` varchar(50) NOT NULL DEFAULT '' COMMENT '昵称（展示用）',
                         `email` varchar(100) NOT NULL DEFAULT '' COMMENT '邮箱（登录/通知）',
-                        `avatar_file_id` bigint NOT NULL DEFAULT '' COMMENT '用户头像',
+                        `avatar_file_id` bigint DEFAULT NULL COMMENT '用户头像',
+                        `default_org_id` bigint NOT NULL DEFAULT 0 COMMENT '默认组织ID',
                         `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态 1-启用 0-禁用',
                         `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -89,7 +90,7 @@ CREATE TABLE `user_role` (
 CREATE TABLE `organization` (
                                 `id` bigint NOT NULL COMMENT '组织ID',
                                 `name` varchar(100) NOT NULL COMMENT '组织名称',
-                                `avatar_file_id` varchar(255) DEFAULT '' COMMENT '组织头像',
+                                `avatar_file_id` bigint DEFAULT NULL COMMENT '组织头像',
                                 `description` varchar(500) DEFAULT '' COMMENT '组织简介',
                                 `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态 1-启用 0-禁用',
                                 `creator_id` bigint NOT NULL COMMENT '创建人ID',
@@ -143,7 +144,7 @@ CREATE TABLE `project` (
                            `type_id` bigint NOT NULL COMMENT '企划类型ID',
                            `title` varchar(100) NOT NULL COMMENT '企划名称',
                            `alias` varchar(100) DEFAULT '' COMMENT '别名',
-                           `cover_file_id` varchar(255) DEFAULT '' COMMENT '封面图',
+                           `cover_file_id` bigint DEFAULT NULL COMMENT '封面图',
                            `description` text COMMENT '简介',
                            `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态 1-进行中 2-已完成 3-已归档',
                            `creator_id` bigint NOT NULL COMMENT '创建人ID',
@@ -187,7 +188,7 @@ CREATE TABLE `base_task` (
                              `id` bigint NOT NULL COMMENT '原子任务ID',
                              `org_id` bigint NOT NULL COMMENT '所属组织ID',
                              `name` varchar(100) NOT NULL COMMENT '任务名称（如：创建/翻译/校对）',
-                             `icon_file_id` varchar(50) DEFAULT '' COMMENT '图标标识',
+                             `icon_file_id` bigint DEFAULT NULL COMMENT '图标标识',
                              `description` varchar(500) DEFAULT '' COMMENT '任务说明',
                              `need_file` tinyint NOT NULL DEFAULT 0 COMMENT '是否需要上传文件：0-否 1-是',
                              `required_file` tinyint NOT NULL DEFAULT 0 COMMENT '是否必须上传：0-否 1-是',
@@ -241,7 +242,7 @@ CREATE TABLE `item_task_flow` (
                                   `deleted_at` datetime DEFAULT NULL,
                                   PRIMARY KEY (`id`) USING BTREE,
                                   UNIQUE INDEX `uk_item_id`(`item_id`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目任务流表'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目任务流表';
 
 -- 3.8 项目任务流节点表 item_task_node
 CREATE TABLE `item_task_node` (
@@ -297,7 +298,7 @@ CREATE TABLE `task_submission` (
                                    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                    `deleted_at` datetime DEFAULT NULL,
-                                   PRIMARY KEY (`id`) USING BTREE,
+                                   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务提交记录表';
 
 -- 3.11 用户操作记录表 user_operation_log
@@ -322,7 +323,7 @@ CREATE TABLE `project_workshop` (
                                     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                     `deleted_at` datetime DEFAULT NULL,
-                                    PRIMARY KEY (`id`) USING BTREE,
+                                    PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='企划-工坊关联表（用户添加企划）';
 
 
@@ -333,7 +334,6 @@ CREATE TABLE `file_storage` (
                                 `org_id` bigint NOT NULL COMMENT '所属组织ID',
                                 `storage_type` tinyint NOT NULL COMMENT '存储类型 1-本地存储 2-阿里云OSS 3-腾讯云COS',
                                 `storage_key` varchar(255) NOT NULL COMMENT '存储唯一标识（如OSS的objectKey/本地文件路径）',
-                                `file_url` varchar(500) NOT NULL COMMENT '文件访问URL',
                                 `file_name` varchar(255) NOT NULL COMMENT '原始文件名',
                                 `file_ext` varchar(20) NOT NULL COMMENT '文件扩展名',
                                 `file_size` bigint NOT NULL DEFAULT 0 COMMENT '文件大小',

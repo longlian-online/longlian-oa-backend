@@ -63,6 +63,20 @@ public class User implements Serializable {
     private String email;
 
     /**
+     * 用户头像
+     */
+    @ApiModelProperty("用户头像")
+    @TableField("avatar_file_id")
+    private Long avatarFileId;
+
+    /**
+     * 默认组织ID
+     */
+    @ApiModelProperty("默认组织ID")
+    @TableField("default_org_id")
+    private Long defaultOrgId;
+
+    /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")

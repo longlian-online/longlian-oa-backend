@@ -26,6 +26,7 @@ mybatis-plus:
       logic-not-delete-value: 'null'
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
 # Swagger 配置
 # 核心原则：默认关闭，由各环境配置（dev/test/prod）决定是否开启
 springdoc:
@@ -40,7 +41,7 @@ springdoc:
     - online.longlian.app.controller.admin
     - online.longlian.app.controller.user
 storage:
-  type: Local   # Local 或 COS
+  type: LOCAL   # LOCAL 或 COS
   local:
     upload-url:
     base-path:
@@ -49,6 +50,7 @@ storage:
     region:
     secret-id:
     secret-key:
+    url-prefix:
 notify:
   type: EMAIL
   email:
