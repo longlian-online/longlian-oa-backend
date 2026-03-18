@@ -38,7 +38,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedisBlacklistUtil redisBlacklistUtil;
-    private final FileStorageService fileStorageService;
     @Override
     public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
         Authentication authentication =
@@ -84,8 +83,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 TimeUnit.SECONDS
         );
         LoginVO loginVO = LoginVO.builder()
-                .avatarFileUrl(fileStorageService.getFileAccessUrl(userDetail.getAvatarFileId()))
-                .nickname(userDetail.getNickname())
+                .userId(userId)
                 .token(token)
                 .roles(userDetail.getRoles())
                 .defaultOrgId(userDetail.getDefaultOrgId())

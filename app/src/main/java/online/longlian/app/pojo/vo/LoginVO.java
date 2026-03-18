@@ -15,11 +15,8 @@ import java.util.List;
 @Schema(description = "登录返回信息")
 public class LoginVO {
 
-    @Schema(description = "用户昵称")
-    private String nickname;
-
-    @Schema(description = "用户头像地址")
-    private String avatarFileUrl;
+    @Schema(description = "用户id")
+    private Long userId;
 
     @Schema(description = "默认组织ID")
     private Long defaultOrgId;
