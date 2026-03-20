@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import online.longlian.app.common.enumeration.ProjectStatus;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -63,6 +64,13 @@ public class Project implements Serializable {
     private String alias;
 
     /**
+     * 企划作者
+     */
+    @TableField("author")
+    @Schema(description = "企划作者")
+    private String author;
+
+    /**
      * 封面图
      */
     @TableField("cover_file_id")
@@ -81,7 +89,7 @@ public class Project implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-进行中 2-已完成 3-已归档")
-    private Byte status;
+    private ProjectStatus status;
 
     /**
      * 创建人ID

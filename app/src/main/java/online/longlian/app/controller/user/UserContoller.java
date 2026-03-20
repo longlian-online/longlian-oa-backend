@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
@@ -31,13 +32,13 @@ public class UserContoller  {
 
     @Operation(summary = "密码登录接口", description = "使用用户名+密码登录", security = {})
     @PostMapping("/login/pwd")
-    public Result<LoginVO> loginByPwd(@RequestBody LoginByPwdDTO loginByPwdDTO) {
+    public Result<LoginVO> loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
         return userService.loginByPwd(loginByPwdDTO);
     }
 
     @Operation(summary = "验证码登录接口", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/login/code")
-    public Result<LoginVO> loginByCode(@RequestBody LoginByCodeDTO loginByCodeDTO) {
+    public Result<LoginVO> loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
         return userService.loginByCode(loginByCodeDTO);
     }
 
@@ -53,12 +54,10 @@ public class UserContoller  {
 
     @Operation(summary = "用户注册接口",description = "用户自主注册接口，需验证邮箱验证码",security = {})
     @PostMapping("/register")
-    public Result<Void> register(@RequestBody RegisterDTO registerDTO) {
+    public Result<Void> register(@RequestBody @Valid RegisterDTO registerDTO) {
         // TODO
-
         //userService.register(registerDTO);
         return Result.success("注册成功");
-
     }
 
     @Operation(summary = "获取用户信息接口", description = "根据用户ID查询用户信息（昵称、头像、邮箱、用户名等）")
@@ -66,8 +65,8 @@ public class UserContoller  {
     @GetMapping("/info/{userId}")
     public Result<UserInfoVO> getUserInfo(@PathVariable Long userId) {
         // TODO
-        return Result.success(null);
         //return userService.getUserInfo(userId);
+        return Result.success(null);
     }
 
     @Operation(summary = "退出登录接口")

@@ -144,6 +144,7 @@ CREATE TABLE `project` (
                            `type_id` bigint NOT NULL COMMENT '企划类型ID',
                            `title` varchar(100) NOT NULL COMMENT '企划名称',
                            `alias` varchar(100) DEFAULT '' COMMENT '别名',
+                           `author` varchar(100) NOT NULL COMMENT '企划作者',
                            `cover_file_id` bigint DEFAULT NULL COMMENT '封面图',
                            `description` text COMMENT '简介',
                            `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态 1-进行中 2-已完成 3-已归档',

@@ -8,9 +8,12 @@ import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.slf4j.MDC;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+
+import java.util.stream.Collectors;
 
 @Slf4j
 @ControllerAdvice
@@ -41,6 +44,24 @@ public class GlobalExceptionHandler {
                 request.getMethod());
         return Result.fail(ResultCode.UNAUTHORIZED_OPERATION);
     }
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseBody
+    public <T> Result<T> handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
+        String traceId = MDC.get(CommonConstants.TRACE_ID);
+
+        String errorMsg = e.getBindingResult().getFieldErrors().stream()
+                .map(err -> err.getDefaultMessage())
+                .collect(Collectors.joining("；"));
+
+        log.warn("参数校验失败 | traceId={} | msg={} | uri={} | method={}",
+                traceId,
+                errorMsg,
+                request.getRequestURI(),
+                request.getMethod());
+
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
+    }
+
     /**
      * 处理系统异常
      */
