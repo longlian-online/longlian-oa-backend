@@ -10,8 +10,8 @@ import online.longlian.app.common.enumeration.SortByTime;
 import online.longlian.app.common.enumeration.SortDirection;
 
 @Data
-@Schema(description = "企划查询请求参数")
-public class ProjectListDTO {
+@Schema(description = "工坊中企划查询请求参数")
+public class WorkshopListDTO {
 
     @Size(max = 50, message = "搜索关键词长度不能超过50")
     @Schema(description = "搜索关键词（标题）")
@@ -29,10 +29,6 @@ public class ProjectListDTO {
     @Max(value = 100, message = "每页条数最大为100")
     @Schema(description = "每页条数")
     private Integer pageSize = 10;
-
-    @Schema(description = "排序字段")
-    private SortByTime sortByTime;
-
-    @Schema(description = "排序方式")
-    private SortDirection orderDir;
+    @Schema(description = "是否是我创建的企划")
+    private Boolean isMyCreated;
 }

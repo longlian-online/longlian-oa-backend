@@ -25,7 +25,7 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
-    @Operation(summary = "分页查询企划列表", description = "支持关键词搜索、类型筛选、时间筛选")
+    @Operation(summary = "分页查询企划列表接口", description = "支持关键词搜索、类型筛选、时间筛选")
     @PostMapping("/list")
     public Result<PageResultVO<ProjectInfoVO>> getProjectInfo(@RequestBody @Valid ProjectListDTO projectListDTO) {
         //TODO
@@ -33,18 +33,21 @@ public class ProjectController {
         return null;
     }
     @PostMapping("/create")
-    public Result<Void> createProject(@RequestBody ProjectCreateDTO projectCreateDTO) {
+    @Operation(summary = "创建企划接口")
+    public Result<Void> createProject(@RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
         //TODO
         //return projectService.createProject(projectCreateDTO);
         return Result.success("创建成功");
     }
     @PutMapping("/update")
-    public Result<Void> updateProject(@RequestBody ProjectUpdateDTO projectUpdateDTO) {
+    @Operation(summary = "编辑企划接口")
+    public Result<Void> updateProject(@RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
         //TODO
         //return projectService.updateProject(projectUpdateDTO);
         return Result.success("修改成功");
     }
     @GetMapping("/type")
+    @Operation(summary = "获取企划类型接口")
     public Result<List<ProjectTypeInfoVO>> getProjectType() {
         //TODO
         //return projectService.getProjectType();

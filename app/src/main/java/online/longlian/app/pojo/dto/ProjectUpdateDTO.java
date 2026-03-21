@@ -3,7 +3,6 @@ package online.longlian.app.pojo.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 import online.longlian.app.common.enumeration.ProjectStatus;
 
