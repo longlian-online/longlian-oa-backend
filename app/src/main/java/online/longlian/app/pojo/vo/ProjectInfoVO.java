@@ -6,7 +6,7 @@ import online.longlian.app.common.enumeration.ProjectStatus;
 
 @Data
 @Schema(description = "企划信息")
-public class ProjectListInfoVO {
+public class ProjectInfoVO {
 
     @Schema(description = "企划ID")
     private Long id;
@@ -23,7 +23,7 @@ public class ProjectListInfoVO {
     @Schema(description = "企划类型")
     private String projectType;
 
-    @Schema(description = "企划状态")
+    @Schema(description = "企划状态，1-进行中 2-已完成 3-已归档")
     private ProjectStatus projectStatus;
 
     @Schema(description = "企划作者")
