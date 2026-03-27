@@ -271,7 +271,7 @@ CREATE TABLE `task_instance` (
                                  `project_id` bigint NOT NULL COMMENT '所属企划ID',
                                  `item_id` bigint NOT NULL COMMENT '所属项目ID',
                                  `base_task_id` bigint NOT NULL COMMENT '关联原子任务ID',
-                                 `task_template_id` bigint NOT NULL COMMENT '关联任务模板ID',
+                                 `task_flow_id` bigint NOT NULL COMMENT '关联任务流ID',
                                  `assignee_id` bigint DEFAULT NULL COMMENT '接取人ID',
                                  `status` tinyint NOT NULL DEFAULT 1 COMMENT '任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)',
                                  `submitted_at` datetime DEFAULT NULL COMMENT '提交时间',

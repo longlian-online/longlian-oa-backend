@@ -29,19 +29,19 @@ public class UserController {
     private final UserService userService;
     private final VerifyCodeService verifyCodeService;
 
-    @Operation(summary = "密码登录接口", description = "使用用户名+密码登录", security = {})
+    @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/login/pwd")
     public Result<LoginVO> loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
         return userService.loginByPwd(loginByPwdDTO);
     }
 
-    @Operation(summary = "验证码登录接口", description = "使用邮箱+验证码登录", security = {})
+    @Operation(summary = "验证码登录", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/login/code")
     public Result<LoginVO> loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
         return userService.loginByCode(loginByCodeDTO);
     }
 
-    @Operation(summary = "发送邮箱验证码接口", security = {})
+    @Operation(summary = "发送邮箱验证码", security = {})
     @Parameter(name = "email", description = "接收验证码的邮箱", required = true, example = "test@longlian.com")
     @GetMapping("/send-code")
     public Result<Void> sendCode(@RequestParam String email) {
@@ -51,24 +51,32 @@ public class UserController {
         return Result.success("验证码发送请求已提交，请注意查收邮箱");
     }
 
-    @Operation(summary = "用户注册接口", description = "用户自主注册接口，需验证邮箱验证码", security = {})
+    @Operation(summary = "用户注册", description = "用户自主注册，需验证邮箱验证码", security = {})
     @PostMapping("/register")
     public Result<Void> register(@RequestBody @Valid RegisterDTO registerDTO) {
         // TODO
-        //userService.register(registerDTO);
+        // userService.register(registerDTO);
         return Result.success("注册成功");
     }
 
-    @Operation(summary = "获取用户信息接口", description = "根据用户ID查询用户信息（昵称、头像、邮箱、用户名等）")
+    @Operation(summary = "获取当前登录用户信息", description = "返回当前 Token 对应的用户信息")
+    @GetMapping("/info/me")
+    public Result<UserInfoVO> getMyInfo() {
+        // TODO
+        // return userService.getMyInfo();
+        return Result.success("查询成功", null);
+    }
+
+    @Operation(summary = "获取指定用户信息", description = "根据用户ID查询用户基本信息（昵称、头像、邮箱、用户名等）")
     @Parameter(name = "userId", description = "用户ID")
     @GetMapping("/info/{userId}")
     public Result<UserInfoVO> getUserInfo(@PathVariable Long userId) {
         // TODO
-        //return userService.getUserInfo(userId);
+        // return userService.getUserInfo(userId);
         return Result.success("查询成功", null);
     }
 
-    @Operation(summary = "退出登录接口")
+    @Operation(summary = "退出登录")
     @PostMapping("/logout")
     public Result<Void> logout(HttpServletRequest request) {
         return userService.logout(request);

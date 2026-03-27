@@ -11,14 +11,14 @@ import online.longlian.app.common.enumeration.StorageType;
 public class CreateFileResVO {
 
     @Schema(description = "文件ID")
-    private String fileId;
+    private Long fileId;
 
     @Schema(description = "预签名上传地址")
     private String uploadUrl;
 
-    @Schema(description = "文件存储唯一标识")
+    @Schema(description = "文件存储唯一标识（storageKey）")
     private String key;
 
-    @Schema(description = "存储类型 1-本地 2-OSS 3-COS")
+    @Schema(description = "存储类型：1-本地存储，2-阿里云OSS，3-腾讯云COS")
     private StorageType storageType;
 }

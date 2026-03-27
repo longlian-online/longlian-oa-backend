@@ -13,6 +13,7 @@ import online.longlian.app.pojo.dto.ProjectListDTO;
 import online.longlian.app.pojo.dto.ProjectUpdateDTO;
 import online.longlian.app.pojo.vo.PageResultVO;
 import online.longlian.app.pojo.vo.ProjectAdminInfoVO;
+import online.longlian.app.pojo.vo.ProjectDetailInfoVO;
 import online.longlian.app.pojo.vo.ProjectInfoVO;
 import online.longlian.app.pojo.vo.ProjectTypeInfoVO;
 import online.longlian.app.service.user.ProjectService;
@@ -43,12 +44,49 @@ public class ProjectController {
         return Result.success("查询成功", null);
     }
 
+    @Operation(
+        summary = "获取企划详情",
+        description = "返回企划详细信息、进度统计及当前用户权限标记。" +
+                "isAdmin=true 时前端展示「编辑+分享」按钮；false 时展示「添加到工坊+分享」按钮"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @GetMapping("/{projectId}")
+    public Result<ProjectDetailInfoVO> getProjectDetail(@PathVariable Long projectId) {
+        // TODO
+        // return projectService.getProjectDetail(projectId);
+        return Result.success("查询成功", null);
+    }
+
     @Operation(summary = "获取企划类型列表", description = "用户端：仅返回启用状态的类型")
     @GetMapping("/types")
     public Result<List<ProjectTypeInfoVO>> getProjectTypes() {
         // TODO
         // return projectService.getProjectTypes();
         return Result.success("查询成功", null);
+    }
+
+    @Operation(
+        summary = "添加企划到工坊",
+        description = "将指定企划加入当前用户的个人工坊（project_workshop 表），已添加则幂等返回成功"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @PostMapping("/{projectId}/workshop")
+    public Result<Void> addToWorkshop(@PathVariable Long projectId) {
+        // TODO
+        // return projectService.addToWorkshop(projectId);
+        return Result.success("已添加到工坊");
+    }
+
+    @Operation(
+        summary = "从工坊移除企划",
+        description = "将指定企划从当前用户的个人工坊中移除"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @DeleteMapping("/{projectId}/workshop")
+    public Result<Void> removeFromWorkshop(@PathVariable Long projectId) {
+        // TODO
+        // return projectService.removeFromWorkshop(projectId);
+        return Result.success("已从工坊移除");
     }
 
     // -------------------------

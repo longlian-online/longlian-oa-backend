@@ -59,8 +59,8 @@ public class TaskInstance implements Serializable {
      * 关联任务模板ID
      */
     @TableField("task_template_id")
-    @Schema(description = "关联任务模板ID")
-    private Long taskTemplateId;
+    @Schema(description = "关联任务流ID")
+    private Long taskFlowId;
 
     /**
      * 接取人ID
