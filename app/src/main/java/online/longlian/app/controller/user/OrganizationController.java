@@ -14,6 +14,7 @@ import online.longlian.app.pojo.vo.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.PageResultVO;
 import online.longlian.app.pojo.vo.UserOrgSwitchVO;
 import online.longlian.app.service.user.OrganizationService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,55 +28,60 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    @Operation(summary = "获取用户加入的组织列表接口", description = "根据用户ID查询用户加入的组织列表")
+    @Operation(summary = "获取用户加入的组织列表", description = "根据用户ID查询用户加入的组织列表")
     @Parameter(name = "userId", description = "用户ID")
     @GetMapping("/user-join/{userId}")
     public Result<List<OrgSimpleInfoVO>> getOrgSimpleInfo(@PathVariable Long userId) {
-        //TODO
+        // TODO
+        // return organizationService.getOrgSimpleInfo(userId);
         return Result.success(null);
-        //return organizationService.getOrgSimpleInfo(userId);
     }
 
-    @Operation(summary = "获取当前组织详细信息接口")
+    @Operation(summary = "获取当前组织详细信息")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     @GetMapping("/detail")
     public Result<OrgDetailInfoVO> getOrgDetailInfo() {
-        //TODO
+        // TODO
+        // return organizationService.getOrgDetailInfo();
         return Result.success(null);
-        //return organizationService.getOrgDetailInfo();
     }
 
-    @Operation(summary = "分页查询组织列表接口")
-    @PostMapping("/list")
-    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO orgListDTO) {
-        //TODO
-        return Result.success(null);
-        //return organizationService.getOrgListInfo(orgListDTO);
-    }
-
-    @Operation(summary = "更新组织信息接口")
-    @PutMapping("/{orgId}")
-    public Result<Void> updateOrgInfo(@PathVariable Long orgId, @RequestBody @Valid OrgUpdateDTO orgUpdateDTO) {
-        //TODO
-        return Result.success("更新成功");
-        //return organizationService.updateOrgInfo(orgId, orgUpdateDTO);
-    }
-
-    @Operation(summary = "切换组织接口", description = "切换用户当前所在组织")
+    @Operation(summary = "切换组织", description = "切换用户当前所在组织")
     @Parameter(name = "orgId", description = "目标组织ID")
     @PostMapping("/switch/{orgId}")
     public Result<UserOrgSwitchVO> switchOrg(@PathVariable Long orgId) {
-        //TODO
+        // TODO
+        // return organizationService.switchOrg(orgId);
         return Result.success(null);
-        //return organizationService.switchOrg(orgId);
     }
-    @Operation(summary = "操作组织状态接口", description = "启用或禁用指定组织，status: 1-启用，0-禁用")
+
+    @Operation(summary = "分页查询组织列表")
+    @PostMapping("/list")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO orgListDTO) {
+        // TODO
+        // return organizationService.getOrgListInfo(orgListDTO);
+        return Result.success(null);
+    }
+
+    @Operation(summary = "更新组织信息")
+    @Parameter(name = "orgId", description = "组织ID")
+    @PutMapping("/{orgId}")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    public Result<Void> updateOrgInfo(@PathVariable Long orgId, @RequestBody @Valid OrgUpdateDTO orgUpdateDTO) {
+        // TODO
+        // return organizationService.updateOrgInfo(orgId, orgUpdateDTO);
+        return Result.success("更新成功");
+    }
+
+    @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: 1-启用，0-禁用")
     @Parameter(name = "orgId", description = "组织ID")
     @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
     @PatchMapping("/{orgId}/status")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeOrgStatus(@PathVariable Long orgId, @RequestParam Integer status) {
-        //TODO
+        // TODO
+        // return organizationService.changeOrgStatus(orgId, status);
         return Result.success(null);
-        //return organizationService.changeOrgStatus(orgId, status);
     }
-
 }

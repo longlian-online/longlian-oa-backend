@@ -14,6 +14,7 @@ import online.longlian.app.pojo.vo.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.InviteLinkVO;
 import online.longlian.app.pojo.vo.OrgMemberInfoVO;
 import online.longlian.app.pojo.vo.PageResultVO;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -34,6 +35,7 @@ public class OrganizationMemberController {
         description = "仅返回 status=PENDING(待审核) 的申请，默认按申请时间倒序"
     )
     @PostMapping("/applications")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<PageResultVO<ApplicationInfoVO>> listApplications(
             @RequestBody @Valid ApplicationListDTO applicationListDTO) {
         // TODO
@@ -47,6 +49,7 @@ public class OrganizationMemberController {
     )
     @Parameter(name = "applicationId", description = "入组申请ID")
     @PutMapping("/applications/{applicationId}/review")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> reviewApplication(
             @PathVariable Long applicationId,
             @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
@@ -64,6 +67,7 @@ public class OrganizationMemberController {
         description = "仅返回已通过审核的成员，默认按入组时间倒序"
     )
     @PostMapping("/list")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<PageResultVO<OrgMemberInfoVO>> listMembers(
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
         // TODO
@@ -78,6 +82,7 @@ public class OrganizationMemberController {
     @Parameter(name = "memberId", description = "成员记录ID（organization_member.id）")
     @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
     @PatchMapping("/{memberId}/status")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeMemberStatus(
             @PathVariable Long memberId,
             @RequestParam Integer status) {
@@ -95,6 +100,7 @@ public class OrganizationMemberController {
         description = "生成一次性邀请链接和邀请码，有效期 30 分钟。新用户通过链接注册后仍需在入组申请页审核"
     )
     @PostMapping("/invite")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<InviteLinkVO> generateInviteLink() {
         // TODO
         // return organizationMemberService.generateInviteLink();
