@@ -9,8 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.ApplicationListDTO;
 import online.longlian.app.pojo.dto.ApplicationReviewDTO;
+import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.OrgMemberListDTO;
 import online.longlian.app.pojo.vo.ApplicationInfoVO;
+import online.longlian.app.pojo.vo.InviteCodeVO;
 import online.longlian.app.pojo.vo.InviteLinkVO;
 import online.longlian.app.pojo.vo.OrgMemberInfoVO;
 import online.longlian.app.pojo.vo.PageResultVO;
@@ -92,18 +94,46 @@ public class OrganizationMemberController {
     }
 
     // -------------------------
-    // 邀请
+    // 邀请（管理员生成）
     // -------------------------
 
     @Operation(
-        summary = "生成邀请链接",
-        description = "生成一次性邀请链接和邀请码，有效期 30 分钟。新用户通过链接注册后仍需在入组申请页审核"
+        summary = "生成邀请链接（管理员）",
+        description = "生成一次性邀请链接，有效期30分钟；供新用户注册时使用，注册后自动提交入组申请等待审核"
     )
-    @PostMapping("/invite")
+    @PostMapping("/invite/link")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<InviteLinkVO> generateInviteLink() {
         // TODO
         // return organizationMemberService.generateInviteLink();
         return Result.success("生成成功", null);
+    }
+
+    @Operation(
+        summary = "生成邀请码（管理员）",
+        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供已登录用户加入本组织时使用"
+    )
+    @PostMapping("/invite/code")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    public Result<InviteCodeVO> generateInviteCode() {
+        // TODO
+        // return organizationMemberService.generateInviteCode();
+        return Result.success("生成成功", null);
+    }
+
+    // -------------------------
+    // 邀请（用户使用）
+    // -------------------------
+
+    @Operation(
+        summary = "通过邀请码加入组织（已登录用户）",
+        description = "已登录用户输入管理员提供的邀请码，自动提交入组申请，等待管理员审核通过后正式加入"
+    )
+    @PostMapping("/join")
+    public Result<Void> joinByInviteCode(
+            @RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
+        // TODO
+        // return organizationMemberService.joinByInviteCode(joinByInviteCodeDTO);
+        return Result.success("申请已提交，等待管理员审核");
     }
 }

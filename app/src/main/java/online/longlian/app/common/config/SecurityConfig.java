@@ -45,9 +45,16 @@ public class SecurityConfig {
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                new AntPathRequestMatcher("/app/user/login/code"),
-                                new AntPathRequestMatcher("/app/user/send-code"),
+                                // 登录
                                 new AntPathRequestMatcher("/app/user/login/pwd"),
+                                new AntPathRequestMatcher("/app/user/login/code"),
+                                // 验证码
+                                new AntPathRequestMatcher("/app/user/send-code"),
+                                // 注册（通过邀请链接）
+                                new AntPathRequestMatcher("/app/user/invite/*"),
+                                new AntPathRequestMatcher("/app/user/register/by-invite"),
+                                new AntPathRequestMatcher("/app/user/register/create-org"),
+                                // Swagger
                                 new AntPathRequestMatcher("/swagger-ui/**"),
                                 new AntPathRequestMatcher("/v3/api-docs/**"),
                                 new AntPathRequestMatcher("/swagger-resources/**"),
