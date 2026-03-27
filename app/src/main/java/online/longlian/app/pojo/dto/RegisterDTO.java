@@ -31,7 +31,7 @@ public class RegisterDTO {
     @Schema(description = "邮箱", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
-    @NotNull(message = "验证码不能为空")
+    @NotBlank(message = "验证码不能为空")
     @Schema(description = "验证码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)
-    private Long code;
+    private String code;
 }

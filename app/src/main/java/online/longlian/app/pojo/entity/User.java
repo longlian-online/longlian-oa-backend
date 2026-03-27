@@ -89,14 +89,14 @@ public class User implements Serializable {
      */
     @TableField("create_at")
     @Schema(description = "创建时间")
-    private LocalDateTime createAt;
+    private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
     @TableField("update_at")
     @Schema(description = "更新时间")
-    private LocalDateTime updateAt;
+    private LocalDateTime updatedAt;
 
     /**
      * 删除时间
@@ -104,5 +104,5 @@ public class User implements Serializable {
     @TableField("delete_at")
     @Schema(description = "删除时间")
     @TableLogic
-    private LocalDateTime deleteAt;
+    private LocalDateTime deletedAt;
 }

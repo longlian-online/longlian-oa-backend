@@ -17,5 +17,5 @@ public class WorkshopProjectInfoVO {
     @Schema(description = "最近一次提交的用户名")
     private String lastSubmitterUsername;
     @Schema(description = "最近一次提交的时间")
-    private LocalDateTime lastSubmitterTime;
+    private LocalDateTime lastSubmitterAt;
 }

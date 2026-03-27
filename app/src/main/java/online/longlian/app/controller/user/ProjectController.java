@@ -25,32 +25,36 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
-    @Operation(summary = "分页查询企划列表接口", description = "支持关键词搜索、类型筛选、时间筛选")
+
+    @Operation(summary = "分页查询企划列表接口", description = "支持关键词搜索、类型筛选、排序")
     @PostMapping("/list")
-    public Result<PageResultVO<ProjectInfoVO>> getProjectInfo(@RequestBody @Valid ProjectListDTO projectListDTO) {
+    public Result<PageResultVO<ProjectInfoVO>> getProjectList(@RequestBody @Valid ProjectListDTO projectListDTO) {
         //TODO
-        //return projectService.getProjectInfo(projectDTO);
-        return null;
+        //return projectService.getProjectList(projectListDTO);
+        return Result.success("查询成功", null);
     }
-    @PostMapping("/create")
+
     @Operation(summary = "创建企划接口")
+    @PostMapping
     public Result<Void> createProject(@RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
         //TODO
         //return projectService.createProject(projectCreateDTO);
         return Result.success("创建成功");
     }
-    @PutMapping("/update")
+
     @Operation(summary = "编辑企划接口")
-    public Result<Void> updateProject(@RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
+    @PutMapping("/{projectId}")
+    public Result<Void> updateProject(@PathVariable Long projectId, @RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
         //TODO
-        //return projectService.updateProject(projectUpdateDTO);
+        //return projectService.updateProject(projectId, projectUpdateDTO);
         return Result.success("修改成功");
     }
-    @GetMapping("/type")
-    @Operation(summary = "获取企划类型接口")
-    public Result<List<ProjectTypeInfoVO>> getProjectType() {
+
+    @Operation(summary = "获取企划类型列表接口")
+    @GetMapping("/types")
+    public Result<List<ProjectTypeInfoVO>> getProjectTypes() {
         //TODO
-        //return projectService.getProjectType();
-        return null;
+        //return projectService.getProjectTypes();
+        return Result.success("查询成功", null);
     }
 }

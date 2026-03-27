@@ -17,7 +17,6 @@ import online.longlian.app.pojo.vo.LoginVO;
 import online.longlian.app.pojo.vo.UserInfoVO;
 import online.longlian.app.service.user.UserService;
 import online.longlian.app.service.VerifyCodeService;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -25,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/app/user")
 @RestController
 @RequiredArgsConstructor
-public class UserContoller  {
+public class UserController {
 
     private final UserService userService;
     private final VerifyCodeService verifyCodeService;
@@ -46,13 +45,13 @@ public class UserContoller  {
     @Parameter(name = "email", description = "接收验证码的邮箱", required = true, example = "test@longlian.com")
     @GetMapping("/send-code")
     public Result<Void> sendCode(@RequestParam String email) {
-        if (!verifyCodeService.sendCode(email)){
-            throw new AppException(ResultCode.OPERATION_FAIL,"验证码发送失败");
+        if (!verifyCodeService.sendCode(email)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "验证码发送失败");
         }
         return Result.success("验证码发送请求已提交，请注意查收邮箱");
     }
 
-    @Operation(summary = "用户注册接口",description = "用户自主注册接口，需验证邮箱验证码",security = {})
+    @Operation(summary = "用户注册接口", description = "用户自主注册接口，需验证邮箱验证码", security = {})
     @PostMapping("/register")
     public Result<Void> register(@RequestBody @Valid RegisterDTO registerDTO) {
         // TODO
@@ -66,7 +65,7 @@ public class UserContoller  {
     public Result<UserInfoVO> getUserInfo(@PathVariable Long userId) {
         // TODO
         //return userService.getUserInfo(userId);
-        return Result.success(null);
+        return Result.success("查询成功", null);
     }
 
     @Operation(summary = "退出登录接口")

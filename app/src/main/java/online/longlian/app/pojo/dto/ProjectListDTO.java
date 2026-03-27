@@ -3,7 +3,6 @@ package online.longlian.app.pojo.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import online.longlian.app.common.enumeration.SortByTime;
@@ -34,5 +33,5 @@ public class ProjectListDTO {
     private SortByTime sortByTime;
 
     @Schema(description = "排序方式")
-    private SortDirection orderDir;
+    private SortDirection orderDir = SortDirection.DESC;
 }

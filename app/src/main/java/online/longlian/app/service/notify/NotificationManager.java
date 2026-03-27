@@ -16,7 +16,7 @@ import java.util.Map;
 public class NotificationManager {
 
 
-    public List<NotificationService> notificationServices;
+    private final List<NotificationService> notificationServices;
 
     private final Map<NotificationType, NotificationService> serviceMap = new HashMap<>();
 
