@@ -23,9 +23,6 @@ WORKDIR /app
 # 从构建阶段复制打好的 jar 包
 COPY --from=build /app/app/target/*.jar app.jar
 
-# 复制生产环境配置文件
-COPY app/src/main/resources/application-prod.yml application-prod.yml
-
 # JVM 运行参数
 ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
 
@@ -33,4 +30,4 @@ ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
 EXPOSE 8080
 
 # 启动命令
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar --spring.profiles.active=prod --spring.config.location=classpath:/,file:/app/application-prod.yml"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
