@@ -5,7 +5,6 @@ WORKDIR /app
 # 复制各级 pom.xml，下载依赖
 COPY pom.xml .
 COPY app/pom.xml app/pom.xml
-COPY generator/pom.xml generator/pom.xml
 
 # 下载 app 模块及其父模块的所有依赖
 RUN mvn dependency:go-offline -B -pl app -am

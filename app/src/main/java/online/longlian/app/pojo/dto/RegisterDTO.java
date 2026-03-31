@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import online.longlian.app.common.constants.PatternConstants;
 
 @Data
 @Schema(description = "用户注册请求参数")
@@ -27,7 +28,7 @@ public class RegisterDTO {
     private String nickname;
 
     @NotBlank(message = "邮箱不能为空")
-    @Pattern(regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", message = "邮箱格式不正确")
+    @Pattern(regexp = PatternConstants.EMAIL_PATTERN, message = "邮箱格式不正确")
     @Schema(description = "邮箱", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
