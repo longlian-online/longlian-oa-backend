@@ -55,10 +55,13 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/app/user/register/by-invite"),
                                 new AntPathRequestMatcher("/app/user/register/create-org"),
                                 // Swagger
+                                new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/swagger-ui/**"),
                                 new AntPathRequestMatcher("/v3/api-docs/**"),
                                 new AntPathRequestMatcher("/swagger-resources/**"),
-                                new AntPathRequestMatcher("/webjars/**")
+                                new AntPathRequestMatcher("/webjars/**"),
+                                // 静态资源
+                                new AntPathRequestMatcher("/favicon.ico")
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

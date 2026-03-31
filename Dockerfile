@@ -5,6 +5,8 @@ WORKDIR /app
 # 复制各级 pom.xml，下载依赖
 COPY pom.xml .
 COPY app/pom.xml app/pom.xml
+COPY generator/pom.xml generator/pom.xml
+COPY settings.xml /root/.m2/settings.xml
 
 # 下载 app 模块及其父模块的所有依赖
 RUN mvn dependency:go-offline -B -pl app -am
@@ -22,9 +24,6 @@ WORKDIR /app
 # 从构建阶段复制打好的 jar 包
 COPY --from=build /app/app/target/*.jar app.jar
 
-# 复制生产环境配置文件
-COPY app/src/main/resources/application-prod.yml application-prod.yml
-
 # JVM 运行参数
 ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
 
@@ -32,4 +31,4 @@ ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
 EXPOSE 8080
 
 # 启动命令
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar --spring.profiles.active=prod --spring.config.location=classpath:/,file:/app/application-prod.yml"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

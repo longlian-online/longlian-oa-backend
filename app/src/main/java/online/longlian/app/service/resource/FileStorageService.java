@@ -66,7 +66,7 @@ public class FileStorageService {
         fileStorageMapper.insert(file);
 
         return new CreateFileResVO(
-                String.valueOf(fileId),
+                fileId,
                 uploadBO.getUploadUrl(),
                 uploadBO.getKey(),
                 storageType

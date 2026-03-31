@@ -1,10 +1,40 @@
+longlian:
+  datasource:
+    type: ${DATASOURCE_TYPE:mysql}  # mysql 或 sqlite
+  cache:
+    type: ${CACHE_TYPE:redis}       # redis 或 local
+
 spring:
   application:
     name: longlian-oa
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   main:
     allow-circular-references: true
+
+  # MySQL 配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    druid:
+      initial-size: ${DRUID_INITIAL_SIZE:5}
+      max-active: ${DRUID_MAX_ACTIVE:20}
+      min-idle: ${DRUID_MIN_IDLE:5}
+      max-wait: ${DRUID_MAX_WAIT:60000}
+      time-between-eviction-runs-millis: ${DRUID_EVICTION_INTERVAL:60000}
+      min-evictable-idle-time-millis: ${DRUID_MIN_EVICTABLE_IDLE:300000}
+      validation-query: SELECT 1
+      filters: stat,wall,logback
+      connection-properties: druid.stat.slowSqlMillis=2000;druid.stat.logSlowSql=true
+  # Redis 配置
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE:1}
   mail:
     host: ${NOTIFY_HOST}
     username: ${NOTIFY_USERNAME}
@@ -18,6 +48,13 @@ spring:
             enable: ${MAIL_STARTTLS}
           ssl:
             enable: ${MAIL_SSL}
+
+# SQLite 配置
+sqlite:
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: ${SQLITE_URL}
+
 mybatis-plus:
   global-config:
     db-config:
@@ -27,30 +64,29 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
-# Swagger 配置
-# 核心原则：默认关闭，由各环境配置（dev/test/prod）决定是否开启
+debug: ${APP_DEBUG:false}
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
+    enabled: ${SPRINGDOC_ENABLED:true}
   api-docs:
-    # 默认关闭 API 文档生成（各环境通过 profile 覆盖此配置）
-    enabled: false
+    enabled: ${SPRINGDOC_ENABLED:true}
   packages-to-scan:
     - online.longlian.app.controller.admin
     - online.longlian.app.controller.user
 storage:
-  type: LOCAL   # LOCAL 或 COS
+  type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 COS
   local:
-    upload-url:
-    base-path:
+    upload-url: ${STORAGE_LOCAL_UPLOAD_URL:}
+    base-path: ${STORAGE_LOCAL_BASE_PATH:}
   cos:
-    bucket:
-    region:
-    secret-id:
-    secret-key:
-    url-prefix:
+    bucket: ${STORAGE_COS_BUCKET:}
+    region: ${STORAGE_COS_REGION:}
+    secret-id: ${STORAGE_COS_SECRET_ID:}
+    secret-key: ${STORAGE_COS_SECRET_KEY:}
+    url-prefix: ${STORAGE_COS_URL_PREFIX:}
 notify:
   type: EMAIL
   email:
