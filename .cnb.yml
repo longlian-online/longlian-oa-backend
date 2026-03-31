@@ -2,7 +2,7 @@ sit:
   push:
     - services:
         - docker
-      imports: https://cnb.cool/longlian.online/env/-/blob/main/check-box-py-dev.yml
+      imports: https://cnb.cool/longlian.online/env/-/blob/main/longlian-backend-sit.yml
 
       stages:
         - name: get latest version tag
@@ -35,5 +35,5 @@ sit:
               sudo docker pull ${LATEST_VERSION_TAG}
               sudo docker stop ${APP_NAME} || true
               sudo docker rm ${APP_NAME} || true
-              sudo docker run --network ${NET_WORK} --restart=always -d --name ${APP_NAME} -p 8018:8080 ${LATEST_VERSION_TAG}
+              sudo docker run --network ${NET_WORK} --restart=always -d --name ${APP_NAME} --env-file ${ENV_FILE} -p 8018:8080 ${LATEST_VERSION_TAG}
 
