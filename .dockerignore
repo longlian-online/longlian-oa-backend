@@ -1,0 +1,16 @@
+.git
+.gitignore
+.idea
+.vscode
+
+**/target/
+**/*.class
+**/.DS_Store
+
+# Maven wrapper cache
+.mvn/wrapper/maven-wrapper.jar
+
+# 文档和本地说明
+docs/
+README.md
+*.md
