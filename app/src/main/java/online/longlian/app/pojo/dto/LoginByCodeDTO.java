@@ -5,13 +5,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import online.longlian.app.common.constants.PatternConstants;
 
 @Data
 @Schema(description = "验证码登录请求参数")
 public class LoginByCodeDTO {
 
     @NotBlank(message = "邮箱不能为空")
-    @Pattern(regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", message = "邮箱格式不正确")
+    @Pattern(regexp = PatternConstants.EMAIL_PATTERN, message = "邮箱格式不正确")
     @Schema(description = "邮箱", example = "test@longlian.com", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
