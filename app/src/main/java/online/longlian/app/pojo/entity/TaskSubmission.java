@@ -56,11 +56,11 @@ public class TaskSubmission implements Serializable {
     private Long taskInstanceId;
 
     /**
-     * 关联原子任务ID
+     * 关联项目任务节点ID
      */
-    @TableField("base_task_id")
-    @Schema(description = "关联原子任务ID")
-    private Long baseTaskId;
+    @TableField("item_task_node_id")
+    @Schema(description = "关联项目任务节点ID")
+    private Long itemTaskNodeId;
 
     /**
      * 提交人ID
@@ -70,17 +70,10 @@ public class TaskSubmission implements Serializable {
     private Long submitterId;
 
     /**
-     * 上传文件ID
-     */
-    @TableField("file_id")
-    @Schema(description = "上传文件ID")
-    private Long fileId;
-
-    /**
-     * 元数据
+     * 提交元数据(JSON对象，按节点 meta_schema 组织)
      */
     @TableField("metadata")
-    @Schema(description = "元数据")
+    @Schema(description = "提交元数据(JSON对象，按节点 meta_schema 组织)")
     private String metadata;
 
     /**

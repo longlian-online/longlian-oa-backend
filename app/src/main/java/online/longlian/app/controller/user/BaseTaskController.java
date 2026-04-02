@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.BaseTaskCreateDTO;
 import online.longlian.app.pojo.dto.BaseTaskListDTO;
@@ -39,20 +40,8 @@ public class BaseTaskController {
     }
 
     @Operation(
-        summary = "获取全部启用原子任务",
-        description = "返回当前组织下所有启用状态的原子任务，不分页"
-    )
-    @GetMapping("/all")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<List<BaseTaskVO>> listAllEnabledBaseTasks() {
-        // TODO
-        // return baseTaskService.listAllEnabledBaseTasks();
-        return Result.success("查询成功", null);
-    }
-
-    @Operation(
         summary = "创建原子任务",
-        description = "任务创建后不可编辑，请确认字段后提交"
+        description = "任务创建后不可编辑，请确认标题、图标、简介和元数据字段定义后提交"
     )
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
@@ -73,7 +62,7 @@ public class BaseTaskController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeBaseTaskStatus(
             @PathVariable Long baseTaskId,
-            @RequestParam Integer status) {
+            @RequestParam Status status) {
         // TODO
         // return baseTaskService.changeBaseTaskStatus(baseTaskId, status);
         return Result.success(null);

@@ -26,8 +26,8 @@ public class ProjectInfoVO {
     @Schema(description = "企划状态，1-进行中 2-已完成 3-已归档")
     private ProjectStatus projectStatus;
 
-    @Schema(description = "企划作者")
-    private String author;
+    @Schema(description = "扩展信息(JSON字符串)")
+    private String metadata;
 
     @Schema(description = "创建人头像URL")
     private String creatorAvatarUrl;

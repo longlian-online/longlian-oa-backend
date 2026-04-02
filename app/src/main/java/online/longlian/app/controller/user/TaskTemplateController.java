@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.TaskTemplateCreateDTO;
 import online.longlian.app.pojo.dto.TaskTemplateListDTO;
@@ -85,7 +86,7 @@ public class TaskTemplateController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeTaskTemplateStatus(
             @PathVariable Long templateId,
-            @RequestParam Integer status) {
+            @RequestParam Status status) {
         // TODO
         // return taskTemplateService.changeTaskTemplateStatus(templateId, status);
         return Result.success(null);

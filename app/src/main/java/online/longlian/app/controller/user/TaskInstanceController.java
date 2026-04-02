@@ -14,7 +14,6 @@ import online.longlian.app.pojo.vo.TaskInstanceVO;
 import online.longlian.app.pojo.vo.TaskSubmissionVO;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -91,8 +90,7 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "提交任务",
-        description = "提交已接取（CLAIMED）的任务，提交后任务状态变为 COMPLETED。" +
-                "若原子任务要求上传文件（needFile=1），fileId 必须传入"
+        description = "提交待提交（CLAIMED）的任务，提交后任务状态变为 COMPLETED。提交内容通过 metadata(JSON对象) 传递"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/submit")
@@ -132,8 +130,8 @@ public class TaskInstanceController {
     }
 
     @Operation(
-        summary = "下载任务成果文件",
-        description = "下载指定提交记录的上传文件"
+        summary = "下载任务文件",
+        description = "下载指定提交记录中的文件"
     )
     @Parameter(name = "submissionId", description = "提交记录ID")
     @GetMapping("/submission/{submissionId}/download")

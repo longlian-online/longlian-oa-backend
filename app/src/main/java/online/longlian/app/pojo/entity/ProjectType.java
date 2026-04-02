@@ -52,13 +52,6 @@ public class ProjectType implements Serializable {
     private String name;
 
     /**
-     * 排序
-     */
-    @TableField("sort")
-    @Schema(description = "排序")
-    private Integer sort;
-
-    /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")

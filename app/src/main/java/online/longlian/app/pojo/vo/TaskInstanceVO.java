@@ -19,8 +19,8 @@ public class TaskInstanceVO {
     @Schema(description = "所属企划ID")
     private Long projectId;
 
-    @Schema(description = "原子任务ID")
-    private Long baseTaskId;
+    @Schema(description = "项目任务节点ID")
+    private Long itemTaskNodeId;
 
     @Schema(description = "任务类型名称（如：翻译、校对）")
     private String baseTaskName;

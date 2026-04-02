@@ -29,6 +29,4 @@ public class WorkshopListDTO {
     @Max(value = 100, message = "每页条数最大为100")
     @Schema(description = "每页条数")
     private Integer pageSize = 10;
-    @Schema(description = "是否是我创建的企划")
-    private Boolean isMyCreated;
 }

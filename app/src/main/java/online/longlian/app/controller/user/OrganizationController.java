@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.OrgListDTO;
 import online.longlian.app.pojo.dto.OrgUpdateDTO;
+import online.longlian.app.pojo.vo.InviteLinkVO;
 import online.longlian.app.pojo.vo.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.PageResultVO;
@@ -37,15 +38,6 @@ public class OrganizationController {
         return Result.success(null);
     }
 
-    @Operation(summary = "获取当前组织详细信息")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    @GetMapping("/detail")
-    public Result<OrgDetailInfoVO> getOrgDetailInfo() {
-        // TODO
-        // return organizationService.getOrgDetailInfo();
-        return Result.success(null);
-    }
-
     @Operation(summary = "切换组织", description = "切换用户当前所在组织")
     @Parameter(name = "orgId", description = "目标组织ID")
     @PostMapping("/switch/{orgId}")
@@ -55,12 +47,12 @@ public class OrganizationController {
         return Result.success(null);
     }
 
-    @Operation(summary = "分页查询组织列表")
-    @PostMapping("/list")
+    @Operation(summary = "获取当前组织详细信息")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO orgListDTO) {
+    @GetMapping("/detail")
+    public Result<OrgDetailInfoVO> getOrgDetailInfo() {
         // TODO
-        // return organizationService.getOrgListInfo(orgListDTO);
+        // return organizationService.getOrgDetailInfo();
         return Result.success(null);
     }
 
@@ -74,11 +66,32 @@ public class OrganizationController {
         return Result.success("更新成功");
     }
 
+    @Operation(summary = "分页查询组织列表")
+    @PostMapping("/list")
+    @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
+    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO orgListDTO) {
+        // TODO
+        // return organizationService.getOrgListInfo(orgListDTO);
+        return Result.success(null);
+    }
+
+    @Operation(
+        summary = "生成组织邀请链接（超管）",
+        description = "生成一次性邀请链接，有效期30分钟；新用户可通过链接注册并创建组织，注册后该用户成为该组织默认管理员"
+    )
+    @PostMapping("/invite/link")
+    @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
+    public Result<InviteLinkVO> generateInviteLink() {
+        // TODO
+        // return organizationService.generateInviteLink();
+        return Result.success("生成成功", null);
+    }
+
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: 1-启用，0-禁用")
     @Parameter(name = "orgId", description = "组织ID")
     @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
     @PatchMapping("/{orgId}/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
     public Result<Void> changeOrgStatus(@PathVariable Long orgId, @RequestParam Integer status) {
         // TODO
         // return organizationService.changeOrgStatus(orgId, status);

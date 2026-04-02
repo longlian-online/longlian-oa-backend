@@ -16,17 +16,14 @@ public class ItemTaskNodeVO {
     @Schema(description = "任务名称")
     private String name;
 
+    @Schema(description = "节点元数据字段定义快照(JSON数组)")
+    private String metaSchema;
+
     @Schema(description = "步骤顺序（相同 sort 值为并行节点）")
     private Integer sort;
 
     @Schema(description = "并行组内排序")
     private Integer parallelSort;
-
-    @Schema(description = "是否需要上传文件：0-否 1-是")
-    private Byte needFile;
-
-    @Schema(description = "是否必须上传：0-否 1-是")
-    private Byte requiredFile;
 
     @Schema(
         description = "任务实例状态：1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)，null 表示该节点尚未生成实例（前序节点未完成）"

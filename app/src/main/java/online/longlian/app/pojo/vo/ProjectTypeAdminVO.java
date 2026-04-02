@@ -16,9 +16,6 @@ public class ProjectTypeAdminVO {
     @Schema(description = "类型名称")
     private String name;
 
-    @Schema(description = "排序")
-    private Integer sort;
-
     @Schema(description = "状态：ENABLED-启用，DISABLED-禁用")
     private Status status;
 

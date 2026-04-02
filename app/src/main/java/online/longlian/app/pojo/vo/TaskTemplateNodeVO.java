@@ -19,11 +19,8 @@ public class TaskTemplateNodeVO {
     @Schema(description = "原子任务图标URL")
     private String baseTaskIconUrl;
 
-    @Schema(description = "是否需要上传文件：0-否 1-是")
-    private Byte needFile;
-
-    @Schema(description = "是否必须上传：0-否 1-是")
-    private Byte requiredFile;
+    @Schema(description = "元数据字段定义(JSON数组)")
+    private String metaSchema;
 
     @Schema(
         description = "步骤顺序（相同 sort 值表示并行节点）"

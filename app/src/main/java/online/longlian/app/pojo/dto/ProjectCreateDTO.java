@@ -3,7 +3,6 @@ package online.longlian.app.pojo.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -22,9 +21,9 @@ public class ProjectCreateDTO {
     @Schema(description = "企划类型ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long typeId;
 
-    @NotNull(message = "作者不能为空")
-    @Schema(description = "原作者/作者信息", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String author;
+    @NotBlank(message = "扩展信息不能为空")
+    @Schema(description = "扩展信息(JSON字符串)", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String metadata;
 
     @NotNull(message = "企划简介不能为空")
     @Schema(description = "企划简介", requiredMode = Schema.RequiredMode.REQUIRED)

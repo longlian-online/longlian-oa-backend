@@ -64,11 +64,11 @@ public class Project implements Serializable {
     private String alias;
 
     /**
-     * 企划作者
+     * 扩展信息(JSON字符串)
      */
-    @TableField("author")
-    @Schema(description = "企划作者")
-    private String author;
+    @TableField("metadata")
+    @Schema(description = "扩展信息(JSON字符串)")
+    private String metadata;
 
     /**
      * 封面图

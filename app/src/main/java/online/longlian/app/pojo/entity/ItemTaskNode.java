@@ -73,6 +73,13 @@ public class ItemTaskNode implements Serializable {
     private String name;
 
     /**
+     * 节点元数据字段定义快照(JSON数组)
+     */
+    @TableField("meta_schema")
+    @Schema(description = "节点元数据字段定义快照(JSON数组)")
+    private String metaSchema;
+
+    /**
      * 步骤顺序
      */
     @TableField("sort")
@@ -85,27 +92,6 @@ public class ItemTaskNode implements Serializable {
     @TableField("parallel_sort")
     @Schema(description = "并行组号排序")
     private Integer parallelSort;
-
-    /**
-     * 是否需要上传文件
-     */
-    @TableField("need_file")
-    @Schema(description = "是否需要上传文件 0-否 1-是")
-    private Byte needFile;
-
-    /**
-     * 是否必须上传
-     */
-    @TableField("required_file")
-    @Schema(description = "是否必须上传 0-否 1-是")
-    private Byte requiredFile;
-
-    /**
-     * 允许的文件类型
-     */
-    @TableField("allowed_mime_types")
-    @Schema(description = "允许的文件类型（逗号分隔）")
-    private String allowedMimeTypes;
 
     @TableField("created_at")
     @Schema(description = "创建时间")

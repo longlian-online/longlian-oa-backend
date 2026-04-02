@@ -66,25 +66,11 @@ public class BaseTask implements Serializable {
     private String description;
 
     /**
-     * 是否需要上传文件：0-否 1-是
+     * 元数据字段定义(JSON数组)
      */
-    @TableField("need_file")
-    @Schema(description = "是否需要上传文件：0-否 1-是")
-    private Byte needFile;
-
-    /**
-     * 是否必须上传：0-否 1-是
-     */
-    @TableField("required_file")
-    @Schema(description = "是否必须上传：0-否 1-是")
-    private Byte requiredFile;
-
-    /**
-     * 允许的文件类型（逗号分隔）
-     */
-    @TableField("allowed_mime_types")
-    @Schema(description = "允许的文件类型（逗号分隔）")
-    private String allowedMimeTypes;
+    @TableField("meta_schema")
+    @Schema(description = "元数据字段定义(JSON数组)")
+    private String metaSchema;
 
     /**
      * 状态 1-启用 0-禁用
