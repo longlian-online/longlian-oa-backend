@@ -21,7 +21,7 @@ public class MailUtil {
         this.mailSender = mailSender;
     }
 
-    public record SendParam(String sender, String receiver, String reveiverName, String title, String content) { }
+    public record SendParam(String sender, String receiver, String receiverName, String title, String content) { }
 
     public void send(SendParam param) {
         Objects.requireNonNull(param, "SendParam cannot be null");
@@ -43,8 +43,8 @@ public class MailUtil {
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
             // 邮件名称
-            if (param.reveiverName != null && !param.reveiverName.isEmpty()) {
-                helper.setFrom(param.sender(), param.reveiverName());
+            if (param.receiverName != null && !param.receiverName.isEmpty()) {
+                helper.setFrom(param.sender(), param.receiverName());
             } else {
                 helper.setFrom(param.sender());
             }
