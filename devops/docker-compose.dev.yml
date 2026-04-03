@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: devops/Dockerfile.dev
+    container_name: longlian-oa-backend-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../:/app
+    # 让容器保持运行
+    stdin_open: true
+    tty: true
