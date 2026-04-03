@@ -1,4 +1,5 @@
 longlian:
+  display-name: "longlian-oa" # 用于展示的系统名称
   datasource:
     type: ${DATASOURCE_TYPE:mysql}  # mysql 或 sqlite
   cache:
