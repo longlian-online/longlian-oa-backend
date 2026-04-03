@@ -43,7 +43,7 @@ public class MailUtil {
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
             // 邮件名称
-            if (param.receiverName != null && !param.receiverName.isEmpty()) {
+            if (StringUtils.hasText(param.receiverName)) {
                 helper.setFrom(param.sender(), param.receiverName());
             } else {
                 helper.setFrom(param.sender());
