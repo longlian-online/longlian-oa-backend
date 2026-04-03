@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.ProjectAdminListDTO;
 import online.longlian.app.pojo.dto.ProjectCreateDTO;
@@ -88,7 +89,25 @@ public class ProjectController {
         // return projectService.removeFromWorkshop(projectId);
         return Result.success("已从工坊移除");
     }
+    @Operation(summary = "创建企划")
+    @PostMapping
+    public Result<Void> createProject(
+            @RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
+        // TODO
+        // return projectService.createProject(projectCreateDTO);
+        return Result.success("创建成功");
+    }
 
+    @Operation(summary = "编辑企划")
+    @Parameter(name = "projectId", description = "企划ID")
+    @PutMapping("/{projectId}")
+    public Result<Void> updateProject(
+            @PathVariable Long projectId,
+            @RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
+        // TODO
+        // return projectService.updateProject(projectId, projectUpdateDTO);
+        return Result.success("修改成功");
+    }
     // -------------------------
     // 管理员接口
     // -------------------------
@@ -102,37 +121,14 @@ public class ProjectController {
         // return projectService.getAdminProjectList(projectAdminListDTO);
         return Result.success("查询成功", null);
     }
-
-    @Operation(summary = "创建企划")
-    @PostMapping
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> createProject(
-            @RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
-        // TODO
-        // return projectService.createProject(projectCreateDTO);
-        return Result.success("创建成功");
-    }
-
-    @Operation(summary = "编辑企划")
+    @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: 1-启用，0-禁用")
     @Parameter(name = "projectId", description = "企划ID")
-    @PutMapping("/{projectId}")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> updateProject(
-            @PathVariable Long projectId,
-            @RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
-        // TODO
-        // return projectService.updateProject(projectId, projectUpdateDTO);
-        return Result.success("修改成功");
-    }
-
-    @Operation(summary = "切换企划状态", description = "在进行中/已完成/已归档之间切换。status: 1-进行中，2-已完成，3-已归档")
-    @Parameter(name = "projectId", description = "企划ID")
-    @Parameter(name = "status", description = "目标状态：1-进行中，2-已完成，3-已归档")
+    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
     @PatchMapping("/{projectId}/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeProjectStatus(
             @PathVariable Long projectId,
-            @RequestParam Integer status) {
+            @RequestParam Status status) {
         // TODO
         // return projectService.changeProjectStatus(projectId, status);
         return Result.success(null);
