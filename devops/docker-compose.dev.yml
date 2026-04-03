@@ -7,8 +7,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./:/app
-      - maven_repo:/root/.m2
+      - ../:/app
     # 让容器保持运行
     stdin_open: true
     tty: true
