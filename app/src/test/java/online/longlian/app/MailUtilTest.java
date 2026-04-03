@@ -1,6 +1,8 @@
 package online.longlian.app;
 
 import online.longlian.app.common.util.MailUtil;
+
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("dev")
+@Disabled // 邮件发送不自动执行
 class MailUtilTest {
 
     @Autowired
