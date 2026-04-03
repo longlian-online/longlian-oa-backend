@@ -1,4 +1,4 @@
-package online.longlian.app.controller.user;
+package online.longlian.app.controller.admin;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,8 +14,6 @@ import online.longlian.app.pojo.vo.BaseTaskVO;
 import online.longlian.app.pojo.vo.PageResultVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @Tag(name = "原子任务管理接口", description = "原子任务（最小任务单元）管理；任务创建后不可编辑，仅支持启用/禁用")
