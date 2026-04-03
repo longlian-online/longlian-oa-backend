@@ -22,14 +22,8 @@ public class BaseTaskVO {
     @Schema(description = "图标URL")
     private String iconUrl;
 
-    @Schema(description = "是否需要上传文件：0-否 1-是")
-    private Byte needFile;
-
-    @Schema(description = "是否必须上传：0-否 1-是")
-    private Byte requiredFile;
-
-    @Schema(description = "允许的文件 MIME 类型（逗号分隔）")
-    private String allowedMimeTypes;
+    @Schema(description = "元数据字段定义(JSON数组)")
+    private String metaSchema;
 
     @Schema(description = "引用次数（该任务被引用到任务流模板节点中的次数）")
     private Integer refCount;

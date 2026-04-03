@@ -23,8 +23,8 @@ public class ProjectDetailInfoVO {
     @Schema(description = "企划类型名称")
     private String typeName;
 
-    @Schema(description = "原作者")
-    private String author;
+    @Schema(description = "扩展信息(JSON字符串)")
+    private String metadata;
 
     @Schema(description = "企划简介")
     private String description;
@@ -43,4 +43,6 @@ public class ProjectDetailInfoVO {
 
     @Schema(description = "当前用户是否已将该企划添加到工坊")
     private Boolean inWorkshop;
+    @Schema(description = "当前用户是否是该企划的创建者")
+    private Boolean isCreator;
 }

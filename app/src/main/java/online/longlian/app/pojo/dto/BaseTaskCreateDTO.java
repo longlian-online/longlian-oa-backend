@@ -21,12 +21,6 @@ public class BaseTaskCreateDTO {
     @Schema(description = "图标文件ID")
     private Long iconFileId;
 
-    @Schema(description = "是否需要上传文件：0-否 1-是，默认 0")
-    private Byte needFile = 0;
-
-    @Schema(description = "是否必须上传：0-否 1-是，默认 0（needFile=1 时生效）")
-    private Byte requiredFile = 0;
-
-    @Schema(description = "允许的文件 MIME 类型（逗号分隔，如 image/jpeg,application/pdf）")
-    private String allowedMimeTypes;
+    @Schema(description = "元数据字段定义(JSON数组)，示例：[{\"name\":\"附件\",\"fieldType\":\"file\",\"required\":true},{\"name\":\"作者\",\"fieldType\":\"text\",\"required\":true},{\"name\":\"源链接\",\"fieldType\":\"text\",\"required\":true}]")
+    private String metaSchema;
 }

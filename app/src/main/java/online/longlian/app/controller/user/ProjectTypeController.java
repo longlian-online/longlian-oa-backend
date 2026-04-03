@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.ProjectTypeCreateDTO;
 import online.longlian.app.pojo.dto.ProjectTypeListDTO;
@@ -50,7 +51,7 @@ public class ProjectTypeController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeProjectTypeStatus(
             @PathVariable Long typeId,
-            @RequestParam Integer status) {
+            @RequestParam Status status) {
         // TODO
         // return projectTypeService.changeProjectTypeStatus(typeId, status);
         return Result.success(null);

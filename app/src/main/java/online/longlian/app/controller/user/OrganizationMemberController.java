@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.ApplicationListDTO;
 import online.longlian.app.pojo.dto.ApplicationReviewDTO;
@@ -13,6 +14,7 @@ import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.OrgMemberListDTO;
 import online.longlian.app.pojo.vo.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.InviteCodeVO;
+import online.longlian.app.pojo.vo.InviteInfoVO;
 import online.longlian.app.pojo.vo.InviteLinkVO;
 import online.longlian.app.pojo.vo.OrgMemberInfoVO;
 import online.longlian.app.pojo.vo.PageResultVO;
@@ -87,7 +89,7 @@ public class OrganizationMemberController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeMemberStatus(
             @PathVariable Long memberId,
-            @RequestParam Integer status) {
+            @RequestParam Status status) {
         // TODO
         // return organizationMemberService.changeMemberStatus(memberId, status);
         return Result.success(null);
@@ -99,7 +101,7 @@ public class OrganizationMemberController {
 
     @Operation(
         summary = "生成邀请链接（管理员）",
-        description = "生成一次性邀请链接，有效期30分钟；供新用户注册时使用，注册后自动提交入组申请等待审核"
+        description = "生成一次性邀请链接，有效期30分钟；供新用户注册并提交入组申请使用。注册页需先通过 inviteToken 查询组织信息后展示为只读"
     )
     @PostMapping("/invite/link")
     @PreAuthorize("hasRole('ORG_ADMIN')")
@@ -119,6 +121,21 @@ public class OrganizationMemberController {
         // TODO
         // return organizationMemberService.generateInviteCode();
         return Result.success("生成成功", null);
+    }
+
+    // -------------------------
+    // 邀请（注册页使用）
+    // -------------------------
+
+    @Operation(
+        summary = "根据邀请token获取组织信息",
+        description = "注册页使用。仅管理员邀请入组场景会调用该接口返回组织信息"
+    )
+    @GetMapping("/invite/info")
+    public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteToken) {
+        // TODO
+        // return organizationMemberService.getInviteOrgInfo(inviteToken);
+        return Result.success("查询成功", null);
     }
 
     // -------------------------

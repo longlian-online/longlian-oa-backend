@@ -18,17 +18,13 @@ public class ProjectUpdateDTO {
     @Schema(description = "别名", requiredMode = Schema.RequiredMode.REQUIRED)
     private String alias;
 
-    @NotNull(message = "作者不能为空")
-    @Schema(description = "原作者/作者信息", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String author;
+    @NotBlank(message = "扩展信息不能为空")
+    @Schema(description = "扩展信息(JSON字符串)", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String metadata;
 
     @NotNull(message = "企划简介不能为空")
     @Schema(description = "企划简介", requiredMode = Schema.RequiredMode.REQUIRED)
     private String description;
-
-    @NotNull(message = "企划状态不能为空")
-    @Schema(description = "企划状态，1-进行中 2-已完成 3-已归档", requiredMode = Schema.RequiredMode.REQUIRED)
-    private ProjectStatus projectStatus;
 
     @NotNull(message = "封面不能为空")
     @Schema(description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)

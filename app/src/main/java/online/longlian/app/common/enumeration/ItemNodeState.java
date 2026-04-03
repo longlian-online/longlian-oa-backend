@@ -4,15 +4,15 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 任务实例状态
+ * 项目流程节点状态
  */
 @Getter
 @AllArgsConstructor
-public enum TaskInstanceStatus implements CodeEnum {
+public enum ItemNodeState implements CodeEnum {
 
-    PENDING(1, "待接取"),
-    CLAIMED(2, "待提交"),
-    COMPLETED(3, "已完成");
+    COMPLETED(1, "已完成"),
+    IN_PROGRESS(2, "进行中"),
+    LOCKED(3, "未解锁");
 
     private final Integer code;
     private final String desc;

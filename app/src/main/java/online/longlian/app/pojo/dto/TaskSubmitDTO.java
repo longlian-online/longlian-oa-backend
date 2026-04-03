@@ -7,9 +7,6 @@ import lombok.Data;
 @Schema(description = "提交任务请求参数")
 public class TaskSubmitDTO {
 
-    @Schema(description = "上传文件ID（原子任务 needFile=1 时必填）")
-    private Long fileId;
-
-    @Schema(description = "附加元数据（JSON字符串，可选）")
+    @Schema(description = "提交元数据(JSON对象)。示例：{\"values\":{\"attachment\":{\"fileId\":123},\"author\":\"张三\"}}")
     private String metadata;
 }

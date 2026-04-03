@@ -49,16 +49,16 @@ public class TaskInstance implements Serializable {
     private Long itemId;
 
     /**
-     * 关联原子任务ID
+     * 关联项目任务节点ID
      */
-    @TableField("base_task_id")
-    @Schema(description = "关联原子任务ID")
-    private Long baseTaskId;
+    @TableField("item_task_node_id")
+    @Schema(description = "关联项目任务节点ID")
+    private Long itemTaskNodeId;
 
     /**
-     * 关联任务模板ID
+     * 关联任务流ID
      */
-    @TableField("task_template_id")
+    @TableField("task_flow_id")
     @Schema(description = "关联任务流ID")
     private Long taskFlowId;
 
@@ -70,10 +70,10 @@ public class TaskInstance implements Serializable {
     private Long assigneeId;
 
     /**
-     * 任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)
+     * 任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)
      */
     @TableField("status")
-    @Schema(description = "任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)")
+    @Schema(description = "任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)")
     private Byte status;
 
     /**

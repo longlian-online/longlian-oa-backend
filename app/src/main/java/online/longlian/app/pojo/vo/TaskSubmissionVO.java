@@ -16,6 +16,9 @@ public class TaskSubmissionVO {
     @Schema(description = "任务实例ID")
     private Long taskInstanceId;
 
+    @Schema(description = "项目任务节点ID")
+    private Long itemTaskNodeId;
+
     @Schema(description = "任务类型名称（如：嵌字、翻译）")
     private String baseTaskName;
 
@@ -31,11 +34,8 @@ public class TaskSubmissionVO {
     @Schema(description = "提交人头像URL")
     private String submitterAvatarUrl;
 
-    @Schema(description = "上传文件ID")
-    private Long fileId;
-
-    @Schema(description = "上传文件名")
-    private String fileName;
+    @Schema(description = "提交元数据(JSON对象，按节点 metaSchema 组织)")
+    private String metadata;
 
     @Schema(description = "审核人ID（打回操作人）")
     private Long reviewerId;

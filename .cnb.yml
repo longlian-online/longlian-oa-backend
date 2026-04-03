@@ -16,7 +16,7 @@ sit:
             info: CURRENT_VERSION_TAG
 
         - name: build docker image
-          script: docker build -t $LATEST_VERSION_TAG -t $CURRENT_VERSION_TAG .
+          script: docker build -f devops/Dockerfile -t $LATEST_VERSION_TAG -t $CURRENT_VERSION_TAG .
 
         - name: push docker image
           script: docker push $LATEST_VERSION_TAG && docker push $CURRENT_VERSION_TAG
