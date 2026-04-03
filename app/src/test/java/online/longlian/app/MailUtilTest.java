@@ -1,6 +1,8 @@
 package online.longlian.app;
 
 import online.longlian.app.common.util.MailUtil;
+
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest
 @ActiveProfiles("dev")
+@Disabled // 邮件发送不自动执行
 class MailUtilTest {
 
     @Autowired
@@ -21,13 +24,16 @@ class MailUtilTest {
     @Value("${spring.mail.username:}")
     private String sender;
 
+    @Value("${longlian.display-name:longlian-oa}")
+    private String displayName;
+
     @Test
     void testSendEmail() {
         String receiver = "3474790137@qq.com";
         String title = "MailUtil";
         String content = "你好";
 
-        mailUtil.send(new MailUtil.SendParam(sender, receiver, title, content));
+        mailUtil.send(new MailUtil.SendParam(sender, receiver, this.displayName, title, content));
 
         System.out.println("测试邮件已发送，请检查收件箱/垃圾箱！发件人: " + sender + ", 收件人: " + receiver);
     }

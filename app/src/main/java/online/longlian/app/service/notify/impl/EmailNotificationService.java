@@ -21,17 +21,20 @@ public class EmailNotificationService implements NotificationService {
     private final String fromEmail;
     private final String templatePath;
     private final String htmlTemplate;
+    private final String appDisplayName;
 
     public EmailNotificationService(
             MailUtil mailUtil,
             ResourceLoader resourceLoader,
             @Value("${spring.mail.username}") String fromEmail,
+            @Value("${longlian.display-name}") String appDisplayName,
             @Value("${notify.email.template.path}") String templatePath) {
         this.resourceLoader = resourceLoader;
         this.mailUtil = mailUtil;
         this.fromEmail = fromEmail;
         this.templatePath = templatePath;
         this.htmlTemplate = loadHtmlTemplate();
+        this.appDisplayName = appDisplayName;
     }
 
     @Override
@@ -42,7 +45,7 @@ public class EmailNotificationService implements NotificationService {
     @Override
     public void send(String receiver, String code) {
         String htmlContent = htmlTemplate.replace("${code}", code).replace("${receiver}", receiver);
-        mailUtil.send(fromEmail, receiver, CommonConstants.NOTIFY_TITLE, htmlContent);
+        mailUtil.send(new MailUtil.SendParam(fromEmail, receiver, this.appDisplayName, CommonConstants.NOTIFY_TITLE, htmlContent));
     }
 
     private String loadHtmlTemplate() {

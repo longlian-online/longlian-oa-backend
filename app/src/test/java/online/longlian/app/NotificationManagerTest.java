@@ -1,6 +1,8 @@
 package online.longlian.app;
 
 import online.longlian.app.service.notify.NotificationManager;
+
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootTest // 关键：启动 Spring 上下文，加载所有配置和 Bean
 @ActiveProfiles("dev") // 加载 dev 环境的配置文件（如 application-dev.yml）
+@Disabled // 邮件发送不自动执行
 class NotificationManagerTest {
 
     // 注入 Spring 容器中真实的 NotificationManager（包含真实的 EmailNotificationService）
