@@ -1,7 +1,7 @@
 package online.longlian.app.common.constants;
 
 public class CommonConstants {
-    public static final String TRACE_ID = "traceId";
+    public static final String RESPONSE_HEADER_TRACE_ID = "X-Trace-Id";
     public static final String CONTENT_TYPE = "application/json;charset=UTF-8";
 
     public static final Long CODE_EXPIRE = 300L;

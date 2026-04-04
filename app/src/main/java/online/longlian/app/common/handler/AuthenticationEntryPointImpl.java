@@ -30,11 +30,8 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException, ServletException {
 
-        // 获取 traceId（如果有使用 MDC）
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
         String msg = (authException != null) ? authException.getMessage() : "未认证访问";
-        log.warn("认证失败 | traceId={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("认证失败 | msg={} | uri={} | method={}",
                 msg,
                 request.getRequestURI(),
                 request.getMethod()
