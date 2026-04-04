@@ -2,7 +2,6 @@ package online.longlian.app.common.handler;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
@@ -12,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -22,10 +23,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AppException.class)
     @ResponseBody
     public <T> Result<T> handleAppException(AppException appException, HttpServletRequest request) {
-        // 从 MDC 获取 traceId
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
-        log.warn("业务异常 | traceId={} | code={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("业务异常 | code={} | msg={} | uri={} | method={}",
                 appException.getCode(),
                 appException.getMsg(),
                 request.getRequestURI(),
@@ -37,8 +35,7 @@ public class GlobalExceptionHandler {
     @ResponseBody
     public <T> Result<T> handleAuthorizationDeniedException(AuthorizationDeniedException e, HttpServletRequest request) {
         String traceId = MDC.get("traceId");
-        log.warn("方法权限不足 | traceId={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("方法权限不足 | msg={} | uri={} | method={}",
                 e.getMessage(),
                 request.getRequestURI(),
                 request.getMethod());
@@ -47,19 +44,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseBody
     public <T> Result<T> handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
 
         String errorMsg = e.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getDefaultMessage())
                 .collect(Collectors.joining("；"));
 
-        log.warn("参数校验失败 | traceId={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("参数校验失败 | msg={} | uri={} | method={}",
                 errorMsg,
                 request.getRequestURI(),
                 request.getMethod());
 
         return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
+    }
+
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    @ResponseBody
+    public <T> Result<T> handleNotFoundException(Exception e, HttpServletRequest request) {
+        log.warn("请求资源不存在 | uri={} | method={}",
+                request.getRequestURI(),
+                request.getMethod());
+        return Result.fail(ResultCode.NOT_FOUND);
     }
 
     /**
@@ -68,10 +72,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public <T> Result<T> handleException(Exception exception, HttpServletRequest request) {
-        // 从 MDC 获取 traceId
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
-        log.error("系统内部异常 | traceId={} | uri={} | method={}",
-                traceId,
+        log.error("系统内部异常 | uri={} | method={}",
                 request.getRequestURI(),
                 request.getMethod(),
                 exception);

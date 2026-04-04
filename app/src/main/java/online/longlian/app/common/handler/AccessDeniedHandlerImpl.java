@@ -29,12 +29,8 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException, ServletException {
 
-        // 获取 traceId
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
-
         // 日志打印
-        log.warn("URL权限不足 | traceId={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("URL权限不足 |msg={} | uri={} | method={}",
                 accessDeniedException.getMessage(),
                 request.getRequestURI(),
                 request.getMethod()

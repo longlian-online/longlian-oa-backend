@@ -1,4 +1,4 @@
-package online.longlian.app.controller.user;
+package online.longlian.app.controller.orgadmin;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,17 +12,12 @@ import online.longlian.app.pojo.dto.ApplicationListDTO;
 import online.longlian.app.pojo.dto.ApplicationReviewDTO;
 import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.OrgMemberListDTO;
-import online.longlian.app.pojo.vo.ApplicationInfoVO;
-import online.longlian.app.pojo.vo.InviteCodeVO;
-import online.longlian.app.pojo.vo.InviteInfoVO;
-import online.longlian.app.pojo.vo.InviteLinkVO;
-import online.longlian.app.pojo.vo.OrgMemberInfoVO;
-import online.longlian.app.pojo.vo.PageResultVO;
+import online.longlian.app.pojo.vo.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
-@Tag(name = "组织成员管理接口", description = "组织成员管理：入组申请审核、组员列表、邀请")
+@Tag(name = "组织成员管理", description = "组织成员管理：入组申请审核、组员列表、邀请")
 @RequestMapping("/app/org/member")
 @RestController
 @RequiredArgsConstructor

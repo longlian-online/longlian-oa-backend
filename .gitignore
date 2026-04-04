@@ -19,6 +19,8 @@ target/
 *.iml
 *.ipr
 
+**/.env
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
@@ -33,3 +35,6 @@ build/
 .vscode/
 
 data/
+
+**/.env
+*.jar

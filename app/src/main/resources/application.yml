@@ -1,4 +1,5 @@
 longlian:
+  display-name: "longlian-oa" # 用于展示的系统名称
   datasource:
     type: ${DATASOURCE_TYPE:mysql}  # mysql 或 sqlite
   cache:
@@ -75,7 +76,8 @@ springdoc:
     enabled: ${SPRINGDOC_ENABLED:true}
   packages-to-scan:
     - online.longlian.app.controller.admin
-    - online.longlian.app.controller.user
+    - online.longlian.app.controller.orgadmin
+    - online.longlian.app.controller.app
 storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 COS
   local:

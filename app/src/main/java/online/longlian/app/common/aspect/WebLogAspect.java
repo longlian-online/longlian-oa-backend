@@ -15,7 +15,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Aspect
 @Component
 public class WebLogAspect {
-    private static final String TRACE_ID = "traceId";
     /**
      * 拦截 Controller 的所有 public 方法
      * 仅打印请求开始/结束日志及耗时
@@ -26,11 +25,9 @@ public class WebLogAspect {
         // 获取请求信息
         ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         HttpServletRequest request = attrs.getRequest();
-        String traceId = MDC.get(TRACE_ID);
         // 打印请求开始日志
         Object[] args = joinPoint.getArgs();
-        log.info("请求开始 | traceId={} | uri={} | method={} | classMethod={} | args={}",
-                traceId,
+        log.info("请求开始 | uri={} | method={} | classMethod={} | args={}",
                 request.getRequestURI(),
                 request.getMethod(),
                 joinPoint.getSignature(),
@@ -39,8 +36,7 @@ public class WebLogAspect {
         Object result = joinPoint.proceed();
         long elapsed = System.currentTimeMillis() - startTime;
         // 打印请求结束日志
-        log.info("请求结束 | traceId={} | uri={} | method={} | classMethod={} | elapsed={}ms | response={}",
-                traceId,
+        log.info("请求结束 | uri={} | method={} | classMethod={} | elapsed={}ms | response={}",
                 request.getRequestURI(),
                 request.getMethod(),
                 joinPoint.getSignature(),
