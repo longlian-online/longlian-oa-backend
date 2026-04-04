@@ -1,12 +1,13 @@
 package online.longlian.app.common.filter;
 
 import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletResponse;
 import online.longlian.app.common.constants.CommonConstants;
-import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.UUID;
+
+import static online.longlian.app.common.util.TraceIdUtil.getTraceId;
 
 @Component
 public class TraceIdFilter implements Filter {
@@ -15,15 +16,13 @@ public class TraceIdFilter implements Filter {
     public void doFilter(ServletRequest request,
                          ServletResponse response,
                          FilterChain chain) throws IOException, ServletException {
-        try {
-            // 生成 TraceId
-            String traceId = UUID.randomUUID().toString().replace("-", "");
-            // 放入 MDC
-            MDC.put(CommonConstants.TRACE_ID, traceId);
+        String traceId = getTraceId();
 
-            chain.doFilter(request, response);
-        } finally {
-            MDC.remove(CommonConstants.TRACE_ID);
+        // 将 traceId 写入响应头返回给前端
+        if (response instanceof HttpServletResponse) {
+            ((HttpServletResponse) response).setHeader(CommonConstants.RESPONSE_HEADER_TRACE_ID, traceId);
         }
+
+        chain.doFilter(request, response);
     }
 }

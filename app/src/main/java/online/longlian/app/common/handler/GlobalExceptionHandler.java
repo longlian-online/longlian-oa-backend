@@ -22,10 +22,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AppException.class)
     @ResponseBody
     public <T> Result<T> handleAppException(AppException appException, HttpServletRequest request) {
-        // 从 MDC 获取 traceId
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
-        log.warn("业务异常 | traceId={} | code={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("业务异常 | code={} | msg={} | uri={} | method={}",
                 appException.getCode(),
                 appException.getMsg(),
                 request.getRequestURI(),
@@ -47,14 +44,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseBody
     public <T> Result<T> handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
 
         String errorMsg = e.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getDefaultMessage())
                 .collect(Collectors.joining("；"));
 
-        log.warn("参数校验失败 | traceId={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("参数校验失败 | msg={} | uri={} | method={}",
                 errorMsg,
                 request.getRequestURI(),
                 request.getMethod());
@@ -68,10 +63,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public <T> Result<T> handleException(Exception exception, HttpServletRequest request) {
-        // 从 MDC 获取 traceId
-        String traceId = MDC.get(CommonConstants.TRACE_ID);
-        log.error("系统内部异常 | traceId={} | uri={} | method={}",
-                traceId,
+        log.error("系统内部异常 | uri={} | method={}",
                 request.getRequestURI(),
                 request.getMethod(),
                 exception);

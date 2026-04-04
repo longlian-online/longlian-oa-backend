@@ -17,15 +17,19 @@ COPY app/src app/src
 # 构建 app 模块
 RUN mvn package -DskipTests -B -pl app -am
 
+# 下载 OpenTelemetry Java Agent
+RUN curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar
+
 # 2. 运行阶段
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# 从构建阶段复制打好的 jar 包
+# 从构建阶段复制打好的 jar 包和 OpenTelemetry agent
 COPY --from=build /app/app/target/*.jar app.jar
+COPY --from=build /app/opentelemetry-javaagent.jar opentelemetry-javaagent.jar
 
-# JVM 运行参数
-ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
+# JVM 运行参数（包含 OpenTelemetry Java Agent）
+ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom -javaagent:/app/opentelemetry-javaagent.jar"
 
 # 暴露服务端口
 EXPOSE 8080
