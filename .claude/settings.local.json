@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose -f devops/docker-compose.dev.yml down --rmi local)"
+    ]
+  }
+}

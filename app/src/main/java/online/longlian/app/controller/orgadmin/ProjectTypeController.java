@@ -1,4 +1,4 @@
-package online.longlian.app.controller.user;
+package online.longlian.app.controller.orgadmin;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,7 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
-@Tag(name = "企划类型管理接口", description = "企划类型的增删改查与状态管理，仅管理员可操作")
+@Tag(name = "企划类型管理", description = "企划类型的增删改查与状态管理，仅管理员可操作")
 @RequestMapping("/app/project/type")
 @RestController
 @RequiredArgsConstructor

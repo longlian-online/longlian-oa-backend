@@ -1,4 +1,4 @@
-package online.longlian.app.controller.user;
+package online.longlian.app.controller.app;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
