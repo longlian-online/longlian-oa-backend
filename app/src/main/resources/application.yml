@@ -76,7 +76,8 @@ springdoc:
     enabled: ${SPRINGDOC_ENABLED:true}
   packages-to-scan:
     - online.longlian.app.controller.admin
-    - online.longlian.app.controller.user
+    - online.longlian.app.controller.orgadmin
+    - online.longlian.app.controller.app
 storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 COS
   local:

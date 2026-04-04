@@ -58,10 +58,7 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/swagger-ui/**"),
                                 new AntPathRequestMatcher("/v3/api-docs/**"),
-                                new AntPathRequestMatcher("/swagger-resources/**"),
-                                new AntPathRequestMatcher("/webjars/**"),
-                                // 静态资源
-                                new AntPathRequestMatcher("/favicon.ico")
+                                new AntPathRequestMatcher("/swagger-resources/**")
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

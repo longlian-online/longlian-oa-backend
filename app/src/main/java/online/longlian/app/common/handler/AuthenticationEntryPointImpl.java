@@ -4,15 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
-import org.slf4j.MDC;
+import org.springframework.web.servlet.HandlerExecutionChain;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.io.IOException;
 
@@ -21,14 +24,32 @@ import java.io.IOException;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+    private final RequestMappingHandlerMapping requestMappingHandlerMapping;
 
     @Override
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException, ServletException {
+
+
+        try {
+            HandlerExecutionChain handlerExecutionChain = requestMappingHandlerMapping.getHandler(request);
+            if (handlerExecutionChain == null) {
+                log.warn("请求资源不存在 | uri={} | method={}",
+                        request.getRequestURI(),
+                        request.getMethod());
+                response.setContentType(CommonConstants.CONTENT_TYPE);
+                response.setStatus(HttpStatus.NOT_FOUND.value());
+                response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.NOT_FOUND)));
+                return;
+            }
+        } catch (Exception e) {
+            throw new AppException(ResultCode.FAIL);
+        }
 
         String msg = (authException != null) ? authException.getMessage() : "未认证访问";
         log.warn("认证失败 | msg={} | uri={} | method={}",
@@ -36,15 +57,8 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                 request.getRequestURI(),
                 request.getMethod()
         );
-
-        // 设置响应头（JSON格式、编码）
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
-
-        // 封装统一响应
-        Result<Void> result = Result.fail(ResultCode.UNAUTHORIZED);
-
-        // 写入响应体
-        response.getWriter().write(objectMapper.writeValueAsString(result));
+        response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.UNAUTHORIZED)));
     }
 }

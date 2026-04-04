@@ -2,7 +2,6 @@ package online.longlian.app.common.handler;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
@@ -12,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -34,8 +35,7 @@ public class GlobalExceptionHandler {
     @ResponseBody
     public <T> Result<T> handleAuthorizationDeniedException(AuthorizationDeniedException e, HttpServletRequest request) {
         String traceId = MDC.get("traceId");
-        log.warn("方法权限不足 | traceId={} | msg={} | uri={} | method={}",
-                traceId,
+        log.warn("方法权限不足 | msg={} | uri={} | method={}",
                 e.getMessage(),
                 request.getRequestURI(),
                 request.getMethod());
@@ -55,6 +55,15 @@ public class GlobalExceptionHandler {
                 request.getMethod());
 
         return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
+    }
+
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    @ResponseBody
+    public <T> Result<T> handleNotFoundException(Exception e, HttpServletRequest request) {
+        log.warn("请求资源不存在 | uri={} | method={}",
+                request.getRequestURI(),
+                request.getMethod());
+        return Result.fail(ResultCode.NOT_FOUND);
     }
 
     /**
