@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.dto.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.TaskTemplateCreateDTO;
 import online.longlian.app.pojo.dto.TaskTemplateListDTO;
 import online.longlian.app.pojo.vo.PageResultVO;
@@ -77,18 +78,14 @@ public class TaskTemplateController {
     }
 
     @Operation(
-        summary = "启用/禁用任务模板",
-        description = "禁用后无法基于该模板创建新任务流，已有任务流不受影响。status: 1-启用，0-禁用"
+            summary = "启用/禁用任务模板",
+            description = "禁用后无法基于该模板创建新任务流，已有任务流不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
-    @Parameter(name = "templateId", description = "任务模板ID")
-    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
-    @PatchMapping("/{templateId}/status")
+    @PatchMapping("/task-template/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeTaskTemplateStatus(
-            @PathVariable Long templateId,
-            @RequestParam Status status) {
+    public Result<Void> changeTaskTemplateStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
-        // return taskTemplateService.changeTaskTemplateStatus(templateId, status);
+        // taskTemplateService.changeTaskTemplateStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
 }

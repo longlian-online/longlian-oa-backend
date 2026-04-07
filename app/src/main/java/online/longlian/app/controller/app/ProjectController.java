@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.ProjectAdminListDTO;
-import online.longlian.app.pojo.dto.ProjectCreateDTO;
-import online.longlian.app.pojo.dto.ProjectListDTO;
-import online.longlian.app.pojo.dto.ProjectUpdateDTO;
+import online.longlian.app.pojo.dto.*;
 import online.longlian.app.pojo.vo.PageResultVO;
 import online.longlian.app.pojo.vo.ProjectAdminInfoVO;
 import online.longlian.app.pojo.vo.ProjectDetailInfoVO;
@@ -121,16 +118,12 @@ public class ProjectController {
         // return projectService.getAdminProjectList(projectAdminListDTO);
         return Result.success("查询成功", null);
     }
-    @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: 1-启用，0-禁用")
-    @Parameter(name = "projectId", description = "企划ID")
-    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
-    @PatchMapping("/{projectId}/status")
+    @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: ENABLED-启用，DISABLED-禁用")
+    @PatchMapping("/project/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeProjectStatus(
-            @PathVariable Long projectId,
-            @RequestParam Status status) {
+    public Result<Void> changeProjectStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
-        // return projectService.changeProjectStatus(projectId, status);
+        // projectService.changeProjectStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
 }

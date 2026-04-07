@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.dto.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.ProjectTypeCreateDTO;
 import online.longlian.app.pojo.dto.ProjectTypeListDTO;
 import online.longlian.app.pojo.vo.PageResultVO;
@@ -44,16 +45,13 @@ public class ProjectTypeController {
         return Result.success("创建成功");
     }
 
-    @Operation(summary = "启用/禁用企划类型", description = "禁用后用户端不展示该类型，但已有数据保留。status: 1-启用，0-禁用")
-    @Parameter(name = "typeId", description = "企划类型ID")
-    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
-    @PatchMapping("/{typeId}/status")
+    @Operation(summary = "启用/禁用企划类型", description = "禁用后用户端不展示该类型，但已有数据保留。status: ENABLED-启用，DISABLED-禁用")
+    @PatchMapping("/project-type/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeProjectTypeStatus(
-            @PathVariable Long typeId,
-            @RequestParam Status status) {
+    public Result<Void> changeProjectTypeStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
-        // return projectTypeService.changeProjectTypeStatus(typeId, status);
+        // projectTypeService.changeProjectTypeStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
+
 }

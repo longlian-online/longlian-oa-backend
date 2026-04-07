@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.ApplicationListDTO;
-import online.longlian.app.pojo.dto.ApplicationReviewDTO;
-import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
-import online.longlian.app.pojo.dto.OrgMemberListDTO;
+import online.longlian.app.pojo.dto.*;
 import online.longlian.app.pojo.vo.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -75,21 +72,16 @@ public class OrganizationMemberController {
     }
 
     @Operation(
-        summary = "启用/禁用组员",
-        description = "禁用后用户无法登录；超管身份不可被禁用。status: 1-启用，0-禁用"
+            summary = "启用/禁用组员",
+            description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
     )
-    @Parameter(name = "memberId", description = "成员记录ID（organization_member.id）")
-    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
-    @PatchMapping("/{memberId}/status")
+    @PatchMapping("/member/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeMemberStatus(
-            @PathVariable Long memberId,
-            @RequestParam Status status) {
+    public Result<Void> changeMemberStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
-        // return organizationMemberService.changeMemberStatus(memberId, status);
+        // organizationMemberService.changeMemberStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
-
     // -------------------------
     // 邀请（管理员生成）
     // -------------------------
