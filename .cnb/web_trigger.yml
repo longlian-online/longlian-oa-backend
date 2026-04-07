@@ -1,0 +1,7 @@
+branch:
+  - reg: sit
+    buttons:
+      - name: 部署
+        description: 部署到测试服
+        event: web_trigger_one
+        isDefault: false

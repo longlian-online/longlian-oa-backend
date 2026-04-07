@@ -36,4 +36,40 @@ sit:
               sudo docker stop ${APP_NAME} || true
               sudo docker rm ${APP_NAME} || true
               sudo docker run --network ${NET_WORK} --restart=always -d --name ${APP_NAME} --env-file ${ENV_FILE} -p 8018:8080 ${LATEST_VERSION_TAG}
+  web_trigger_one:
+    - services:
+        - docker
+      imports: https://cnb.cool/longlian.online/env/-/blob/main/longlian-backend-sit.yml
 
+      stages:
+        - name: get latest version tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest"
+          exports:
+            info: LATEST_VERSION_TAG 
+
+        - name: get current version tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_COMMIT_SHORT}"
+          exports:
+            info: CURRENT_VERSION_TAG
+
+        - name: build docker image
+          script: docker build -f devops/Dockerfile -t $LATEST_VERSION_TAG -t $CURRENT_VERSION_TAG .
+
+        - name: push docker image
+          script: docker push $LATEST_VERSION_TAG && docker push $CURRENT_VERSION_TAG
+
+        - name: deploy to server
+          image: tencentcom/ssh
+          settings:
+            host:
+              - $REMOTE_HOST
+            username: $REMOTE_USERNAME
+            password: $REMOTE_PASSWORD
+            port: $REMOTE_PORT
+            command_timeout: 2m
+            script: |
+              sudo docker login -u "${CNB_DOCKER_USERNAME}" -p "${CNB_DOCKER_PASSWORD}" "${CNB_DOCKER_URL}"
+              sudo docker pull ${LATEST_VERSION_TAG}
+              sudo docker stop ${APP_NAME} || true
+              sudo docker rm ${APP_NAME} || true
+              sudo docker run --network ${NET_WORK} --restart=always -d --name ${APP_NAME} --env-file ${ENV_FILE} -p 8018:8080 ${LATEST_VERSION_TAG}
