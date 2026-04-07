@@ -10,6 +10,7 @@ import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.BaseTaskCreateDTO;
 import online.longlian.app.pojo.dto.BaseTaskListDTO;
+import online.longlian.app.pojo.dto.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.BaseTaskVO;
 import online.longlian.app.pojo.vo.PageResultVO;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -51,18 +52,14 @@ public class BaseTaskController {
     }
 
     @Operation(
-        summary = "启用/禁用原子任务",
-        description = "禁用后该任务无法被添加到新模板节点中，已引用的节点不受影响。status: 1-启用，0-禁用"
+            summary = "启用/禁用原子任务",
+            description = "禁用后该任务无法被添加到新模板节点中，已引用的节点不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
-    @Parameter(name = "baseTaskId", description = "原子任务ID")
-    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
-    @PatchMapping("/{baseTaskId}/status")
+    @PatchMapping("/base-task/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeBaseTaskStatus(
-            @PathVariable Long baseTaskId,
-            @RequestParam Status status) {
+    public Result<Void> changeBaseTaskStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
-        // return baseTaskService.changeBaseTaskStatus(baseTaskId, status);
+        // baseTaskService.changeBaseTaskStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
 }

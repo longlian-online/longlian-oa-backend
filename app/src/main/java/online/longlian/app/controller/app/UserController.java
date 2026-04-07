@@ -14,10 +14,15 @@ import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
 import online.longlian.app.pojo.dto.RegisterByInviteDTO;
 import online.longlian.app.pojo.vo.LoginVO;
+import online.longlian.app.pojo.vo.OrgDetailInfoVO;
+import online.longlian.app.pojo.vo.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
 import online.longlian.app.service.user.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @Tag(name = "用户管理接口", description = "用户相关的基础操作接口")
@@ -84,5 +89,23 @@ public class UserController {
     @PostMapping("/logout")
     public Result<Void> logout(HttpServletRequest request) {
         return userService.logout(request);
+    }
+
+    @Operation(summary = "获取用户加入的组织列表", description = "根据用户ID查询用户加入的组织列表")
+    @Parameter(name = "userId", description = "用户ID")
+    @GetMapping("/user-join/{userId}")
+    public Result<List<OrgSimpleInfoVO>> getOrgSimpleInfo(@PathVariable Long userId) {
+        // TODO
+        // return organizationService.getOrgSimpleInfo(userId);
+        return Result.success(null);
+    }
+
+    @Operation(summary = "获取当前组织详细信息")
+    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @GetMapping("/detail")
+    public Result<OrgDetailInfoVO> getOrgDetailInfo() {
+        // TODO
+        // return organizationService.getOrgDetailInfo();
+        return Result.success(null);
     }
 }

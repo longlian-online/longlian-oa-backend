@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.dto.ChangeStatusDTO;
+import online.longlian.app.pojo.dto.OrgIdDTO;
 import online.longlian.app.pojo.dto.OrgListDTO;
 import online.longlian.app.pojo.dto.OrgUpdateDTO;
 import online.longlian.app.pojo.vo.InviteLinkVO;
@@ -29,30 +31,12 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    @Operation(summary = "获取用户加入的组织列表", description = "根据用户ID查询用户加入的组织列表")
-    @Parameter(name = "userId", description = "用户ID")
-    @GetMapping("/user-join/{userId}")
-    public Result<List<OrgSimpleInfoVO>> getOrgSimpleInfo(@PathVariable Long userId) {
-        // TODO
-        // return organizationService.getOrgSimpleInfo(userId);
-        return Result.success(null);
-    }
-
     @Operation(summary = "切换组织", description = "切换用户当前所在组织")
-    @Parameter(name = "orgId", description = "目标组织ID")
-    @PostMapping("/switch/{orgId}")
-    public Result<UserOrgSwitchVO> switchOrg(@PathVariable Long orgId) {
+    @PostMapping("/switch")
+    public Result<UserOrgSwitchVO> switchOrg(
+            @RequestBody OrgIdDTO orgIdDTO) {
         // TODO
-        // return organizationService.switchOrg(orgId);
-        return Result.success(null);
-    }
-
-    @Operation(summary = "获取当前组织详细信息")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    @GetMapping("/detail")
-    public Result<OrgDetailInfoVO> getOrgDetailInfo() {
-        // TODO
-        // return organizationService.getOrgDetailInfo();
+        // return organizationService.switchOrg(orgIdDTO.getOrgId);
         return Result.success(null);
     }
 
@@ -87,14 +71,12 @@ public class OrganizationController {
         return Result.success("生成成功", null);
     }
 
-    @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: 1-启用，0-禁用")
-    @Parameter(name = "orgId", description = "组织ID")
-    @Parameter(name = "status", description = "目标状态：1-启用，0-禁用")
-    @PatchMapping("/{orgId}/status")
+    @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
+    @PatchMapping("/status")
     @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
-    public Result<Void> changeOrgStatus(@PathVariable Long orgId, @RequestParam Integer status) {
+    public Result<Void> changeOrgStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
-        // return organizationService.changeOrgStatus(orgId, status);
+        // organizationService.changeOrgStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
 }
