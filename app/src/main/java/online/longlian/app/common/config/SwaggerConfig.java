@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -38,5 +39,29 @@ public class SwaggerConfig {
                 // 全局启用 Token 授权（所有接口默认携带 Token 请求头）
                 .addSecurityItem(new SecurityRequirement().addList("Authorization"));
 
+    }
+
+    @Bean
+    public GroupedOpenApi adminApi() {
+        return GroupedOpenApi.builder()
+                .group("管理端") // 分组名称
+                .packagesToScan("online.longlian.app.controller.admin")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi appApi() {
+        return GroupedOpenApi.builder()
+                .group("用户端")
+                .packagesToScan("online.longlian.app.controller.app")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi orgAdminApi() {
+        return GroupedOpenApi.builder()
+                .group("组织管理端")
+                .packagesToScan("online.longlian.app.controller.orgadmin")
+                .build();
     }
 }

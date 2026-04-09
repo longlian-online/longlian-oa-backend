@@ -24,7 +24,7 @@ import java.util.List;
 
 @Slf4j
 @Tag(name = "组织接口", description = "组织相关接口")
-@RequestMapping("/app/org")
+@RequestMapping("/admin/org")
 @RestController
 @RequiredArgsConstructor
 public class OrganizationController {

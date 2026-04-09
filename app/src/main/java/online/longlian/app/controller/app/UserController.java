@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
-@Tag(name = "用户管理接口", description = "用户相关的基础操作接口")
+@Tag(name = "用户接口", description = "用户相关的基础操作接口")
 @RequestMapping("/app/user")
 @RestController
 @RequiredArgsConstructor
