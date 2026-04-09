@@ -61,7 +61,7 @@ public class ProjectController {
     }
 
     @Operation(summary = "创建企划")
-    @PostMapping
+    @PostMapping("")
     public Result<Void> createProject(
             @RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
         // TODO

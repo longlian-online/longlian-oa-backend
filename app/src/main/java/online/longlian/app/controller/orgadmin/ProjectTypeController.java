@@ -29,7 +29,7 @@ public class ProjectTypeController {
     @Operation(summary = "分页查询企划类型列表", description = "支持名称模糊搜索，默认按创建时间倒序")
     @GetMapping("")
     public Result<PageResultVO<ProjectTypeAdminVO>> listProjectTypes(
-            @RequestBody @Valid ProjectTypeListDTO projectTypeListDTO) {
+            @RequestParam @Valid ProjectTypeListDTO projectTypeListDTO) {
         // TODO
         // return projectTypeService.listProjectTypes(projectTypeListDTO);
         return Result.success("查询成功", null);
