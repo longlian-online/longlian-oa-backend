@@ -26,6 +26,8 @@ import online.longlian.app.mapper.RoleMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.UserRoleMapper;
 import online.longlian.app.pojo.bo.InviteCacheBO;
+import online.longlian.app.pojo.bo.InviteCodeCacheBO;
+import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
 import online.longlian.app.pojo.dto.RegisterByInviteDTO;
@@ -191,6 +193,42 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return Result.success("登出成功");
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
+        Long userId = ThreadLocalUtil.getUserBO().getId();
+        Long orgId = getInviteCodeData(joinByInviteCodeDTO.getInviteCode()).getOrgId();
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() == Status.DISABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
+        }
+
+        // 已是成员或已有申请时不允许重复提交
+        if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getUserId, userId)) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "你已加入该组织");
+        }
+        if (groupApplicationMapper.selectOne(new LambdaQueryWrapper<GroupApplication>()
+                .eq(GroupApplication::getOrgId, orgId)
+                .eq(GroupApplication::getUserId, userId)) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "请勿重复提交入组申请");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        GroupApplication application = GroupApplication.builder()
+                .orgId(orgId)
+                .userId(userId)
+                .status(ApplicationStatus.PENDING)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        groupApplicationMapper.insert(application);
+        // 邀请码一次性使用，提交申请后删除
+        redisTemplate.delete(RedisConstants.INVITE_CODE + joinByInviteCodeDTO.getInviteCode());
+        return Result.success("申请已提交，等待管理员审核");
+    }
+
     private void validateRegisterRequest(RegisterByInviteDTO registerByInviteDTO) {
         if (!registerByInviteDTO.getPassword().equals(registerByInviteDTO.getConfirmPassword())) {
             throw new AppException(ResultCode.PARAM_ERROR, "两次输入的密码不一致");
@@ -268,6 +306,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organization == null|| organization.getStatus() == Status.DISABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
         }
+    }
+
+    private InviteCodeCacheBO getInviteCodeData(String inviteCode) {
+        InviteCodeCacheBO inviteCodeData = (InviteCodeCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_CODE + inviteCode);
+        if (inviteCodeData == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在或已过期");
+        }
+        return inviteCodeData;
     }
 
     private void bindRole(Long userId, LocalDateTime now) {

@@ -14,5 +14,4 @@ public interface OrganizationMemberService {
 
     Result<InviteInfoVO> getInviteOrgInfo(String inviteToken);
 
-    Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO);
 }

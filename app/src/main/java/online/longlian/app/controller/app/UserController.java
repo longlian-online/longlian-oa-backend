@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
 import online.longlian.app.pojo.dto.RegisterByInviteDTO;
@@ -18,6 +19,7 @@ import online.longlian.app.pojo.vo.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
+import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.app.service.user.UserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +35,7 @@ public class UserController {
 
     private final UserService userService;
     private final VerifyCodeService verifyCodeService;
+    private final OrganizationMemberService organizationMemberService;
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/login/pwd")
@@ -89,7 +92,7 @@ public class UserController {
 
     @Operation(summary = "获取用户加入的组织列表", description = "根据用户ID查询用户加入的组织列表")
     @Parameter(name = "userId", description = "用户ID")
-    @GetMapping("/user-join/{userId}")
+    @GetMapping("/user-joined/{userId}")
     public Result<List<OrgSimpleInfoVO>> getOrgSimpleInfo(@PathVariable Long userId) {
         // TODO
         // return organizationService.getOrgSimpleInfo(userId);
@@ -103,5 +106,15 @@ public class UserController {
         // TODO
         // return organizationService.getOrgDetailInfo();
         return Result.success(null);
+    }
+
+    @Operation(
+            summary = "通过邀请码加入组织（已登录用户）",
+            description = "已登录用户输入管理员提供的邀请码，自动提交入组申请，等待管理员审核通过后正式加入"
+    )
+    @PostMapping("/join-org")
+    public Result<Void> joinByInviteCode(
+            @RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
+        return userService.joinByInviteCode(joinByInviteCodeDTO);
     }
 }

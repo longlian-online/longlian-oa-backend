@@ -120,17 +120,4 @@ public class OrganizationMemberController {
         return organizationMemberService.getInviteOrgInfo(inviteToken);
     }
 
-    // -------------------------
-    // 邀请（用户使用）
-    // -------------------------
-
-    @Operation(
-        summary = "通过邀请码加入组织（已登录用户）",
-        description = "已登录用户输入管理员提供的邀请码，自动提交入组申请，等待管理员审核通过后正式加入"
-    )
-    @PostMapping("/join")
-    public Result<Void> joinByInviteCode(
-            @RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        return organizationMemberService.joinByInviteCode(joinByInviteCodeDTO);
-    }
 }

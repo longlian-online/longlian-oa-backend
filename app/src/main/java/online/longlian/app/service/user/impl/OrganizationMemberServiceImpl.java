@@ -118,39 +118,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         return Result.success("查询成功", inviteInfoVO);
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        Long userId = ThreadLocalUtil.getUserBO().getId();
-        Long orgId = getInviteCodeData(joinByInviteCodeDTO.getInviteCode()).getOrgId();
-        getEnabledOrganization(orgId);
-
-        // 已是成员或已有申请时不允许重复提交
-        if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getUserId, userId)) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "你已加入该组织");
-        }
-        if (groupApplicationMapper.selectOne(new LambdaQueryWrapper<GroupApplication>()
-                .eq(GroupApplication::getOrgId, orgId)
-                .eq(GroupApplication::getUserId, userId)) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "请勿重复提交入组申请");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        GroupApplication application = GroupApplication.builder()
-                .orgId(orgId)
-                .userId(userId)
-                .status(ApplicationStatus.PENDING)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        groupApplicationMapper.insert(application);
-        // 邀请码一次性使用，提交申请后删除
-        redisTemplate.delete(RedisConstants.INVITE_CODE + joinByInviteCodeDTO.getInviteCode());
-        return Result.success("申请已提交，等待管理员审核");
-    }
-
     private Long getCurrentOrgId() {
         Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + ThreadLocalUtil.getUserBO().getId());
         if (currentOrgId == null) {
@@ -175,11 +142,4 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         return inviteData;
     }
 
-    private InviteCodeCacheBO getInviteCodeData(String inviteCode) {
-        InviteCodeCacheBO inviteCodeData = (InviteCodeCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_CODE + inviteCode);
-        if (inviteCodeData == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在或已过期");
-        }
-        return inviteCodeData;
-    }
 }
