@@ -66,9 +66,7 @@ public class OrganizationController {
     @PostMapping("/invite/link")
     @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
     public Result<InviteLinkVO> generateInviteLink() {
-        // TODO
-        // return organizationService.generateInviteLink();
-        return Result.success("生成成功", null);
+        return organizationService.generateInviteLink();
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")

@@ -63,17 +63,13 @@ public class UserController {
     )
     @PostMapping("/register/invite")
     public Result<Void> registerByInvite(@RequestBody @Valid RegisterByInviteDTO registerByInviteDTO) {
-        // TODO
-        // userService.registerByInvite(registerByInviteDTO);
-        return Result.success("注册成功");
+        return userService.registerByInvite(registerByInviteDTO);
     }
 
     @Operation(summary = "获取当前登录用户信息", description = "返回当前 Token 对应的用户信息")
     @GetMapping("/info/me")
     public Result<UserInfoVO> getMyInfo() {
-        // TODO
-        // return userService.getMyInfo();
-        return Result.success("查询成功", null);
+        return userService.getMyInfo();
     }
 
     @Operation(summary = "获取指定用户信息", description = "根据用户ID查询用户基本信息（昵称、头像、邮箱、用户名等）")

@@ -4,9 +4,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.LoginByPwdDTO;
+import online.longlian.app.pojo.dto.RegisterByInviteDTO;
 import online.longlian.app.pojo.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import online.longlian.app.pojo.vo.LoginVO;
+import online.longlian.app.pojo.vo.UserInfoVO;
 
 /**
  * <p>
@@ -20,6 +22,10 @@ public interface UserService extends IService<User> {
     Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO);
 
     Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO);
+
+    Result<Void> registerByInvite(RegisterByInviteDTO registerByInviteDTO);
+
+    Result<UserInfoVO> getMyInfo();
 
     Result<Void> logout(HttpServletRequest request);
 }

@@ -5,10 +5,13 @@ public class RedisConstants {
 
     public static final String LOGIN_USER = "login:user:";
 
-    public static final Integer EXPIRE_TIME = 24*60*60;
+    public static final Integer EXPIRE_TIME = 24 * 60 * 60;
 
     public static final String CODE_KEY = "verify:code:";
     public static final String LIMIT_KEY = "verify:limit:";
 
     public static final String CURRENT_ORG = "currentOrg:user:";
+
+    public static final String INVITE_LINK = "invite:link:";
+    public static final String INVITE_CODE = "invite:code:";
 }

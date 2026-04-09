@@ -6,10 +6,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.*;
 import online.longlian.app.pojo.vo.*;
+import online.longlian.app.service.user.OrganizationMemberService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class OrganizationMemberController {
 
-    // private final OrganizationMemberService organizationMemberService;
+    private final OrganizationMemberService organizationMemberService;
 
     // -------------------------
     // 入组申请
@@ -82,6 +82,7 @@ public class OrganizationMemberController {
         // organizationMemberService.changeMemberStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
+
     // -------------------------
     // 邀请（管理员生成）
     // -------------------------
@@ -93,9 +94,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite/link")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<InviteLinkVO> generateInviteLink() {
-        // TODO
-        // return organizationMemberService.generateInviteLink();
-        return Result.success("生成成功", null);
+        return organizationMemberService.generateInviteLink();
     }
 
     @Operation(
@@ -120,9 +119,7 @@ public class OrganizationMemberController {
     )
     @GetMapping("/invite/info")
     public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteToken) {
-        // TODO
-        // return organizationMemberService.getInviteOrgInfo(inviteToken);
-        return Result.success("查询成功", null);
+        return organizationMemberService.getInviteOrgInfo(inviteToken);
     }
 
     // -------------------------
