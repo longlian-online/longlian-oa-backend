@@ -39,7 +39,7 @@ public class ItemController {
     @GetMapping("")
     public Result<PageResultVO<ProjectItemListVO>> listProjectItems(
             @PathVariable Long projectId,
-            @RequestBody @Valid ProjectItemListDTO projectItemListDTO) {
+            @RequestParam @Valid ProjectItemListDTO projectItemListDTO) {
         // TODO
         // return itemService.listProjectItems(projectId, projectItemListDTO);
         return Result.success("查询成功", null);

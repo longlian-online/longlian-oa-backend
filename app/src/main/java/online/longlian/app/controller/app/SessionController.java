@@ -40,8 +40,7 @@ public class SessionController {
     }
 
     @Operation(summary = "发送邮箱验证码", security = {})
-    @Parameter(name = "email", description = "接收验证码的邮箱", required = true, example = "test@longlian.com")
-    @GetMapping("/email/code")
+    @PostMapping("/email/code")
     public Result<Void> sendCode(@RequestBody EmailLoginCodeDTO emailLoginCodeDTO) {
         if (!verifyCodeService.sendCode(emailLoginCodeDTO.getEmail())) {
             throw new AppException(ResultCode.OPERATION_FAIL, "验证码发送失败");
