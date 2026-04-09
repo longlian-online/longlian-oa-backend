@@ -62,6 +62,8 @@ public class CodeGenerator {
 
                             .controllerBuilder()
                             .disable()
+                            .serviceBuilder()
+                            .disable()
                             .mapperBuilder()
                             .enableMapperAnnotation()
                             .formatMapperFileName("%sMapper")
@@ -76,9 +78,6 @@ public class CodeGenerator {
                 new AnnotationConfigServletWebServerApplicationContext();
 
         ConfigurableEnvironment env = context.getEnvironment();
-        env.setActiveProfiles("dev");
-
-        loadYaml(env, "app/src/main/resources/application-dev.yml", "devYaml");
 
         loadYaml(env, "app/src/main/resources/application.yml", "appYaml");
 
