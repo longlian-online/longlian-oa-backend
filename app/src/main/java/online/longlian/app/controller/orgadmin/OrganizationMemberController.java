@@ -15,9 +15,10 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @Tag(name = "组织成员管理", description = "组织成员管理：入组申请审核、组员列表、邀请")
-@RequestMapping("/app/org/member")
+@RequestMapping("/orgadmin/members")
 @RestController
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ORG_ADMIN')")
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
@@ -31,7 +32,6 @@ public class OrganizationMemberController {
         description = "仅返回 status=PENDING(待审核) 的申请，默认按申请时间倒序"
     )
     @PostMapping("/applications")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<PageResultVO<ApplicationInfoVO>> listApplications(
             @RequestBody @Valid ApplicationListDTO applicationListDTO) {
         // TODO
@@ -45,7 +45,6 @@ public class OrganizationMemberController {
     )
     @Parameter(name = "applicationId", description = "入组申请ID")
     @PutMapping("/applications/{applicationId}/review")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> reviewApplication(
             @PathVariable Long applicationId,
             @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
@@ -62,8 +61,7 @@ public class OrganizationMemberController {
         summary = "分页查询组员列表",
         description = "仅返回已通过审核的成员，默认按入组时间倒序"
     )
-    @PostMapping("/list")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PostMapping("")
     public Result<PageResultVO<OrgMemberInfoVO>> listMembers(
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
         // TODO
@@ -75,9 +73,8 @@ public class OrganizationMemberController {
             summary = "启用/禁用组员",
             description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
     )
-    @PatchMapping("/member/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeMemberStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+    @PatchMapping("/{memberId}/status")
+    public Result<Void> changeMemberStatus(@PathVariable Long memberId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
         // organizationMemberService.changeMemberStatus(changeStatusDTO.getStatus());
         return Result.success(null);
@@ -86,38 +83,12 @@ public class OrganizationMemberController {
     // -------------------------
     // 邀请（管理员生成）
     // -------------------------
-
-    @Operation(
-        summary = "生成邀请链接（管理员）",
-        description = "生成一次性邀请链接，有效期30分钟；供新用户注册并提交入组申请使用。注册页需先通过 inviteToken 查询组织信息后展示为只读"
-    )
-    @PostMapping("/invite/link")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<InviteLinkVO> generateInviteLink() {
-        return organizationMemberService.generateInviteLink();
-    }
-
     @Operation(
         summary = "生成邀请码（管理员）",
         description = "生成一次性邀请码（6位字母数字），有效期30分钟；供已登录用户加入本组织时使用"
     )
-    @PostMapping("/invite/code")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PostMapping("/invite-code")
     public Result<InviteCodeVO> generateInviteCode() {
         return organizationMemberService.generateInviteCode();
     }
-
-    // -------------------------
-    // 邀请（注册页使用）
-    // -------------------------
-
-    @Operation(
-        summary = "根据邀请token获取组织信息",
-        description = "注册页使用。仅管理员邀请入组场景会调用该接口返回组织信息"
-    )
-    @GetMapping("/invite/info")
-    public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteToken) {
-        return organizationMemberService.getInviteOrgInfo(inviteToken);
-    }
-
 }

@@ -24,26 +24,17 @@ import java.util.List;
 
 @Slf4j
 @Tag(name = "组织接口", description = "组织相关接口")
-@RequestMapping("/admin/org")
+@RequestMapping("/admin/organizations")
 @RestController
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ORG_ADMIN')")
 public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    @Operation(summary = "切换组织", description = "切换用户当前所在组织")
-    @PostMapping("/switch")
-    public Result<UserOrgSwitchVO> switchOrg(
-            @RequestBody OrgIdDTO orgIdDTO) {
-        // TODO
-        // return organizationService.switchOrg(orgIdDTO.getOrgId);
-        return Result.success(null);
-    }
-
     @Operation(summary = "更新组织信息")
     @Parameter(name = "orgId", description = "组织ID")
     @PutMapping("/{orgId}")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> updateOrgInfo(@PathVariable Long orgId, @RequestBody @Valid OrgUpdateDTO orgUpdateDTO) {
         // TODO
         // return organizationService.updateOrgInfo(orgId, orgUpdateDTO);
@@ -51,8 +42,7 @@ public class OrganizationController {
     }
 
     @Operation(summary = "分页查询组织列表")
-    @PostMapping("/list")
-    @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
+    @PostMapping("/")
     public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO orgListDTO) {
         // TODO
         // return organizationService.getOrgListInfo(orgListDTO);
@@ -63,15 +53,13 @@ public class OrganizationController {
         summary = "生成组织邀请链接（超管）",
         description = "生成一次性邀请链接，有效期30分钟；新用户可通过链接注册并创建组织，注册后该用户成为该组织默认管理员"
     )
-    @PostMapping("/invite/link")
-    @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
+    @PostMapping("/invite-link")
     public Result<InviteLinkVO> generateInviteLink() {
         return organizationService.generateInviteLink();
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/status")
-    @PreAuthorize("hasRole('ORG_SUPER_ADMIN')")
     public Result<Void> changeOrgStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
         // organizationService.changeOrgStatus(changeStatusDTO.getStatus());

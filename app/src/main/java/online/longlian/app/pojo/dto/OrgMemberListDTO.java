@@ -11,16 +11,7 @@ import java.time.LocalDateTime;
 
 @Data
 @Schema(description = "组员列表查询请求参数")
-public class OrgMemberListDTO {
-
-    @Min(value = 1, message = "页码不能小于 1")
-    @Schema(description = "当前页码")
-    private Integer pageNum = 1;
-
-    @Min(value = 1, message = "每页条数最小为 1")
-    @Max(value = 100, message = "每页条数最大为 100")
-    @Schema(description = "每页条数")
-    private Integer pageSize = 10;
+public class OrgMemberListDTO extends PageRequestDTO {
 
     @Size(max = 50, message = "搜索关键词长度不能超过 50 个字符")
     @Schema(description = "昵称模糊搜索关键词")

@@ -23,7 +23,7 @@ import java.util.List;
 
 @Slf4j
 @Tag(name = "项目相关接口", description = "项目列表、创建编辑、发布")
-@RequestMapping("/app/project/item")
+@RequestMapping("/app/projects/{projectId}/items")
 @RestController
 @RequiredArgsConstructor
 public class ItemController {
@@ -36,7 +36,7 @@ public class ItemController {
         description = "支持标题模糊搜索、状态筛选（进行中/已完成/已公布）与时间排序；默认展示进行中并按更新时间倒序"
     )
     @Parameter(name = "projectId", description = "企划ID")
-    @PostMapping("/{projectId}/list")
+    @GetMapping("")
     public Result<PageResultVO<ProjectItemListVO>> listProjectItems(
             @PathVariable Long projectId,
             @RequestBody @Valid ProjectItemListDTO projectItemListDTO) {
@@ -47,7 +47,7 @@ public class ItemController {
 
     @Operation(summary = "创建项目", description = "创建项目并关联流程模板")
     @Parameter(name = "projectId", description = "企划ID")
-    @PostMapping("/{projectId}")
+    @PostMapping("")
     public Result<Void> createProjectItem(
             @PathVariable Long projectId,
             @RequestBody @Valid ProjectItemCreateDTO projectItemCreateDTO) {
@@ -60,7 +60,7 @@ public class ItemController {
     @Operation(summary = "删除项目")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
-    @DeleteMapping("/{projectId}/{itemId}")
+    @DeleteMapping("/{itemId}")
     public Result<Void> deleteProjectItem(
             @PathVariable Long projectId,
             @PathVariable Long itemId) {
@@ -73,7 +73,7 @@ public class ItemController {
     @Operation(summary = "公布项目")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
-    @PatchMapping("/{projectId}/{itemId}/publish")
+    @PatchMapping("/{itemId}/publish")
     public Result<Void> publishProjectItem(
             @PathVariable Long projectId,
             @PathVariable Long itemId) {
@@ -83,6 +83,7 @@ public class ItemController {
         return Result.success("公布成功");
     }
 
+    // TODO 应放在 “流程模板”相关控制类中
     @Operation(summary = "获取用户可选流程模板", description = "创建项目弹窗使用的流程模板下拉选项")
     @GetMapping("/template-options")
     public Result<List<TaskTemplateOptionVO>> listTaskTemplateOptions() {

@@ -1,4 +1,4 @@
-package online.longlian.app.controller;
+package online.longlian.app.controller.common;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @Tag(name = "文件上传接口", description = "文件预签名上传(用户端/管理端共用)，支持本地存储/OSS/COS")
-@RequestMapping("/app/file")
+@RequestMapping("/commom/file")
 @RestController
 @RequiredArgsConstructor
 public class FileStorageController {

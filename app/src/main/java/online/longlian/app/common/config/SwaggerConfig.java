@@ -64,4 +64,12 @@ public class SwaggerConfig {
                 .packagesToScan("online.longlian.app.controller.orgadmin")
                 .build();
     }
+
+//    @Bean
+//    public GroupedOpenApi commonApi() {
+//        return GroupedOpenApi.builder()
+//                .group("公共端")
+//                .packagesToScan("online.longlian.app.controller.common")
+//                .build();
+//    }
 }

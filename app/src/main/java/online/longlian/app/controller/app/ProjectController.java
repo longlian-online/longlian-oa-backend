@@ -22,21 +22,16 @@ import java.util.List;
 
 @Slf4j
 @Tag(name = "企划接口", description = "企划相关接口")
-@RequestMapping("/app/project")
-@RestController
+@RequestMapping("/app/projects")
 @RequiredArgsConstructor
 public class ProjectController {
 
     private final ProjectService projectService;
 
-    // -------------------------
-    // 用户端接口
-    // -------------------------
-
-    @Operation(summary = "分页查询企划列表", description = "用户端：支持关键词搜索、类型筛选、排序，仅返回启用状态企划")
-    @PostMapping("/list")
+    @Operation(summary = "分页查询企划列表", description = "支持关键词搜索、类型筛选、排序，仅返回启用状态企划")
+    @GetMapping("")
     public Result<PageResultVO<ProjectInfoVO>> getProjectList(
-            @RequestBody @Valid ProjectListDTO projectListDTO) {
+            @Valid ProjectListDTO projectListDTO) {
         // TODO
         // return projectService.getProjectList(projectListDTO);
         return Result.success("查询成功", null);
@@ -44,8 +39,10 @@ public class ProjectController {
 
     @Operation(
         summary = "获取企划详情",
-        description = "返回企划详细信息、进度统计及当前用户权限标记。" +
-                "isAdmin=true 时前端展示「编辑+分享」按钮；false 时展示「添加到工坊+分享」按钮"
+        description = """
+                返回企划详细信息、进度统计及当前用户权限标记。
+                isAdmin=true 时前端展示「编辑+分享」按钮；false 时展示「添加到工坊+分享」按钮
+                """
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("/{projectId}")
@@ -55,7 +52,7 @@ public class ProjectController {
         return Result.success("查询成功", null);
     }
 
-    @Operation(summary = "获取企划类型列表", description = "用户端：仅返回启用状态的类型")
+    @Operation(summary = "获取企划类型列表", description = "仅返回启用状态的类型")
     @GetMapping("/types")
     public Result<List<ProjectTypeInfoVO>> getProjectTypes() {
         // TODO
@@ -63,29 +60,6 @@ public class ProjectController {
         return Result.success("查询成功", null);
     }
 
-    @Operation(
-        summary = "添加企划到工坊",
-        description = "将指定企划加入当前用户的个人工坊（project_workshop 表），已添加则幂等返回成功"
-    )
-    @Parameter(name = "projectId", description = "企划ID")
-    @PostMapping("/{projectId}/workshop")
-    public Result<Void> addToWorkshop(@PathVariable Long projectId) {
-        // TODO
-        // return projectService.addToWorkshop(projectId);
-        return Result.success("已添加到工坊");
-    }
-
-    @Operation(
-        summary = "从工坊移除企划",
-        description = "将指定企划从当前用户的个人工坊中移除"
-    )
-    @Parameter(name = "projectId", description = "企划ID")
-    @DeleteMapping("/{projectId}/workshop")
-    public Result<Void> removeFromWorkshop(@PathVariable Long projectId) {
-        // TODO
-        // return projectService.removeFromWorkshop(projectId);
-        return Result.success("已从工坊移除");
-    }
     @Operation(summary = "创建企划")
     @PostMapping
     public Result<Void> createProject(
@@ -105,25 +79,28 @@ public class ProjectController {
         // return projectService.updateProject(projectId, projectUpdateDTO);
         return Result.success("修改成功");
     }
-    // -------------------------
-    // 管理员接口
-    // -------------------------
 
-    @Operation(summary = "管理端分页查询企划列表", description = "支持标题模糊搜索、类型精确筛选、创建时间区间，默认创建时间倒序")
-    @PostMapping("/admin/list")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<PageResultVO<ProjectAdminInfoVO>> getAdminProjectList(
-            @RequestBody @Valid ProjectAdminListDTO projectAdminListDTO) {
+    @Operation(
+            summary = "添加企划到工坊",
+            description = "将指定企划加入当前用户的个人工坊，已添加则幂等返回成功"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @PostMapping("/{projectId}/workshop")
+    public Result<Void> addToWorkshop(@PathVariable Long projectId) {
         // TODO
-        // return projectService.getAdminProjectList(projectAdminListDTO);
-        return Result.success("查询成功", null);
+        // return projectService.addToWorkshop(projectId);
+        return Result.success("已添加到工坊");
     }
-    @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: ENABLED-启用，DISABLED-禁用")
-    @PatchMapping("/project/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeProjectStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+
+    @Operation(
+            summary = "从工坊移除企划",
+            description = "将指定企划从当前用户的个人工坊中移除"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @DeleteMapping("/{projectId}/workshop")
+    public Result<Void> removeFromWorkshop(@PathVariable Long projectId) {
         // TODO
-        // projectService.changeProjectStatus(changeStatusDTO.getStatus());
-        return Result.success(null);
+        // return projectService.removeFromWorkshop(projectId);
+        return Result.success("已从工坊移除");
     }
 }
