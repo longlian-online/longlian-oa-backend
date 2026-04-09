@@ -4,8 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
+import lombok.Getter;
 
 @Data
+@Getter
 @Schema(description = "查询请求参数")
 public class PageRequestDTO {
     @Min(value = 1, message = "页码不能小于1")
