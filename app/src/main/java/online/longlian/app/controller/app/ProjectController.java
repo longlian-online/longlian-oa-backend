@@ -31,7 +31,7 @@ public class ProjectController {
     @Operation(summary = "分页查询企划列表", description = "支持关键词搜索、类型筛选、排序，仅返回启用状态企划")
     @GetMapping("")
     public Result<PageResultVO<ProjectInfoVO>> getProjectList(
-            @Valid ProjectListDTO projectListDTO) {
+            @ModelAttribute @Valid ProjectListDTO projectListDTO) {
         // TODO
         // return projectService.getProjectList(projectListDTO);
         return Result.success("查询成功", null);

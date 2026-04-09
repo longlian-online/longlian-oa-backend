@@ -58,7 +58,7 @@ public class UserController {
     @Operation(summary = "获取指定组织详细详细，仅可查询用户已加入的组织，非用户已加入的组织则报错")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @GetMapping("/organizations/{orgId}")
-    public Result<OrgDetailInfoVO> getOrgDetailInfo(@PathVariable("orgId") String orgId) {
+    public Result<OrgDetailInfoVO> getOrgDetailInfo(@PathVariable("orgId") Long orgId) {
         // TODO
         // return organizationService.getOrgDetailInfo();
         return Result.success(null);

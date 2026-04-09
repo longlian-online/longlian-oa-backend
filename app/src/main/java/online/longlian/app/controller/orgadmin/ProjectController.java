@@ -20,11 +20,11 @@ import java.util.List;
 @RequestMapping("/orgadmin/projects")
 @RestController("orgAdminProjectController")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ORG_ADMIN')")
 public class ProjectController {
 
     @Operation(summary = "管理端分页查询企划列表", description = "支持标题模糊搜索、类型精确筛选、创建时间区间，默认创建时间倒序")
     @PostMapping("")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<PageResultVO<ProjectAdminInfoVO>> getAdminProjectList(
             @RequestBody @Valid ProjectAdminListDTO projectAdminListDTO) {
         // TODO
@@ -33,7 +33,6 @@ public class ProjectController {
     }
     @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{projectId}/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> changeProjectStatus(@PathVariable Long projectId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
         // projectService.changeProjectStatus(changeStatusDTO.getStatus());
