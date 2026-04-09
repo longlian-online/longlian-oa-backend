@@ -4,9 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
+import online.longlian.app.common.enumeration.ApplicationStatus;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -23,6 +22,9 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("group_application")
 @Schema(name = "GroupApplication", description = "入组申请表")
 public class GroupApplication implements Serializable {
@@ -53,7 +55,7 @@ public class GroupApplication implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态：0-待审核 1-通过 2-拒绝")
-    private Byte status;
+    private ApplicationStatus status;
 
     /**
      * 审核人ID

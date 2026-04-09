@@ -2,6 +2,7 @@ package online.longlian.app.pojo.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import online.longlian.app.common.enumeration.TaskInstanceStatus;
 
 @Data
 @Schema(description = "任务流节点信息（含执行状态，用于流程图可视化）")
@@ -26,9 +27,9 @@ public class ItemTaskNodeVO {
     private Integer parallelSort;
 
     @Schema(
-        description = "任务实例状态：1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)，null 表示该节点尚未生成实例（前序节点未完成）"
+            description = "任务实例状态：1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)，null 表示该节点尚未生成实例（前序节点未完成）"
     )
-    private Integer taskStatus;
+    private TaskInstanceStatus taskStatus;
 
     @Schema(description = "接取人ID（已接取时有值）")
     private Long assigneeId;

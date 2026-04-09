@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import online.longlian.app.common.enumeration.ItemStatus;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -60,7 +61,7 @@ public class Item implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-进行中 2-已完成 3-待发布")
-    private Byte status;
+    private ItemStatus status;
 
     /**
      * 创建人ID

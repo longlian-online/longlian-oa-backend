@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import online.longlian.app.common.enumeration.TaskInstanceStatus;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -74,7 +75,7 @@ public class TaskInstance implements Serializable {
      */
     @TableField("status")
     @Schema(description = "任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)")
-    private Byte status;
+    private TaskInstanceStatus status;
 
     /**
      * 提交时间
