@@ -1,9 +1,15 @@
 package online.longlian.app.pojo.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "邀请码（管理员生成，供已登录用户加入组织使用）")
 public class InviteCodeVO {
 

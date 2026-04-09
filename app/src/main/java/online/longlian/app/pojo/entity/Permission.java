@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import online.longlian.app.common.enumeration.PermissionType;
+import online.longlian.app.common.enumeration.Status;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -57,7 +59,7 @@ public class Permission implements Serializable {
      */
     @TableField("perm_type")
     @Schema(description = "类型 1-菜单 2-按钮 3-接口")
-    private Integer permType;
+    private PermissionType permType;
 
     /**
      * 前端路由 / 接口路径
@@ -85,7 +87,7 @@ public class Permission implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-启用 0-禁用")
-    private Integer status;
+    private Status status;
 
     /**
      * 创建时间

@@ -4,9 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
+import online.longlian.app.common.enumeration.Status;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -23,6 +22,9 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("organization_member")
 @Schema(name = "OrganizationMember", description = "组织成员表")
 public class OrganizationMember implements Serializable {
@@ -81,7 +83,7 @@ public class OrganizationMember implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-启用 0-禁用")
-    private Byte status;
+    private Status status;
 
     @TableField("created_at")
     @Schema(description = "创建时间")

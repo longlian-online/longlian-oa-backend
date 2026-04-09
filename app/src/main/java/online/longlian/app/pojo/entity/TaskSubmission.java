@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import online.longlian.app.common.enumeration.TaskSubmissionStatus;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -81,7 +82,7 @@ public class TaskSubmission implements Serializable {
      */
     @TableField("status")
     @Schema(description = "提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)")
-    private Byte status;
+    private TaskSubmissionStatus status;
 
     /**
      * 审核人ID（打回操作人）

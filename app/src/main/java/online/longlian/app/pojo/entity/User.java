@@ -2,9 +2,8 @@ package online.longlian.app.pojo.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
+import online.longlian.app.common.enumeration.Status;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -21,6 +20,9 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("user")
 @Schema(name = "User", description = "系统用户表")
 public class User implements Serializable {
@@ -82,7 +84,7 @@ public class User implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-启用 0-禁用")
-    private Integer status;
+    private Status status;
 
     /**
      * 创建时间

@@ -52,8 +52,8 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/app/user/send-code"),
                                 // 注册（通过邀请链接）
                                 new AntPathRequestMatcher("/app/user/invite/*"),
-                                new AntPathRequestMatcher("/app/user/register/by-invite"),
-                                new AntPathRequestMatcher("/app/user/register/create-org"),
+                                new AntPathRequestMatcher("/app/user/register/invite"),
+                                new AntPathRequestMatcher("/app/org/member/invite/info"),
                                 // Swagger
                                 new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/swagger-ui/**"),

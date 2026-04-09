@@ -6,10 +6,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.*;
 import online.longlian.app.pojo.vo.*;
+import online.longlian.app.service.user.OrganizationMemberService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class OrganizationMemberController {
 
-    // private final OrganizationMemberService organizationMemberService;
+    private final OrganizationMemberService organizationMemberService;
 
     // -------------------------
     // 入组申请
@@ -82,6 +82,7 @@ public class OrganizationMemberController {
         // organizationMemberService.changeMemberStatus(changeStatusDTO.getStatus());
         return Result.success(null);
     }
+
     // -------------------------
     // 邀请（管理员生成）
     // -------------------------
@@ -93,9 +94,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite/link")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<InviteLinkVO> generateInviteLink() {
-        // TODO
-        // return organizationMemberService.generateInviteLink();
-        return Result.success("生成成功", null);
+        return organizationMemberService.generateInviteLink();
     }
 
     @Operation(
@@ -105,9 +104,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite/code")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<InviteCodeVO> generateInviteCode() {
-        // TODO
-        // return organizationMemberService.generateInviteCode();
-        return Result.success("生成成功", null);
+        return organizationMemberService.generateInviteCode();
     }
 
     // -------------------------
@@ -120,24 +117,7 @@ public class OrganizationMemberController {
     )
     @GetMapping("/invite/info")
     public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteToken) {
-        // TODO
-        // return organizationMemberService.getInviteOrgInfo(inviteToken);
-        return Result.success("查询成功", null);
+        return organizationMemberService.getInviteOrgInfo(inviteToken);
     }
 
-    // -------------------------
-    // 邀请（用户使用）
-    // -------------------------
-
-    @Operation(
-        summary = "通过邀请码加入组织（已登录用户）",
-        description = "已登录用户输入管理员提供的邀请码，自动提交入组申请，等待管理员审核通过后正式加入"
-    )
-    @PostMapping("/join")
-    public Result<Void> joinByInviteCode(
-            @RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        // TODO
-        // return organizationMemberService.joinByInviteCode(joinByInviteCodeDTO);
-        return Result.success("申请已提交，等待管理员审核");
-    }
 }

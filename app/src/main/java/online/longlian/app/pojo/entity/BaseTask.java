@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import online.longlian.app.common.enumeration.Status;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -77,7 +78,7 @@ public class BaseTask implements Serializable {
      */
     @TableField("status")
     @Schema(description = "状态 1-启用 0-禁用")
-    private Byte status;
+    private Status status;
 
     /**
      * 创建人ID
