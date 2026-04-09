@@ -77,6 +77,33 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
+    public Result<InviteCodeVO> generateInviteCode() {
+        Long currentOrgId = getCurrentOrgId();
+        getEnabledOrganization(currentOrgId);
+
+        String inviteCode = RandomUtil.randomStringUpper(InviteConstants.INVITE_CODE_LENGTH);
+        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
+
+        // 生成给已登录用户使用的邀请码
+        InviteCodeCacheBO inviteData = InviteCodeCacheBO.builder()
+                .orgId(currentOrgId)
+                .expireAt(expireAt.format(DATE_TIME_FORMATTER))
+                .build();
+        redisTemplate.opsForValue().set(
+                RedisConstants.INVITE_CODE + inviteCode,
+                inviteData,
+                InviteConstants.INVITE_EXPIRE_MINUTES,
+                TimeUnit.MINUTES
+        );
+
+        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
+                .inviteCode(inviteCode)
+                .expireAt(expireAt.format(DATE_TIME_FORMATTER))
+                .build();
+        return Result.success("生成成功", inviteCodeVO);
+    }
+
+    @Override
     public Result<InviteInfoVO> getInviteOrgInfo(String inviteToken) {
         InviteCacheBO inviteData = getInviteData(inviteToken);
         if (!InviteConstants.INVITE_MODE_ORG_ADMIN_JOIN.equals(inviteData.getInviteMode())) {
@@ -91,6 +118,38 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         return Result.success("查询成功", inviteInfoVO);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
+        Long userId = ThreadLocalUtil.getUserBO().getId();
+        Long orgId = getInviteCodeData(joinByInviteCodeDTO.getInviteCode()).getOrgId();
+        getEnabledOrganization(orgId);
+
+        // 已是成员或已有申请时不允许重复提交
+        if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getUserId, userId)) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "你已加入该组织");
+        }
+        if (groupApplicationMapper.selectOne(new LambdaQueryWrapper<GroupApplication>()
+                .eq(GroupApplication::getOrgId, orgId)
+                .eq(GroupApplication::getUserId, userId)) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "请勿重复提交入组申请");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        GroupApplication application = GroupApplication.builder()
+                .orgId(orgId)
+                .userId(userId)
+                .status(ApplicationStatus.PENDING)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        groupApplicationMapper.insert(application);
+        // 邀请码一次性使用，提交申请后删除
+        redisTemplate.delete(RedisConstants.INVITE_CODE + joinByInviteCodeDTO.getInviteCode());
+        return Result.success("申请已提交，等待管理员审核");
+    }
 
     private Long getCurrentOrgId() {
         Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + ThreadLocalUtil.getUserBO().getId());
@@ -116,4 +175,11 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         return inviteData;
     }
 
+    private InviteCodeCacheBO getInviteCodeData(String inviteCode) {
+        InviteCodeCacheBO inviteCodeData = (InviteCodeCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_CODE + inviteCode);
+        if (inviteCodeData == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在或已过期");
+        }
+        return inviteCodeData;
+    }
 }

@@ -104,9 +104,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite/code")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<InviteCodeVO> generateInviteCode() {
-        // TODO
-        // return organizationMemberService.generateInviteCode();
-        return Result.success("生成成功", null);
+        return organizationMemberService.generateInviteCode();
     }
 
     // -------------------------
@@ -133,8 +131,6 @@ public class OrganizationMemberController {
     @PostMapping("/join")
     public Result<Void> joinByInviteCode(
             @RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        // TODO
-        // return organizationMemberService.joinByInviteCode(joinByInviteCodeDTO);
-        return Result.success("申请已提交，等待管理员审核");
+        return organizationMemberService.joinByInviteCode(joinByInviteCodeDTO);
     }
 }

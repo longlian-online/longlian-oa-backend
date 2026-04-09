@@ -10,7 +10,9 @@ public interface OrganizationMemberService {
 
     Result<InviteLinkVO> generateInviteLink();
 
+    Result<InviteCodeVO> generateInviteCode();
 
     Result<InviteInfoVO> getInviteOrgInfo(String inviteToken);
 
+    Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO);
 }
