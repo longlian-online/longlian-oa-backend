@@ -20,7 +20,7 @@ public enum ResultCode {
 
     USER_NOT_EXIT(7,"用户不存在"),
 
-    FAIL(5000, "系统内部异常");
+    FAIL(8, "系统内部异常");
     private final int code;
     private final String msg;
     ResultCode(int code, String msg) {
