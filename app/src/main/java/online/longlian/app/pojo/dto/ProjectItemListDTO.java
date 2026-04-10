@@ -5,10 +5,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import online.longlian.app.common.enumeration.ItemStatus;
 import online.longlian.app.common.enumeration.SortByTime;
 import online.longlian.app.common.enumeration.SortDirection;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 @Schema(description = "项目列表查询参数")
 public class ProjectItemListDTO extends PageRequestDTO {
