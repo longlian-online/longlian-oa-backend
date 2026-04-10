@@ -10,7 +10,7 @@ import online.longlian.app.common.enumeration.SortDirection;
 
 import java.time.LocalDateTime;
 
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, onParam_ = {@Override})
 @Data
 @Schema(description = "组织列表查询请求参数")
 public class OrgListDTO extends PageRequestDTO {
