@@ -25,4 +25,9 @@ public class ProjectListDTO extends PageRequestDTO {
 
     @Schema(description = "排序方式")
     private SortDirection orderDir = SortDirection.DESC;
+
+    @Override
+    protected boolean canEqual(final Object other) {
+        return other instanceof ProjectListDTO;
+    }
 }
