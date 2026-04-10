@@ -31,6 +31,7 @@ public class GlobalExceptionHandler {
         );
         return Result.fail(appException.getCode(), appException.getMsg());
     }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     @ResponseBody
     public <T> Result<T> handleAuthorizationDeniedException(AuthorizationDeniedException e, HttpServletRequest request) {

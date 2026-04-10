@@ -10,12 +10,12 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.ThreadLocalUtil;
-import online.longlian.app.pojo.dto.ProjectItemCreateDTO;
-import online.longlian.app.pojo.dto.ProjectItemListDTO;
+import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
+import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.entity.Project;
-import online.longlian.app.pojo.vo.PageResultVO;
-import online.longlian.app.pojo.vo.ProjectItemListVO;
-import online.longlian.app.pojo.vo.TaskTemplateOptionVO;
+import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.user.ProjectService;
 import org.springframework.web.bind.annotation.*;
 

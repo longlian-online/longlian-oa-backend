@@ -7,10 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.ItemTaskFlowCreateDTO;
-import online.longlian.app.pojo.dto.ItemTaskNodeAddDTO;
-import online.longlian.app.pojo.vo.ItemTaskFlowVO;
-import online.longlian.app.pojo.vo.TaskTemplateDetailVO;
+import online.longlian.app.pojo.dto.app.ItemTaskFlowCreateDTO;
+import online.longlian.app.pojo.dto.app.ItemTaskNodeAddDTO;
+import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
+import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 

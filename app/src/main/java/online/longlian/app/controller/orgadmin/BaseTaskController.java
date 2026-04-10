@@ -8,11 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.BaseTaskCreateDTO;
-import online.longlian.app.pojo.dto.BaseTaskListDTO;
-import online.longlian.app.pojo.dto.ChangeStatusDTO;
-import online.longlian.app.pojo.vo.BaseTaskVO;
-import online.longlian.app.pojo.vo.PageResultVO;
+import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
+import online.longlian.app.pojo.dto.orgadmin.BaseTaskCreateDTO;
+import online.longlian.app.pojo.dto.orgadmin.BaseTaskListDTO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.vo.orgadmin.BaseTaskVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 

@@ -1,8 +1,10 @@
 package online.longlian.app.common.exception;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import online.longlian.app.common.result.ResultCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class AppException extends RuntimeException {
 

@@ -6,8 +6,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.CreateFileReqDTO;
-import online.longlian.app.pojo.vo.CreateFileResVO;
+import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
+import online.longlian.app.pojo.vo.common.CreateFileResVO;
 import online.longlian.app.service.resource.FileStorageService;
 import org.springframework.web.bind.annotation.*;
 

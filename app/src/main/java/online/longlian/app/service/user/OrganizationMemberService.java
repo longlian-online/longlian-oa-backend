@@ -1,10 +1,9 @@
 package online.longlian.app.service.user;
 
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
-import online.longlian.app.pojo.vo.InviteCodeVO;
-import online.longlian.app.pojo.vo.InviteInfoVO;
-import online.longlian.app.pojo.vo.InviteLinkVO;
+import online.longlian.app.pojo.vo.app.InviteInfoVO;
+import online.longlian.app.pojo.vo.admin.InviteLinkVO;
+import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 
 public interface OrganizationMemberService {
 
