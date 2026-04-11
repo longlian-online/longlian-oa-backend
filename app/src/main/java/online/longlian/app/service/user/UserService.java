@@ -2,14 +2,14 @@ package online.longlian.app.service.user;
 
 import jakarta.servlet.http.HttpServletRequest;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
-import online.longlian.app.pojo.dto.LoginByCodeDTO;
-import online.longlian.app.pojo.dto.LoginByPwdDTO;
-import online.longlian.app.pojo.dto.RegisterByInviteDTO;
+import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
+import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
+import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
+import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-import online.longlian.app.pojo.vo.LoginVO;
-import online.longlian.app.pojo.vo.UserInfoVO;
+import online.longlian.app.pojo.vo.app.LoginVO;
+import online.longlian.app.pojo.vo.app.UserInfoVO;
 
 /**
  * <p>

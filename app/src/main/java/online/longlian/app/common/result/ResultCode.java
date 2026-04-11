@@ -4,25 +4,23 @@ import lombok.Getter;
 
 @Getter
 public enum ResultCode {
-    USERNAME_OR_PASSWORD_ERROR(1001, "账号或密码错误"),
+    SUCCESS(0, "操作成功"),
 
-    SUCCESS(2000, "操作成功"),
+    UNAUTHORIZED(1, "未授权访问"),
 
-    UNAUTHORIZED(4001, "未授权访问"),
+    PARAM_ERROR(2, "参数错误"),
 
-    PARAM_ERROR(4002, "参数错误"),
+    UNAUTHORIZED_OPERATION(3,"无权操作"),
 
-    UNAUTHORIZED_OPERATION(4003,"无权操作"),
+    NOT_FOUND(4, "请求资源不存在"),
 
-    NOT_FOUND(4004, "请求资源不存在"),
+    OPERATION_FAIL(5,"操作失败"),
 
-    OPERATION_FAIL(4005,"操作失败"),
+    DATA_NOT_EXIT(6,"数据不存在"),
 
-    DATA_NOT_EXIT(4006,"数据不存在"),
+    USER_NOT_EXIT(7,"用户不存在"),
 
-    USER_NOT_EXIT(4007,"用户不存在"),
-
-    FAIL(5000, "系统内部异常");
+    FAIL(8, "系统内部异常");
     private final int code;
     private final String msg;
     ResultCode(int code, String msg) {

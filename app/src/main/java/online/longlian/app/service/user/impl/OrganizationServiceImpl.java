@@ -9,7 +9,7 @@ import online.longlian.app.common.result.Result;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.InviteCacheBO;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.vo.InviteLinkVO;
+import online.longlian.app.pojo.vo.admin.InviteLinkVO;
 import online.longlian.app.service.user.OrganizationService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;

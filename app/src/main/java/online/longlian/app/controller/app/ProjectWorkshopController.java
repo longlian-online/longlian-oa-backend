@@ -7,9 +7,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.WorkshopListDTO;
-import online.longlian.app.pojo.vo.PageResultVO;
-import online.longlian.app.pojo.vo.WorkshopProjectInfoVO;
+import online.longlian.app.pojo.dto.app.WorkshopListDTO;
+import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.user.ProjectWorkshopService;
 import org.springframework.web.bind.annotation.*;
 
