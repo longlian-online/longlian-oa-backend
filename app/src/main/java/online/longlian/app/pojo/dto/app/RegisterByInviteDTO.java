@@ -8,12 +8,12 @@ import lombok.Data;
 import online.longlian.app.common.constants.PatternConstants;
 
 @Data
-@Schema(description = "通过邀请链接注册")
+@Schema(description = "通过邀请码注册")
 public class RegisterByInviteDTO {
 
-    @NotBlank(message = "邀请token不能为空")
-    @Schema(description = "邀请链接中的 token", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String inviteToken;
+    @NotBlank(message = "邀请码不能为空")
+    @Schema(description = "邀请码", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String inviteCode;
 
     @NotBlank(message = "用户名不能为空")
     @Size(min = 4, max = 20, message = "用户名长度必须在4-20位之间")
@@ -44,6 +44,6 @@ public class RegisterByInviteDTO {
     @Schema(description = "邮箱验证码", requiredMode = Schema.RequiredMode.REQUIRED)
     private String code;
 
-    @Schema(description = "组织名称。仅当邀请类型为 SUPER_ADMIN_CREATE_ORG 时必填")
+    @Schema(description = "组织名称。仅当邀请码类型为 SUPER_ADMIN_CREATE_ORG 时必填")
     private String orgName;
 }

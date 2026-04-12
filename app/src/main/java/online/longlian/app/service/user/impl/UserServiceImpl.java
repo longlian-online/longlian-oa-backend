@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.CommonConstants;
-import online.longlian.app.common.constants.InviteConstants;
+import online.longlian.app.common.enumeration.InviteMode;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
@@ -25,7 +25,6 @@ import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.RoleMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.UserRoleMapper;
-import online.longlian.app.pojo.bo.InviteCacheBO;
 import online.longlian.app.pojo.bo.InviteCodeCacheBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
@@ -99,9 +98,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 先校验邀请码、邮箱验证码和账号唯一性
         validateRegisterRequest(registerByInviteDTO);
 
-        // 从 Redis 中读取邀请链接上下文
-        InviteCacheBO inviteData = getInviteData(registerByInviteDTO.getInviteToken());
-        String inviteMode = inviteData.getInviteMode();
+        // 从 Redis 中读取邀请码上下文
+        InviteCodeCacheBO inviteData = getInviteCodeData(registerByInviteDTO.getInviteCode());
+        InviteMode inviteMode = inviteData.getInviteMode();
         Long orgId = inviteData.getOrgId();
 
         LocalDateTime now = LocalDateTime.now();
@@ -117,17 +116,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         userMapper.insert(user);
 
-        // 根据邀请模式执行“建组织”或“申请入组”
-        if (InviteConstants.INVITE_MODE_SUPER_ADMIN_CREATE_ORG.equals(inviteMode)) {
+        // 根据邀请码类型执行“创建组织”“注册后直接入组”或拒绝处理。
+        if (InviteMode.SUPER_ADMIN_CREATE_ORG.equals(inviteMode)) {
             createOrgForInvitedUser(registerByInviteDTO, user, now);
-        } else if (InviteConstants.INVITE_MODE_ORG_ADMIN_JOIN.equals(inviteMode)) {
-            createJoinApplication(orgId, user.getId(), now);
+        } else if (InviteMode.ORG_ADMIN_REGISTER_JOIN.equals(inviteMode)) {
+            joinOrgAfterRegister(orgId, user, now);
         } else {
-            throw new AppException(ResultCode.OPERATION_FAIL, "未知邀请类型");
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持注册");
         }
 
-        // 邀请链接为一次性使用，注册成功后删除
-        redisTemplate.delete(RedisConstants.INVITE_LINK + registerByInviteDTO.getInviteToken());
+        // 邀请码为一次性使用，注册成功后删除
+        redisTemplate.delete(RedisConstants.INVITE_CODE + registerByInviteDTO.getInviteCode());
         return Result.success("注册成功");
     }
 
@@ -197,7 +196,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
         Long userId = ThreadLocalUtil.getUserBO().getId();
-        Long orgId = getInviteCodeData(joinByInviteCodeDTO.getInviteCode()).getOrgId();
+        InviteCodeCacheBO inviteData = getInviteCodeData(joinByInviteCodeDTO.getInviteCode());
+        // 仅“管理员邀请已注册用户入组”场景允许已登录用户提交入组申请。
+        if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_MEMBER_JOIN) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持加入组织");
+        }
+        Long orgId = inviteData.getOrgId();
         Organization organization = organizationMapper.selectById(orgId);
         if (organization == null || organization.getStatus() == Status.DISABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
@@ -244,14 +248,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
     }
 
-    private InviteCacheBO getInviteData(String inviteToken) {
-        InviteCacheBO inviteData = (InviteCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_LINK + inviteToken);
-        if (inviteData == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请链接不存在或已过期");
-        }
-        return inviteData;
-    }
-
     private void createOrgForInvitedUser(RegisterByInviteDTO registerByInviteDTO, User user, LocalDateTime now) {
         if (registerByInviteDTO.getOrgName() == null || registerByInviteDTO.getOrgName().isBlank()) {
             throw new AppException(ResultCode.PARAM_ERROR, "组织名称不能为空");
@@ -284,13 +280,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         bindRole(user.getId(), now);
     }
 
-    private void createJoinApplication(Long orgId, Long userId, LocalDateTime now) {
+    private void joinOrgAfterRegister(Long orgId, User user, LocalDateTime now) {
         if (orgId == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请链接缺少组织信息");
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码缺少组织信息");
         }
         ensureOrgExists(orgId);
 
-        // 管理员邀请场景：注册后先生成待审核入组申请
+        // 管理员邀请注册场景：注册成功后直接加入组织，并将默认组织设置为邀请组织。
+        OrganizationMember organizationMember = OrganizationMember.builder()
+                .orgId(orgId)
+                .userId(user.getId())
+                .orgRole(InviteConstants.ROLE_ORG_USER)
+                .joinedAt(now)
+                .submitCount(0)
+                .status(Status.ENABLED)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        organizationMemberMapper.insert(organizationMember);
+
+        user.setDefaultOrgId(orgId);
+        userMapper.updateById(user);
+    }
+
+    private void createJoinApplication(Long orgId, Long userId, LocalDateTime now) {
+        if (orgId == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码缺少组织信息");
+        }
+        ensureOrgExists(orgId);
+
+        // 管理员邀请已注册用户场景：提交入组申请，等待管理员审核。
         GroupApplication application = GroupApplication.builder()
                 .orgId(orgId)
                 .userId(userId)

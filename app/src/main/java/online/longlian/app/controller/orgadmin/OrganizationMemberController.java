@@ -90,11 +90,20 @@ public class OrganizationMemberController {
     // 邀请（管理员生成）
     // -------------------------
     @Operation(
-        summary = "生成邀请码（管理员）",
-        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供已登录用户加入本组织时使用"
+        summary = "生成邀请码（管理员邀请新用户注册入组）",
+        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供未注册用户注册后直接加入当前组织，注册成功后默认组织为当前组织"
     )
-    @PostMapping("/invite-code")
-    public Result<InviteCodeVO> generateInviteCode() {
-        return organizationMemberService.generateInviteCode();
+    @PostMapping("/invite-codes/register")
+    public Result<InviteCodeVO> generateRegisterInviteCode() {
+        return organizationMemberService.generateRegisterInviteCode();
+    }
+
+    @Operation(
+        summary = "生成邀请码（管理员邀请已注册用户入组）",
+        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供已注册且已登录用户申请加入当前组织使用"
+    )
+    @PostMapping("/invite-codes/join")
+    public Result<InviteCodeVO> generateJoinInviteCode() {
+        return organizationMemberService.generateJoinInviteCode();
     }
 }
