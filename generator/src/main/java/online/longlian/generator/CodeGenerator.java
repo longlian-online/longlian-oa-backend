@@ -46,7 +46,10 @@ public class CodeGenerator {
             Map.entry("Role", Map.of("status", "online.longlian.app.common.enumeration.Status")),
             Map.entry("TaskInstance", Map.of("status", "online.longlian.app.common.enumeration.TaskInstanceStatus")),
             Map.entry("TaskSubmission", Map.of("status", "online.longlian.app.common.enumeration.TaskSubmissionStatus")),
-            Map.entry("TaskTemplate", Map.of("status", "online.longlian.app.common.enumeration.Status")),
+            Map.entry("TaskTemplate", Map.of(
+                    "status", "online.longlian.app.common.enumeration.Status",
+                    "scope", "online.longlian.app.common.enumeration.TaskTemplateScope"
+            )),
             Map.entry("User", Map.of("status", "online.longlian.app.common.enumeration.Status")),
             Map.entry("UserOperationLog", Map.of("operationType", "online.longlian.app.common.enumeration.UserOperationType"))
     );
@@ -67,12 +70,7 @@ public class CodeGenerator {
         FastAutoGenerator.create(url, username, password)
                 .globalConfig(builder -> builder.author("longlian").enableSwagger().outputDir(OUTPUT_DIR))
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
-                .strategyConfig(builder -> builder.addInclude(
-                                "base_task", "file_storage", "group_application", "item", "item_task_flow", "item_task_node",
-                                "organization", "organization_member", "permission", "project", "project_type", "project_workshop",
-                                "role", "role_permission", "task_instance", "task_submission", "task_template", "task_template_node",
-                                "user", "user_operation_log", "user_role"
-                        ).entityBuilder()
+                .strategyConfig(builder -> builder.entityBuilder()
                         .enableLombok()
                         .enableTableFieldAnnotation()
                         .naming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
