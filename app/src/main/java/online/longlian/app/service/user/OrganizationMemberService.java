@@ -6,9 +6,10 @@ import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 
 public interface OrganizationMemberService {
 
-    Result<InviteCodeVO> generateRegisterInviteCode();
-
-    Result<InviteCodeVO> generateJoinInviteCode();
+    /**
+     * 生成管理员邀请码。
+     */
+    Result<InviteCodeVO> generateInviteCode();
 
     Result<InviteInfoVO> getInviteOrgInfo(String inviteCode);
 

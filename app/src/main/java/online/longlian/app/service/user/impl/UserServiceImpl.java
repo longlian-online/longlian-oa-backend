@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.enumeration.InviteMode;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
@@ -116,10 +117,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         userMapper.insert(user);
 
-        // 根据邀请码类型执行“创建组织”“注册后直接入组”或拒绝处理。
+        // 根据邀请码类型执行“创建组织”“加入邀请组织”或拒绝处理。
         if (InviteMode.SUPER_ADMIN_CREATE_ORG.equals(inviteMode)) {
             createOrgForInvitedUser(registerByInviteDTO, user, now);
-        } else if (InviteMode.ORG_ADMIN_REGISTER_JOIN.equals(inviteMode)) {
+        } else if (InviteMode.ORG_ADMIN_INVITE.equals(inviteMode)) {
             joinOrgAfterRegister(orgId, user, now);
         } else {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持注册");
@@ -197,8 +198,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
         Long userId = ThreadLocalUtil.getUserBO().getId();
         InviteCodeCacheBO inviteData = getInviteCodeData(joinByInviteCodeDTO.getInviteCode());
-        // 仅“管理员邀请已注册用户入组”场景允许已登录用户提交入组申请。
-        if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_MEMBER_JOIN) {
+        // 管理员邀请码支持“注册入组”和“已登录申请入组”两种使用方式。
+        if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_INVITE) {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持加入组织");
         }
         Long orgId = inviteData.getOrgId();
@@ -286,7 +287,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         ensureOrgExists(orgId);
 
-        // 管理员邀请注册场景：注册成功后直接加入组织，并将默认组织设置为邀请组织。
+        // 管理员邀请码场景：注册成功后直接加入组织，并将默认组织设置为邀请组织。
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(orgId)
                 .userId(user.getId())
@@ -309,7 +310,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         ensureOrgExists(orgId);
 
-        // 管理员邀请已注册用户场景：提交入组申请，等待管理员审核。
+        // 管理员邀请码场景：已登录用户提交入组申请，等待管理员审核。
         GroupApplication application = GroupApplication.builder()
                 .orgId(orgId)
                 .userId(userId)

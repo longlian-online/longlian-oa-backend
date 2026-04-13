@@ -33,7 +33,7 @@ public class UserController {
 
     @Operation(
         summary = "通过邀请码注册",
-        description = "两种场景：1) 超管邀请创建组织；2) 组织管理员邀请新用户注册并直接加入组织，注册成功后默认组织为邀请组织",
+        description = "两种场景：1) 超管邀请码用于创建组织；2) 管理员邀请码用于加入组织，可用于新用户注册后直接入组，也可用于已登录用户申请入组",
         security = {}
     )
     @PostMapping("/")
@@ -83,7 +83,7 @@ public class UserController {
 
     @Operation(
         summary = "根据邀请码获取组织信息",
-        description = "注册页使用。仅管理员邀请新用户注册入组场景会调用该接口返回组织信息"
+        description = "注册页使用。仅组织管理员生成的邀请码会调用该接口返回组织信息"
     )
     @GetMapping("/invite-info")
     public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteCode) {

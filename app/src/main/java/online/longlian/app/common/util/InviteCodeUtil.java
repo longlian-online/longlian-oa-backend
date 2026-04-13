@@ -20,7 +20,9 @@ public class InviteCodeUtil {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
-    private RedisTemplate<String, Object> redisTemplate;
+
+    private final RedisTemplate<String, Object> redisTemplate;
+
     /**
      * 生成并缓存邀请码。
      */

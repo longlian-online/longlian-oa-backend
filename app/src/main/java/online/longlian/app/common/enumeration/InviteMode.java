@@ -16,12 +16,7 @@ public enum InviteMode {
     SUPER_ADMIN_CREATE_ORG,
 
     /**
-     * 组织管理员邀请新用户注册并直接加入组织
+     * 组织管理员生成的组织邀请码
      */
-    ORG_ADMIN_REGISTER_JOIN,
-
-    /**
-     * 组织管理员邀请已注册用户加入组织
-     */
-    ORG_ADMIN_MEMBER_JOIN
+    ORG_ADMIN_INVITE
 }
