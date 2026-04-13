@@ -2,12 +2,14 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 /**
  * 用户操作类型
  */
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "user_operation_log", field = "operation_type")
 public enum UserOperationType implements CodeEnum {
 
     TASK_CLAIM(1, "接取任务"),

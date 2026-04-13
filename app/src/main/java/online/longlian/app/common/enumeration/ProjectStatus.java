@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "project", field = "status")
 public enum ProjectStatus implements CodeEnum {
     IN_PROGRESS(1, "进行中"),
 

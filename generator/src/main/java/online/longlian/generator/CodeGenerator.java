@@ -2,51 +2,37 @@ package online.longlian.generator;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
-import com.baomidou.mybatisplus.generator.config.GlobalConfig;
-import com.baomidou.mybatisplus.generator.config.po.TableField;
-import com.baomidou.mybatisplus.generator.config.rules.IColumnType;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
-import com.baomidou.mybatisplus.generator.type.ITypeConvertHandler;
-import com.baomidou.mybatisplus.generator.type.TypeRegistry;
+import online.longlian.generator.internal.EnumFieldMeta;
+import online.longlian.generator.internal.EnumProcesser;
+import online.longlian.generator.internal.ModelEnumMeta;
+import online.longlian.generator.internal.TypeConverter;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.io.FileSystemResource;
+
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.Properties;
 
-class EnumClass implements IColumnType {
-    @Override
-    public String getType() {
-        return "Integer";
-    }
 
-    @Override
-    public String getPkg() {
-        return (String)null;
-    }
-}
-class TypeConverter implements ITypeConvertHandler {
-    @Override
-    public IColumnType convert(GlobalConfig globalConfig, TypeRegistry typeRegistry, TableField.MetaInfo metaInfo) {
-        if (metaInfo.getTypeName().equals("TINYINT")) {
-            return new EnumClass();
-        }
-
-        return typeRegistry.getColumnType(metaInfo);
-    }
-}
 
 public class CodeGenerator {
 
     private static final String OUTPUT_DIR = "app\\src\\main\\java";
+    public static HashMap<EnumFieldMeta, ModelEnumMeta> enumTypeConvertMap;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
         ConfigurableEnvironment env = loadSpringEnv();
         String url = env.getProperty("spring.datasource.url");
         String username = env.getProperty("spring.datasource.username");
         String password = env.getProperty("spring.datasource.password");
+
+        // 获取枚举映射 表名 + 字段名 -> 类型名 + 包名
+        enumTypeConvertMap = EnumProcesser.scanAndPrintModelEnums();
 
         FastAutoGenerator.create(new DataSourceConfig
                         .Builder(url, username, password)

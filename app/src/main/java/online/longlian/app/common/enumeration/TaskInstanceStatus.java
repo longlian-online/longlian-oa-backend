@@ -2,12 +2,14 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 /**
  * 任务实例状态
  */
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "task_instance", field = "status")
 public enum TaskInstanceStatus implements CodeEnum {
 
     PENDING(1, "待接取"),

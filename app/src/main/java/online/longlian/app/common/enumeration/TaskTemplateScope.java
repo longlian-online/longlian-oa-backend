@@ -2,12 +2,14 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 /**
  * 任务模板作用域
  */
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "task_template", field = "scope")
 public enum TaskTemplateScope implements CodeEnum {
 
     PERSONAL(1, "个人模板"),

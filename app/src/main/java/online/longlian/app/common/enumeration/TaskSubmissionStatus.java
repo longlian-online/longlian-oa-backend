@@ -2,12 +2,14 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 /**
  * 任务提交记录状态
  */
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "task_submission", field = "status")
 public enum TaskSubmissionStatus implements CodeEnum {
 
     SUBMITTED(1, "已提交"),
