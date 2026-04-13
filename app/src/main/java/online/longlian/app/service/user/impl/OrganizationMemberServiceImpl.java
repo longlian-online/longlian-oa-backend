@@ -1,115 +1,53 @@
 package online.longlian.app.service.user.impl;
 
-import cn.hutool.core.util.RandomUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.enumeration.InviteMode;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.enumeration.ApplicationStatus;
-import online.longlian.app.common.enumeration.Status;
+import online.longlian.app.common.util.InviteCodeUtil;
 import online.longlian.app.common.util.ThreadLocalUtil;
-import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationMapper;
-import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.pojo.bo.InviteCacheBO;
 import online.longlian.app.pojo.bo.InviteCodeCacheBO;
-import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
-import online.longlian.app.pojo.vo.admin.InviteLinkVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.user.OrganizationMemberService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
 public class OrganizationMemberServiceImpl implements OrganizationMemberService {
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
-
     private final RedisTemplate<String, Object> redisTemplate;
     private final OrganizationMapper organizationMapper;
-    private final OrganizationMemberMapper organizationMemberMapper;
-    private final GroupApplicationMapper groupApplicationMapper;
-
-    @Override
-    public Result<InviteLinkVO> generateInviteLink() {
-        Long currentOrgId = getCurrentOrgId();
-        Organization organization = getEnabledOrganization(currentOrgId);
-
-        String inviteToken = RandomUtil.randomStringUpper(InviteConstants.INVITE_TOKEN_LENGTH);
-        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
-
-        // 生成管理员邀请入组链接，并附带组织信息给注册页使用
-        InviteCacheBO inviteData = InviteCacheBO.builder()
-                .inviteMode(InviteConstants.INVITE_MODE_ORG_ADMIN_JOIN)
-                .orgId(currentOrgId)
-                .orgName(organization.getName())
-                .expireAt(expireAt.format(DATE_TIME_FORMATTER))
-                .build();
-        redisTemplate.opsForValue().set(
-                RedisConstants.INVITE_LINK + inviteToken,
-                inviteData,
-                InviteConstants.INVITE_EXPIRE_MINUTES,
-                TimeUnit.MINUTES
-        );
-
-        InviteLinkVO inviteLinkVO = InviteLinkVO.builder()
-                .inviteToken(inviteToken)
-                .inviteMode(InviteConstants.INVITE_MODE_ORG_ADMIN_JOIN)
-                .needFetchOrgInfo(true)
-                .expireAt(expireAt.format(DATE_TIME_FORMATTER))
-                .inviteUrl(InviteConstants.INVITE_URL_PATH + inviteToken)
-                .build();
-        return Result.success("生成成功", inviteLinkVO);
-    }
+    private final InviteCodeUtil inviteCodeUtil;
 
     @Override
     public Result<InviteCodeVO> generateInviteCode() {
         Long currentOrgId = getCurrentOrgId();
-        getEnabledOrganization(currentOrgId);
+        Organization organization = getEnabledOrganization(currentOrgId);
 
-        String inviteCode = RandomUtil.randomStringUpper(InviteConstants.INVITE_CODE_LENGTH);
-        LocalDateTime expireAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
-
-        // 生成给已登录用户使用的邀请码
-        InviteCodeCacheBO inviteData = InviteCodeCacheBO.builder()
-                .orgId(currentOrgId)
-                .expireAt(expireAt.format(DATE_TIME_FORMATTER))
-                .build();
-        redisTemplate.opsForValue().set(
-                RedisConstants.INVITE_CODE + inviteCode,
-                inviteData,
-                InviteConstants.INVITE_EXPIRE_MINUTES,
-                TimeUnit.MINUTES
+        // 管理员邀请码仅表示“邀请加入当前组织”，具体是注册入组还是登录后申请入组，由用户使用方式决定。
+        InviteCodeVO inviteCodeVO = inviteCodeUtil.generateInviteCode(
+                InviteMode.ORG_ADMIN_INVITE,
+                currentOrgId,
+                organization.getName()
         );
-
-        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
-                .inviteCode(inviteCode)
-                .expireAt(expireAt.format(DATE_TIME_FORMATTER))
-                .build();
         return Result.success("生成成功", inviteCodeVO);
     }
 
     @Override
-    public Result<InviteInfoVO> getInviteOrgInfo(String inviteToken) {
-        InviteCacheBO inviteData = getInviteData(inviteToken);
-        if (!InviteConstants.INVITE_MODE_ORG_ADMIN_JOIN.equals(inviteData.getInviteMode())) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请链接不支持查询组织信息");
+    public Result<InviteInfoVO> getInviteOrgInfo(String inviteCode) {
+        InviteCodeCacheBO inviteData = getInviteCodeData(inviteCode);
+        if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_INVITE) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持查询组织信息");
         }
-        Organization organization = getEnabledOrganization(inviteData.getOrgId());
 
+        Organization organization = getEnabledOrganization(inviteData.getOrgId());
         InviteInfoVO inviteInfoVO = InviteInfoVO.builder()
                 .orgId(organization.getId())
                 .orgName(organization.getName())
@@ -133,12 +71,11 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         return organization;
     }
 
-    private InviteCacheBO getInviteData(String inviteToken) {
-        InviteCacheBO inviteData = (InviteCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_LINK + inviteToken);
+    private InviteCodeCacheBO getInviteCodeData(String inviteCode) {
+        InviteCodeCacheBO inviteData = (InviteCodeCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_CODE + inviteCode);
         if (inviteData == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请链接不存在或已过期");
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在或已过期");
         }
         return inviteData;
     }
-
 }

@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "组织公开信息（通过邀请链接查询，供注册页面展示）")
+@Schema(description = "组织公开信息（通过组织邀请码查询，供注册页面展示）")
 public class InviteInfoVO {
 
     @Schema(description = "组织ID")
