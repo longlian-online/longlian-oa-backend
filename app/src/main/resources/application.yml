@@ -6,6 +6,9 @@ longlian:
     type: ${CACHE_TYPE:redis}       # redis 或 local
 
 spring:
+ threads:
+   virtual:
+     enabled: true
   application:
     name: longlian-oa
   profiles:
