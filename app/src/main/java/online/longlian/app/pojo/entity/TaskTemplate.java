@@ -7,7 +7,8 @@ import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import online.longlian.app.common.enumeration.Status;
+import java.time.LocalDateTime;import online.longlian.app.common.enumeration.TaskTemplateScope;
+import online.longlian.app.common.enumeration.Status;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
@@ -20,7 +21,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * @author longlian
- * @since 2026-04-12
+ * @since 2026-04-13
  */
 @Data
 @Builder
@@ -66,6 +67,13 @@ public class TaskTemplate implements Serializable {
     @TableField("status")
     @ApiModelProperty("状态 1-启用 0-禁用")
     private Status status;
+
+    /**
+     * 1-个人模板 2-组织通用模板
+     */
+    @TableField("scope")
+    @ApiModelProperty("1-个人模板 2-组织通用模板")
+    private TaskTemplateScope scope;
 
     /**
      * 关联的项目数

@@ -53,7 +53,7 @@ public class FileStorageService {
                 .bizType(createFileReqDTO.getBizType())
                 .bizId(createFileReqDTO.getBizId())
                 .processStatus(FileProcessStatus.UN_PROCESS)
-                .isReferenced(1)
+                .isReferenced((byte) 1)
                 .creatorId(ThreadLocalUtil.getUserBO().getId())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

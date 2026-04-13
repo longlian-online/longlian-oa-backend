@@ -345,8 +345,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         UserRole userRole = UserRole.builder()
                 .userId(userId)
                 .roleId(role.getId())
-                .createAt(now)
-                .updateAt(now)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
         userRoleMapper.insert(userRole);
     }
