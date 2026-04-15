@@ -5,14 +5,14 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.app.common.enumeration.ProjectStatus;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import online.longlian.app.common.enumeration.ProjectStatus;
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -20,7 +20,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * @author longlian
- * @since 2026-04-12
+ * @since 2026-04-15
  */
 @Data
 @Builder
@@ -62,6 +62,13 @@ public class Project implements Serializable {
     @TableField("alias")
     @ApiModelProperty("别名")
     private String alias;
+
+    /**
+     * 扩展信息(JSON字符串)
+     */
+    @TableField("metadata")
+    @ApiModelProperty("扩展信息(JSON字符串)")
+    private String metadata;
 
     /**
      * 封面图

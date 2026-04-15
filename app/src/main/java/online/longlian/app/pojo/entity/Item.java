@@ -5,14 +5,14 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.app.common.enumeration.ItemStatus;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import online.longlian.app.common.enumeration.ItemStatus;
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -20,13 +20,13 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * @author longlian
- * @since 2026-04-12
+ * @since 2026-04-15
  */
 @Data
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor
 @TableName("item")
+@AllArgsConstructor
 @ApiModel(value = "Item对象", description = "项目表")
 public class Item implements Serializable {
 
@@ -57,10 +57,10 @@ public class Item implements Serializable {
     private Long taskTemplateId;
 
     /**
-     * 状态 1-进行中 2-已完成 3-待发布
+     * 状态 1-进行中 2-已完成 3-已公布
      */
     @TableField("status")
-    @ApiModelProperty("状态 1-进行中 2-已完成 3-待发布")
+    @ApiModelProperty("状态 1-进行中 2-已完成 3-已公布")
     private ItemStatus status;
 
     /**
