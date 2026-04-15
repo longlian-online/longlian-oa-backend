@@ -15,6 +15,7 @@ import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.io.FileSystemResource;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Properties;
 
@@ -22,7 +23,7 @@ import java.util.Properties;
 
 public class CodeGenerator {
 
-    private static final String OUTPUT_DIR = "app\\src\\main\\java";
+    private static final String OUTPUT_DIR = Paths.get("app", "src", "main", "java").toString();
     public static HashMap<EnumFieldMeta, ModelEnumMeta> enumTypeConvertMap;
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
