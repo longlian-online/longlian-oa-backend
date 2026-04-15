@@ -2,12 +2,14 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 /**
  * 项目状态
  */
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "item", field = "status")
 public enum ItemStatus implements CodeEnum {
 
     IN_PROGRESS(1, "进行中"),

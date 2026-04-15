@@ -2,12 +2,14 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 /**
  * 入组申请状态
  */
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "group_application", field = "status")
 public enum ApplicationStatus implements CodeEnum {
 
     PENDING(0, "待审核"),

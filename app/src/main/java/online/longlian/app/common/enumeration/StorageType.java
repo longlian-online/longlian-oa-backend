@@ -2,9 +2,11 @@ package online.longlian.app.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import online.longlian.app.common.annotation.ModelEnum;
 
 @Getter
 @AllArgsConstructor
+@ModelEnum(model = "file_storage", field = "storage_type")
 public enum StorageType implements CodeEnum {
     LOCAL(1, "本地存储"),
     OSS(2, "阿里云OSS"),
