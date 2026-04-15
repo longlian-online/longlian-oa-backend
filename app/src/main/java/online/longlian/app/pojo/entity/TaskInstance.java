@@ -5,14 +5,14 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.app.common.enumeration.TaskInstanceStatus;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import online.longlian.app.common.enumeration.TaskInstanceStatus;
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -20,7 +20,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * @author longlian
- * @since 2026-04-12
+ * @since 2026-04-15
  */
 @Data
 @Builder
@@ -50,18 +50,18 @@ public class TaskInstance implements Serializable {
     private Long itemId;
 
     /**
-     * 关联原子任务ID
+     * 关联项目任务节点ID
      */
-    @TableField("base_task_id")
-    @ApiModelProperty("关联原子任务ID")
-    private Long baseTaskId;
+    @ApiModelProperty("关联项目任务节点ID")
+    @TableField("item_task_node_id")
+    private Long itemTaskNodeId;
 
     /**
-     * 关联任务模板ID
+     * 关联任务流ID
      */
-    @ApiModelProperty("关联任务模板ID")
-    @TableField("task_template_id")
-    private Long taskTemplateId;
+    @TableField("task_flow_id")
+    @ApiModelProperty("关联任务流ID")
+    private Long taskFlowId;
 
     /**
      * 接取人ID
@@ -71,10 +71,10 @@ public class TaskInstance implements Serializable {
     private Long assigneeId;
 
     /**
-     * 任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)
+     * 任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)
      */
     @TableField("status")
-    @ApiModelProperty("任务状态 1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)")
+    @ApiModelProperty("任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)")
     private TaskInstanceStatus status;
 
     /**
