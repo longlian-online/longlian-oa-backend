@@ -11,7 +11,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 
-public class EnumProcesser {
+public class EnumProcessor {
 
     private static final String ENUM_PACKAGE = "online.longlian.app.common.enumeration";
 
@@ -42,7 +42,7 @@ public class EnumProcesser {
 
     private static List<Class<?>> getClasses() throws ClassNotFoundException, IOException {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        String path = EnumProcesser.ENUM_PACKAGE.replace('.', '/');
+        String path = EnumProcessor.ENUM_PACKAGE.replace('.', '/');
         Enumeration<URL> resources = classLoader.getResources(path);
         List<File> dirs = new ArrayList<>();
         while (resources.hasMoreElements()) {
@@ -51,7 +51,7 @@ public class EnumProcesser {
         }
         List<Class<?>> classes = new ArrayList<>();
         for (File directory : dirs) {
-            classes.addAll(findClasses(directory, EnumProcesser.ENUM_PACKAGE));
+            classes.addAll(findClasses(directory, EnumProcessor.ENUM_PACKAGE));
         }
         return classes;
     }
