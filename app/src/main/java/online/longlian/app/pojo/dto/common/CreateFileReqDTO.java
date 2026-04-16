@@ -1,11 +1,15 @@
 package online.longlian.app.pojo.dto.common;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.constants.PatternConstants;
 
 @Data
 @AllArgsConstructor
@@ -18,18 +22,22 @@ public class CreateFileReqDTO {
     private String fileName;
 
     @NotBlank(message = "文件扩展名不能为空")
+    @Pattern(regexp = PatternConstants.FILE_EXT_PATTERN, message = "不支持的文件类型")
     @Schema(description = "文件扩展名", requiredMode = Schema.RequiredMode.REQUIRED)
     private String fileExt;
 
     @NotNull(message = "文件大小不能为空")
+    @Max(value = CommonConstants.FILE_UPLOAD_MAX_SIZE, message = "文件大小不能超过50MB")
     @Schema(description = "文件大小(字节)", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long fileSize;
 
     @NotBlank(message = "文件MIME类型不能为空")
+    @Pattern(regexp = PatternConstants.FILE_MIME_PATTERN, message = "不支持的文件MIME类型")
     @Schema(description = "文件MIME类型", requiredMode = Schema.RequiredMode.REQUIRED)
     private String fileMime;
 
     @NotBlank(message = "业务类型不能为空")
+    @Pattern(regexp = PatternConstants.FILE_BIZ_TYPE_PATTERN, message = "不支持的业务类型")
     @Schema(description = "业务类型(avatar/cover/task_submit)", requiredMode = Schema.RequiredMode.REQUIRED)
     private String bizType;
 
