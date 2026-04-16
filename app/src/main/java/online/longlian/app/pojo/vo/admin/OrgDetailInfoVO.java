@@ -22,9 +22,6 @@ public class OrgDetailInfoVO {
     @Schema(description = "组织头像文件url")
     private String avatarUrl;
 
-    @Schema(description = "组织简介")
-    private String description;
-
     @Schema(description = "组织状态 1-启用 0-禁用")
     private Status status;
 

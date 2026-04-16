@@ -325,7 +325,7 @@ CREATE TABLE `project_workshop` (
 
 -- 4.1 文件存储表 file_storage
 
-CREATE TABLE `file_storage` (
+CREATE TABLE `resource` (
                                 `id` bigint NOT NULL COMMENT '文件ID',
                                 `org_id` bigint NOT NULL COMMENT '所属组织ID',
                                 `storage_type` tinyint NOT NULL COMMENT '存储类型 1-本地存储 2-阿里云OSS 3-腾讯云COS',

@@ -9,7 +9,7 @@ import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.mapper.FileStorageMapper;
 import online.longlian.app.pojo.bo.PresignedUploadBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
-import online.longlian.app.pojo.entity.FileStorage;
+import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.CreateFileResVO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -43,10 +43,10 @@ public class FileStorageService {
         Long currentUserId = SecurityUtil.getCurrentUserId();
 
         // 3. 构建实体
-        FileStorage file = FileStorage.builder()
+        Resource file = Resource.builder()
                 .id(fileId)
                 .orgId((Long) redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + currentUserId))
-                .storageType(storageType)
+//                .storageType(storageType)
                 .storageKey(storageKey)
                 .fileName(createFileReqDTO.getFileName())
                 .fileExt(createFileReqDTO.getFileExt())
@@ -54,7 +54,7 @@ public class FileStorageService {
                 .fileMime(createFileReqDTO.getFileMime())
                 .bizType(createFileReqDTO.getBizType())
                 .bizId(createFileReqDTO.getBizId())
-                .processStatus(FileProcessStatus.UN_PROCESS)
+//                .processStatus(FileProcessStatus.UN_PROCESS)
                 .isReferenced((byte) 1)
                 .creatorId(currentUserId)
                 .createdAt(LocalDateTime.now())
@@ -65,7 +65,7 @@ public class FileStorageService {
         StorageService storageService = storageFactory.get(storageType);
         PresignedUploadBO uploadBO = storageService.generatePresignedUpload(file);
 
-        fileStorageMapper.insert(file);
+//        fileStorageMapper.insert(file);
 
         return new CreateFileResVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), storageType);
     }
@@ -75,14 +75,15 @@ public class FileStorageService {
     }
 
     public String getFileAccessUrl(Long fileId) {
-        FileStorage fileStorage = fileStorageMapper.selectById(fileId);
-        StorageType type = fileStorage.getStorageType();
-        String key = fileStorage.getStorageKey();
-
-        return switch (type) {
-            case LOCAL -> localAccessPrefix + "/" + key;
-            case OSS -> "";
-            case COS -> cosAccessPrefix + "/" + key;
-        };
+//        Resource fileStorage = fileStorageMapper.selectById(fileId);
+//        StorageType type = fileStorage.getStorageType();
+//        String key = fileStorage.getStorageKey();
+//
+//        return switch (type) {
+//            case LOCAL -> localAccessPrefix + "/" + key;
+//            case OSS -> "";
+//            case COS -> cosAccessPrefix + "/" + key;
+//        };
+        return null;
     }
 }

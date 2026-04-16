@@ -6,7 +6,7 @@ import online.longlian.app.common.annotation.ModelEnum;
 
 @Getter
 @AllArgsConstructor
-@ModelEnum(model = "file_storage", field = "process_status")
+@ModelEnum(model = "resource", field = "process_status")
 public enum FileProcessStatus implements CodeEnum {
     UN_PROCESS(0, "未处理"),
     PROCESSING(1, "处理中"),

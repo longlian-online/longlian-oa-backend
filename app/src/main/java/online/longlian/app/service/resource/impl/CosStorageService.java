@@ -8,13 +8,13 @@ import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
 import online.longlian.app.pojo.bo.PresignedUploadBO;
+import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.service.resource.StorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;
-import java.util.Date;
-import online.longlian.app.pojo.entity.FileStorage;
+import java.util.*;
 
 @Service
 public class CosStorageService implements StorageService {
@@ -35,15 +35,25 @@ public class CosStorageService implements StorageService {
     }
 
     @Override
-    public PresignedUploadBO generatePresignedUpload(FileStorage fileStorage) {
+    public PresignedUploadBO generatePresignedUpload(Resource resource) {
         Date expiration = new Date(System.currentTimeMillis() + 10 * 60 * 1000);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 bucket,
-                fileStorage.getStorageKey(),
+                resource.getStorageKey(),
                 HttpMethodName.PUT
         );
         request.setExpiration(expiration);
         URL url = cosClient.generatePresignedUrl(request);
-        return new PresignedUploadBO(url.toString(), fileStorage.getStorageKey());
+        return new PresignedUploadBO(url.toString(), resource.getStorageKey());
+    }
+
+    @Override
+    public String getFileUrl(Long fileId) {
+        return "";
+    }
+
+    @Override
+    public Map<Long, String> getFileUrls(List<Long> fileIds) {
+        return new HashMap<>();
     }
 }
