@@ -9,6 +9,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
+import org.springframework.web.util.HtmlUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -44,7 +45,9 @@ public class EmailNotificationService implements NotificationService {
 
     @Override
     public void send(String receiver, String code) {
-        String htmlContent = htmlTemplate.replace("${code}", code).replace("${receiver}", receiver);
+        String htmlContent = htmlTemplate
+                .replace("${code}", HtmlUtils.htmlEscape(code))
+                .replace("${receiver}", HtmlUtils.htmlEscape(receiver));
         mailUtil.send(new MailUtil.SendParam(fromEmail, receiver, this.appDisplayName, CommonConstants.NOTIFY_TITLE, htmlContent));
     }
 

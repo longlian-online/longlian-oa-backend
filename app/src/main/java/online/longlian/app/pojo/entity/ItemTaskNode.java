@@ -5,13 +5,13 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -19,7 +19,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * @author longlian
- * @since 2026-04-12
+ * @since 2026-04-15
  */
 @Data
 @Builder
@@ -74,6 +74,13 @@ public class ItemTaskNode implements Serializable {
     private String name;
 
     /**
+     * 节点元数据字段定义快照(JSON数组)
+     */
+    @TableField("meta_schema")
+    @ApiModelProperty("节点元数据字段定义快照(JSON数组)")
+    private String metaSchema;
+
+    /**
      * 步骤顺序
      */
     @TableField("sort")
@@ -86,27 +93,6 @@ public class ItemTaskNode implements Serializable {
     @ApiModelProperty("并行组号排序")
     @TableField("parallel_sort")
     private Integer parallelSort;
-
-    /**
-     * 是否需要上传文件
-     */
-    @TableField("need_file")
-    @ApiModelProperty("是否需要上传文件")
-    private Byte needFile;
-
-    /**
-     * 是否必须上传
-     */
-    @ApiModelProperty("是否必须上传")
-    @TableField("required_file")
-    private Byte requiredFile;
-
-    /**
-     * 允许的文件类型
-     */
-    @ApiModelProperty("允许的文件类型")
-    @TableField("allowed_mime_types")
-    private String allowedMimeTypes;
 
     @TableField("created_at")
     private LocalDateTime createdAt;

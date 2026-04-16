@@ -6,8 +6,6 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
-import org.slf4j.MDC;
-
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -30,8 +28,7 @@ public class WebLogAspect {
         log.info("请求开始 | uri={} | method={} | classMethod={} | args={}",
                 request.getRequestURI(),
                 request.getMethod(),
-                joinPoint.getSignature(),
-                args
+                joinPoint.getSignature()
         );
         Object result = joinPoint.proceed();
         long elapsed = System.currentTimeMillis() - startTime;
@@ -40,8 +37,7 @@ public class WebLogAspect {
                 request.getRequestURI(),
                 request.getMethod(),
                 joinPoint.getSignature(),
-                elapsed,
-                result
+                elapsed
         );
         return result;
     }

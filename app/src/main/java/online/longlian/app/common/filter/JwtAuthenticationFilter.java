@@ -7,25 +7,24 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.common.util.ThreadLocalUtil;
-import online.longlian.app.pojo.bo.UserBO;
-import online.longlian.app.common.security.UserDetailImpl;
-import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Objects;
 
 @RequiredArgsConstructor
 @Component
@@ -60,27 +59,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             long userId = Long.parseLong(claims.getSubject());
 
-            String json = Objects.requireNonNull(redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId)).toString();
-            UserDetailImpl userDetailImpl = JSON.parseObject(json, UserDetailImpl.class);
+            Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId);
+            if (cached == null) {
+                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
+            }
+
+            UserDetailImpl userDetailImpl = JSON.parseObject(cached.toString(), UserDetailImpl.class);
             if (userDetailImpl == null) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
-            // 设置 Spring Security 上下文
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetailImpl, null, userDetailImpl.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            UserBO userBO = new UserBO();
-            BeanUtils.copyProperties(userDetailImpl, userBO);
-            ThreadLocalUtil.setUserBO(userBO);
 
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
             authenticationEntryPoint.commence(request, response, null);
-        } finally {
-            ThreadLocalUtil.removeUserBO();
         }
     }
 }

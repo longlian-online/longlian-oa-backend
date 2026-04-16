@@ -18,8 +18,10 @@ import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.enumeration.ApplicationStatus;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.common.util.ThreadLocalUtil;
+import online.longlian.app.common.util.SecurityUtil;
+
 import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
@@ -45,6 +47,7 @@ import online.longlian.app.service.user.UserService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -133,7 +136,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public Result<UserInfoVO> getMyInfo() {
-        Long userId = ThreadLocalUtil.getUserBO().getId();
+        Long userId = SecurityUtil.getCurrentUserId();
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
@@ -187,7 +190,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         long remainingSeconds = jwtUtil.getRemainingTimeSeconds(token);
         redisBlacklistUtil.addToBlacklist(token, remainingSeconds);
 
-        Long userId = ThreadLocalUtil.getUserBO().getId();
+        Long userId = SecurityUtil.getCurrentUserId();
         redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
 
         return Result.success("登出成功");
@@ -196,7 +199,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        Long userId = ThreadLocalUtil.getUserBO().getId();
+        Long userId = SecurityUtil.getCurrentUserId();
         InviteCodeCacheBO inviteData = getInviteCodeData(joinByInviteCodeDTO.getInviteCode());
         // 管理员邀请码支持“注册入组”和“已登录申请入组”两种使用方式。
         if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_INVITE) {

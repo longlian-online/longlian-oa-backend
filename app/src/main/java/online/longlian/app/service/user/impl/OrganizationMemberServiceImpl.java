@@ -8,7 +8,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.InviteCodeUtil;
-import online.longlian.app.common.util.ThreadLocalUtil;
+import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.InviteCodeCacheBO;
 import online.longlian.app.pojo.entity.Organization;
@@ -56,7 +56,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     private Long getCurrentOrgId() {
-        Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + ThreadLocalUtil.getUserBO().getId());
+        Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + SecurityUtil.getCurrentUserId());
         if (currentOrgId == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前组织不存在，请先切换组织");
         }

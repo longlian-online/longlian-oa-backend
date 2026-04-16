@@ -8,6 +8,7 @@ import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvi
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -33,6 +34,7 @@ public class SecurityConfig {
     private final MyUsernamePasswordAuthenticationProvider emailPasswordProvider;
     private final EmailCodeAuthenticationProvider emailCodeProvider;
     private final UserDetailsServiceImpl userDetailsService;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -46,14 +48,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 // 登录
-                                new AntPathRequestMatcher("/app/user/login/pwd"),
-                                new AntPathRequestMatcher("/app/user/login/code"),
+                                new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
+                                new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
                                 // 验证码
-                                new AntPathRequestMatcher("/app/user/send-code"),
-                                // 注册（通过邀请链接）
-                                new AntPathRequestMatcher("/app/user/invite/*"),
-                                new AntPathRequestMatcher("/app/user/register/invite"),
-                                new AntPathRequestMatcher("/app/org/member/invite/info"),
+                                new AntPathRequestMatcher("/app/session/email/code", HttpMethod.POST.name()),
+                                // 注册与邀请码信息
+                                new AntPathRequestMatcher("/app/user/", HttpMethod.POST.name()),
+                                new AntPathRequestMatcher("/app/user/invite-info", HttpMethod.GET.name()),
                                 // Swagger
                                 new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/swagger-ui/**"),
@@ -73,6 +74,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
         AuthenticationManagerBuilder builder = http.getSharedObject(AuthenticationManagerBuilder.class);
@@ -84,3 +86,4 @@ public class SecurityConfig {
     }
 
 }
+

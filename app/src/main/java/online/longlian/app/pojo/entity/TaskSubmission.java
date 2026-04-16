@@ -5,14 +5,14 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.app.common.enumeration.TaskSubmissionStatus;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import online.longlian.app.common.enumeration.TaskSubmissionStatus;
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -20,7 +20,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * @author longlian
- * @since 2026-04-12
+ * @since 2026-04-15
  */
 @Data
 @Builder
@@ -57,11 +57,11 @@ public class TaskSubmission implements Serializable {
     private Long taskInstanceId;
 
     /**
-     * 关联原子任务ID
+     * 关联项目任务节点ID
      */
-    @TableField("base_task_id")
-    @ApiModelProperty("关联原子任务ID")
-    private Long baseTaskId;
+    @ApiModelProperty("关联项目任务节点ID")
+    @TableField("item_task_node_id")
+    private Long itemTaskNodeId;
 
     /**
      * 提交人ID
@@ -71,17 +71,10 @@ public class TaskSubmission implements Serializable {
     private Long submitterId;
 
     /**
-     * 上传文件ID
-     */
-    @TableField("file_id")
-    @ApiModelProperty("上传文件ID")
-    private Long fileId;
-
-    /**
-     * 元数据
+     * 提交元数据(JSON对象，按节点 meta_schema 组织)
      */
     @TableField("metadata")
-    @ApiModelProperty("元数据")
+    @ApiModelProperty("提交元数据(JSON对象，按节点 meta_schema 组织)")
     private String metadata;
 
     /**

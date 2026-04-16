@@ -16,28 +16,28 @@ public class EnumProcessor {
     private static final String ENUM_PACKAGE = "online.longlian.app.common.enumeration";
 
     public static HashMap<EnumFieldMeta, ModelEnumMeta> scanAndPrintModelEnums() throws IOException, ClassNotFoundException {
-            var enumMap = new HashMap<EnumFieldMeta, ModelEnumMeta>();
-            List<Class<?>> classes = getClasses();
-            for (Class<?> clazz : classes) {
-                if (clazz.isEnum()) {
-                    {
-                        ModelEnum modelEnum = clazz.getAnnotation(ModelEnum.class);
-                        if (modelEnum != null) {
-                            enumMap.put(new EnumFieldMeta(modelEnum.model(), modelEnum.field()), new ModelEnumMeta(clazz.getSimpleName(), clazz.getName()));
-                        }
+        var enumMap = new HashMap<EnumFieldMeta, ModelEnumMeta>();
+        List<Class<?>> classes = getClasses();
+        for (Class<?> clazz : classes) {
+            if (clazz.isEnum()) {
+                {
+                    ModelEnum modelEnum = clazz.getAnnotation(ModelEnum.class);
+                    if (modelEnum != null) {
+                        enumMap.put(new EnumFieldMeta(modelEnum.model(), modelEnum.field()), new ModelEnumMeta(clazz.getSimpleName(), clazz.getName()));
                     }
+                }
 
-                    ModelEnums modelEnums = clazz.getAnnotation(ModelEnums.class);
-                    if (modelEnums!=null && modelEnums.value() != null && modelEnums.value().length > 0) {
-                        for (var modelEnum : modelEnums.value()) {
-                            assert modelEnum != null;
-                            enumMap.put(new EnumFieldMeta(modelEnum.model(), modelEnum.field()), new ModelEnumMeta(clazz.getSimpleName(), clazz.getName()));
-                        }
+                ModelEnums modelEnums = clazz.getAnnotation(ModelEnums.class);
+                if (modelEnums!=null && modelEnums.value() != null && modelEnums.value().length > 0) {
+                    for (var modelEnum : modelEnums.value()) {
+                        assert modelEnum != null;
+                        enumMap.put(new EnumFieldMeta(modelEnum.model(), modelEnum.field()), new ModelEnumMeta(clazz.getSimpleName(), clazz.getName()));
                     }
                 }
             }
+        }
 
-            return enumMap;
+        return enumMap;
     }
 
     private static List<Class<?>> getClasses() throws ClassNotFoundException, IOException {
