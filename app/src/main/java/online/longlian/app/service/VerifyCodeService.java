@@ -55,7 +55,6 @@ public class VerifyCodeService {
         String code = generateCode();
         try {
             notificationManager.send(receiver, code);
-            log.info("{}验证码发送成功：{}", receiver, code);
             stringRedisTemplate.opsForValue().set(
                     RedisConstants.CODE_KEY + receiver,
                     code,
