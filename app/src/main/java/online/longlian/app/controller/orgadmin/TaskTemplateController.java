@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @Tag(name = "任务模板管理", description = "任务流模板的增删改查与状态管理，仅管理员可操作")
-@RequestMapping("/app/task/template")
+@RequestMapping("/orgadmin/task/template")
 @RestController
 @RequiredArgsConstructor
 public class TaskTemplateController {

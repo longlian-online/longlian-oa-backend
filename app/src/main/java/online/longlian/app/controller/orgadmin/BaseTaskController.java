@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @Tag(name = "原子任务管理", description = "原子任务（最小任务单元）管理；任务创建后不可编辑，仅支持启用/禁用")
-@RequestMapping("/app/task/base")
+@RequestMapping("/orgadmin/task/base")
 @RestController
 @RequiredArgsConstructor
 public class BaseTaskController {
