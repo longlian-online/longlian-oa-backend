@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import online.longlian.generator.internal.EnumFieldMeta;
-import online.longlian.generator.internal.EnumProcesser;
+import online.longlian.generator.internal.EnumProcessor;
 import online.longlian.generator.internal.ModelEnumMeta;
 import online.longlian.generator.internal.TypeConverter;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
@@ -32,7 +32,7 @@ public class CodeGenerator {
         String password = env.getProperty("spring.datasource.password");
 
         // 获取枚举映射 表名 + 字段名 -> 类型名 + 包名
-        enumTypeConvertMap = EnumProcesser.scanAndPrintModelEnums();
+        enumTypeConvertMap = EnumProcessor.scanAndPrintModelEnums();
 
         FastAutoGenerator.create(new DataSourceConfig
                         .Builder(url, username, password)
