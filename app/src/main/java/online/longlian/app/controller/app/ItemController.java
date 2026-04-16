@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.util.ThreadLocalUtil;
+import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.entity.Project;
@@ -97,7 +97,7 @@ public class ItemController {
         if (project == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
-        Long currentUserId = ThreadLocalUtil.getUserBO().getId();
+        Long currentUserId = SecurityUtil.getCurrentUserId();
         if (!project.getCreatorId().equals(currentUserId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }

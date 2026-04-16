@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.enumeration.FileProcessStatus;
 import online.longlian.app.common.enumeration.StorageType;
-import online.longlian.app.common.util.ThreadLocalUtil;
+import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.mapper.FileStorageMapper;
 import online.longlian.app.pojo.bo.PresignedUploadBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
@@ -24,6 +24,7 @@ public class FileStorageService {
     private final FileStorageMapper fileStorageMapper;
     private final StorageServiceFactory storageFactory;
     private final RedisTemplate<String, Object> redisTemplate;
+
     @Value("${storage.type}")
     private StorageType storageType;
 
@@ -39,11 +40,12 @@ public class FileStorageService {
 
         // 2. 生成存储KEY
         String storageKey = buildStorageKey(createFileReqDTO.getBizType(), fileId, createFileReqDTO.getFileExt());
+        Long currentUserId = SecurityUtil.getCurrentUserId();
 
         // 3. 构建实体
         FileStorage file = FileStorage.builder()
                 .id(fileId)
-                .orgId((Long) redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + ThreadLocalUtil.getUserBO().getId()))
+                .orgId((Long) redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + currentUserId))
                 .storageType(storageType)
                 .storageKey(storageKey)
                 .fileName(createFileReqDTO.getFileName())
@@ -54,7 +56,7 @@ public class FileStorageService {
                 .bizId(createFileReqDTO.getBizId())
                 .processStatus(FileProcessStatus.UN_PROCESS)
                 .isReferenced((byte) 1)
-                .creatorId(ThreadLocalUtil.getUserBO().getId())
+                .creatorId(currentUserId)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -65,12 +67,7 @@ public class FileStorageService {
 
         fileStorageMapper.insert(file);
 
-        return new CreateFileResVO(
-                fileId,
-                uploadBO.getUploadUrl(),
-                uploadBO.getKey(),
-                storageType
-        );
+        return new CreateFileResVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), storageType);
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {

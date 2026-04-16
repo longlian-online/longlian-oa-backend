@@ -10,12 +10,9 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.common.util.ThreadLocalUtil;
-import online.longlian.app.pojo.bo.UserBO;
-import online.longlian.app.common.security.UserDetailImpl;
-import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -66,21 +63,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
-            // 设置 Spring Security 上下文
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetailImpl, null, userDetailImpl.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            UserBO userBO = new UserBO();
-            BeanUtils.copyProperties(userDetailImpl, userBO);
-            ThreadLocalUtil.setUserBO(userBO);
 
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
             authenticationEntryPoint.commence(request, response, null);
-        } finally {
-            ThreadLocalUtil.removeUserBO();
         }
     }
 }
