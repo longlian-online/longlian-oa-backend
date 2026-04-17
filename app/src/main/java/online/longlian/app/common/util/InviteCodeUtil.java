@@ -1,6 +1,5 @@
 package online.longlian.app.common.util;
 
-import cn.hutool.core.util.RandomUtil;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.constants.RedisConstants;
@@ -30,7 +29,7 @@ public class InviteCodeUtil {
             InviteMode inviteMode,
             Long orgId,
             String orgName) {
-        String inviteCode = RandomUtil.randomStringUpper(InviteConstants.INVITE_CODE_LENGTH);
+        String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
         LocalDateTime expireAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
         String expireAtText = expireAt.format(DATE_TIME_FORMATTER);
 
