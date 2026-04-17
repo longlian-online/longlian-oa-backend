@@ -1,6 +1,5 @@
 package online.longlian.app.service;
 
-import cn.hutool.core.util.RandomUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
@@ -8,6 +7,7 @@ import online.longlian.app.common.constants.PatternConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.service.notify.NotificationManager;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -27,7 +27,7 @@ public class VerifyCodeService {
      * 生成6位数字验证码
      */
     public String generateCode() {
-        return RandomUtil.randomNumbers(CommonConstants.CODE_LENGTH);
+        return RandomCodeUtil.generateCode(CommonConstants.CODE_LENGTH);
     }
 
     public boolean sendCode(String receiver) {

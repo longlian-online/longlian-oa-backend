@@ -1,6 +1,6 @@
 package online.longlian.app.service.resource;
 
-import cn.hutool.core.util.IdUtil;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.enumeration.FileProcessStatus;
@@ -36,7 +36,7 @@ public class FileStorageService {
 
     public CreateFileResVO create(CreateFileReqDTO createFileReqDTO) {
         // 1. 生成文件ID
-        long fileId = IdUtil.getSnowflakeNextId();
+        long fileId = IdWorker.getId();
 
         // 2. 生成存储KEY
         String storageKey = buildStorageKey(createFileReqDTO.getBizType(), fileId, createFileReqDTO.getFileExt());
