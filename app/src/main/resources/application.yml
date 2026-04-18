@@ -79,11 +79,11 @@ storage:
   local:
     base-url: ${STORAGE_LOCAL_BASE_URL:}
   oss:
-    bucket: ${STORAGE_COS_BUCKET:}
-    region: ${STORAGE_COS_REGION:}
-    secret-id: ${STORAGE_COS_SECRET_ID:}
-    secret-key: ${STORAGE_COS_SECRET_KEY:}
-    base-url: ${STORAGE_COS_URL_PREFIX:}
+    bucket: ${STORAGE_OSS_BUCKET}
+    region: ${STORAGE_OSS_REGION}
+    secret-id: ${STORAGE_OSS_SECRET_ID}
+    secret-key: ${STORAGE_OSS_SECRET_KEY}
+    base-url: ${STORAGE_OSS_BASE_URL}
 notify:
   type: EMAIL
   email:
