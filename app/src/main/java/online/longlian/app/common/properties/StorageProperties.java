@@ -4,11 +4,9 @@ import lombok.Builder;
 import lombok.Data;
 import online.longlian.app.common.enumeration.StorageType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 @ConfigurationProperties(prefix = "storage")
 @Data
-@Component
 @Builder
 public class StorageProperties {
     private StorageType type;

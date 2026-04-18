@@ -16,9 +16,6 @@ import online.longlian.app.service.admin.OrganizationService;
 import online.longlian.app.service.resource.StorageService;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @AllArgsConstructor
 public class OrganizationImpl implements OrganizationService {
     private final OrganizationMapper organizationMapper;

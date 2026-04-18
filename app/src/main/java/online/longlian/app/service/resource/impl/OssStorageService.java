@@ -8,6 +8,7 @@ import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
 import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
@@ -21,17 +22,14 @@ import java.util.*;
 public class OssStorageService implements StorageService {
 
     private final COSClient cosClient;
-    private final String bucket;
+    private final StorageProperties.OssConfig ossConfig;
 
     public OssStorageService(
-            @Value("${storage.cos.bucket}") String bucket,
-            @Value("${storage.cos.region}") String region,
-            @Value("${storage.cos.secret-id}") String secretId,
-            @Value("${storage.cos.secret-key}") String secretKey
+            StorageProperties storageProperties
     ) {
-        this.bucket = bucket;
-        COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
-        ClientConfig clientConfig = new ClientConfig(new Region(region));
+        ossConfig = storageProperties.getOss();
+        COSCredentials cred = new BasicCOSCredentials(ossConfig.getSecretId(), ossConfig.getSecretKey());
+        ClientConfig clientConfig = new ClientConfig(new Region(ossConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
     }
 
@@ -44,7 +42,7 @@ public class OssStorageService implements StorageService {
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
         Date expiration = new Date(System.currentTimeMillis() + 10 * 60 * 1000);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
-                bucket,
+                ossConfig.getBucket(),
                 params.getKey(),
                 HttpMethodName.PUT
         );

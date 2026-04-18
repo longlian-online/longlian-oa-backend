@@ -75,7 +75,7 @@ springdoc:
   api-docs:
     enabled: ${SPRINGDOC_ENABLED:true}
 storage:
-  type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 COS
+  type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 OSS
   local:
     base-url: ${STORAGE_LOCAL_BASE_URL:}
   oss:

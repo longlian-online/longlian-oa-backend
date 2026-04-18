@@ -1,6 +1,8 @@
 package online.longlian.app.service.resource.impl;
 
+import lombok.AllArgsConstructor;
 import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
@@ -13,8 +15,11 @@ import java.util.Map;
 @Service
 public class LocalStorageService implements StorageService {
 
-    @Value("${storage.local.upload-url}")
-    private String uploadBaseUrl;
+    private final StorageProperties.LocalConfig localConfig;
+
+    LocalStorageService(StorageProperties storageProperties) {
+        localConfig = storageProperties.getLocal();
+    }
 
     @Override
     public StorageType getStorageType() {
@@ -24,7 +29,7 @@ public class LocalStorageService implements StorageService {
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
         String key = params.getKey();
-        String uploadUrl = uploadBaseUrl + "/upload/local?key=" + key;
+        String uploadUrl = localConfig.getBaseUrl() + "/upload/local?key=" + key;
         return new PresignedUploadUrlResultBO(uploadUrl, key);
     }
 
