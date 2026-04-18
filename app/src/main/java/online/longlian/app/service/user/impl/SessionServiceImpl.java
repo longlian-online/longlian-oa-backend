@@ -13,7 +13,6 @@ import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
@@ -21,6 +20,7 @@ import online.longlian.app.service.user.SessionService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -33,6 +33,7 @@ public class SessionServiceImpl implements SessionService {
     private final AuthenticationManager authenticationManager;
     private final RedisTemplate<String, Object> redisTemplate;
     private final JwtUtil jwtUtil;
+
     @Override
     public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
         Authentication authentication =
@@ -66,18 +67,36 @@ public class SessionServiceImpl implements SessionService {
         long remainingSeconds = jwtUtil.getRemainingTimeSeconds(token);
         redisBlacklistUtil.addToBlacklist(token, remainingSeconds);
 
-        Long userId = SecurityUtil.getCurrentUserId();
+        Long userId = getCurrentUserId();
         redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
 
         return Result.success("登出成功");
     }
+
+    @Override
+    public UserDetailImpl getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetailImpl userDetail)) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+        return userDetail;
+    }
+
+    @Override
+    public Long getCurrentUserId() {
+        return getCurrentUser().getId();
+    }
+
     private Result<LoginVO> doLogin(Authentication authentication) {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();
 
         String token = jwtUtil.generateToken(userId);
 
-        // 登录成功后缓存当前用户和默认组织
         redisTemplate.opsForValue().set(
                 RedisConstants.LOGIN_USER + userId,
                 JSON.toJSONString(userDetail),
@@ -98,5 +117,4 @@ public class SessionServiceImpl implements SessionService {
                 .build();
         return Result.success("登录成功", loginVO);
     }
-
 }

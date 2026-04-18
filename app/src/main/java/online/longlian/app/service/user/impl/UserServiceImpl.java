@@ -1,27 +1,16 @@
 package online.longlian.app.service.user.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.InviteConstants;
-import online.longlian.app.common.enumeration.InviteMode;
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.enumeration.ApplicationStatus;
+import online.longlian.app.common.enumeration.InviteMode;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.security.EmailCodeAuthenticationToken;
-import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken;
-import online.longlian.app.common.security.UserDetailImpl;
-import online.longlian.app.common.enumeration.ApplicationStatus;
-import online.longlian.app.common.enumeration.Status;
-import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.common.util.SecurityUtil;
-
 import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
@@ -30,8 +19,6 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.UserRoleMapper;
 import online.longlian.app.pojo.bo.InviteCodeCacheBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
-import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
-import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
@@ -39,21 +26,16 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.Role;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.UserRole;
-import online.longlian.app.pojo.vo.app.LoginVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
 import online.longlian.app.service.resource.FileStorageService;
+import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -69,6 +51,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserRoleMapper userRoleMapper;
     private final FileStorageService fileStorageService;
     private final UserMapper userMapper;
+    private final SessionService sessionService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -110,7 +93,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public Result<UserInfoVO> getMyInfo() {
-        Long userId = SecurityUtil.getCurrentUserId();
+        Long userId = sessionService.getCurrentUserId();
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
@@ -127,12 +110,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return Result.success("查询成功", builder.build());
     }
 
-
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        Long userId = SecurityUtil.getCurrentUserId();
+        Long userId = sessionService.getCurrentUserId();
         InviteCodeCacheBO inviteData = getInviteCodeData(joinByInviteCodeDTO.getInviteCode());
         // 管理员邀请码支持“注册入组”和“已登录申请入组”两种使用方式。
         if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_INVITE) {
@@ -259,7 +240,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private void ensureOrgExists(Long orgId) {
         Organization organization = organizationMapper.selectById(orgId);
-        if (organization == null|| organization.getStatus() == Status.DISABLED) {
+        if (organization == null || organization.getStatus() == Status.DISABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
         }
     }

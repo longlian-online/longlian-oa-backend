@@ -5,12 +5,12 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.enumeration.FileProcessStatus;
 import online.longlian.app.common.enumeration.StorageType;
-import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.mapper.FileStorageMapper;
 import online.longlian.app.pojo.bo.PresignedUploadBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.entity.FileStorage;
 import online.longlian.app.pojo.vo.common.CreateFileResVO;
+import online.longlian.app.service.user.SessionService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -24,6 +24,7 @@ public class FileStorageService {
     private final FileStorageMapper fileStorageMapper;
     private final StorageServiceFactory storageFactory;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final SessionService sessionService;
 
     @Value("${storage.type}")
     private StorageType storageType;
@@ -40,7 +41,7 @@ public class FileStorageService {
 
         // 2. 生成存储KEY
         String storageKey = buildStorageKey(createFileReqDTO.getBizType(), fileId, createFileReqDTO.getFileExt());
-        Long currentUserId = SecurityUtil.getCurrentUserId();
+        Long currentUserId = sessionService.getCurrentUserId();
 
         // 3. 构建实体
         FileStorage file = FileStorage.builder()
