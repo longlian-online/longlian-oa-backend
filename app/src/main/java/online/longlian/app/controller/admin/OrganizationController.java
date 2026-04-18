@@ -7,15 +7,19 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.AdminOrganizationListParamsBO;
+import online.longlian.app.pojo.bo.AdminOrganizationUpdateStatusParamsBO;
+import online.longlian.app.pojo.bo.PageParamsBO;
 import online.longlian.app.pojo.dto.admin.OrgListDTO;
-import online.longlian.app.pojo.dto.admin.OrgUpdateDTO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
-import online.longlian.app.service.user.OrganizationService;
+import online.longlian.app.service.admin.OrganizationService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @Tag(name = "组织接口", description = "组织相关接口")
@@ -27,21 +31,21 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    @Operation(summary = "更新组织信息")
-    @Parameter(name = "orgId", description = "组织ID")
-    @PutMapping("/{orgId}")
-    public Result<Void> updateOrgInfo(@PathVariable Long orgId, @RequestBody @Valid OrgUpdateDTO orgUpdateDTO) {
-        // TODO
-        // return organizationService.updateOrgInfo(orgId, orgUpdateDTO);
-        return Result.success("更新成功");
-    }
-
     @Operation(summary = "分页查询组织列表")
     @PostMapping("/")
     public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO orgListDTO) {
-        // TODO
-        // return organizationService.getOrgListInfo(orgListDTO);
-        return Result.success(null);
+        AdminOrganizationListParamsBO adminOrganizationListParamsBO = new AdminOrganizationListParamsBO(
+                orgListDTO.getOrgName(),
+                orgListDTO.getStartCreateTime(),
+                orgListDTO.getEndCreateTime(),
+                new PageParamsBO(orgListDTO.getPageNum(), orgListDTO.getPageSize())
+        );
+        List<OrgDetailInfoVO> list = organizationService.getOrgListInfo(adminOrganizationListParamsBO)
+                .getList()
+                .stream()
+                .map(org -> new OrgDetailInfoVO(org.getId(), org.getName(), org.getAvatarUrl(), org.getStatus(), org.getCreatedAt())).toList();
+        PageResultVO<OrgDetailInfoVO> pageResultVO = new PageResultVO<>(list, organizationService.getOrgListInfo(adminOrganizationListParamsBO).getTotal());
+        return Result.success("ok", pageResultVO);
     }
 
     @Operation(
@@ -50,14 +54,14 @@ public class OrganizationController {
     )
     @PostMapping("/invite-codes/create-org")
     public Result<InviteCodeVO> generateCreateOrgInviteCode() {
-        return organizationService.generateCreateOrgInviteCode();
+        return null;
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/status")
     public Result<Void> changeOrgStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        // TODO
-        // organizationService.changeOrgStatus(changeStatusDTO.getStatus());
-        return Result.success(null);
+        AdminOrganizationUpdateStatusParamsBO adminOrganizationUpdateStatusParamsBO = new AdminOrganizationUpdateStatusParamsBO(changeStatusDTO.getOrgId(), changeStatusDTO.getStatus());
+        organizationService.updateOrgStatus(adminOrganizationUpdateStatusParamsBO);
+        return Result.success("ok");
     }
 }

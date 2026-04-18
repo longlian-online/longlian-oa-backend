@@ -7,30 +7,33 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import online.longlian.app.mapper.OrganizationMapper;
-import online.longlian.app.pojo.bo.AdminOrganizationListBO;
+import online.longlian.app.pojo.bo.AdminOrganizationListParamsBO;
+import online.longlian.app.pojo.bo.AdminOrganizationListResultBO;
 import online.longlian.app.pojo.bo.AdminOrganizationUpdateStatusParamsBO;
+import online.longlian.app.pojo.bo.PageResultBO;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
-import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.admin.OrganizationService;
-import online.longlian.app.service.resource.StorageService;
+import online.longlian.app.service.resource.ResourceService;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaUpdate;
 
+@Service
 @AllArgsConstructor
 public class OrganizationImpl implements OrganizationService {
     private final OrganizationMapper organizationMapper;
-    private final StorageService storageService;
+    private final ResourceService resourceService;
 
-    public PageResultVO<OrgDetailInfoVO> getOrgListInfo(@NonNull AdminOrganizationListBO params) {
-        Page<Organization> page = new Page<>(params.getPageNum(), params.getPageSize());
+    public PageResultBO<AdminOrganizationListResultBO> getOrgListInfo(@NonNull AdminOrganizationListParamsBO params) {
+        Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
         Page<Organization> organizationPage = new LambdaQueryChainWrapper<>(organizationMapper)
                 .select(
-                        Organization::getId, Organization::getName,
+                        Organization::getId,
+                        Organization::getName,
                         Organization::getName,
                         Organization::getAvatarFileId,
                         Organization::getStatus,
@@ -41,9 +44,9 @@ public class OrganizationImpl implements OrganizationService {
         long total = organizationPage.getTotal();
 
         List<Long> avatarIds = organizations.stream().map(Organization::getAvatarFileId).toList();
-        Map<Long, String> fileUrlMap = storageService.getResourceReadUrls(avatarIds);
+        Map<Long, String> fileUrlMap = resourceService.getResourceReadUrls(avatarIds);
 
-        List<OrgDetailInfoVO> list = organizations.stream().map(organization -> new OrgDetailInfoVO(organization.getId(),
+        List<AdminOrganizationListResultBO> list = organizations.stream().map(organization -> new AdminOrganizationListResultBO(organization.getId(),
                 organization.getName(),
                 fileUrlMap.get(organization.getAvatarFileId()),
                 organization.getStatus(),
@@ -51,11 +54,7 @@ public class OrganizationImpl implements OrganizationService {
         )).toList();
 
 
-        PageResultVO<OrgDetailInfoVO> result = new PageResultVO<>();
-        result.setList(list);
-        result.setTotal(total);
-
-        return result;
+        return new PageResultBO<>(list, total);
     }
 
     public InviteCodeVO generateCreateOrgInviteCode() {

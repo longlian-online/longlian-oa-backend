@@ -5,8 +5,10 @@ import lombok.Data;
 import online.longlian.app.common.enumeration.Status;
 
 @Data
-@Schema(description = "改变状态参数")
+@Schema(description = "修改组织状态")
 public class ChangeStatusDTO {
+    @Schema(description = "组织 ID")
+    private Long orgId;
 
     @Schema(description = "目标状态：1-启用，0-禁用")
     private Status status;

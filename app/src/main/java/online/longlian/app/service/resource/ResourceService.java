@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +62,14 @@ public class ResourceService {
         resourceMapper.insert(file);
 
         return new ResourcCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
+    }
+
+    public String getResourceReadUrl(Long fileId) {
+        return "";
+    }
+
+    public Map<Long, String> getResourceReadUrls(List<Long> fileIds) {
+        return new HashMap<>();
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {
