@@ -80,9 +80,9 @@ public class TaskTemplateController {
             summary = "启用/禁用任务模板",
             description = "禁用后无法基于该模板创建新任务流，已有任务流不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
-    @PatchMapping("/task-template/status")
+    @PatchMapping("/{templateId}/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeTaskTemplateStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+    public Result<Void> changeTaskTemplateStatus(@PathVariable Long templateId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
         // taskTemplateService.changeTaskTemplateStatus(changeStatusDTO.getStatus());
         return Result.success(null);
