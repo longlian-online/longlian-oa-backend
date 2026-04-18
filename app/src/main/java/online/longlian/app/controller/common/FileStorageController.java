@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
-import online.longlian.app.pojo.vo.common.CreateFileResVO;
-import online.longlian.app.service.resource.FileStorageService;
+import online.longlian.app.pojo.vo.common.ResourcCreateVO;
+import online.longlian.app.service.resource.ResourceService;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -18,14 +18,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class FileStorageController {
 
-    private final FileStorageService fileStorageService;
+    private final ResourceService resourceService;
 
     @Operation(
         summary = "创建文件上传",
         description = "获取预签名上传地址，前端拿到 uploadUrl 后直接向存储服务上传文件，上传完成后将 fileId 传给业务接口"
     )
     @PostMapping("/upload")
-    public Result<CreateFileResVO> createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO) {
-        return Result.success("获取成功", fileStorageService.create(createFileReqDTO));
+    public Result<ResourcCreateVO> createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO) {
+//        return Result.success("获取成功", resourceService.create(createFileReqDTO));
+        return null;
     }
 }

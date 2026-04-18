@@ -9,8 +9,7 @@ import online.longlian.app.common.annotation.ModelEnum;
 @ModelEnum(model = "resource", field = "storage_type")
 public enum StorageType implements CodeEnum {
     LOCAL(1, "本地存储"),
-    OSS(2, "阿里云OSS"),
-    COS(3, "腾讯云COS");
+    OSS(2, "云对象存储");
 
     private final Integer code;
     private final String desc;

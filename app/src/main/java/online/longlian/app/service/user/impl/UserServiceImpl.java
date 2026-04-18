@@ -18,7 +18,6 @@ import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.enumeration.ApplicationStatus;
 import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.common.util.SecurityUtil;
 
@@ -42,12 +41,11 @@ import online.longlian.app.pojo.entity.UserRole;
 import online.longlian.app.pojo.vo.app.LoginVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
-import online.longlian.app.service.resource.FileStorageService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.UserService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,7 +68,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final GroupApplicationMapper groupApplicationMapper;
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
-    private final FileStorageService fileStorageService;
+    private final ResourceService resourceService;
     private final UserMapper userMapper;
     @Override
     public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
@@ -148,7 +146,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null) {
-            builder.avatarUrl(fileStorageService.getFileAccessUrl(user.getAvatarFileId()));
+            builder.avatarUrl(resourceService.getFileAccessUrl(user.getAvatarFileId()));
         }
         return Result.success("查询成功", builder.build());
     }

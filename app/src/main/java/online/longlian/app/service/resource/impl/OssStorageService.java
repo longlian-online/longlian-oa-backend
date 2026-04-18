@@ -7,8 +7,9 @@ import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
-import online.longlian.app.pojo.bo.PresignedUploadBO;
-import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,12 +18,12 @@ import java.net.URL;
 import java.util.*;
 
 @Service
-public class CosStorageService implements StorageService {
+public class OssStorageService implements StorageService {
 
     private final COSClient cosClient;
     private final String bucket;
 
-    public CosStorageService(
+    public OssStorageService(
             @Value("${storage.cos.bucket}") String bucket,
             @Value("${storage.cos.region}") String region,
             @Value("${storage.cos.secret-id}") String secretId,
@@ -35,16 +36,21 @@ public class CosStorageService implements StorageService {
     }
 
     @Override
-    public PresignedUploadBO generatePresignedUpload(Resource resource) {
+    public StorageType getStorageType() {
+        return StorageType.OSS;
+    }
+
+    @Override
+    public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
         Date expiration = new Date(System.currentTimeMillis() + 10 * 60 * 1000);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 bucket,
-                resource.getStorageKey(),
+                params.getKey(),
                 HttpMethodName.PUT
         );
         request.setExpiration(expiration);
         URL url = cosClient.generatePresignedUrl(request);
-        return new PresignedUploadBO(url.toString(), resource.getStorageKey());
+        return new PresignedUploadUrlResultBO(url.toString(), params.getKey());
     }
 
     @Override

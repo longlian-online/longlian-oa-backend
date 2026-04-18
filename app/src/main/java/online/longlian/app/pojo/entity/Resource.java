@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.app.common.enumeration.FileProcessStatus;
+import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.enumeration.StorageType;
 
 import java.io.Serializable;
@@ -21,7 +22,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-17
+ * @since 2026-04-18
  */
 @Data
 @Builder
@@ -115,7 +116,7 @@ public class Resource implements Serializable {
      */
     @TableField("is_referenced")
     @ApiModelProperty("是否被引用 1-是 0-否（清理无用文件）")
-    private Byte isReferenced;
+    private Status isReferenced;
 
     /**
      * 上传人ID

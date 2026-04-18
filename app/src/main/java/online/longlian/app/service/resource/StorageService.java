@@ -1,15 +1,16 @@
 package online.longlian.app.service.resource;
 
-import online.longlian.app.pojo.bo.PresignedUploadBO;
-import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public interface StorageService {
 
-    PresignedUploadBO generatePresignedUpload(Resource fileStorage);
+    StorageType getStorageType();
+    PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params);
     String getFileUrl(Long fileId );
 
     /**

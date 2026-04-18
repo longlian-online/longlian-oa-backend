@@ -8,7 +8,7 @@ import online.longlian.app.common.enumeration.StorageType;
 @Data
 @AllArgsConstructor
 @Schema(description = "创建文件上传响应")
-public class CreateFileResVO {
+public class ResourcCreateVO {
 
     @Schema(description = "文件ID")
     private Long fileId;

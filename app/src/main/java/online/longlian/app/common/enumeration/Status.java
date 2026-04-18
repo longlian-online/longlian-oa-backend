@@ -14,6 +14,7 @@ import online.longlian.app.common.annotation.ModelEnum;
 @ModelEnum(model = "project_type", field = "status")
 @ModelEnum(model = "base_task", field = "status")
 @ModelEnum(model = "task_template", field = "status")
+@ModelEnum(model = "resource", field = "is_referenced")
 public enum Status implements CodeEnum{
     ENABLED(1,"启用"),
     DISABLED(0,"禁用");

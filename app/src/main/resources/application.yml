@@ -77,14 +77,13 @@ springdoc:
 storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 COS
   local:
-    upload-url: ${STORAGE_LOCAL_UPLOAD_URL:}
-    base-path: ${STORAGE_LOCAL_BASE_PATH:}
-  cos:
+    base-url: ${STORAGE_LOCAL_BASE_URL:}
+  oss:
     bucket: ${STORAGE_COS_BUCKET:}
     region: ${STORAGE_COS_REGION:}
     secret-id: ${STORAGE_COS_SECRET_ID:}
     secret-key: ${STORAGE_COS_SECRET_KEY:}
-    url-prefix: ${STORAGE_COS_URL_PREFIX:}
+    base-url: ${STORAGE_COS_URL_PREFIX:}
 notify:
   type: EMAIL
   email:

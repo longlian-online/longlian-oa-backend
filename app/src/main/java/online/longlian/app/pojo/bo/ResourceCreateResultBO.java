@@ -2,11 +2,9 @@ package online.longlian.app.pojo.bo;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import online.longlian.app.common.enumeration.StorageType;
 
-@Data
 @AllArgsConstructor
-public class PresignedUploadBO {
-
-    private String uploadUrl;
-    private String key;
+@Data
+public class ResourceCreateResultBO {
 }

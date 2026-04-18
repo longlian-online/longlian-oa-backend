@@ -1,7 +1,8 @@
 package online.longlian.app.service.resource.impl;
 
-import online.longlian.app.pojo.bo.PresignedUploadBO;
-import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,15 @@ public class LocalStorageService implements StorageService {
     private String uploadBaseUrl;
 
     @Override
-    public PresignedUploadBO generatePresignedUpload(Resource resource) {
-        String key = resource.getStorageKey();
+    public StorageType getStorageType() {
+        return StorageType.LOCAL;
+    }
+
+    @Override
+    public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
+        String key = params.getKey();
         String uploadUrl = uploadBaseUrl + "/upload/local?key=" + key;
-        return new PresignedUploadBO(uploadUrl, key);
+        return new PresignedUploadUrlResultBO(uploadUrl, key);
     }
 
     @Override
