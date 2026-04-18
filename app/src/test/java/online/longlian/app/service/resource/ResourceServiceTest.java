@@ -32,10 +32,9 @@ public class ResourceServiceTest {
 
     @BeforeEach
     void setUp() {
-        StorageProperties storageProperties = StorageProperties.builder().oss(
-                StorageProperties.OssConfig.builder()
-                        .baseUrl("http://127.0.0.1").bucket("test_bucket").secretId("xxxxx").region("xxxxx").secretKey("xxxxx").build()
-        ).build();
+        StorageProperties storageProperties = new StorageProperties();
+        storageProperties.setType(StorageType.OSS);
+        storageProperties.setOss(new StorageProperties.OssConfig());
         resourceService = new ResourceService(resourceMapper, storageServiceFactory, storageProperties);
     }
 

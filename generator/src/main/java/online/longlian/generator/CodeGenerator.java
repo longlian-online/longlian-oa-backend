@@ -2,6 +2,7 @@ package online.longlian.generator;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
+import com.baomidou.mybatisplus.generator.config.rules.DateType;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import online.longlian.generator.internal.EnumFieldMeta;
@@ -42,7 +43,6 @@ public class CodeGenerator {
                 .globalConfig(builder -> builder.author("longlian").enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir())
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
                 .strategyConfig(builder -> builder.entityBuilder()
-                        .enableFileOverride()
                         .enableLombok(
                                 new ClassAnnotationAttributes("@Data","lombok.Data"),
                                 new ClassAnnotationAttributes("@Builder", "lombok.Builder"),
