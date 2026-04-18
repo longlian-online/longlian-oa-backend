@@ -26,7 +26,7 @@ public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
         String code = (String) authentication.getCredentials();
 
         // 2. 验证验证码
-        if (!verifyCodeService.validateCode(email, code)) {
+        if (verifyCodeService.validateCode(email, code)) {
             throw new AppException(ResultCode.OPERATION_FAIL,"验证码错误或已过期");
         }
 

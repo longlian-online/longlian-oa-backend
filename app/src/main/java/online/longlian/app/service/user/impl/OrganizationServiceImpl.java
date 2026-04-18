@@ -9,7 +9,6 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.user.OrganizationService;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 @Service

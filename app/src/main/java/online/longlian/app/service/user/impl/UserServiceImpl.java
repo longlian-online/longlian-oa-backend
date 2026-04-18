@@ -155,7 +155,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!registerByInviteDTO.getPassword().equals(registerByInviteDTO.getConfirmPassword())) {
             throw new AppException(ResultCode.PARAM_ERROR, "两次输入的密码不一致");
         }
-        if (!verifyCodeService.validateCode(registerByInviteDTO.getEmail(), registerByInviteDTO.getCode())) {
+        if (verifyCodeService.validateCode(registerByInviteDTO.getEmail(), registerByInviteDTO.getCode())) {
             throw new AppException(ResultCode.PARAM_ERROR, "邮箱验证码错误");
         }
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, registerByInviteDTO.getUsername())) != null) {

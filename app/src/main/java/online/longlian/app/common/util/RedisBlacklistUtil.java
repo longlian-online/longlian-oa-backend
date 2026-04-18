@@ -1,5 +1,4 @@
 package online.longlian.app.common.util;
-import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
 import org.springframework.data.redis.core.RedisTemplate;
