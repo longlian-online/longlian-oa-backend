@@ -34,12 +34,12 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
-    public String getFileUrl(Long fileId) {
+    public String getResourceReadUrl(Long fileId) {
         return "";
     }
 
     @Override
-    public Map<Long, String> getFileUrls(List<Long> fileIds) {
+    public Map<Long, String> getResourceReadUrls(List<Long> fileIds) {
         return Map.of();
     }
 }

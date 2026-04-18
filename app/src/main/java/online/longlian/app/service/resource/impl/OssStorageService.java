@@ -24,9 +24,7 @@ public class OssStorageService implements StorageService {
     private final COSClient cosClient;
     private final StorageProperties.OssConfig ossConfig;
 
-    public OssStorageService(
-            StorageProperties storageProperties
-    ) {
+    public OssStorageService(StorageProperties storageProperties) {
         ossConfig = storageProperties.getOss();
         COSCredentials cred = new BasicCOSCredentials(ossConfig.getSecretId(), ossConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(ossConfig.getRegion()));
@@ -52,12 +50,12 @@ public class OssStorageService implements StorageService {
     }
 
     @Override
-    public String getFileUrl(Long fileId) {
+    public String getResourceReadUrl(Long fileId) {
         return "";
     }
 
     @Override
-    public Map<Long, String> getFileUrls(List<Long> fileIds) {
+    public Map<Long, String> getResourceReadUrls(List<Long> fileIds) {
         return new HashMap<>();
     }
 }

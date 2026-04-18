@@ -337,7 +337,6 @@ CREATE TABLE `resource` (
                                 `biz_type` varchar(50) NOT NULL COMMENT '业务类型（如：avatar/cover/task_submit）',
                                 `biz_id` bigint NOT NULL COMMENT '业务ID（关联的用户ID/组织ID/企划ID/任务提交ID）',
                                 `process_status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-未上传 1-已上传 3-已废弃',
-                                `is_referenced` tinyint NOT NULL DEFAULT 1 COMMENT '是否被引用 1-是 0-否（清理无用文件）',
                                 `creator_id` bigint NOT NULL COMMENT '上传人ID',
                                 `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

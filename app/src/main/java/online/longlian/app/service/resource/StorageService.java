@@ -11,12 +11,12 @@ public interface StorageService {
 
     StorageType getStorageType();
     PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params);
-    String getFileUrl(Long fileId );
+    String getResourceReadUrl(Long fileId );
 
     /**
      * 返回文件地址
-     * @param fileIds 文件id
+     * @param fileIds 文件 ID 列表
      * @return key: id, value: url
      */
-    Map<Long, String> getFileUrls(List<Long> fileIds);
+    Map<Long, String> getResourceReadUrls(List<Long> fileIds);
 }
