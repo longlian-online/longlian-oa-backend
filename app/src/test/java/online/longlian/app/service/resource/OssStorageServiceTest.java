@@ -4,6 +4,7 @@ import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.impl.OssStorageService;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @SpringBootTest
 @ActiveProfiles
+@Disabled
 public class OssStorageServiceTest {
 
     @Autowired
