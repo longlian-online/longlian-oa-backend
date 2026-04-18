@@ -1,10 +1,9 @@
-package online.longlian.app.common.enumeration;
+package online.longlian.generator.enumeration;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import online.longlian.app.common.annotation.ModelEnum;
+import online.longlian.generator.annotation.ModelEnum;
 
 @Getter
 @AllArgsConstructor

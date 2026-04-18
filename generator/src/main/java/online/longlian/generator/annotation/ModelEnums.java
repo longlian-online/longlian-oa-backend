@@ -1,4 +1,4 @@
-package online.longlian.app.common.annotation;
+package online.longlian.generator.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

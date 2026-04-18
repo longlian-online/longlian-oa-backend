@@ -1,4 +1,4 @@
-package online.longlian.app.common.enumeration;
+package online.longlian.generator.enumeration;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
 

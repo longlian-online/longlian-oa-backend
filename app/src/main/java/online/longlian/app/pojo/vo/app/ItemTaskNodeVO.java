@@ -2,7 +2,7 @@ package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.app.common.enumeration.TaskInstanceStatus;
+import online.longlian.generator.enumeration.TaskInstanceStatus;
 
 @Data
 @Schema(description = "任务流节点信息（含执行状态，用于流程图可视化）")

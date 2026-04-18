@@ -1,9 +1,9 @@
 package online.longlian.app.service.resource;
 
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.enumeration.StorageType;
 import online.longlian.app.service.resource.impl.CosStorageService;
 import online.longlian.app.service.resource.impl.LocalStorageService;
+import online.longlian.generator.enumeration.StorageType;
 import org.springframework.stereotype.Component;
 
 @Component

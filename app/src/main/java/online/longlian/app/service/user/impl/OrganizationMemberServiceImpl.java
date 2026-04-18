@@ -3,7 +3,6 @@ package online.longlian.app.service.user.impl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.enumeration.InviteMode;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
@@ -15,6 +14,7 @@ import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.app.service.user.SessionService;
+import online.longlian.generator.enumeration.Status;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 

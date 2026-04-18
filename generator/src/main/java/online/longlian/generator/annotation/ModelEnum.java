@@ -1,4 +1,4 @@
-package online.longlian.app.common.annotation;
+package online.longlian.generator.annotation;
 
 import jakarta.validation.constraints.NotNull;
 

@@ -1,13 +1,11 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.common.enumeration.Status;
+import online.longlian.generator.enumeration.Status;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 
 import java.time.LocalDateTime;

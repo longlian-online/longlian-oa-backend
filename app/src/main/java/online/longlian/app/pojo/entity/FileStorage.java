@@ -7,8 +7,9 @@ import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;import online.longlian.app.common.enumeration.FileProcessStatus;
-import online.longlian.app.common.enumeration.StorageType;
+import java.time.LocalDateTime;
+import online.longlian.generator.enumeration.FileProcessStatus;
+import online.longlian.generator.enumeration.StorageType;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
