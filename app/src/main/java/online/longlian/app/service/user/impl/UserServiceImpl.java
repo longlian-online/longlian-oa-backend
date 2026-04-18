@@ -59,10 +59,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    private final AuthenticationManager authenticationManager;
-    private final JwtUtil jwtUtil;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final RedisBlacklistUtil redisBlacklistUtil;
     private final VerifyCodeService verifyCodeService;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationMapper organizationMapper;
@@ -72,29 +69,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserRoleMapper userRoleMapper;
     private final FileStorageService fileStorageService;
     private final UserMapper userMapper;
-    @Override
-    public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        new MyUsernamePasswordAuthenticationToken(
-                                loginByPwdDTO.getUsername(),
-                                loginByPwdDTO.getPassword()
-                        )
-                );
-        return doLogin(authentication);
-    }
-
-    @Override
-    public Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO) {
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        new EmailCodeAuthenticationToken(
-                                loginByCodeDTO.getEmail(),
-                                loginByCodeDTO.getCode()
-                        )
-                );
-        return doLogin(authentication);
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -153,48 +127,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return Result.success("查询成功", builder.build());
     }
 
-    private Result<LoginVO> doLogin(Authentication authentication) {
-        UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
-        Long userId = userDetail.getId();
 
-        String token = jwtUtil.generateToken(userId);
-
-        // 登录成功后缓存当前用户和默认组织
-        redisTemplate.opsForValue().set(
-                RedisConstants.LOGIN_USER + userId,
-                JSON.toJSONString(userDetail),
-                RedisConstants.EXPIRE_TIME,
-                TimeUnit.SECONDS
-        );
-        redisTemplate.opsForValue().set(
-                RedisConstants.CURRENT_ORG + userId,
-                userDetail.getDefaultOrgId(),
-                RedisConstants.EXPIRE_TIME,
-                TimeUnit.SECONDS
-        );
-        LoginVO loginVO = LoginVO.builder()
-                .userId(userId)
-                .token(token)
-                .roles(userDetail.getRoles())
-                .defaultOrgId(userDetail.getDefaultOrgId())
-                .build();
-        return Result.success("登录成功", loginVO);
-    }
-
-    @Override
-    public Result<Void> logout(HttpServletRequest request) {
-        String token = (String) request.getAttribute(CommonConstants.CURRENT_TOKEN);
-        if (token == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED);
-        }
-        long remainingSeconds = jwtUtil.getRemainingTimeSeconds(token);
-        redisBlacklistUtil.addToBlacklist(token, remainingSeconds);
-
-        Long userId = SecurityUtil.getCurrentUserId();
-        redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
-
-        return Result.success("登出成功");
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)

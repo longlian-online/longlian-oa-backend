@@ -1,7 +1,6 @@
 package online.longlian.app.controller.app;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -15,7 +14,7 @@ import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
 import online.longlian.app.service.VerifyCodeService;
-import online.longlian.app.service.user.UserService;
+import online.longlian.app.service.user.SessionService;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -24,19 +23,19 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 public class SessionController {
-    private final UserService userService;
+    private final SessionService sessionService;
     private final VerifyCodeService verifyCodeService;
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
     public Result<LoginVO> loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
-        return userService.loginByPwd(loginByPwdDTO);
+        return sessionService.loginByPwd(loginByPwdDTO);
     }
 
     @Operation(summary = "验证码登录", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/email")
     public Result<LoginVO> loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
-        return userService.loginByCode(loginByCodeDTO);
+        return sessionService.loginByCode(loginByCodeDTO);
     }
 
     @Operation(summary = "发送邮箱验证码", security = {})
@@ -51,6 +50,6 @@ public class SessionController {
     @Operation(summary = "退出登录")
     @DeleteMapping("/")
     public Result<Void> logout(HttpServletRequest request) {
-        return userService.logout(request);
+        return sessionService.logout(request);
     }
 }
