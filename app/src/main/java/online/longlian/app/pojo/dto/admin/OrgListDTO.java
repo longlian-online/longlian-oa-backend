@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
 @Schema(description = "组织列表查询请求参数")
 public class OrgListDTO extends PageRequestDTO {
 
-    @Size(max = 50, message = "搜索关键词长度不能超过 50 个字符")
-    @Schema(description = "搜索关键词")
-    private String keyword;
+    @Size(max = 32, message = "组织名长度不能超过 32 个字符")
+    @Schema(description = "组织名")
+    private String OrgName;
 
     @Schema(description = "创建时间-起始")
     private LocalDateTime startCreateTime;

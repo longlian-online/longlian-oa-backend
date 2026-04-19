@@ -26,7 +26,7 @@ import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.UserRole;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
-import online.longlian.app.service.resource.FileStorageService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
 import online.longlian.generator.enumeration.ApplicationStatus;
@@ -49,7 +49,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final GroupApplicationMapper groupApplicationMapper;
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
-    private final FileStorageService fileStorageService;
+    private final ResourceService resourceService;
     private final UserMapper userMapper;
     private final SessionService sessionService;
 
@@ -105,7 +105,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null) {
-            builder.avatarUrl(fileStorageService.getFileAccessUrl(user.getAvatarFileId()));
+            builder.avatarUrl(resourceService.getFileAccessUrl(user.getAvatarFileId()));
         }
         return Result.success("查询成功", builder.build());
     }

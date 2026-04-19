@@ -1,7 +1,7 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import online.longlian.app.pojo.entity.FileStorage;
+import online.longlian.app.pojo.entity.Resource;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -10,9 +10,9 @@ import org.apache.ibatis.annotations.Mapper;
  * </p>
  *
  * @author longlian
- * @since 2026-03-17
+ * @since 2026-04-17
  */
 @Mapper
-public interface FileStorageMapper extends BaseMapper<FileStorage> {
+public interface ResourceMapper extends BaseMapper<Resource> {
 
 }

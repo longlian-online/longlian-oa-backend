@@ -18,13 +18,4 @@ public class PageResultVO<T> {
 
     @Schema(description = "总条数")
     private Long total;
-
-    @Schema(description = "当前页码")
-    private Integer pageNum;
-
-    @Schema(description = "每页条数")
-    private Integer pageSize;
-
-    @Schema(description = "是否有下一页")
-    private Boolean hasNext;
 }
