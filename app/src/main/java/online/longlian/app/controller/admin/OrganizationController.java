@@ -1,7 +1,6 @@
 package online.longlian.app.controller.admin;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,8 +43,12 @@ public class OrganizationController {
         List<OrgDetailInfoVO> list = organizationPage
                 .getList()
                 .stream()
-                .map(org ->
-                        new OrgDetailInfoVO(org.getId(), org.getName(), org.getAvatarUrl(), org.getStatus(), org.getCreatedAt())
+                .map(org -> new OrgDetailInfoVO(
+                        org.getId(),
+                        org.getName(),
+                        org.getAvatarUrl(),
+                        org.getStatus(),
+                        org.getCreatedAt())
                 )
                 .toList();
 
@@ -55,8 +58,8 @@ public class OrganizationController {
     }
 
     @Operation(
-        summary = "生成邀请码（超管）",
-        description = "生成一次性邀请码，有效期30分钟；供超管邀请新用户注册并创建组织使用"
+            summary = "生成邀请码（超管）",
+            description = "生成一次性邀请码，有效期30分钟；供超管邀请新用户注册并创建组织使用"
     )
     @PostMapping("/invite-codes/create-org")
     public Result<InviteCodeVO> generateCreateOrgInviteCode() {
