@@ -2,7 +2,7 @@ package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.app.common.enumeration.ItemNodeState;
+import online.longlian.generator.enumeration.ItemNodeState;
 
 @Data
 @Schema(description = "项目流程节点")

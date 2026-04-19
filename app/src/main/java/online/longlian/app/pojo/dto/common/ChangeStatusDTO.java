@@ -2,7 +2,7 @@ package online.longlian.app.pojo.dto.common;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.app.common.enumeration.Status;
+import online.longlian.generator.enumeration.Status;
 
 @Data
 @Schema(description = "修改组织状态")

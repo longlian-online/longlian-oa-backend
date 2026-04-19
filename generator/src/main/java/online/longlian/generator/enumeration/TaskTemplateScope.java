@@ -1,8 +1,8 @@
-package online.longlian.app.common.enumeration;
+package online.longlian.generator.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import online.longlian.app.common.annotation.ModelEnum;
+import online.longlian.generator.annotation.ModelEnum;
 
 /**
  * 任务模板作用域

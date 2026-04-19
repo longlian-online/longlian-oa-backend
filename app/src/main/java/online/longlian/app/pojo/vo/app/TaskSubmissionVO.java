@@ -2,7 +2,7 @@ package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.app.common.enumeration.TaskSubmissionStatus;
+import online.longlian.generator.enumeration.TaskSubmissionStatus;
 
 import java.time.LocalDateTime;
 

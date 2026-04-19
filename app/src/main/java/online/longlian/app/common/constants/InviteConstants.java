@@ -10,6 +10,4 @@ public class InviteConstants {
 
     public static final String DEFAULT_DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
-    private InviteConstants() {
-    }
 }

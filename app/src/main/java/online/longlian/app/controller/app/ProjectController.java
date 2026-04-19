@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.app.ProjectCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectListDTO;
@@ -16,7 +15,6 @@ import online.longlian.app.pojo.vo.app.ProjectInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.user.ProjectService;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +23,7 @@ import java.util.List;
 @Tag(name = "企划接口", description = "企划相关接口")
 @RequestMapping("/app/projects")
 @RequiredArgsConstructor
+@RestController
 public class ProjectController {
 
     private final ProjectService projectService;

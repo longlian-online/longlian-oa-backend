@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.entity.Project;
@@ -17,6 +16,7 @@ import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.user.ProjectService;
+import online.longlian.app.service.user.SessionService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +29,7 @@ import java.util.List;
 public class ItemController {
 
     private final ProjectService projectService;
+    private final SessionService sessionService;
     // private final ItemService itemService;
 
     @Operation(
@@ -97,7 +98,7 @@ public class ItemController {
         if (project == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
-        Long currentUserId = SecurityUtil.getCurrentUserId();
+        Long currentUserId = sessionService.getCurrentUserId();
         if (!project.getCreatorId().equals(currentUserId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }

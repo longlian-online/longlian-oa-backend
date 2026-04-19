@@ -3,18 +3,18 @@ package online.longlian.app.service.user.impl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.enumeration.InviteMode;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.InviteCodeUtil;
-import online.longlian.app.common.util.SecurityUtil;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.InviteCodeCacheBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.user.OrganizationMemberService;
+import online.longlian.app.service.user.SessionService;
+import online.longlian.generator.enumeration.Status;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -25,13 +25,13 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final RedisTemplate<String, Object> redisTemplate;
     private final OrganizationMapper organizationMapper;
     private final InviteCodeUtil inviteCodeUtil;
+    private final SessionService sessionService;
 
     @Override
     public Result<InviteCodeVO> generateInviteCode() {
         Long currentOrgId = getCurrentOrgId();
         Organization organization = getEnabledOrganization(currentOrgId);
 
-        // 管理员邀请码仅表示“邀请加入当前组织”，具体是注册入组还是登录后申请入组，由用户使用方式决定。
         InviteCodeVO inviteCodeVO = inviteCodeUtil.generateInviteCode(
                 InviteMode.ORG_ADMIN_INVITE,
                 currentOrgId,
@@ -56,7 +56,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     private Long getCurrentOrgId() {
-        Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + SecurityUtil.getCurrentUserId());
+        Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + sessionService.getCurrentUserId());
         if (currentOrgId == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前组织不存在，请先切换组织");
         }

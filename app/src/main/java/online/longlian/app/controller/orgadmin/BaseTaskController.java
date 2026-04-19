@@ -1,12 +1,10 @@
 package online.longlian.app.controller.orgadmin;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.BaseTaskCreateDTO;
@@ -21,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/orgadmin/task/base")
 @RestController
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ORG_ADMIN')")
 public class BaseTaskController {
 
     // private final BaseTaskService baseTaskService;
@@ -30,7 +29,6 @@ public class BaseTaskController {
         description = "支持名称模糊搜索、状态筛选、创建时间区间；支持按创建时间或引用次数排序，默认按引用次数倒序"
     )
     @PostMapping("/list")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<PageResultVO<BaseTaskVO>> listBaseTasks(
             @RequestBody @Valid BaseTaskListDTO baseTaskListDTO) {
         // TODO
@@ -43,7 +41,6 @@ public class BaseTaskController {
         description = "任务创建后不可编辑，请确认标题、图标、简介和元数据字段定义后提交"
     )
     @PostMapping
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> createBaseTask(
             @RequestBody @Valid BaseTaskCreateDTO baseTaskCreateDTO) {
         // TODO
@@ -55,9 +52,8 @@ public class BaseTaskController {
             summary = "启用/禁用原子任务",
             description = "禁用后该任务无法被添加到新模板节点中，已引用的节点不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
-    @PatchMapping("/base-task/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeBaseTaskStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+    @PatchMapping("/{taskId}/status")
+    public Result<Void> changeBaseTaskStatus(@PathVariable Long taskId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
         // baseTaskService.changeBaseTaskStatus(changeStatusDTO.getStatus());
         return Result.success(null);

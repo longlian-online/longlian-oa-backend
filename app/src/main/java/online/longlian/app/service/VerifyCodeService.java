@@ -78,7 +78,7 @@ public class VerifyCodeService {
         if (isValid) {
             stringRedisTemplate.delete(RedisConstants.CODE_KEY + receiver);
         }
-        return isValid;
+        return !isValid;
     }
 
     private boolean isValidEmail(String email) {

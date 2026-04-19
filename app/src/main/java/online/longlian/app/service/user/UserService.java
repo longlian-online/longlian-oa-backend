@@ -20,15 +20,12 @@ import online.longlian.app.pojo.vo.app.UserInfoVO;
  * @since 2026-02-04
  */
 public interface UserService extends IService<User> {
-    Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO);
-
-    Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO);
 
     Result<Void> registerByInvite(RegisterByInviteDTO registerByInviteDTO);
 
     Result<UserInfoVO> getMyInfo();
 
-    Result<Void> logout(HttpServletRequest request);
+
 
     Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO);
 }

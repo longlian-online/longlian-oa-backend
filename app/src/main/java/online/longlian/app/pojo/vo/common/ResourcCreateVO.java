@@ -3,7 +3,7 @@ package online.longlian.app.pojo.vo.common;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.generator.enumeration.StorageType;
 
 @Data
 @AllArgsConstructor

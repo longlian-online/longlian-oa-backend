@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.common.enumeration.Status;
+import online.longlian.generator.enumeration.Status;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 
 import java.time.LocalDateTime;
