@@ -9,9 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.app.common.enumeration.FileProcessStatus;
-import online.longlian.app.common.enumeration.Status;
-import online.longlian.app.common.enumeration.StorageType;
+import online.longlian.generator.enumeration.FileProcessStatus;
+import online.longlian.generator.enumeration.StorageType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -22,7 +21,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-18
+ * @since 2026-04-19
  */
 @Data
 @Builder
@@ -49,10 +48,10 @@ public class Resource implements Serializable {
     private Long orgId;
 
     /**
-     * 存储类型 1-本地存储 2-阿里云OSS 3-腾讯云COS
+     * 存储类型 1-本地存储 2-云对象存储
      */
     @TableField("storage_type")
-    @ApiModelProperty("存储类型 1-本地存储 2-阿里云OSS 3-腾讯云COS")
+    @ApiModelProperty("存储类型 1-本地存储 2-云对象存储")
     private StorageType storageType;
 
     /**
@@ -105,18 +104,11 @@ public class Resource implements Serializable {
     private Long bizId;
 
     /**
-     * 文件处理状态 0-未处理 1-处理中 2-已压缩 3-处理失败
+     * 状态 0-未上传 1-已上传 3-已废弃
      */
     @TableField("process_status")
-    @ApiModelProperty("文件处理状态 0-未处理 1-处理中 2-已压缩 3-处理失败")
+    @ApiModelProperty("状态 0-未上传 1-已上传 3-已废弃")
     private FileProcessStatus processStatus;
-
-    /**
-     * 是否被引用 1-是 0-否（清理无用文件）
-     */
-    @TableField("is_referenced")
-    @ApiModelProperty("是否被引用 1-是 0-否（清理无用文件）")
-    private Status isReferenced;
 
     /**
      * 上传人ID
