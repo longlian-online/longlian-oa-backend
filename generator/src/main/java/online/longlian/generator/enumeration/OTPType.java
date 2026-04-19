@@ -1,4 +1,4 @@
-package online.longlian.app.common.enumeration;
+package online.longlian.generator.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

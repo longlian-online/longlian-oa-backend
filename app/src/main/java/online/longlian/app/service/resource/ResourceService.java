@@ -2,9 +2,6 @@ package online.longlian.app.service.resource;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.enumeration.FileProcessStatus;
-import online.longlian.app.common.enumeration.Status;
-import online.longlian.app.common.enumeration.StorageType;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
@@ -12,6 +9,8 @@ import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.ResourceCreateParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourcCreateVO;
+import online.longlian.generator.enumeration.FileProcessStatus;
+import online.longlian.generator.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
@@ -49,7 +48,6 @@ public class ResourceService {
                 .bizType(params.getBizType())
                 .bizId(params.getBizId())
                 .processStatus(FileProcessStatus.Pending)
-                .isReferenced(Status.DISABLED)
                 .creatorId(params.getCreatorId())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

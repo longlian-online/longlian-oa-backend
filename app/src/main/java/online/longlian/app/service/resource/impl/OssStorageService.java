@@ -7,12 +7,11 @@ import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
-import online.longlian.app.common.enumeration.StorageType;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
-import org.springframework.beans.factory.annotation.Value;
+import online.longlian.generator.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;

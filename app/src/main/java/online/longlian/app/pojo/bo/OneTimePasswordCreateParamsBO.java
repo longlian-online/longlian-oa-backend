@@ -1,6 +1,6 @@
 package online.longlian.app.pojo.bo;
 
-import online.longlian.app.common.enumeration.OTPType;
+import online.longlian.generator.enumeration.OTPType;
 
 import java.time.LocalDateTime;
 

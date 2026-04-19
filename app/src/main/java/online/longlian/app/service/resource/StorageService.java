@@ -1,8 +1,8 @@
 package online.longlian.app.service.resource;
 
-import online.longlian.app.common.enumeration.StorageType;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
+import online.longlian.generator.enumeration.StorageType;
 
 import java.util.List;
 import java.util.Map;
