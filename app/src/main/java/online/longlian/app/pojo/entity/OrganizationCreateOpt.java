@@ -1,6 +1,7 @@
 package online.longlian.app.pojo.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
@@ -34,7 +35,7 @@ public class OrganizationCreateOpt implements Serializable {
     /**
      * 邀请ID
      */
-    @TableField("id")
+    @TableId("id")
     @ApiModelProperty("邀请ID")
     private Long id;
 

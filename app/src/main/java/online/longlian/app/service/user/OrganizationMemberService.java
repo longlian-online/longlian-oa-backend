@@ -1,16 +1,13 @@
 package online.longlian.app.service.user;
 
-import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.vo.app.InviteInfoVO;
-import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
+import lombok.NonNull;
+import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
+import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
 
 public interface OrganizationMemberService {
 
     /**
-     * 生成管理员邀请码。
+     * 生成组织加入邀请码。
      */
-    Result<InviteCodeVO> generateInviteCode();
-
-    Result<InviteInfoVO> getInviteOrgInfo(String inviteCode);
-
+    OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params);
 }

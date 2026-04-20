@@ -142,7 +142,8 @@ CREATE TABLE `one_time_password` (
                                      `biz_type` tinyint NOT NULL COMMENT '业务类型 1-邀请创建组织 2-邀请加入组织',
                                      `creator_id` bigint NOT NULL COMMENT '创建者ID',
                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                                     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                      PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='一次性密码（OTP）表';
 
 -- 2.5 邀请创建组织表 organization_create_opt
@@ -155,7 +156,8 @@ CREATE TABLE `organization_create_opt` (
                                                   `used_at` datetime DEFAULT NULL COMMENT '使用时间',
                                                   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                                   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                                                  `deleted_at` datetime DEFAULT NULL
+                                                  `deleted_at` datetime DEFAULT NULL,
+                                                  PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请创建组织表';
 
 -- 2.6 邀请加入组织表 organization_join_opt
@@ -169,7 +171,8 @@ CREATE TABLE `organization_join_opt` (
                                                 `used_at` datetime DEFAULT NULL COMMENT '使用时间',
                                                 `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                                 `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                                                `deleted_at` datetime DEFAULT NULL
+                                                `deleted_at` datetime DEFAULT NULL,
+                                                PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请加入组织表';
 
 -- ----------------------------
