@@ -133,6 +133,45 @@ CREATE TABLE `group_application` (
                                      UNIQUE INDEX `uk_application_org_user`(`org_id`, `user_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='入组申请表';
 
+-- 2.4 一次性密码表 one_time_password
+CREATE TABLE `one_time_password` (
+                                     `id` bigint NOT NULL COMMENT '验证码ID',
+                                     `code` varchar(128) NOT NULL COMMENT '验证码',
+                                     `expired_at` datetime NOT NULL COMMENT '过期时间',
+                                     `used_at` datetime DEFAULT NULL COMMENT '使用时间',
+                                     `biz_type` tinyint NOT NULL COMMENT '业务类型 1-邀请创建组织 2-邀请加入组织',
+                                     `creator_id` bigint NOT NULL COMMENT '创建者ID',
+                                     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='一次性密码（OTP）表';
+
+-- 2.5 邀请创建组织表 organization_create_opt
+CREATE TABLE `organization_create_opt` (
+                                                  `id` bigint NOT NULL COMMENT '邀请ID',
+                                                  `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
+                                                  `invited_user_id` bigint NOT NULL COMMENT '被邀请用户ID',
+                                                  `org_id` bigint DEFAULT NULL COMMENT '创建成功后的组织ID',
+                                                  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-待使用 1-已使用 2-已过期',
+                                                  `used_at` datetime DEFAULT NULL COMMENT '使用时间',
+                                                  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                                  `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请创建组织表';
+
+-- 2.6 邀请加入组织表 organization_join_opt
+CREATE TABLE `organization_join_opt` (
+                                                `id` bigint NOT NULL COMMENT '邀请ID',
+                                                `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
+                                                `org_id` bigint NOT NULL COMMENT '目标组织ID',
+                                                `invited_user_id` bigint NOT NULL COMMENT '被邀请用户ID',
+                                                `org_member_id` bigint DEFAULT NULL COMMENT '加入成功后的组织成员ID',
+                                                `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-待使用 1-已使用 2-已过期',
+                                                `used_at` datetime DEFAULT NULL COMMENT '使用时间',
+                                                `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                                `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请加入组织表';
+
 -- ----------------------------
 -- 3. 企划/项目管理模块表
 -- ----------------------------

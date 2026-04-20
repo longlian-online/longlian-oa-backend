@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.generator.enumeration.OTPType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 2026-04-20
  */
 @Data
 @Builder
@@ -32,7 +33,6 @@ public class OneTimePassword implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**
@@ -61,7 +61,7 @@ public class OneTimePassword implements Serializable {
      */
     @TableField("biz_type")
     @ApiModelProperty("业务类型 1.邀请创建组织 2.邀请加入组织")
-    private Byte bizType;
+    private OTPType bizType;
 
     /**
      * 创建者 ID
