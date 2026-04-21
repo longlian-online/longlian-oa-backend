@@ -44,10 +44,19 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         }
         return buildUserDetails(user);
     }
+
     public UserDetails loadUserByEmailOnly(String email) throws UsernameNotFoundException {
         // 仅匹配email字段，禁止用户名登录
         User user = userMapper.selectOne(new QueryWrapper<User>()
                 .eq("email", email));
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return buildUserDetails(user);
+    }
+
+    public UserDetailImpl loadUserById(Long userId) {
+        User user = userMapper.selectById(userId);
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }

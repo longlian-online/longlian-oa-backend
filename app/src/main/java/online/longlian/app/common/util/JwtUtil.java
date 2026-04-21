@@ -75,5 +75,8 @@ public class JwtUtil {
             return 0;
         }
     }
-}
 
+    public long getExpirationSeconds() {
+        return expiration == null ? 0 : expiration.longValue();
+    }
+}

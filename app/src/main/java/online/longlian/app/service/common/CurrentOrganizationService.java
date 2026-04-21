@@ -10,7 +10,7 @@ public interface CurrentOrganizationService {
     /**
      * 初始化用户当前组织上下文。
      */
-    void initializeCurrentOrg(Long userId);
+    void initializeCurrentOrg(Long userId, long ttlSeconds);
 
     /**
      * 切换用户当前组织。

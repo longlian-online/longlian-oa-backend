@@ -14,6 +14,8 @@ public interface SessionService {
 
     void logout(SessionLogoutParamsBO params);
 
+    void refreshLoginSession(Long userId);
+
     UserDetailImpl getCurrentUser();
 
     Long getCurrentUserId();

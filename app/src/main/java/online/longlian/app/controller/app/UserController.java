@@ -19,6 +19,7 @@ import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -86,12 +87,8 @@ public class UserController {
                         .orgId(orgIdDTO.getOrgId())
                         .build()
         );
-        UserOrgSwitchVO userOrgSwitchVO = UserOrgSwitchVO.builder()
-                .id(resultBO.getId())
-                .name(resultBO.getName())
-                .avatarUrl(resultBO.getAvatarUrl())
-                .role(resultBO.getRole())
-                .build();
+        UserOrgSwitchVO userOrgSwitchVO = new UserOrgSwitchVO();
+        BeanUtils.copyProperties(resultBO, userOrgSwitchVO);
         return Result.success("切换成功", userOrgSwitchVO);
     }
 

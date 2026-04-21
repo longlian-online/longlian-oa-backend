@@ -20,6 +20,7 @@ import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
 import online.longlian.app.service.VerifyCodeService;
 import online.longlian.app.service.user.SessionService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -40,12 +41,8 @@ public class SessionController {
                         .password(loginByPwdDTO.getPassword())
                         .build()
         );
-        LoginVO loginVO = LoginVO.builder()
-                .userId(resultBO.getUserId())
-                .defaultOrgId(resultBO.getDefaultOrgId())
-                .token(resultBO.getToken())
-                .roles(resultBO.getRoles())
-                .build();
+        LoginVO loginVO = new LoginVO();
+        BeanUtils.copyProperties(resultBO, loginVO);
         return Result.success("登录成功", loginVO);
     }
 
@@ -58,12 +55,8 @@ public class SessionController {
                         .code(loginByCodeDTO.getCode())
                         .build()
         );
-        LoginVO loginVO = LoginVO.builder()
-                .userId(resultBO.getUserId())
-                .defaultOrgId(resultBO.getDefaultOrgId())
-                .token(resultBO.getToken())
-                .roles(resultBO.getRoles())
-                .build();
+        LoginVO loginVO = new LoginVO();
+        BeanUtils.copyProperties(resultBO, loginVO);
         return Result.success("登录成功", loginVO);
     }
 

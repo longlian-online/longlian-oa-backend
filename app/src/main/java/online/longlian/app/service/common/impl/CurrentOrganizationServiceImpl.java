@@ -28,9 +28,6 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
 
-    /**
-     * 解析当前用户的有效组织ID
-     */
     @Override
     public Long resolveCurrentOrgId(Long userId) {
         Long cachedOrgId = getCachedCurrentOrgId(userId);
@@ -44,7 +41,7 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
             throw new AppException(ResultCode.OPERATION_FAIL, "当前无可用组织，请先加入组织或切换组织");
         }
 
-        cacheCurrentOrgId(userId, fallbackOrgId);
+        cacheCurrentOrgId(userId, fallbackOrgId, getCurrentOrgTtlSeconds(userId));
         return fallbackOrgId;
     }
 
@@ -52,13 +49,13 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
      * 初始化用户当前组织
      */
     @Override
-    public void initializeCurrentOrg(Long userId) {
+    public void initializeCurrentOrg(Long userId, long ttlSeconds) {
         Long fallbackOrgId = resolveFallbackOrgId(userId);
         if (fallbackOrgId == null) {
             clearCurrentOrg(userId);
             return;
         }
-        cacheCurrentOrgId(userId, fallbackOrgId);
+        cacheCurrentOrgId(userId, fallbackOrgId, ttlSeconds);
     }
 
     /**
@@ -67,7 +64,7 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
     @Override
     public void switchCurrentOrg(Long userId, Long targetOrgId) {
         assertAccessibleOrg(userId, targetOrgId);
-        cacheCurrentOrgId(userId, targetOrgId);
+        cacheCurrentOrgId(userId, targetOrgId, getCurrentOrgTtlSeconds(userId));
     }
 
     /**
@@ -178,12 +175,20 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
     /**
      * 缓存用户当前组织ID到Redis
      */
-    private void cacheCurrentOrgId(Long userId, Long orgId) {
+    private void cacheCurrentOrgId(Long userId, Long orgId, Long ttlSeconds) {
         redisTemplate.opsForValue().set(
                 RedisConstants.CURRENT_ORG + userId,
                 orgId,
-                RedisConstants.EXPIRE_TIME,
+                ttlSeconds,
                 TimeUnit.SECONDS
         );
+    }
+
+    private long getCurrentOrgTtlSeconds(Long userId) {
+        Long expireSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userId, TimeUnit.SECONDS);
+        if (expireSeconds == null || expireSeconds <= 0) {
+            return RedisConstants.EXPIRE_TIME.longValue();
+        }
+        return expireSeconds;
     }
 }
