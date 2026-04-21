@@ -6,10 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.RedisConstants;
-import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
@@ -20,9 +17,9 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
+import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.app.service.user.SessionService;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,7 +33,7 @@ public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
     private final SessionService sessionService;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final CurrentOrganizationService currentOrganizationService;
 
     // -------------------------
     // 入组申请
@@ -105,7 +102,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite-codes/join-org")
     public Result<InviteCodeVO> generateJoinOrgInviteCode() {
         Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = getCurrentOrgId(currentUserId);
+        Long currentOrgId = currentOrganizationService.resolveCurrentOrgId(currentUserId);
 
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
                 new OrgAdminGenerateJoinOrgInviteCodeParamsBO(currentUserId, currentOrgId)
@@ -115,13 +112,5 @@ public class OrganizationMemberController {
                 .expireAt(resultBO.getExpireAt())
                 .build();
         return Result.success("生成成功", inviteCodeVO);
-    }
-
-    private Long getCurrentOrgId(Long currentUserId) {
-        Object currentOrgId = redisTemplate.opsForValue().get(RedisConstants.CURRENT_ORG + currentUserId);
-        if (currentOrgId == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "当前组织不存在，请先切换组织");
-        }
-        return Long.parseLong(String.valueOf(currentOrgId));
     }
 }
