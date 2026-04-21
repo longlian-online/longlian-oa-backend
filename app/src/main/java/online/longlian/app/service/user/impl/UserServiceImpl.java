@@ -1,40 +1,39 @@
 package online.longlian.app.service.user.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
-import online.longlian.app.common.constants.RedisConstants;
-import online.longlian.app.common.enumeration.InviteMode;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.GroupApplicationMapper;
+import online.longlian.app.mapper.OrganizationCreateOptMapper;
+import online.longlian.app.mapper.OrganizationJoinOptMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.mapper.RoleMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.mapper.UserRoleMapper;
-import online.longlian.app.pojo.bo.InviteCodeCacheBO;
+import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
+import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
-import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
-import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
-import online.longlian.app.pojo.entity.GroupApplication;
+import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
+import online.longlian.app.pojo.entity.OrganizationCreateOpt;
+import online.longlian.app.pojo.entity.OrganizationJoinOpt;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.pojo.entity.Role;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.pojo.entity.UserRole;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
 import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
-import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.generator.enumeration.OPTStatus;
+import online.longlian.generator.enumeration.OTPType;
 import online.longlian.generator.enumeration.Status;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,52 +44,17 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
     private final VerifyCodeService verifyCodeService;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final GroupApplicationMapper groupApplicationMapper;
-    private final RoleMapper roleMapper;
-    private final UserRoleMapper userRoleMapper;
+    private final OrganizationCreateOptMapper organizationCreateOptMapper;
+    private final OrganizationJoinOptMapper organizationJoinOptMapper;
     private final ResourceService resourceService;
     private final UserMapper userMapper;
     private final SessionService sessionService;
     private final CurrentOrganizationService currentOrganizationService;
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Result<Void> registerByInvite(RegisterByInviteDTO registerByInviteDTO) {
-        validateRegisterRequest(registerByInviteDTO);
-
-        InviteCodeCacheBO inviteData = getInviteCodeData(registerByInviteDTO.getInviteCode());
-        InviteMode inviteMode = inviteData.getInviteMode();
-        Long orgId = inviteData.getOrgId();
-
-        LocalDateTime now = LocalDateTime.now();
-        User user = User.builder()
-                .username(registerByInviteDTO.getUsername())
-                .password(passwordEncoder.encode(registerByInviteDTO.getPassword()))
-                .nickname(registerByInviteDTO.getNickname())
-                .email(registerByInviteDTO.getEmail())
-                .status(Status.ENABLED)
-                .createdAt(now)
-                .updatedAt(now)
-                .defaultOrgId(0L)
-                .build();
-        userMapper.insert(user);
-
-        if (InviteMode.SUPER_ADMIN_CREATE_ORG.equals(inviteMode)) {
-            createOrgForInvitedUser(registerByInviteDTO, user, now);
-        } else if (InviteMode.ORG_ADMIN_INVITE.equals(inviteMode)) {
-            joinOrgAfterRegister(orgId, user, now);
-        } else {
-            throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持注册");
-        }
-
-        redisTemplate.delete(RedisConstants.INVITE_CODE + registerByInviteDTO.getInviteCode());
-        return Result.success("注册成功");
-    }
+    private final OneTimePasswordService oneTimePasswordService;
 
     @Override
     public Result<UserInfoVO> getMyInfo() {
@@ -109,44 +73,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             builder.avatarUrl(resourceService.getFileAccessUrl(user.getAvatarFileId()));
         }
         return Result.success("查询成功", builder.build());
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        InviteCodeCacheBO inviteData = getInviteCodeData(joinByInviteCodeDTO.getInviteCode());
-        if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_INVITE) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持加入组织");
-        }
-        Long orgId = inviteData.getOrgId();
-        Organization organization = organizationMapper.selectById(orgId);
-        if (organization == null || organization.getStatus() == Status.DISABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
-        }
-
-        if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getUserId, userId)) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "你已加入该组织");
-        }
-        if (groupApplicationMapper.selectOne(new LambdaQueryWrapper<GroupApplication>()
-                .eq(GroupApplication::getOrgId, orgId)
-                .eq(GroupApplication::getUserId, userId)) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "请勿重复提交入组申请");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        GroupApplication application = GroupApplication.builder()
-                .orgId(orgId)
-                .userId(userId)
-                .status(ApplicationStatus.PENDING)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        groupApplicationMapper.insert(application);
-        redisTemplate.delete(RedisConstants.INVITE_CODE + joinByInviteCodeDTO.getInviteCode());
-        return Result.success("申请已提交，等待管理员审核");
     }
 
     @Override
@@ -174,28 +100,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
     }
 
-    private void validateRegisterRequest(RegisterByInviteDTO registerByInviteDTO) {
-        if (!registerByInviteDTO.getPassword().equals(registerByInviteDTO.getConfirmPassword())) {
-            throw new AppException(ResultCode.PARAM_ERROR, "两次输入的密码不一致");
-        }
-        if (verifyCodeService.validateCode(registerByInviteDTO.getEmail(), registerByInviteDTO.getCode())) {
-            throw new AppException(ResultCode.PARAM_ERROR, "邮箱验证码错误");
-        }
-        if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, registerByInviteDTO.getUsername())) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
-        }
-        if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, registerByInviteDTO.getEmail())) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
-        }
-    }
-
-    private void createOrgForInvitedUser(RegisterByInviteDTO registerByInviteDTO, User user, LocalDateTime now) {
-        if (registerByInviteDTO.getOrgName() == null || registerByInviteDTO.getOrgName().isBlank()) {
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void registerAndCreateOrganizationByInvite(UserRegisterByInviteParamsBO params) {
+        validateRegisterRequest(params);
+        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationInvite);
+        OrganizationCreateOpt organizationCreateOpt = validatePendingOrganizationCreateInvitation(oneTimePassword.getId());
+        if (params.getOrgName() == null || params.getOrgName().isBlank()) {
             throw new AppException(ResultCode.PARAM_ERROR, "组织名称不能为空");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        User user = createUser(params, now);
+
         Organization organization = Organization.builder()
-                .name(registerByInviteDTO.getOrgName().trim())
+                .name(params.getOrgName().trim())
                 .status(Status.ENABLED)
                 .creatorId(user.getId())
                 .createdAt(now)
@@ -217,17 +136,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         user.setDefaultOrgId(organization.getId());
         userMapper.updateById(user);
-        bindRole(user.getId(), now);
+
+        oneTimePasswordService.useOTP(oneTimePassword.getId());
+        organizationCreateOptMapper.update(
+                null,
+                new LambdaUpdateWrapper<OrganizationCreateOpt>()
+                        .eq(OrganizationCreateOpt::getId, organizationCreateOpt.getId())
+                        .eq(OrganizationCreateOpt::getStatus, OPTStatus.PENDING)
+                        .set(OrganizationCreateOpt::getInvitedUserId, user.getId())
+                        .set(OrganizationCreateOpt::getOrgId, organization.getId())
+                        .set(OrganizationCreateOpt::getUsedAt, now)
+                        .set(OrganizationCreateOpt::getStatus, OPTStatus.USED)
+        );
     }
 
-    private void joinOrgAfterRegister(Long orgId, User user, LocalDateTime now) {
-        if (orgId == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码缺少组织信息");
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params) {
+        validateRegisterRequest(params);
+        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
+        OrganizationJoinOpt organizationJoinOpt = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
+
+        Organization organization = organizationMapper.selectById(organizationJoinOpt.getOrgId());
+        if (organization == null || organization.getStatus() == Status.DISABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
         }
-        ensureOrgExists(orgId);
+
+        LocalDateTime now = LocalDateTime.now();
+        User user = createUser(params, now);
 
         OrganizationMember organizationMember = OrganizationMember.builder()
-                .orgId(orgId)
+                .orgId(organization.getId())
                 .userId(user.getId())
                 .orgRole(InviteConstants.ROLE_ORG_USER)
                 .joinedAt(now)
@@ -238,52 +177,99 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         organizationMemberMapper.insert(organizationMember);
 
-        user.setDefaultOrgId(orgId);
+        user.setDefaultOrgId(organization.getId());
         userMapper.updateById(user);
+
+        oneTimePasswordService.useOTP(oneTimePassword.getId());
+        organizationJoinOptMapper.update(
+                null,
+                new LambdaUpdateWrapper<OrganizationJoinOpt>()
+                        .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
+                        .eq(OrganizationJoinOpt::getStatus, OPTStatus.PENDING)
+                        .set(OrganizationJoinOpt::getInvitedUserId, user.getId())
+                        .set(OrganizationJoinOpt::getOrgMemberId, organizationMember.getId())
+                        .set(OrganizationJoinOpt::getUsedAt, now)
+                        .set(OrganizationJoinOpt::getStatus, OPTStatus.USED)
+        );
     }
 
-    private void createJoinApplication(Long orgId, Long userId, LocalDateTime now) {
-        if (orgId == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码缺少组织信息");
-        }
-        ensureOrgExists(orgId);
+    @Override
+    public UserGetJoinOrgInviteInfoResultBO getJoinOrgInviteInfo(UserGetJoinOrgInviteInfoParamsBO params) {
+        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
+        OrganizationJoinOpt organizationJoinOpt = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
 
-        GroupApplication application = GroupApplication.builder()
-                .orgId(orgId)
-                .userId(userId)
-                .status(ApplicationStatus.PENDING)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        groupApplicationMapper.insert(application);
-    }
-
-    private void ensureOrgExists(Long orgId) {
-        Organization organization = organizationMapper.selectById(orgId);
+        Organization organization = organizationMapper.selectById(organizationJoinOpt.getOrgId());
         if (organization == null || organization.getStatus() == Status.DISABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
+        }
+        return UserGetJoinOrgInviteInfoResultBO.builder()
+                .orgId(organization.getId())
+                .orgName(organization.getName())
+                .build();
+    }
+
+    private void validateRegisterRequest(UserRegisterByInviteParamsBO params) {
+        if (verifyCodeService.validateCode(params.getEmail(), params.getCode())) {
+            throw new AppException(ResultCode.PARAM_ERROR, "邮箱验证码错误");
+        }
+        if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, params.getUsername())) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
+        }
+        if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, params.getEmail())) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
         }
     }
 
-    private InviteCodeCacheBO getInviteCodeData(String inviteCode) {
-        InviteCodeCacheBO inviteCodeData = (InviteCodeCacheBO) redisTemplate.opsForValue().get(RedisConstants.INVITE_CODE + inviteCode);
-        if (inviteCodeData == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在或已过期");
-        }
-        return inviteCodeData;
-    }
-
-    private void bindRole(Long userId, LocalDateTime now) {
-        Role role = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getRoleCode, InviteConstants.ROLE_ORG_ADMIN));
-        if (role == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "角色不存在: " + InviteConstants.ROLE_ORG_ADMIN);
-        }
-        UserRole userRole = UserRole.builder()
-                .userId(userId)
-                .roleId(role.getId())
+    private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {
+        User user = User.builder()
+                .username(params.getUsername())
+                .password(passwordEncoder.encode(params.getPassword()))
+                .nickname(params.getNickname())
+                .email(params.getEmail())
+                .status(Status.ENABLED)
                 .createdAt(now)
                 .updatedAt(now)
+                .defaultOrgId(0L)
                 .build();
-        userRoleMapper.insert(userRole);
+        userMapper.insert(user);
+        return user;
+    }
+
+    private OrganizationCreateOpt validatePendingOrganizationCreateInvitation(Long otpId) {
+        OrganizationCreateOpt organizationCreateOpt = organizationCreateOptMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationCreateOpt>()
+                        .eq(OrganizationCreateOpt::getOtpId, otpId)
+                        .last("LIMIT 1")
+        );
+        if (organizationCreateOpt == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
+        }
+        validateInvitationStatus(organizationCreateOpt.getStatus(), organizationCreateOpt.getInvitedUserId());
+        return organizationCreateOpt;
+    }
+
+    private OrganizationJoinOpt validatePendingOrganizationJoinInvitation(Long otpId) {
+        OrganizationJoinOpt organizationJoinOpt = organizationJoinOptMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationJoinOpt>()
+                        .eq(OrganizationJoinOpt::getOtpId, otpId)
+                        .last("LIMIT 1")
+        );
+        if (organizationJoinOpt == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
+        }
+        validateInvitationStatus(organizationJoinOpt.getStatus(), organizationJoinOpt.getInvitedUserId());
+        return organizationJoinOpt;
+    }
+
+    private void validateInvitationStatus(OPTStatus status, Long invitedUserId) {
+        if (status == OPTStatus.USED || invitedUserId != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已使用");
+        }
+        if (status == OPTStatus.EXPIRED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
+        }
+        if (status != OPTStatus.PENDING) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码状态异常");
+        }
     }
 }
