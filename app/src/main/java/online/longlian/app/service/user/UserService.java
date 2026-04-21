@@ -28,5 +28,7 @@ public interface UserService extends IService<User> {
 
     void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params);
 
+    void joinOrganizationByInvite(Long userId, String inviteCode);
+
     UserGetJoinOrgInviteInfoResultBO getJoinOrgInviteInfo(UserGetJoinOrgInviteInfoParamsBO params);
 }

@@ -11,6 +11,7 @@ import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
@@ -101,6 +102,16 @@ public class UserController {
         // TODO
         // return organizationService.getOrgDetailInfo();
         return Result.success(null);
+    }
+
+    @Operation(
+        summary = "已注册用户通过邀请码加入组织",
+        description = "已登录用户使用组织管理员生成的邀请码，直接加入目标组织"
+    )
+    @PostMapping("/organizations/join-by-invite")
+    public Result<Void> joinOrganizationByInvite(@RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
+        userService.joinOrganizationByInvite(sessionService.getCurrentUserId(), joinByInviteCodeDTO.getInviteCode());
+        return Result.success("加入成功");
     }
 
     @Operation(summary = "切换组织", description = "切换用户当前所在组织")

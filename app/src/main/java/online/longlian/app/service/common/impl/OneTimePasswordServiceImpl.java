@@ -50,7 +50,7 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
         OneTimePassword oneTimePassword = oneTimePasswordMapper.selectById(otpId);
         validateOtpAvailability(oneTimePassword);
 
-        int updatedRows = oneTimePasswordMapper.update(
+        oneTimePasswordMapper.update(
                 null,
                 new LambdaUpdateWrapper<OneTimePassword>()
                         .eq(OneTimePassword::getId, otpId)
@@ -58,9 +58,6 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                         .gt(OneTimePassword::getExpiredAt, LocalDateTime.now())
                         .set(OneTimePassword::getUsedAt, LocalDateTime.now())
         );
-        if (updatedRows == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码状态已变更，请刷新后重试");
-        }
     }
 
     private void validateOtpAvailability(OneTimePassword oneTimePassword) {

@@ -150,7 +150,7 @@ CREATE TABLE `one_time_password` (
 CREATE TABLE `organization_create_opt` (
                                                   `id` bigint NOT NULL COMMENT '邀请ID',
                                                   `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
-                                                  `invited_user_id` bigint NOT NULL COMMENT '被邀请用户ID',
+                                                  `invited_user_id` bigint COMMENT '被邀请用户ID',
                                                   `org_id` bigint DEFAULT NULL COMMENT '创建成功后的组织ID',
                                                   `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-待使用 1-已使用 2-已过期',
                                                   `used_at` datetime DEFAULT NULL COMMENT '使用时间',
@@ -164,8 +164,8 @@ CREATE TABLE `organization_create_opt` (
 CREATE TABLE `organization_join_opt` (
                                                 `id` bigint NOT NULL COMMENT '邀请ID',
                                                 `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
-                                                `org_id` bigint NOT NULL COMMENT '目标组织ID',
-                                                `invited_user_id` bigint NOT NULL COMMENT '被邀请用户ID',
+                                                `org_id` bigint COMMENT '目标组织ID',
+                                                `invited_user_id` bigint COMMENT '被邀请用户ID',
                                                 `org_member_id` bigint DEFAULT NULL COMMENT '加入成功后的组织成员ID',
                                                 `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-待使用 1-已使用 2-已过期',
                                                 `used_at` datetime DEFAULT NULL COMMENT '使用时间',

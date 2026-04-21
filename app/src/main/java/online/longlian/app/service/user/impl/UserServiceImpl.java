@@ -157,10 +157,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
         OrganizationJoinOpt organizationJoinOpt = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
 
-        Organization organization = organizationMapper.selectById(organizationJoinOpt.getOrgId());
-        if (organization == null || organization.getStatus() == Status.DISABLED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
-        }
+        Organization organization = validateJoinTargetOrganization(organizationJoinOpt.getOrgId());
 
         LocalDateTime now = LocalDateTime.now();
         User user = createUser(params, now);
@@ -194,14 +191,56 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void joinOrganizationByInvite(Long userId, String inviteCode) {
+        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(inviteCode, OTPType.OrganizationUserInvite);
+        OrganizationJoinOpt organizationJoinOpt = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
+        Organization organization = validateJoinTargetOrganization(organizationJoinOpt.getOrgId());
+
+        OrganizationMember existedMember = organizationMemberMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getUserId, userId)
+                        .eq(OrganizationMember::getOrgId, organization.getId())
+                        .last("LIMIT 1")
+        );
+        if (existedMember != null) {
+            if (existedMember.getStatus() == Status.ENABLED) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "您已加入该组织");
+            }
+            throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        OrganizationMember organizationMember = OrganizationMember.builder()
+                .orgId(organization.getId())
+                .userId(userId)
+                .orgRole(InviteConstants.ROLE_ORG_USER)
+                .joinedAt(now)
+                .submitCount(0)
+                .status(Status.ENABLED)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        organizationMemberMapper.insert(organizationMember);
+
+        oneTimePasswordService.useOTP(oneTimePassword.getId());
+        organizationJoinOptMapper.update(
+                null,
+                new LambdaUpdateWrapper<OrganizationJoinOpt>()
+                        .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
+                        .eq(OrganizationJoinOpt::getStatus, OPTStatus.PENDING)
+                        .set(OrganizationJoinOpt::getInvitedUserId, userId)
+                        .set(OrganizationJoinOpt::getOrgMemberId, organizationMember.getId())
+                        .set(OrganizationJoinOpt::getUsedAt, now)
+                        .set(OrganizationJoinOpt::getStatus, OPTStatus.USED)
+        );
+    }
+
+    @Override
     public UserGetJoinOrgInviteInfoResultBO getJoinOrgInviteInfo(UserGetJoinOrgInviteInfoParamsBO params) {
         OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
         OrganizationJoinOpt organizationJoinOpt = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
-
-        Organization organization = organizationMapper.selectById(organizationJoinOpt.getOrgId());
-        if (organization == null || organization.getStatus() == Status.DISABLED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
-        }
+        Organization organization = validateJoinTargetOrganization(organizationJoinOpt.getOrgId());
         return UserGetJoinOrgInviteInfoResultBO.builder()
                 .orgId(organization.getId())
                 .orgName(organization.getName())
@@ -246,6 +285,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         validateInvitationStatus(organizationCreateOpt.getStatus(), organizationCreateOpt.getInvitedUserId());
         return organizationCreateOpt;
+    }
+
+    private Organization validateJoinTargetOrganization(Long orgId) {
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() == Status.DISABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
+        }
+        return organization;
     }
 
     private OrganizationJoinOpt validatePendingOrganizationJoinInvitation(Long otpId) {
