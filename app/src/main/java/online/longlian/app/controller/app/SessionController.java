@@ -6,9 +6,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
+import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.SessionLogoutParamsBO;
 import online.longlian.app.pojo.dto.app.EmailLoginCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
@@ -29,13 +34,37 @@ public class SessionController {
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
     public Result<LoginVO> loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
-        return sessionService.loginByPwd(loginByPwdDTO);
+        SessionLoginResultBO resultBO = sessionService.loginByPwd(
+                SessionLoginByPwdParamsBO.builder()
+                        .username(loginByPwdDTO.getUsername())
+                        .password(loginByPwdDTO.getPassword())
+                        .build()
+        );
+        LoginVO loginVO = LoginVO.builder()
+                .userId(resultBO.getUserId())
+                .defaultOrgId(resultBO.getDefaultOrgId())
+                .token(resultBO.getToken())
+                .roles(resultBO.getRoles())
+                .build();
+        return Result.success("登录成功", loginVO);
     }
 
     @Operation(summary = "验证码登录", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/email")
     public Result<LoginVO> loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
-        return sessionService.loginByCode(loginByCodeDTO);
+        SessionLoginResultBO resultBO = sessionService.loginByCode(
+                SessionLoginByCodeParamsBO.builder()
+                        .email(loginByCodeDTO.getEmail())
+                        .code(loginByCodeDTO.getCode())
+                        .build()
+        );
+        LoginVO loginVO = LoginVO.builder()
+                .userId(resultBO.getUserId())
+                .defaultOrgId(resultBO.getDefaultOrgId())
+                .token(resultBO.getToken())
+                .roles(resultBO.getRoles())
+                .build();
+        return Result.success("登录成功", loginVO);
     }
 
     @Operation(summary = "发送邮箱验证码", security = {})
@@ -50,6 +79,12 @@ public class SessionController {
     @Operation(summary = "退出登录")
     @DeleteMapping("/")
     public Result<Void> logout(HttpServletRequest request) {
-        return sessionService.logout(request);
+        sessionService.logout(
+                SessionLogoutParamsBO.builder()
+                        .userId(sessionService.getCurrentUserId())
+                        .token((String) request.getAttribute(CommonConstants.CURRENT_TOKEN))
+                        .build()
+        );
+        return Result.success("登出成功");
     }
 }

@@ -6,6 +6,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
@@ -15,6 +17,7 @@ import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.user.OrganizationMemberService;
+import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +33,7 @@ public class UserController {
 
     private final UserService userService;
     private final OrganizationMemberService organizationMemberService;
+    private final SessionService sessionService;
 
     @Operation(
         summary = "通过邀请码注册",
@@ -75,10 +79,20 @@ public class UserController {
 
     @Operation(summary = "切换组织", description = "切换用户当前所在组织")
     @PostMapping("/switch")
-    public Result<UserOrgSwitchVO> switchOrg(@RequestBody OrgIdDTO orgIdDTO) {
-        // TODO
-        // return organizationService.switchOrg(orgIdDTO.getOrgId);
-        return Result.success(null);
+    public Result<UserOrgSwitchVO> switchOrg(@RequestBody @Valid OrgIdDTO orgIdDTO) {
+        UserSwitchOrgResultBO resultBO = userService.switchOrg(
+                UserSwitchOrgParamsBO.builder()
+                        .userId(sessionService.getCurrentUserId())
+                        .orgId(orgIdDTO.getOrgId())
+                        .build()
+        );
+        UserOrgSwitchVO userOrgSwitchVO = UserOrgSwitchVO.builder()
+                .id(resultBO.getId())
+                .name(resultBO.getName())
+                .avatarUrl(resultBO.getAvatarUrl())
+                .role(resultBO.getRole())
+                .build();
+        return Result.success("切换成功", userOrgSwitchVO);
     }
 
     @Operation(

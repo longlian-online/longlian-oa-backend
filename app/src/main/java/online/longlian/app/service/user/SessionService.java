@@ -1,19 +1,18 @@
 package online.longlian.app.service.user;
 
-import jakarta.servlet.http.HttpServletRequest;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.common.security.UserDetailImpl;
-import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
-import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
-import online.longlian.app.pojo.vo.app.LoginVO;
+import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
+import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.SessionLogoutParamsBO;
 
 public interface SessionService {
 
-    Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO);
+    SessionLoginResultBO loginByPwd(SessionLoginByPwdParamsBO params);
 
-    Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO);
+    SessionLoginResultBO loginByCode(SessionLoginByCodeParamsBO params);
 
-    Result<Void> logout(HttpServletRequest request);
+    void logout(SessionLogoutParamsBO params);
 
     UserDetailImpl getCurrentUser();
 

@@ -16,6 +16,8 @@ import online.longlian.app.mapper.RoleMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.UserRoleMapper;
 import online.longlian.app.pojo.bo.InviteCodeCacheBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.entity.GroupApplication;
@@ -26,6 +28,7 @@ import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.UserRole;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
+import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
@@ -35,6 +38,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 
 @Service
@@ -52,14 +56,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final ResourceService resourceService;
     private final UserMapper userMapper;
     private final SessionService sessionService;
+    private final CurrentOrganizationService currentOrganizationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Void> registerByInvite(RegisterByInviteDTO registerByInviteDTO) {
-        // 先校验邀请码、邮箱验证码和账号唯一性
         validateRegisterRequest(registerByInviteDTO);
 
-        // 从 Redis 中读取邀请码上下文
         InviteCodeCacheBO inviteData = getInviteCodeData(registerByInviteDTO.getInviteCode());
         InviteMode inviteMode = inviteData.getInviteMode();
         Long orgId = inviteData.getOrgId();
@@ -77,7 +80,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         userMapper.insert(user);
 
-        // 根据邀请码类型执行“创建组织”“加入邀请组织”或拒绝处理。
         if (InviteMode.SUPER_ADMIN_CREATE_ORG.equals(inviteMode)) {
             createOrgForInvitedUser(registerByInviteDTO, user, now);
         } else if (InviteMode.ORG_ADMIN_INVITE.equals(inviteMode)) {
@@ -86,7 +88,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持注册");
         }
 
-        // 邀请码为一次性使用，注册成功后删除
         redisTemplate.delete(RedisConstants.INVITE_CODE + registerByInviteDTO.getInviteCode());
         return Result.success("注册成功");
     }
@@ -115,7 +116,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO) {
         Long userId = sessionService.getCurrentUserId();
         InviteCodeCacheBO inviteData = getInviteCodeData(joinByInviteCodeDTO.getInviteCode());
-        // 管理员邀请码支持“注册入组”和“已登录申请入组”两种使用方式。
         if (inviteData.getInviteMode() != InviteMode.ORG_ADMIN_INVITE) {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前邀请码不支持加入组织");
         }
@@ -125,7 +125,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
         }
 
-        // 已是成员或已有申请时不允许重复提交
         if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
                 .eq(OrganizationMember::getOrgId, orgId)
                 .eq(OrganizationMember::getUserId, userId)) != null) {
@@ -146,9 +145,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .updatedAt(now)
                 .build();
         groupApplicationMapper.insert(application);
-        // 邀请码一次性使用，提交申请后删除
         redisTemplate.delete(RedisConstants.INVITE_CODE + joinByInviteCodeDTO.getInviteCode());
         return Result.success("申请已提交，等待管理员审核");
+    }
+
+    @Override
+    public UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params) {
+        currentOrganizationService.switchCurrentOrg(params.getUserId(), params.getOrgId());
+
+        Organization organization = organizationMapper.selectById(params.getOrgId());
+        OrganizationMember organizationMember = organizationMemberMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getUserId, params.getUserId())
+                        .eq(OrganizationMember::getOrgId, params.getOrgId())
+                        .last("LIMIT 1")
+        );
+
+        String avatarUrl = null;
+        if (organization.getAvatarFileId() != null) {
+            avatarUrl = resourceService.getFileAccessUrl(organization.getAvatarFileId());
+        }
+
+        return UserSwitchOrgResultBO.builder()
+                .id(organization.getId())
+                .name(organization.getName())
+                .avatarUrl(avatarUrl)
+                .role(organizationMember == null ? null : organizationMember.getOrgRole())
+                .build();
     }
 
     private void validateRegisterRequest(RegisterByInviteDTO registerByInviteDTO) {
@@ -171,7 +194,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.PARAM_ERROR, "组织名称不能为空");
         }
 
-        // 超管邀请场景：注册后直接创建组织并初始化管理员身份
         Organization organization = Organization.builder()
                 .name(registerByInviteDTO.getOrgName().trim())
                 .status(Status.ENABLED)
@@ -204,7 +226,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         ensureOrgExists(orgId);
 
-        // 管理员邀请码场景：注册成功后直接加入组织，并将默认组织设置为邀请组织。
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(orgId)
                 .userId(user.getId())
@@ -227,7 +248,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         ensureOrgExists(orgId);
 
-        // 管理员邀请码场景：已登录用户提交入组申请，等待管理员审核。
         GroupApplication application = GroupApplication.builder()
                 .orgId(orgId)
                 .userId(userId)
@@ -258,7 +278,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (role == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "角色不存在: " + InviteConstants.ROLE_ORG_ADMIN);
         }
-        // 绑定系统角色，确保后续权限判断生效
         UserRole userRole = UserRole.builder()
                 .userId(userId)
                 .roleId(role.getId())

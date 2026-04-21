@@ -1,9 +1,15 @@
 package online.longlian.app.pojo.vo.admin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "用户切换的组织信息")
 public class UserOrgSwitchVO {
 

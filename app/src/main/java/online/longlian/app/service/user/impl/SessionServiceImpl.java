@@ -1,21 +1,20 @@
 package online.longlian.app.service.user.impl;
 
 import com.alibaba.fastjson2.JSON;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.EmailCodeAuthenticationToken;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
-import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
-import online.longlian.app.pojo.vo.app.LoginVO;
+import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
+import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.SessionLogoutParamsBO;
+import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.user.SessionService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -33,44 +32,42 @@ public class SessionServiceImpl implements SessionService {
     private final AuthenticationManager authenticationManager;
     private final RedisTemplate<String, Object> redisTemplate;
     private final JwtUtil jwtUtil;
+    private final CurrentOrganizationService currentOrganizationService;
 
     @Override
-    public Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO) {
+    public SessionLoginResultBO loginByPwd(SessionLoginByPwdParamsBO params) {
         Authentication authentication =
                 authenticationManager.authenticate(
                         new MyUsernamePasswordAuthenticationToken(
-                                loginByPwdDTO.getUsername(),
-                                loginByPwdDTO.getPassword()
+                                params.getUsername(),
+                                params.getPassword()
                         )
                 );
         return doLogin(authentication);
     }
 
     @Override
-    public Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO) {
+    public SessionLoginResultBO loginByCode(SessionLoginByCodeParamsBO params) {
         Authentication authentication =
                 authenticationManager.authenticate(
                         new EmailCodeAuthenticationToken(
-                                loginByCodeDTO.getEmail(),
-                                loginByCodeDTO.getCode()
+                                params.getEmail(),
+                                params.getCode()
                         )
                 );
         return doLogin(authentication);
     }
 
     @Override
-    public Result<Void> logout(HttpServletRequest request) {
-        String token = (String) request.getAttribute(CommonConstants.CURRENT_TOKEN);
-        if (token == null) {
+    public void logout(SessionLogoutParamsBO params) {
+        if (params.getToken() == null) {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
-        long remainingSeconds = jwtUtil.getRemainingTimeSeconds(token);
-        redisBlacklistUtil.addToBlacklist(token, remainingSeconds);
+        long remainingSeconds = jwtUtil.getRemainingTimeSeconds(params.getToken());
+        redisBlacklistUtil.addToBlacklist(params.getToken(), remainingSeconds);
 
-        Long userId = getCurrentUserId();
-        redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
-
-        return Result.success("登出成功");
+        redisTemplate.delete(RedisConstants.LOGIN_USER + params.getUserId());
+        currentOrganizationService.clearCurrentOrg(params.getUserId());
     }
 
     @Override
@@ -91,7 +88,7 @@ public class SessionServiceImpl implements SessionService {
         return getCurrentUser().getId();
     }
 
-    private Result<LoginVO> doLogin(Authentication authentication) {
+    private SessionLoginResultBO doLogin(Authentication authentication) {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();
 
@@ -103,18 +100,13 @@ public class SessionServiceImpl implements SessionService {
                 RedisConstants.EXPIRE_TIME,
                 TimeUnit.SECONDS
         );
-        redisTemplate.opsForValue().set(
-                RedisConstants.CURRENT_ORG + userId,
-                userDetail.getDefaultOrgId(),
-                RedisConstants.EXPIRE_TIME,
-                TimeUnit.SECONDS
-        );
-        LoginVO loginVO = LoginVO.builder()
+        currentOrganizationService.initializeCurrentOrg(userId);
+
+        return SessionLoginResultBO.builder()
                 .userId(userId)
                 .token(token)
                 .roles(userDetail.getRoles())
                 .defaultOrgId(userDetail.getDefaultOrgId())
                 .build();
-        return Result.success("登录成功", loginVO);
     }
 }
