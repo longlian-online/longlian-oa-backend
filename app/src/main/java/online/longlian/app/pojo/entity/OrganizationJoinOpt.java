@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.OPTStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -20,7 +19,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-20
+ * @since 
  */
 @Data
 @Builder
@@ -66,13 +65,6 @@ public class OrganizationJoinOpt implements Serializable {
     @TableField("org_member_id")
     @ApiModelProperty("加入成功后的组织成员ID")
     private Long orgMemberId;
-
-    /**
-     * 状态 0-待使用 1-已使用 2-已过期
-     */
-    @TableField("status")
-    @ApiModelProperty("状态 0-待使用 1-已使用 2-已过期")
-    private OPTStatus status;
 
     /**
      * 使用时间

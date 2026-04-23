@@ -1,6 +1,5 @@
 package online.longlian.app.pojo.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -21,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-20
+ * @since 
  */
 @Data
 @Builder
@@ -63,6 +62,13 @@ public class OneTimePassword implements Serializable {
     @TableField("biz_type")
     @ApiModelProperty("业务类型 1.邀请创建组织 2.邀请加入组织")
     private OTPType bizType;
+
+    /**
+     * 状态 0-待使用 1-已使用
+     */
+    @TableField("status")
+    @ApiModelProperty("状态 0-待使用 1-已使用")
+    private Byte status;
 
     /**
      * 创建者 ID
