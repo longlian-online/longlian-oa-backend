@@ -169,7 +169,11 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
         if (cachedValue == null) {
             return null;
         }
-        return Long.parseLong(String.valueOf(cachedValue));
+        try {
+            return Long.parseLong(String.valueOf(cachedValue));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
