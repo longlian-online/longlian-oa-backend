@@ -1,6 +1,6 @@
 package online.longlian.app.common.security;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -25,11 +25,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        // 查询用户信息（支持用户名/邮箱）
-        User user = userMapper.selectOne(new QueryWrapper<User>()
-                .eq("username", usernameOrEmail)
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, usernameOrEmail)
                 .or()
-                .eq("email", usernameOrEmail));
+                .eq(User::getEmail, usernameOrEmail));
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
@@ -37,8 +36,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     public UserDetails loadUserByUsernameOnly(String username) throws UsernameNotFoundException {
-        User user = userMapper.selectOne(new QueryWrapper<User>()
-                .eq("username", username));
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, username));
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
@@ -46,9 +45,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     public UserDetails loadUserByEmailOnly(String email) throws UsernameNotFoundException {
-        // 仅匹配email字段，禁止用户名登录
-        User user = userMapper.selectOne(new QueryWrapper<User>()
-                .eq("email", email));
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, email));
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
