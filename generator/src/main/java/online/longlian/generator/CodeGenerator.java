@@ -40,7 +40,8 @@ public class CodeGenerator {
                         .Builder(url, username, password)
                         .typeConvertHandler(new TypeConverter())
                 )
-                .globalConfig(builder -> builder.author("longlian").enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir())
+                .globalConfig(builder -> builder.author("longlian")
+                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
                 .strategyConfig(builder -> builder.entityBuilder()
                         .enableLombok(

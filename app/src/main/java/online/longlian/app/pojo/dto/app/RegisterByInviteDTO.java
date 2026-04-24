@@ -25,11 +25,6 @@ public class RegisterByInviteDTO {
     @Schema(description = "密码", requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 
-    @NotBlank(message = "确认密码不能为空")
-    @Size(min = 6, max = 20, message = "确认密码长度必须在6-20位之间")
-    @Schema(description = "确认密码", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String confirmPassword;
-
     @NotBlank(message = "昵称不能为空")
     @Size(max = 20, message = "昵称长度不能超过20")
     @Schema(description = "昵称", requiredMode = Schema.RequiredMode.REQUIRED)

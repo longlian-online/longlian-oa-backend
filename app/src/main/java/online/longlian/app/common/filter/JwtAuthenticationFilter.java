@@ -13,15 +13,20 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
+import online.longlian.app.pojo.bo.LoginSessionCacheBO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Component
@@ -61,11 +66,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
-            UserDetailImpl userDetailImpl = JSON.parseObject(cached.toString(), UserDetailImpl.class);
-            if (userDetailImpl == null) {
+            LoginSessionCacheBO sessionCacheBO = JSON.parseObject(cached.toString(), LoginSessionCacheBO.class);
+            if (sessionCacheBO == null) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
 
+            UserDetailImpl userDetailImpl = buildUserDetail(sessionCacheBO);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetailImpl, null, userDetailImpl.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -75,5 +81,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             authenticationEntryPoint.commence(request, response, null);
         }
+    }
+
+    private UserDetailImpl buildUserDetail(LoginSessionCacheBO sessionCacheBO) {
+        UserDetailImpl userDetail = new UserDetailImpl();
+        BeanUtils.copyProperties(sessionCacheBO, userDetail);
+
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        if (sessionCacheBO.getPermissions() != null) {
+            authorities.addAll(sessionCacheBO.getPermissions().stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .toList());
+        }
+        if (sessionCacheBO.getRoles() != null) {
+            authorities.addAll(sessionCacheBO.getRoles().stream()
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .toList());
+        }
+        userDetail.setAuthorities(new ArrayList<>(authorities));
+        return userDetail;
     }
 }

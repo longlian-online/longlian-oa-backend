@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
+import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
@@ -15,7 +17,9 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
+import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.user.OrganizationMemberService;
+import online.longlian.app.service.user.SessionService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +32,8 @@ import org.springframework.web.bind.annotation.*;
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
+    private final SessionService sessionService;
+    private final CurrentOrganizationService currentOrganizationService;
 
     // -------------------------
     // 入组申请
@@ -90,11 +96,21 @@ public class OrganizationMemberController {
     // 邀请（管理员生成）
     // -------------------------
     @Operation(
-        summary = "生成邀请码（管理员）",
-        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供组织管理员邀请用户加入当前组织使用。用户拿到邀请码后，可用于注册并直接入组，也可用于已登录后申请入组"
+        summary = "生成加入组织邀请码（管理员）",
+        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供组织管理员邀请用户加入当前组织使用"
     )
-    @PostMapping("/invite-codes")
-    public Result<InviteCodeVO> generateInviteCode() {
-        return organizationMemberService.generateInviteCode();
+    @PostMapping("/invite-codes/join-org")
+    public Result<InviteCodeVO> generateJoinOrgInviteCode() {
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.resolveCurrentOrgId(currentUserId);
+
+        OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
+                new OrgAdminGenerateJoinOrgInviteCodeParamsBO(currentUserId, currentOrgId)
+        );
+        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
+                .inviteCode(resultBO.getInviteCode())
+                .expireAt(resultBO.getExpireAt())
+                .build();
+        return Result.success("生成成功", inviteCodeVO);
     }
 }

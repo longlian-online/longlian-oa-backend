@@ -1,6 +1,5 @@
 package online.longlian.app.pojo.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -10,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.generator.enumeration.OPTStatus;
+import online.longlian.generator.enumeration.OTPType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -32,7 +33,7 @@ public class OneTimePassword implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId("id")
     private Long id;
 
     /**
@@ -61,7 +62,14 @@ public class OneTimePassword implements Serializable {
      */
     @TableField("biz_type")
     @ApiModelProperty("业务类型 1.邀请创建组织 2.邀请加入组织")
-    private Byte bizType;
+    private OTPType bizType;
+
+    /**
+     * 状态 0-待使用 1-已使用
+     */
+    @TableField("status")
+    @ApiModelProperty("状态 0-待使用 1-已使用")
+    private OPTStatus status;
 
     /**
      * 创建者 ID

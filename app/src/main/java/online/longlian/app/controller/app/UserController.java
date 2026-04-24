@@ -6,6 +6,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
+import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
@@ -14,8 +19,9 @@ import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
-import online.longlian.app.service.user.OrganizationMemberService;
+import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,16 +35,50 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
-    private final OrganizationMemberService organizationMemberService;
+    private final SessionService sessionService;
 
     @Operation(
-        summary = "通过邀请码注册",
-        description = "两种场景：1) 超管邀请码用于创建组织；2) 管理员邀请码用于加入组织，可用于新用户注册后直接入组，也可用于已登录用户申请入组",
+        summary = "通过邀请码注册并创建组织",
+        description = "使用超管生成的邀请码完成注册，并创建组织成为组织管理员",
         security = {}
     )
-    @PostMapping("/")
-    public Result<Void> register(@RequestBody @Valid RegisterByInviteDTO registerByInviteDTO) {
-        return userService.registerByInvite(registerByInviteDTO);
+    @PostMapping("/register/create-organization")
+    public Result<Void> registerAndCreateOrganizationByInvite(@RequestBody @Valid RegisterByInviteDTO registerByInviteDTO) {
+        UserRegisterByInviteParamsBO params = new UserRegisterByInviteParamsBO();
+        BeanUtils.copyProperties(registerByInviteDTO, params);
+        userService.registerAndCreateOrganizationByInvite(params);
+        return Result.success("注册成功");
+    }
+
+    @Operation(
+        summary = "通过邀请码注册并加入组织",
+        description = "使用组织管理员生成的邀请码完成注册，并加入指定组织",
+        security = {}
+    )
+    @PostMapping("/register/join-organization")
+    public Result<Void> registerAndJoinOrganizationByInvite(@RequestBody @Valid RegisterByInviteDTO registerByInviteDTO) {
+        UserRegisterByInviteParamsBO params = new UserRegisterByInviteParamsBO();
+        BeanUtils.copyProperties(registerByInviteDTO, params);
+        userService.registerAndJoinOrganizationByInvite(params);
+        return Result.success("注册成功");
+    }
+
+    @Operation(
+        summary = "获取加入组织邀请码对应的组织信息",
+        description = "注册页使用。组织管理员生成的邀请码可通过该接口查询组织名称"
+    )
+    @GetMapping("/register/join-organization/invite-info")
+    public Result<InviteInfoVO> getJoinOrganizationInviteInfo(@RequestParam String inviteCode) {
+        UserGetJoinOrgInviteInfoResultBO resultBO = userService.getJoinOrgInviteInfo(
+                UserGetJoinOrgInviteInfoParamsBO.builder()
+                        .inviteCode(inviteCode)
+                        .build()
+        );
+        InviteInfoVO inviteInfoVO = InviteInfoVO.builder()
+                .orgId(resultBO.getOrgId())
+                .orgName(resultBO.getOrgName())
+                .build();
+        return Result.success("查询成功", inviteInfoVO);
     }
 
     @Operation(summary = "获取当前登录用户信息", description = "返回当前 Token 对应的用户信息")
@@ -65,28 +105,27 @@ public class UserController {
     }
 
     @Operation(
-        summary = "通过邀请码加入组织（已登录用户）",
-        description = "已登录用户输入管理员提供的邀请码，自动提交入组申请，等待管理员审核通过后正式加入"
+        summary = "已注册用户通过邀请码加入组织",
+        description = "已登录用户使用组织管理员生成的邀请码，直接加入目标组织"
     )
-    @PostMapping("/organizations")
-    public Result<Void> joinByInviteCode(@RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
-        return userService.joinByInviteCode(joinByInviteCodeDTO);
+    @PostMapping("/organizations/join-by-invite")
+    public Result<Void> joinOrganizationByInvite(@RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
+        userService.joinOrganizationByInvite(sessionService.getCurrentUserId(), joinByInviteCodeDTO.getInviteCode());
+        return Result.success("加入成功");
     }
 
     @Operation(summary = "切换组织", description = "切换用户当前所在组织")
     @PostMapping("/switch")
-    public Result<UserOrgSwitchVO> switchOrg(@RequestBody OrgIdDTO orgIdDTO) {
-        // TODO
-        // return organizationService.switchOrg(orgIdDTO.getOrgId);
-        return Result.success(null);
+    public Result<UserOrgSwitchVO> switchOrg(@RequestBody @Valid OrgIdDTO orgIdDTO) {
+        UserSwitchOrgResultBO resultBO = userService.switchOrg(
+                UserSwitchOrgParamsBO.builder()
+                        .userId(sessionService.getCurrentUserId())
+                        .orgId(orgIdDTO.getOrgId())
+                        .build()
+        );
+        UserOrgSwitchVO userOrgSwitchVO = new UserOrgSwitchVO();
+        BeanUtils.copyProperties(resultBO, userOrgSwitchVO);
+        return Result.success("切换成功", userOrgSwitchVO);
     }
 
-    @Operation(
-        summary = "根据邀请码获取组织信息",
-        description = "注册页使用。仅组织管理员生成的邀请码会调用该接口返回组织信息"
-    )
-    @GetMapping("/invite-info")
-    public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteCode) {
-        return organizationMemberService.getInviteOrgInfo(inviteCode);
-    }
 }

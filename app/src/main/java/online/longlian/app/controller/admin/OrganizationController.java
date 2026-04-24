@@ -13,6 +13,7 @@ import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.admin.OrganizationService;
+import online.longlian.app.service.user.SessionService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +28,7 @@ import java.util.List;
 public class OrganizationController {
 
     private final OrganizationService organizationService;
+    private final SessionService sessionService;
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
@@ -63,7 +65,14 @@ public class OrganizationController {
     )
     @PostMapping("/invite-codes/create-org")
     public Result<InviteCodeVO> generateCreateOrgInviteCode() {
-        return null;
+        AdminGenerateInviteCodeResultBO resultBO = organizationService.generateCreateOrgInviteCode(
+                new AdminGenerateCreateOrgInviteCodeParamsBO(sessionService.getCurrentUserId())
+        );
+        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
+                .inviteCode(resultBO.getInviteCode())
+                .expireAt(resultBO.getExpireAt())
+                .build();
+        return Result.success("生成成功", inviteCodeVO);
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
