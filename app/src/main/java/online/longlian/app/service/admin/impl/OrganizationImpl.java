@@ -72,6 +72,7 @@ public class OrganizationImpl implements OrganizationService {
         return new PageResultBO<>(list, total);
     }
 
+    @Override
     public AdminGenerateInviteCodeResultBO generateCreateOrgInviteCode(@NonNull AdminGenerateCreateOrgInviteCodeParamsBO params) {
         LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
         String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
