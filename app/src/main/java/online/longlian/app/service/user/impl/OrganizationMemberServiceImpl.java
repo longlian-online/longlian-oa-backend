@@ -16,7 +16,6 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOpt;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.user.OrganizationMemberService;
-import online.longlian.generator.enumeration.OPTStatus;
 import online.longlian.generator.enumeration.OTPType;
 import online.longlian.generator.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -52,7 +51,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         OrganizationJoinOpt organizationJoinOpt = OrganizationJoinOpt.builder()
                 .otpId(oneTimePassword.getId())
                 .orgId(organization.getId())
-                .status(OPTStatus.PENDING)
                 .build();
         organizationJoinOptMapper.insert(organizationJoinOpt);
 

@@ -31,7 +31,6 @@ import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
-import online.longlian.generator.enumeration.OPTStatus;
 import online.longlian.generator.enumeration.OTPType;
 import online.longlian.generator.enumeration.Status;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -142,11 +141,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 null,
                 new LambdaUpdateWrapper<OrganizationCreateOpt>()
                         .eq(OrganizationCreateOpt::getId, organizationCreateOpt.getId())
-                        .eq(OrganizationCreateOpt::getStatus, OPTStatus.PENDING)
+                        .isNull(OrganizationCreateOpt::getInvitedUserId)
                         .set(OrganizationCreateOpt::getInvitedUserId, user.getId())
                         .set(OrganizationCreateOpt::getOrgId, organization.getId())
                         .set(OrganizationCreateOpt::getUsedAt, now)
-                        .set(OrganizationCreateOpt::getStatus, OPTStatus.USED)
         );
     }
 
@@ -182,11 +180,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 null,
                 new LambdaUpdateWrapper<OrganizationJoinOpt>()
                         .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
-                        .eq(OrganizationJoinOpt::getStatus, OPTStatus.PENDING)
+                        .isNull(OrganizationJoinOpt::getInvitedUserId)
                         .set(OrganizationJoinOpt::getInvitedUserId, user.getId())
                         .set(OrganizationJoinOpt::getOrgMemberId, organizationMember.getId())
                         .set(OrganizationJoinOpt::getUsedAt, now)
-                        .set(OrganizationJoinOpt::getStatus, OPTStatus.USED)
         );
     }
 
@@ -228,11 +225,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 null,
                 new LambdaUpdateWrapper<OrganizationJoinOpt>()
                         .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
-                        .eq(OrganizationJoinOpt::getStatus, OPTStatus.PENDING)
+                        .isNull(OrganizationJoinOpt::getInvitedUserId)
                         .set(OrganizationJoinOpt::getInvitedUserId, userId)
                         .set(OrganizationJoinOpt::getOrgMemberId, organizationMember.getId())
                         .set(OrganizationJoinOpt::getUsedAt, now)
-                        .set(OrganizationJoinOpt::getStatus, OPTStatus.USED)
         );
     }
 
@@ -259,6 +255,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
     }
 
+    private Organization validateJoinTargetOrganization(Long orgId) {
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在");
+        }
+        if (organization.getStatus() == Status.DISABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织已被禁用");
+        }
+        return organization;
+    }
+
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {
         User user = User.builder()
                 .username(params.getUsername())
@@ -283,16 +290,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organizationCreateOpt == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        validateInvitationStatus(organizationCreateOpt.getStatus(), organizationCreateOpt.getInvitedUserId());
+        validateInvitationAvailable(organizationCreateOpt.getInvitedUserId(), organizationCreateOpt.getUsedAt());
         return organizationCreateOpt;
-    }
-
-    private Organization validateJoinTargetOrganization(Long orgId) {
-        Organization organization = organizationMapper.selectById(orgId);
-        if (organization == null || organization.getStatus() == Status.DISABLED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
-        }
-        return organization;
     }
 
     private OrganizationJoinOpt validatePendingOrganizationJoinInvitation(Long otpId) {
@@ -304,19 +303,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organizationJoinOpt == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        validateInvitationStatus(organizationJoinOpt.getStatus(), organizationJoinOpt.getInvitedUserId());
+        validateInvitationAvailable(organizationJoinOpt.getInvitedUserId(), organizationJoinOpt.getUsedAt());
         return organizationJoinOpt;
     }
 
-    private void validateInvitationStatus(OPTStatus status, Long invitedUserId) {
-        if (status == OPTStatus.USED || invitedUserId != null) {
+    private void validateInvitationAvailable(Long invitedUserId, LocalDateTime usedAt) {
+        if (invitedUserId != null || usedAt != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已使用");
-        }
-        if (status == OPTStatus.EXPIRED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
-        }
-        if (status != OPTStatus.PENDING) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码状态异常");
         }
     }
 }

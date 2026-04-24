@@ -6,14 +6,12 @@ import online.longlian.generator.annotation.ModelEnum;
 
 @Getter
 @AllArgsConstructor
-@ModelEnum(model = "organization_join_opt", field = "status")
-@ModelEnum(model = "organization_create_opt", field = "status")
+@ModelEnum(model = "one_time_password", field = "status")
 public enum OPTStatus implements CodeEnum{
 
-    // 状态 0-待使用 1-已使用 2-已过期
+    // 状态 0-待使用 1-已使用
     PENDING(0, "待使用"),
-    USED(1, "已使用"),
-    EXPIRED(2, "已过期");
+    USED(1, "已使用");
 
     private final Integer code;
     private final String desc;

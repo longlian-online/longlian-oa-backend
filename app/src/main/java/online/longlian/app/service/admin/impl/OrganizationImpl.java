@@ -23,7 +23,6 @@ import online.longlian.app.pojo.entity.OrganizationCreateOpt;
 import online.longlian.app.service.admin.OrganizationService;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.generator.enumeration.OPTStatus;
 import online.longlian.generator.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 
@@ -88,7 +87,6 @@ public class OrganizationImpl implements OrganizationService {
 
         OrganizationCreateOpt organizationCreateOpt = OrganizationCreateOpt.builder()
                 .otpId(oneTimePassword.getId())
-                .status(OPTStatus.PENDING)
                 .build();
         organizationCreateOptMapper.insert(organizationCreateOpt);
 
