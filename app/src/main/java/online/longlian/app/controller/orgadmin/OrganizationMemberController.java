@@ -16,6 +16,7 @@ import online.longlian.app.pojo.dto.orgadmin.OrgMemberListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.user.OrganizationMemberService;
@@ -78,6 +79,17 @@ public class OrganizationMemberController {
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
         // TODO
         // return organizationMemberService.listMembers(orgMemberListDTO);
+        return Result.success("查询成功", null);
+    }
+
+    @Operation(
+        summary = "查询组员各原子任务提交数"
+    )
+    @Parameter(name = "memberId", description = "成员ID")
+    @GetMapping("/{memberId}/base-tasks/submit-counts")
+    public Result<OrgMemberBaseTaskSubmitCountVO> getMemberBaseTaskSubmitCounts(@PathVariable Long memberId) {
+        // TODO
+        // return organizationMemberService.getMemberBaseTaskSubmitCounts(memberId);
         return Result.success("查询成功", null);
     }
 
