@@ -10,6 +10,7 @@ public class ItemTaskFlowCreateDTO {
 
     @NotNull(message = "任务模板ID不能为空")
     @Schema(
+        type = "string",
         description = "任务模板ID；创建时会将模板当前节点结构快照到任务流节点，后续模板变更不影响该任务流",
         requiredMode = Schema.RequiredMode.REQUIRED
     )

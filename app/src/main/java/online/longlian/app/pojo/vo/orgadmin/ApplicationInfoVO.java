@@ -9,10 +9,10 @@ import java.time.LocalDateTime;
 @Schema(description = "入组申请信息")
 public class ApplicationInfoVO {
 
-    @Schema(description = "申请记录ID")
+    @Schema(type = "string", description = "申请记录ID")
     private Long id;
 
-    @Schema(description = "申请人用户ID")
+    @Schema(type = "string", description = "申请人用户ID")
     private Long userId;
 
     @Schema(description = "申请人昵称")

@@ -16,7 +16,7 @@ public class OrgListDTO extends PageRequestDTO {
 
     @Size(max = 32, message = "组织名长度不能超过 32 个字符")
     @Schema(description = "组织名")
-    private String OrgName;
+    private String orgName;
 
     @Schema(description = "创建时间-起始")
     private LocalDateTime startCreateTime;

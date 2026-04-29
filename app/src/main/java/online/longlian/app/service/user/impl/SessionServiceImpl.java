@@ -8,7 +8,6 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.EmailCodeAuthenticationToken;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken;
 import online.longlian.app.common.security.UserDetailImpl;
-import online.longlian.app.common.security.UserDetailsServiceImpl;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.pojo.bo.LoginSessionCacheBO;
@@ -25,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -36,7 +36,6 @@ public class SessionServiceImpl implements SessionService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final JwtUtil jwtUtil;
     private final CurrentOrganizationService currentOrganizationService;
-    private final UserDetailsServiceImpl userDetailsService;
 
     @Override
     public SessionLoginResultBO loginByPwd(SessionLoginByPwdParamsBO params) {
@@ -75,9 +74,15 @@ public class SessionServiceImpl implements SessionService {
     }
 
     @Override
-    public void refreshLoginSession(Long userId) {
-        UserDetailImpl userDetail = userDetailsService.loadUserById(userId);
-        cacheLoginSession(userDetail, jwtUtil.getExpirationSeconds());
+    public void refreshCurrentUserOrg(Long currentOrgId, List<String> roles) {
+        UserDetailImpl userDetail = getCurrentUser();
+        userDetail.setCurrentOrgId(currentOrgId);
+        userDetail.setRoles(roles == null ? List.of() : roles);
+        long ttlSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userDetail.getId(), TimeUnit.SECONDS);
+        if (ttlSeconds <= 0) {
+            ttlSeconds = jwtUtil.getExpirationSeconds();
+        }
+        cacheLoginSession(userDetail, ttlSeconds);
     }
 
     @Override
@@ -105,20 +110,21 @@ public class SessionServiceImpl implements SessionService {
         String token = jwtUtil.generateToken(userId);
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
+        currentOrganizationService.refreshCurrentOrgTtl(userId, sessionTtlSeconds);
         cacheLoginSession(userDetail, sessionTtlSeconds);
-        currentOrganizationService.initializeCurrentOrg(userId, sessionTtlSeconds);
 
         return SessionLoginResultBO.builder()
                 .userId(userId)
                 .token(token)
                 .roles(userDetail.getRoles())
-                .defaultOrgId(userDetail.getDefaultOrgId())
+                .currentOrgId(userDetail.getCurrentOrgId())
                 .build();
     }
 
     private void cacheLoginSession(UserDetailImpl userDetail, long ttlSeconds) {
         LoginSessionCacheBO sessionCacheBO = new LoginSessionCacheBO();
         BeanUtils.copyProperties(userDetail, sessionCacheBO);
+        sessionCacheBO.setUserId(userDetail.getId());
 
         redisTemplate.opsForValue().set(
                 RedisConstants.LOGIN_USER + userDetail.getId(),

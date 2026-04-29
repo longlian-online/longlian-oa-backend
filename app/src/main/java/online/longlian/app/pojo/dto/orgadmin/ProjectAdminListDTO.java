@@ -18,7 +18,7 @@ public class ProjectAdminListDTO extends PageRequestDTO {
     @Schema(description = "企划标题模糊搜索关键词")
     private String keyword;
 
-    @Schema(description = "企划类型ID（精确筛选）")
+    @Schema(type = "string", description = "企划类型ID（精确筛选）")
     private Long typeId;
 
     @Schema(description = "创建时间-起始")

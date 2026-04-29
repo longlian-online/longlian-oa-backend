@@ -10,7 +10,7 @@ import lombok.Data;
 public class TaskTemplateNodeDTO {
 
     @NotNull(message = "原子任务ID不能为空")
-    @Schema(description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long baseTaskId;
 
     @NotNull(message = "步骤顺序不能为空")

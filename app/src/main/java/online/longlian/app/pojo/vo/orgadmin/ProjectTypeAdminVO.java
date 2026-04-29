@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Schema(description = "企划类型管理列表信息")
 public class ProjectTypeAdminVO {
 
-    @Schema(description = "企划类型ID")
+    @Schema(type = "string", description = "企划类型ID")
     private Long id;
 
     @Schema(description = "类型名称")
@@ -19,7 +19,7 @@ public class ProjectTypeAdminVO {
     @Schema(description = "状态：ENABLED-启用，DISABLED-禁用")
     private Status status;
 
-    @Schema(description = "创建人ID")
+    @Schema(type = "string", description = "创建人ID")
     private Long creatorId;
 
     @Schema(description = "创建人昵称")

@@ -11,9 +11,8 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserSwitchOrgResultBO {
-    private Long id;
-    private String name;
-    private String avatarUrl;
+public class CurrentOrganizationContextBO {
+    private Long orgId;
+    private Long memberId;
     private List<String> roles;
 }

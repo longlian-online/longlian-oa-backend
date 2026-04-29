@@ -14,6 +14,6 @@ public class ProjectItemCreateDTO {
     private String title;
 
     @NotNull(message = "流程模板不能为空")
-    @Schema(description = "流程模板ID（任务模板ID）", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "流程模板ID（任务模板ID）", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long taskTemplateId;
 }

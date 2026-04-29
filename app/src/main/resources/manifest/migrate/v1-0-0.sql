@@ -129,8 +129,7 @@ CREATE TABLE `group_application` (
                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                      `deleted_at` datetime DEFAULT NULL,
-                                     PRIMARY KEY (`id`) USING BTREE,
-                                     UNIQUE INDEX `uk_application_org_user`(`org_id`, `user_id`) USING BTREE
+                                     PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='入组申请表';
 
 -- 2.4 一次性密码表 one_time_password

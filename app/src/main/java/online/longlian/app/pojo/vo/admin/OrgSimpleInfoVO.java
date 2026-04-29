@@ -7,7 +7,7 @@ import lombok.Data;
 @Schema(description = "组织简要信息")
 public class OrgSimpleInfoVO {
 
-    @Schema(description = "组织ID")
+    @Schema(type = "string", description = "组织ID")
     private Long id;
 
     @Schema(description = "组织名称")

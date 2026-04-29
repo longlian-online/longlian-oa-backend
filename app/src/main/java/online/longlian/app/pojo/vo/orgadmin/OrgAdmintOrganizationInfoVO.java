@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.admin;
+package online.longlian.app.pojo.vo.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -6,14 +6,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "用户切换的组织信息")
-public class UserOrgSwitchVO {
+@Schema(description = "组织管理员端当前组织信息")
+public class OrgAdmintOrganizationInfoVO {
 
     @Schema(type = "string", description = "组织ID")
     private Long id;
@@ -21,9 +19,9 @@ public class UserOrgSwitchVO {
     @Schema(description = "组织名称")
     private String name;
 
-    @Schema(description = "组织头像文件url")
+    @Schema(description = "组织头像访问地址")
     private String avatarUrl;
 
-    @Schema(description = "在组织内的角色列表")
-    private List<String> roles;
+    @Schema(description = "组织简介")
+    private String description;
 }

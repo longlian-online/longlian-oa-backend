@@ -7,10 +7,10 @@ import lombok.Data;
 @Schema(description = "任务模板节点信息")
 public class TaskTemplateNodeVO {
 
-    @Schema(description = "模板节点ID")
+    @Schema(type = "string", description = "模板节点ID")
     private Long id;
 
-    @Schema(description = "关联原子任务ID")
+    @Schema(type = "string", description = "关联原子任务ID")
     private Long baseTaskId;
 
     @Schema(description = "原子任务名称")

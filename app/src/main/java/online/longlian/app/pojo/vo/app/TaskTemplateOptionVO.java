@@ -7,7 +7,7 @@ import lombok.Data;
 @Schema(description = "流程模板选项")
 public class TaskTemplateOptionVO {
 
-    @Schema(description = "流程模板ID")
+    @Schema(type = "string", description = "流程模板ID")
     private Long id;
 
     @Schema(description = "流程模板名称")

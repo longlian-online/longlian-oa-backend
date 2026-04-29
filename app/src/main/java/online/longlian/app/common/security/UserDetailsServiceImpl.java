@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.CurrentOrganizationContextBO;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.common.CurrentOrganizationService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -14,14 +16,15 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserMapper userMapper;
+    private final CurrentOrganizationService currentOrganizationService;
 
     @Override
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
@@ -53,33 +56,23 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return buildUserDetails(user);
     }
 
-    public UserDetailImpl loadUserById(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new AppException(ResultCode.USER_NOT_EXIT);
-        }
-        return buildUserDetails(user);
-    }
-
     private UserDetailImpl buildUserDetails(User user) {
-        List<Long> roleIds = userMapper.selectRoleIdsByUserId(user.getId());
-        List<String> permissions = userMapper.selectPermissionCodesByRoleIds(roleIds);
-        List<GrantedAuthority> authorities = permissions.stream()
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
-
-        // 查询用户角色
-        List<String> roles = userMapper.selectRoleByUserId(user.getId());
-        List<GrantedAuthority> roleAuthorities = roles.stream()
+        CurrentOrganizationContextBO currentOrgContext = currentOrganizationService.resolveCurrentOrgContext(
+                user.getId(),
+                user.getDefaultOrgId()
+        );
+        List<String> roles = currentOrgContext.getRoles() == null ? List.of() : currentOrgContext.getRoles();
+        List<String> permissions = List.of();
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        authorities.addAll(roles.stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                .collect(Collectors.toList());
+                .toList());
 
-        authorities.addAll(roleAuthorities);
-        // 组装 UserDTO
         UserDetailImpl userDetailImpl = new UserDetailImpl();
         BeanUtils.copyProperties(user, userDetailImpl);
         userDetailImpl.setAuthorities(authorities);
         userDetailImpl.setPermissions(permissions);
+        userDetailImpl.setCurrentOrgId(currentOrgContext.getOrgId());
         userDetailImpl.setRoles(roles);
         return userDetailImpl;
     }

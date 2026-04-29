@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class SessionLoginResultBO {
     private Long userId;
-    private Long defaultOrgId;
+    private Long currentOrgId;
     private String token;
     private List<String> roles;
 }

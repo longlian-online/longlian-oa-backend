@@ -5,21 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginSessionCacheBO {
-    private Long userId;
+public class UserGetMyInfoResultBO {
+    private Long id;
     private String username;
-    private String nickname;
     private String email;
-    private Integer status;
-    private Long avatarFileId;
+    private String nickname;
+    private String avatarUrl;
     private Long defaultOrgId;
-    private Long currentOrgId;
-    private List<String> roles;
-    private List<String> permissions;
 }

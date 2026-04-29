@@ -9,16 +9,16 @@ import java.util.List;
 @Schema(description = "项目任务流信息（含节点执行状态，用于流程图可视化）")
 public class ItemTaskFlowVO {
 
-    @Schema(description = "任务流ID")
+    @Schema(type = "string", description = "任务流ID")
     private Long id;
 
-    @Schema(description = "所属项目ID")
+    @Schema(type = "string", description = "所属项目ID")
     private Long itemId;
 
-    @Schema(description = "所属企划ID")
+    @Schema(type = "string", description = "所属企划ID")
     private Long projectId;
 
-    @Schema(description = "关联任务模板ID")
+    @Schema(type = "string", description = "关联任务模板ID")
     private Long taskTemplateId;
 
     @Schema(description = "任务流名称")

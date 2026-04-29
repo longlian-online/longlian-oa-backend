@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Schema(description = "任务模板列表行信息")
 public class TaskTemplateListVO {
 
-    @Schema(description = "模板ID")
+    @Schema(type = "string", description = "模板ID")
     private Long id;
 
     @Schema(description = "模板名称")
@@ -25,7 +25,7 @@ public class TaskTemplateListVO {
     @Schema(description = "引用次数（已基于该模板创建的任务流数量）")
     private Integer refCount;
 
-    @Schema(description = "创建人ID")
+    @Schema(type = "string", description = "创建人ID")
     private Long creatorId;
 
     @Schema(description = "创建人昵称")
