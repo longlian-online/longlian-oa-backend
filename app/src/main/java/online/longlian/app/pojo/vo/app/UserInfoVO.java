@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.app;
+﻿package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Schema(description = "用户信息")
 public class UserInfoVO {
 
-    @Schema(description = "用户ID")
+    @Schema(type = "string", description = "用户ID")
     private Long id;
 
     @Schema(description = "用户名")
@@ -28,6 +28,6 @@ public class UserInfoVO {
     @Schema(description = "头像URL")
     private String avatarUrl;
 
-    @Schema(description = "默认组织ID")
+    @Schema(type = "string", description = "默认组织ID")
     private Long defaultOrgId;
 }

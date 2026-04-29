@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.common;
+﻿package online.longlian.app.pojo.vo.common;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -10,7 +10,7 @@ import online.longlian.generator.enumeration.StorageType;
 @Schema(description = "创建文件上传响应")
 public class ResourcCreateVO {
 
-    @Schema(description = "文件ID")
+    @Schema(type = "string", description = "文件ID")
     private Long fileId;
 
     @Schema(description = "预签名上传地址")

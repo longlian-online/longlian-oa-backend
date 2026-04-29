@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.dto.admin;
+﻿package online.longlian.app.pojo.dto.admin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -13,7 +13,7 @@ public class OrgUpdateDTO {
     private String name;
 
     @NotNull(message = "组织头像文件id不能为空")
-    @Schema(description = "组织头像文件id", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "组织头像文件id", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long avatarFileId;
 
     @NotBlank(message = "组织简介不能为空")

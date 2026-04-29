@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.orgadmin;
+﻿package online.longlian.app.pojo.vo.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -11,7 +11,7 @@ import java.util.List;
 @Schema(description = "任务模板详情（含节点列表，用于模板编辑页和流程图预览）")
 public class TaskTemplateDetailVO {
 
-    @Schema(description = "模板ID")
+    @Schema(type = "string", description = "模板ID")
     private Long id;
 
     @Schema(description = "模板名称")
@@ -26,7 +26,7 @@ public class TaskTemplateDetailVO {
     @Schema(description = "引用次数")
     private Integer refCount;
 
-    @Schema(description = "创建人ID")
+    @Schema(type = "string", description = "创建人ID")
     private Long creatorId;
 
     @Schema(description = "创建人昵称")

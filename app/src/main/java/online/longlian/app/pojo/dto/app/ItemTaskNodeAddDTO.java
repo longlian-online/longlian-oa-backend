@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.dto.app;
+﻿package online.longlian.app.pojo.dto.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
@@ -10,7 +10,7 @@ import lombok.Data;
 public class ItemTaskNodeAddDTO {
 
     @NotNull(message = "原子任务ID不能为空")
-    @Schema(description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long baseTaskId;
 
     @NotNull(message = "步骤顺序不能为空")

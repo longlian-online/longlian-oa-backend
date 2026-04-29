@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.app;
+﻿package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -10,13 +10,13 @@ import java.time.LocalDateTime;
 @Schema(description = "任务提交记录信息（提交列表页）")
 public class TaskSubmissionVO {
 
-    @Schema(description = "提交记录ID")
+    @Schema(type = "string", description = "提交记录ID")
     private Long id;
 
-    @Schema(description = "任务实例ID")
+    @Schema(type = "string", description = "任务实例ID")
     private Long taskInstanceId;
 
-    @Schema(description = "项目任务节点ID")
+    @Schema(type = "string", description = "项目任务节点ID")
     private Long itemTaskNodeId;
 
     @Schema(description = "任务类型名称（如：嵌字、翻译）")
@@ -25,7 +25,7 @@ public class TaskSubmissionVO {
     @Schema(description = "提交状态")
     private TaskSubmissionStatus status;
 
-    @Schema(description = "提交人ID")
+    @Schema(type = "string", description = "提交人ID")
     private Long submitterId;
 
     @Schema(description = "提交人昵称")
@@ -37,7 +37,7 @@ public class TaskSubmissionVO {
     @Schema(description = "提交元数据(JSON对象，按节点 metaSchema 组织)")
     private String metadata;
 
-    @Schema(description = "审核人ID（打回操作人）")
+    @Schema(type = "string", description = "审核人ID（打回操作人）")
     private Long reviewerId;
 
     @Schema(description = "审核人昵称")

@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.orgadmin;
+﻿package online.longlian.app.pojo.vo.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Schema(description = "原子任务信息")
 public class BaseTaskVO {
 
-    @Schema(description = "原子任务ID")
+    @Schema(type = "string", description = "原子任务ID")
     private Long id;
 
     @Schema(description = "任务名称")

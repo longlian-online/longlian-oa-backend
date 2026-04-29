@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.dto.app;
+﻿package online.longlian.app.pojo.dto.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -14,6 +14,6 @@ public class ProjectItemCreateDTO {
     private String title;
 
     @NotNull(message = "流程模板不能为空")
-    @Schema(description = "流程模板ID（任务模板ID）", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "流程模板ID（任务模板ID）", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long taskTemplateId;
 }

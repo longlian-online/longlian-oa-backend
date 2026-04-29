@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.orgadmin;
+﻿package online.longlian.app.pojo.vo.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -10,10 +10,10 @@ import java.time.LocalDateTime;
 @Schema(description = "组员信息")
 public class OrgMemberInfoVO {
 
-    @Schema(description = "成员ID")
+    @Schema(type = "string", description = "成员ID")
     private Long id;
 
-    @Schema(description = "用户ID")
+    @Schema(type = "string", description = "用户ID")
     private Long userId;
 
     @Schema(description = "昵称")

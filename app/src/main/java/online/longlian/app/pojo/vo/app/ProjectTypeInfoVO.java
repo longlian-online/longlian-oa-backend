@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.app;
+﻿package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Schema(description = "企划类型信息")
 public class ProjectTypeInfoVO {
 
-    @Schema(description = "企划类型ID")
+    @Schema(type = "string", description = "企划类型ID")
     private Long id;
 
     @Schema(description = "类型名称（如：漫画/小说/美术/视频）")

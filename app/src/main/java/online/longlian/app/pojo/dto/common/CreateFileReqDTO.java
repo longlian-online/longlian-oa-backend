@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.dto.common;
+﻿package online.longlian.app.pojo.dto.common;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
@@ -42,6 +42,6 @@ public class CreateFileReqDTO {
     private String bizType;
 
     @NotNull(message = "业务ID不能为空")
-    @Schema(description = "业务ID(用户ID/组织ID/任务ID)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "业务ID(用户ID/组织ID/任务ID)", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long bizId;
 }

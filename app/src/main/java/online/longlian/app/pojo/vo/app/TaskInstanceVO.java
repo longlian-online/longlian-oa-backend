@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.vo.app;
+﻿package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -10,16 +10,16 @@ import java.time.LocalDateTime;
 @Schema(description = "任务实例信息（企划详情页右侧可接取任务列表）")
 public class TaskInstanceVO {
 
-    @Schema(description = "任务实例ID")
+    @Schema(type = "string", description = "任务实例ID")
     private Long id;
 
-    @Schema(description = "所属项目ID")
+    @Schema(type = "string", description = "所属项目ID")
     private Long itemId;
 
-    @Schema(description = "所属企划ID")
+    @Schema(type = "string", description = "所属企划ID")
     private Long projectId;
 
-    @Schema(description = "项目任务节点ID")
+    @Schema(type = "string", description = "项目任务节点ID")
     private Long itemTaskNodeId;
 
     @Schema(description = "任务类型名称（如：翻译、校对）")
@@ -31,7 +31,7 @@ public class TaskInstanceVO {
     @Schema(description = "任务实例状态")
     private TaskInstanceStatus status;
 
-    @Schema(description = "接取人ID（已接取时有值）")
+    @Schema(type = "string", description = "接取人ID（已接取时有值）")
     private Long assigneeId;
 
     @Schema(description = "接取人昵称")
