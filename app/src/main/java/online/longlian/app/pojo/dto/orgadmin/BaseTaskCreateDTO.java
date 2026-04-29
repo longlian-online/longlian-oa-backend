@@ -1,4 +1,4 @@
-﻿package online.longlian.app.pojo.dto.orgadmin;
+package online.longlian.app.pojo.dto.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

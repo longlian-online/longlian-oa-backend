@@ -1,4 +1,4 @@
-﻿package online.longlian.app.pojo.dto.common;
+package online.longlian.app.pojo.dto.common;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;

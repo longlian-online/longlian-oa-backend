@@ -1,4 +1,4 @@
-﻿package online.longlian.app.pojo.vo.common;
+package online.longlian.app.pojo.vo.common;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

@@ -1,4 +1,4 @@
-﻿package online.longlian.app.pojo.vo.admin;
+package online.longlian.app.pojo.vo.admin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
