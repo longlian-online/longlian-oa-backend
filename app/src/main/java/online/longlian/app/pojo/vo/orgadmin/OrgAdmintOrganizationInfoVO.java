@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "组织管理员端当前组织信息")
-public class OrgAdminCurrentOrganizationInfoVO {
+public class OrgAdmintOrganizationInfoVO {
 
     @Schema(type = "string", description = "组织ID")
     private Long id;

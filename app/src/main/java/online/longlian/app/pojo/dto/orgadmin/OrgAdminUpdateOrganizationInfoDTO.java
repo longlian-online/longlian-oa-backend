@@ -8,7 +8,7 @@ import lombok.Data;
 
 @Data
 @Schema(description = "组织管理员端更新当前组织信息请求参数")
-public class OrgAdminUpdateCurrentOrganizationInfoDTO {
+public class OrgAdminUpdateOrganizationInfoDTO {
 
     @NotBlank(message = "组织名称不能为空")
     @Size(max = 50, message = "组织名称不能超过 50 个字符")
