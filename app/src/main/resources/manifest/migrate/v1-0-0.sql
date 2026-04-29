@@ -384,3 +384,13 @@ CREATE TABLE `resource` (
                                 `deleted_at` datetime DEFAULT NULL,
                                 PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通用文件存储表';
+
+-- 管理员表
+CREATE TABLE `admin`  (
+  `id` bigint NOT NULL,
+  `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户名',
+  `password` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '密码',
+  `role` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色：root/normal',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
