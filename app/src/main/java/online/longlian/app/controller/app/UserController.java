@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
@@ -47,7 +48,7 @@ public class UserController {
         UserRegisterByInviteParamsBO params = new UserRegisterByInviteParamsBO();
         BeanUtils.copyProperties(registerByInviteDTO, params);
         userService.registerAndCreateOrganizationByInvite(params);
-        return Result.success("注册成功");
+        return Result.success("已提交申请");
     }
 
     @Operation(
@@ -60,7 +61,7 @@ public class UserController {
         UserRegisterByInviteParamsBO params = new UserRegisterByInviteParamsBO();
         BeanUtils.copyProperties(registerByInviteDTO, params);
         userService.registerAndJoinOrganizationByInvite(params);
-        return Result.success("注册成功");
+        return Result.success("已提交申请");
     }
 
     @Operation(
@@ -85,8 +86,12 @@ public class UserController {
     @Operation(summary = "获取当前登录用户信息", description = "返回当前 Token 对应的用户信息")
     @GetMapping("/")
     public Result<UserInfoVO> getMyInfo() {
-        Long userId = sessionService.getCurrentUserId();
-        return userService.getMyInfo(userId);
+        UserGetMyInfoResultBO resultBO = userService.getMyInfo(
+                sessionService.getCurrentUserId()
+        );
+        UserInfoVO userInfoVO = new UserInfoVO();
+        BeanUtils.copyProperties(resultBO, userInfoVO);
+        return Result.success("查询成功", userInfoVO);
     }
 
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")
@@ -104,7 +109,7 @@ public class UserController {
     @PostMapping("/organizations/join-by-invite")
     public Result<Void> joinOrganizationByInvite(@RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
         userService.joinOrganizationByInvite(sessionService.getCurrentUserId(), joinByInviteCodeDTO.getInviteCode());
-        return Result.success("加入成功");
+        return Result.success("已提交申请");
     }
 
     @Operation(summary = "切换组织", description = "切换用户当前所在组织")

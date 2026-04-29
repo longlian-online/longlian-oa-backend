@@ -1,14 +1,13 @@
 package online.longlian.app.service.user;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.pojo.vo.app.UserInfoVO;
 
 /**
  * <p>
@@ -20,7 +19,7 @@ import online.longlian.app.pojo.vo.app.UserInfoVO;
  */
 public interface UserService extends IService<User> {
 
-    Result<UserInfoVO> getMyInfo(Long userId);
+    UserGetMyInfoResultBO getMyInfo(Long userId);
 
     UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params);
 
