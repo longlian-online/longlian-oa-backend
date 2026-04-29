@@ -19,6 +19,7 @@ public class LoginSessionCacheBO {
     private Integer status;
     private Long avatarFileId;
     private Long defaultOrgId;
+    private Long currentOrgId;
     private List<String> roles;
     private List<String> permissions;
 }

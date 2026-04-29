@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,6 +20,7 @@ public class UserDetailImpl implements UserDetails {
     private Long id;
 
     private String username;
+
     @JsonIgnore
     private String password;
 
@@ -32,23 +34,31 @@ public class UserDetailImpl implements UserDetails {
 
     private Long defaultOrgId;
 
+    private Long currentOrgId;
+
     private List<String> roles;
 
     private List<String> permissions;
 
     private List<GrantedAuthority> authorities;
+
     @JsonIgnore
     private boolean accountNonExpired = true;
+
     @JsonIgnore
     private boolean accountNonLocked = true;
+
     @JsonIgnore
     private boolean credentialsNonExpired = true;
+
     @JsonIgnore
     private boolean enabled;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return this.authorities != null ? this.authorities : List.of();
     }
+
     @Override
     public String getPassword() {
         return this.password;
@@ -58,6 +68,7 @@ public class UserDetailImpl implements UserDetails {
     public String getUsername() {
         return this.email;
     }
+
     @Override
     public boolean isEnabled() {
         return this.status != null && this.status == 1;

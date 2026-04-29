@@ -65,7 +65,8 @@ public class UserController {
 
     @Operation(
         summary = "获取加入组织邀请码对应的组织信息",
-        description = "注册页使用。组织管理员生成的邀请码可通过该接口查询组织名称"
+        description = "注册页使用。组织管理员生成的邀请码可通过该接口查询组织名称",
+        security = {}
     )
     @GetMapping("/register/join-organization/invite-info")
     public Result<InviteInfoVO> getJoinOrganizationInviteInfo(@RequestParam String inviteCode) {
@@ -84,7 +85,8 @@ public class UserController {
     @Operation(summary = "获取当前登录用户信息", description = "返回当前 Token 对应的用户信息")
     @GetMapping("/")
     public Result<UserInfoVO> getMyInfo() {
-        return userService.getMyInfo();
+        Long userId = sessionService.getCurrentUserId();
+        return userService.getMyInfo(userId);
     }
 
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")
@@ -92,15 +94,6 @@ public class UserController {
     public Result<List<OrgSimpleInfoVO>> getOrgSimpleInfo() {
         // TODO
         // return organizationService.getOrgSimpleInfo(userId);
-        return Result.success(null);
-    }
-
-    @Operation(summary = "获取指定组织详细详细，仅可查询用户已加入的组织，非用户已加入的组织则报错")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    @GetMapping("/organizations/{orgId}")
-    public Result<OrgDetailInfoVO> getOrgDetailInfo(@PathVariable("orgId") Long orgId) {
-        // TODO
-        // return organizationService.getOrgDetailInfo();
         return Result.success(null);
     }
 
@@ -123,6 +116,7 @@ public class UserController {
                         .orgId(orgIdDTO.getOrgId())
                         .build()
         );
+        sessionService.refreshCurrentUserOrg(resultBO.getId(), resultBO.getRoles());
         UserOrgSwitchVO userOrgSwitchVO = new UserOrgSwitchVO();
         BeanUtils.copyProperties(resultBO, userOrgSwitchVO);
         return Result.success("切换成功", userOrgSwitchVO);

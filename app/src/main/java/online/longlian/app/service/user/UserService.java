@@ -20,7 +20,7 @@ import online.longlian.app.pojo.vo.app.UserInfoVO;
  */
 public interface UserService extends IService<User> {
 
-    Result<UserInfoVO> getMyInfo();
+    Result<UserInfoVO> getMyInfo(Long userId);
 
     UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params);
 

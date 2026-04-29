@@ -38,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -56,8 +57,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final OneTimePasswordService oneTimePasswordService;
 
     @Override
-    public Result<UserInfoVO> getMyInfo() {
-        Long userId = sessionService.getCurrentUserId();
+    public Result<UserInfoVO> getMyInfo(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
@@ -95,7 +95,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .role(organizationMember == null ? null : organizationMember.getOrgRole())
+                .roles(organizationMember == null || organizationMember.getOrgRole() == null
+                        ? List.of()
+                        : List.of(organizationMember.getOrgRole()))
                 .build();
     }
 

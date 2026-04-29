@@ -1,5 +1,7 @@
 package online.longlian.app.service.common;
 
+import online.longlian.app.pojo.bo.CurrentOrganizationContextBO;
+
 public interface CurrentOrganizationService {
 
     /**
@@ -8,9 +10,14 @@ public interface CurrentOrganizationService {
     Long resolveCurrentOrgId(Long userId);
 
     /**
-     * 初始化用户当前组织上下文。
+     * 解析用户当前组织上下文。
      */
-    void initializeCurrentOrg(Long userId, long ttlSeconds);
+    CurrentOrganizationContextBO resolveCurrentOrgContext(Long userId, Long defaultOrgId);
+
+    /**
+     * 刷新用户当前组织上下文缓存过期时间。
+     */
+    void refreshCurrentOrgTtl(Long userId, long ttlSeconds);
 
     /**
      * 切换用户当前组织。
