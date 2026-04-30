@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.generator.enumeration.ApplicationType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -20,7 +21,6 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
  */
 @Data
 @Builder
@@ -76,6 +76,41 @@ public class GroupApplication implements Serializable {
     @ApiModelProperty("审核备注")
     @TableField("review_remark")
     private String reviewRemark;
+
+    /**
+     * 申请入组的类型：0-注册入组 1-已注册用户入组
+     */
+    @TableField("application_type")
+    @ApiModelProperty("申请入组的类型：0-注册入组 1-已注册用户入组")
+    private ApplicationType applicationType;
+
+    /**
+     * 用户名
+     */
+    @TableField("username")
+    @ApiModelProperty("用户名")
+    private String username;
+
+    /**
+     * 密码
+     */
+    @ApiModelProperty("密码")
+    @TableField("password")
+    private String password;
+
+    /**
+     * 昵称
+     */
+    @ApiModelProperty("昵称")
+    @TableField("nickname")
+    private String nickname;
+
+    /**
+     * 邮箱
+     */
+    @TableField("email")
+    @ApiModelProperty("邮箱")
+    private String email;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
