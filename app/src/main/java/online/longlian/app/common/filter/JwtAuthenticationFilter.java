@@ -7,13 +7,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.pojo.bo.LoginSessionCacheBO;
+import online.longlian.app.service.TokenBlacklistService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -35,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, Object> redisTemplate;
     private final AuthenticationEntryPoint authenticationEntryPoint;
-    private final RedisBlacklistUtil redisBlacklistUtil;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -52,7 +54,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
         request.setAttribute(CommonConstants.CURRENT_TOKEN, token);
         try {
-            if (redisBlacklistUtil.isInBlacklist(token)) {
+            if (tokenBlacklistService.isBlacklisted(token)) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
             Claims claims = jwtUtil.parseTokenIfValid(token);
@@ -62,19 +64,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             long userId = Long.parseLong(claims.getSubject());
 
             Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId);
-            if (cached == null) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
+            if (cached != null) {
+                LoginSessionCacheBO sessionCacheBO = JSON.parseObject(cached.toString(), LoginSessionCacheBO.class);
+                if (sessionCacheBO != null) {
+                    UserDetailImpl userDetailImpl = buildUserDetail(sessionCacheBO);
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userDetailImpl, null, userDetailImpl.getAuthorities());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            } else {
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userId, null, new ArrayList<>());
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-
-            LoginSessionCacheBO sessionCacheBO = JSON.parseObject(cached.toString(), LoginSessionCacheBO.class);
-            if (sessionCacheBO == null) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
-            }
-
-            UserDetailImpl userDetailImpl = buildUserDetail(sessionCacheBO);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetailImpl, null, userDetailImpl.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(authentication);
 
             filterChain.doFilter(request, response);
 

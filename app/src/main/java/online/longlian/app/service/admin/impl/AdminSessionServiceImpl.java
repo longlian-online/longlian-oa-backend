@@ -1,23 +1,20 @@
 package online.longlian.app.service.admin.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
-import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.mapper.AdminMapper;
 import online.longlian.app.pojo.bo.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.AdminLoginResultBO;
 import online.longlian.app.pojo.bo.AdminLogoutParamsBO;
-import online.longlian.app.pojo.bo.AdminSessionCacheBO;
 import online.longlian.app.pojo.entity.Admin;
-import online.longlian.app.service.admin.SessionService;
-import org.springframework.data.redis.core.RedisTemplate;
+import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.admin.AdminSessionService;
+import online.longlian.generator.enumeration.TokenType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,17 +22,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @AllArgsConstructor
-public class SessionServiceImpl implements SessionService {
+public class AdminSessionServiceImpl implements AdminSessionService {
 
     private final AdminMapper adminMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final RedisBlacklistUtil redisBlacklistUtil;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -80,14 +75,19 @@ public class SessionServiceImpl implements SessionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void logout(@NonNull AdminLogoutParamsBO params) {
         if (params.getToken() == null) {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
-        // 将token加入黑名单
         long remainingSeconds = jwtUtil.getRemainingTimeSeconds(params.getToken());
-        redisBlacklistUtil.addToBlacklist(params.getToken(), remainingSeconds);
-
+        tokenBlacklistService.addToBlacklist(
+                params.getToken(),
+                TokenType.Admin,
+                params.getAdminId(),
+                "管理员主动注销",
+                remainingSeconds
+        );
     }
 
     @Override

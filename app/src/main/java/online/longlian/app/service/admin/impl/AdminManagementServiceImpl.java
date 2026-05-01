@@ -1,6 +1,8 @@
 package online.longlian.app.service.admin.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
@@ -12,8 +14,9 @@ import online.longlian.app.pojo.bo.AdminListParamsBO;
 import online.longlian.app.pojo.bo.AdminListResultBO;
 import online.longlian.app.pojo.bo.PageResultBO;
 import online.longlian.app.pojo.entity.Admin;
-import online.longlian.app.service.admin.AdminService;
-import online.longlian.app.service.admin.SessionService;
+import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.admin.AdminManagementService;
+import online.longlian.generator.enumeration.TokenType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +26,14 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class AdminServiceImpl implements AdminService {
+public class AdminManagementServiceImpl implements AdminManagementService {
 
     private static final String ROLE_ROOT = "root";
     private static final String ROLE_NORMAL = "normal";
 
     private final AdminMapper adminMapper;
     private final PasswordEncoder passwordEncoder;
-    private final SessionService adminSessionService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -95,10 +98,13 @@ public class AdminServiceImpl implements AdminService {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能删除自己");
         }
 
+        // 将该管理员的所有token加入黑名单
+        tokenBlacklistService.blacklistAllUserTokens(TokenType.Admin, id, "管理员账号被删除");
+
         // 逻辑删除
         adminMapper.update(
                 null,
-                new LambdaQueryWrapper<Admin>()
+                new LambdaUpdateWrapper<Admin>()
                         .eq(Admin::getId, id)
                         .set(Admin::getDeletedAt, LocalDateTime.now())
         );
@@ -107,11 +113,11 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public PageResultBO<AdminListResultBO> list(@NonNull AdminListParamsBO params) {
         Page<Admin> page = new Page<>(
-                params.getPage() != null ? params.getPage().getPageNum() : 1,
-                params.getPage() != null ? params.getPage().getPageSize() : 10
+                params.getPage().getPageNum(),
+                params.getPage().getPageSize()
         );
 
-        Page<Admin> adminPage = new LambdaQueryWrapper<Admin>()
+        Page<Admin> adminPage = new LambdaQueryChainWrapper<>(this.adminMapper)
                 .select(Admin::getId, Admin::getUsername, Admin::getRole, Admin::getLastLoginAt, Admin::getCreatedAt)
                 .isNull(Admin::getDeletedAt)
                 .orderByDesc(Admin::getCreatedAt)

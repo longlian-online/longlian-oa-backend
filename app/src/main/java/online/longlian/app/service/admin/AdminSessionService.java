@@ -4,7 +4,7 @@ import online.longlian.app.pojo.bo.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.AdminLoginResultBO;
 import online.longlian.app.pojo.bo.AdminLogoutParamsBO;
 
-public interface SessionService {
+public interface AdminSessionService {
 
     AdminLoginResultBO login(AdminLoginParamsBO params);
 

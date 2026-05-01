@@ -5,7 +5,7 @@ import online.longlian.app.pojo.bo.AdminListParamsBO;
 import online.longlian.app.pojo.bo.AdminListResultBO;
 import online.longlian.app.pojo.bo.PageResultBO;
 
-public interface AdminService {
+public interface AdminManagementService {
 
     Long create(AdminCreateParamsBO params, Long operatorId);
 
