@@ -58,7 +58,7 @@ public class OrganizationImpl implements OrganizationService {
         long total = organizationPage.getTotal();
 
         List<Long> avatarIds = organizations.stream().map(Organization::getAvatarFileId).toList();
-        Map<Long, String> fileUrlMap = resourceService.getResourceReadUrls(avatarIds);
+        Map<Long, String> fileUrlMap = resourceService.getFileReadUrls(avatarIds);
 
         List<AdminOrganizationListResultBO> list = organizations.stream().map(organization -> new AdminOrganizationListResultBO(organization.getId(),
                 organization.getName(),

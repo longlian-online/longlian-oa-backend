@@ -33,6 +33,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
 import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.generator.enumeration.ApplicationType;
 import online.longlian.generator.enumeration.OTPType;
 import online.longlian.generator.enumeration.Status;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -163,12 +164,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Organization organization = validateJoinTargetOrganization(organizationJoinOpt.getOrgId());
 
         LocalDateTime now = LocalDateTime.now();
-        User user = createUser(params, now);
-
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
-                .userId(user.getId())
+                .userId(0L)
                 .status(ApplicationStatus.PENDING)
+                .applicationType(ApplicationType.REGISTER)
+                .username(params.getUsername())
+                .password(passwordEncoder.encode(params.getPassword()))
+                .nickname(params.getNickname())
+                .email(params.getEmail())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -180,7 +184,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 new LambdaUpdateWrapper<OrganizationJoinOpt>()
                         .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
                         .isNull(OrganizationJoinOpt::getInvitedUserId)
-                        .set(OrganizationJoinOpt::getInvitedUserId, user.getId())
                         .set(OrganizationJoinOpt::getUsedAt, now)
         );
     }
@@ -210,6 +213,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .orgId(organization.getId())
                 .userId(userId)
                 .status(ApplicationStatus.PENDING)
+                .applicationType(ApplicationType.EXISTING_USER)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
