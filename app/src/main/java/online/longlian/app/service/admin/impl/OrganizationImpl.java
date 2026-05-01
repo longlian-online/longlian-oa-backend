@@ -92,7 +92,7 @@ public class OrganizationImpl implements OrganizationService {
     }
 
     public void updateOrgStatus(@NonNull AdminOrganizationUpdateStatusParamsBO params) {
-        LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getId, params.getOrganizationId());
+        LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getStatus, params.getStatus());
         organizationMapper.update(null, wrapper);
     }
 }
