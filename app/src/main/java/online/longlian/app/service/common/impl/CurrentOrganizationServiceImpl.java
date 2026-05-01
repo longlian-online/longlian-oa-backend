@@ -53,6 +53,28 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
         return toCurrentOrganizationContext(fallbackMember);
     }
 
+    @Override
+    public Long requireCurrentOrgId(Long userId) {
+        return requireCurrentOrgContext(userId).getOrgId();
+    }
+
+    @Override
+    public CurrentOrganizationContextBO requireCurrentOrgContext(Long userId) {
+        Long cachedOrgId = getCachedCurrentOrgId(userId);
+        if (cachedOrgId == null || cachedOrgId <= 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前组织不存在，请重新选择组织");
+        }
+
+        OrganizationMember organizationMember;
+        try {
+            organizationMember = requireAccessibleOrgMember(userId, cachedOrgId);
+        } catch (AppException e) {
+            clearCurrentOrg(userId);
+            throw e;
+        }
+        return toCurrentOrganizationContext(organizationMember);
+    }
+
     /**
      * 初始化用户当前组织
      */
@@ -70,7 +92,7 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
      */
     @Override
     public void switchCurrentOrg(Long userId, Long targetOrgId) {
-        assertAccessibleOrg(userId, targetOrgId);
+        requireAccessibleOrgMember(userId, targetOrgId);
         cacheCurrentOrgId(userId, targetOrgId, getCurrentOrgTtlSeconds(userId));
     }
 
@@ -147,20 +169,20 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
                 .build();
     }
 
-    private void assertAccessibleOrg(Long userId, Long orgId) {
+    private OrganizationMember requireAccessibleOrgMember(Long userId, Long orgId) {
         if (orgId == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织不能为空");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不能为空");
         }
         if (orgId <= 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织ID不合法");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织ID不合法");
         }
 
         Organization organization = organizationMapper.selectById(orgId);
         if (organization == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织不存在");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在");
         }
         if (organization.getStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织已被禁用");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织已被禁用");
         }
 
         OrganizationMember organizationMember = organizationMemberMapper.selectOne(
@@ -175,6 +197,7 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
         if (organizationMember.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
         }
+        return organizationMember;
     }
 
     /**

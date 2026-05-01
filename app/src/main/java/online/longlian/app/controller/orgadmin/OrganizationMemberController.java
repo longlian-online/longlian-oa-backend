@@ -7,8 +7,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.OrgAdminReviewApplicationParamsBO;
+import online.longlian.app.pojo.bo.PageParamsBO;
+import online.longlian.app.pojo.bo.PageResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
@@ -21,8 +26,11 @@ import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.app.service.user.SessionService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @Tag(name = "组织成员管理", description = "组织成员管理：入组申请审核、组员列表、邀请")
@@ -47,9 +55,28 @@ public class OrganizationMemberController {
     @PostMapping("/applications")
     public Result<PageResultVO<ApplicationInfoVO>> listApplications(
             @RequestBody @Valid ApplicationListDTO applicationListDTO) {
-        // TODO
-        // return organizationMemberService.listApplications(applicationListDTO);
-        return Result.success("查询成功", null);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        PageResultBO<OrgAdminApplicationInfoResultBO> resultBO = organizationMemberService.listApplications(
+                OrgAdminApplicationListParamsBO.builder()
+                        .orgId(currentOrgId)
+                        .keyword(applicationListDTO.getKeyword())
+                        .startApplyTime(applicationListDTO.getStartApplyTime())
+                        .endApplyTime(applicationListDTO.getEndApplyTime())
+                        .orderDir(applicationListDTO.getOrderDir())
+                        .page(new PageParamsBO(applicationListDTO.getPageNum(), applicationListDTO.getPageSize()))
+                        .build()
+        );
+
+        List<ApplicationInfoVO> applicationInfoVOS = resultBO.getList().stream()
+                .map(bo -> {
+                    ApplicationInfoVO vo = new ApplicationInfoVO();
+                    BeanUtils.copyProperties(bo, vo);
+                    return vo;
+                })
+                .toList();
+        return Result.success("查询成功", new PageResultVO<>(applicationInfoVOS, resultBO.getTotal()));
     }
 
     @Operation(
@@ -61,8 +88,18 @@ public class OrganizationMemberController {
     public Result<Void> reviewApplication(
             @PathVariable Long applicationId,
             @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
-        // TODO
-        // return organizationMemberService.reviewApplication(applicationId, applicationReviewDTO);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        organizationMemberService.reviewApplication(
+                OrgAdminReviewApplicationParamsBO.builder()
+                        .applicationId(applicationId)
+                        .orgId(currentOrgId)
+                        .reviewerId(currentUserId)
+                        .applicationStatus(applicationReviewDTO.getApplicationStatus())
+                        .reviewRemark(applicationReviewDTO.getReviewRemark())
+                        .build()
+        );
         return Result.success("审核完成");
     }
 
@@ -114,7 +151,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite-codes/join-org")
     public Result<InviteCodeVO> generateJoinOrgInviteCode() {
         Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.resolveCurrentOrgId(currentUserId);
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
 
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
                 new OrgAdminGenerateJoinOrgInviteCodeParamsBO(currentUserId, currentOrgId)

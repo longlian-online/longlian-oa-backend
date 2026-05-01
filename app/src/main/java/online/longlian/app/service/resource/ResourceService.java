@@ -1,5 +1,6 @@
 package online.longlian.app.service.resource;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.properties.StorageProperties;
@@ -15,9 +16,11 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -62,20 +65,39 @@ public class ResourceService {
         return new ResourcCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
     }
 
-    public String getResourceReadUrl(Long fileId) {
-        return "";
+    public Map<Long, String> getFileReadUrls(List<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> distinctFileIds = fileIds.stream()
+                .filter(fileId -> fileId != null && fileId > 0)
+                .distinct()
+                .toList();
+        if (distinctFileIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
+                        .in(Resource::getId, distinctFileIds))
+                .stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Resource::getId, this::buildFileAccessUrl));
     }
 
-    public Map<Long, String> getResourceReadUrls(List<Long> fileIds) {
-        return new HashMap<>();
+    public String getFileAccessUrl(Long fileID) {
+        Resource resource = resourceMapper.selectById(fileID);
+        return buildFileAccessUrl(resource);
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
 
-    public String getFileAccessUrl(Long resourceID) {
-        Resource resource = resourceMapper.selectById(resourceID);
+    private String buildFileAccessUrl(Resource resource) {
+        if (resource == null || resource.getStorageType() == null || resource.getStorageKey() == null) {
+            return null;
+        }
         StorageType type = resource.getStorageType();
         String key = resource.getStorageKey();
         String baseUrl = "";
@@ -83,7 +105,7 @@ public class ResourceService {
         switch (type) {
             case LOCAL -> baseUrl = storageProperties.getLocal().getBaseUrl();
             case OSS -> baseUrl = storageProperties.getOss().getBaseUrl();
-        };
+        }
         return Paths.get(baseUrl, key).toString();
     }
 }
