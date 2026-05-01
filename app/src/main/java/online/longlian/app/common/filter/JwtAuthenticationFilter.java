@@ -52,7 +52,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
-        request.setAttribute(CommonConstants.CURRENT_TOKEN, token);
         try {
             if (tokenBlacklistService.isBlacklisted(token)) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());

@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.AdminLoginResultBO;
@@ -43,10 +42,15 @@ public class AdminSessionController {
     @Operation(summary = "管理员登出")
     @DeleteMapping("/")
     public Result<Void> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Result.success("登出成功");
+        }
+        String token = authHeader.substring(7);
         adminSessionService.logout(
                 AdminLogoutParamsBO.builder()
                         .adminId(adminSessionService.getCurrentAdminId())
-                        .token((String) request.getAttribute(CommonConstants.CURRENT_TOKEN))
+                        .token(token)
                         .build()
         );
         return Result.success("登出成功");
