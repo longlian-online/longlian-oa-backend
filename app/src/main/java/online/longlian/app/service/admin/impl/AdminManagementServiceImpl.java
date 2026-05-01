@@ -35,19 +35,8 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService tokenBlacklistService;
 
-    @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long create(@NonNull AdminCreateParamsBO params, @NonNull Long operatorId) {
-        // 校验操作者权限
-        Admin operator = adminMapper.selectById(operatorId);
-        if (operator == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "操作者不存在");
-        }
-        if (!ROLE_ROOT.equals(operator.getRole())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "只有root管理员可以创建新管理员");
-        }
-
-        // 检查用户名是否已存在
+    public Long createInternal(@NonNull AdminCreateParamsBO params, @NonNull String role) {
         Admin existAdmin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>()
                         .eq(Admin::getUsername, params.getUsername())
@@ -61,13 +50,27 @@ public class AdminManagementServiceImpl implements AdminManagementService {
         Admin admin = Admin.builder()
                 .username(params.getUsername())
                 .password(passwordEncoder.encode(params.getPassword()))
-                .role(ROLE_NORMAL)
+                .role(role)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
         adminMapper.insert(admin);
 
         return admin.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long create(@NonNull AdminCreateParamsBO params, @NonNull Long operatorId) {
+        Admin operator = adminMapper.selectById(operatorId);
+        if (operator == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "操作者不存在");
+        }
+        if (!ROLE_ROOT.equals(operator.getRole())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "只有root管理员可以创建新管理员");
+        }
+
+        return createInternal(params, ROLE_NORMAL);
     }
 
     @Override
@@ -88,7 +91,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "管理员不存在");
         }
 
-        // 不能删除root管理员
+        // 不能删除 root 管理员
         if (ROLE_ROOT.equals(targetAdmin.getRole())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能删除root管理员");
         }
@@ -98,7 +101,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能删除自己");
         }
 
-        // 将该管理员的所有token加入黑名单
+        // 将该管理员的所有 token 加入黑名单
         tokenBlacklistService.blacklistAllUserTokens(TokenType.Admin, id, "管理员账号被删除");
 
         // 逻辑删除

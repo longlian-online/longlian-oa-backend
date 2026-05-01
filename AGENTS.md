@@ -43,3 +43,4 @@ app/src/main/java/online/longlian/app/
 4. 请求体必须用 DTO 对象接收(app/src/main/java/online/longlian/app/pojo/dto), 响应体必须使用 VO 对象返回(app/src/main/java/online/longlian/app/pojo/vo)
 5. 完全信任 Controller 预处理后的入参，不做重复非空判断、不做分页参数兜底默认值、不做业务无关的参数防御性编码。
 6. 当一个方法有多个入参，根据入参类型，定义一个或多个独立的入参类(如 service 层应该使用 BO 类)进行传参，以便拓展
+7. 实现代码应该附带适当的注释，说明为什么要这样做(代码不复杂的情况下，不需要说明做了什么，关注点在于为什么要这样做，而不是用自然语言再描述一次执行逻辑)
