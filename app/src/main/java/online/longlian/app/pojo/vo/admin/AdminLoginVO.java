@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Schema(description = "管理员登录结果视图对象")
 public class AdminLoginVO {
 
-    @Schema(description = "管理员ID")
+    @Schema(description = "管理员ID", type = "string")
     private Long adminId;
 
     @Schema(description = "用户名")
