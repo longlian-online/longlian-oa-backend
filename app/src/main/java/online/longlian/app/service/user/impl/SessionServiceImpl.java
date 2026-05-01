@@ -10,8 +10,8 @@ import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.RedisBlacklistUtil;
 import online.longlian.app.pojo.bo.LoginSessionCacheBO;
+import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.SessionLoginResultBO;
@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
 
-    private final RedisBlacklistUtil redisBlacklistUtil;
+    private final TokenBlacklistService tokenBlacklistService;
     private final AuthenticationManager authenticationManager;
     private final RedisTemplate<String, Object> redisTemplate;
     private final JwtUtil jwtUtil;
@@ -68,7 +68,7 @@ public class SessionServiceImpl implements SessionService {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
         long remainingSeconds = jwtUtil.getRemainingTimeSeconds(params.getToken());
-        redisBlacklistUtil.addToBlacklist(params.getToken(), remainingSeconds);
+        tokenBlacklistService.addToBlacklist(params.getToken(), null, params.getUserId(), "用户登出", remainingSeconds);
 
         redisTemplate.delete(RedisConstants.LOGIN_USER + params.getUserId());
         currentOrganizationService.clearCurrentOrg(params.getUserId());

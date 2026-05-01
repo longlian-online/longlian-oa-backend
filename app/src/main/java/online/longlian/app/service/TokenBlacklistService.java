@@ -8,5 +8,7 @@ public interface TokenBlacklistService {
 
     boolean isBlacklisted(String token);
 
+    void removeFromBlacklist(String token);
+
     void blacklistAllUserTokens(TokenType tokenType, Long userId, String reason);
 }
