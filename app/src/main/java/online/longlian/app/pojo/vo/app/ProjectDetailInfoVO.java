@@ -8,7 +8,7 @@ import online.longlian.generator.enumeration.ProjectStatus;
 @Schema(description = "企划详情")
 public class ProjectDetailInfoVO {
 
-    @Schema(description = "企划ID")
+    @Schema(type = "string", description = "企划ID")
     private Long id;
 
     @Schema(description = "企划主标题")

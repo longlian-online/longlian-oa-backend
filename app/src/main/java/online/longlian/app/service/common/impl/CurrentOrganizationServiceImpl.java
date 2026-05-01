@@ -8,6 +8,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.CurrentOrganizationContextBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
@@ -15,6 +16,7 @@ import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.generator.enumeration.Status;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -30,32 +32,59 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
 
     @Override
     public Long resolveCurrentOrgId(Long userId) {
+        return resolveCurrentOrgContext(userId, null).getOrgId();
+    }
+
+    @Override
+    public CurrentOrganizationContextBO resolveCurrentOrgContext(Long userId, Long defaultOrgId) {
         Long cachedOrgId = getCachedCurrentOrgId(userId);
-        if (isAccessibleOrg(userId, cachedOrgId)) {
-            return cachedOrgId;
+        OrganizationMember cachedMember = getAccessibleOrganizationMember(userId, cachedOrgId);
+        if (cachedMember != null) {
+            return toCurrentOrganizationContext(cachedMember);
         }
 
-        Long fallbackOrgId = resolveFallbackOrgId(userId);
-        if (fallbackOrgId == null) {
+        OrganizationMember fallbackMember = resolveFallbackOrgMember(userId, defaultOrgId);
+        if (fallbackMember == null) {
             clearCurrentOrg(userId);
-            throw new AppException(ResultCode.OPERATION_FAIL, "当前无可用组织，请先加入组织或切换组织");
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前无可用组织，请先加入组织");
         }
 
-        cacheCurrentOrgId(userId, fallbackOrgId, getCurrentOrgTtlSeconds(userId));
-        return fallbackOrgId;
+        cacheCurrentOrgId(userId, fallbackMember.getOrgId(), getCurrentOrgTtlSeconds(userId));
+        return toCurrentOrganizationContext(fallbackMember);
+    }
+
+    @Override
+    public Long requireCurrentOrgId(Long userId) {
+        return requireCurrentOrgContext(userId).getOrgId();
+    }
+
+    @Override
+    public CurrentOrganizationContextBO requireCurrentOrgContext(Long userId) {
+        Long cachedOrgId = getCachedCurrentOrgId(userId);
+        if (cachedOrgId == null || cachedOrgId <= 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前组织不存在，请重新选择组织");
+        }
+
+        OrganizationMember organizationMember;
+        try {
+            organizationMember = requireAccessibleOrgMember(userId, cachedOrgId);
+        } catch (AppException e) {
+            clearCurrentOrg(userId);
+            throw e;
+        }
+        return toCurrentOrganizationContext(organizationMember);
     }
 
     /**
      * 初始化用户当前组织
      */
     @Override
-    public void initializeCurrentOrg(Long userId, long ttlSeconds) {
-        Long fallbackOrgId = resolveFallbackOrgId(userId);
-        if (fallbackOrgId == null) {
-            clearCurrentOrg(userId);
-            return;
+    public void refreshCurrentOrgTtl(Long userId, long ttlSeconds) {
+        Long cachedOrgId = getCachedCurrentOrgId(userId);
+        if (cachedOrgId == null || cachedOrgId <= 0) {
+            cachedOrgId = resolveCurrentOrgContext(userId, null).getOrgId();
         }
-        cacheCurrentOrgId(userId, fallbackOrgId, ttlSeconds);
+        cacheCurrentOrgId(userId, cachedOrgId, ttlSeconds);
     }
 
     /**
@@ -63,7 +92,7 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
      */
     @Override
     public void switchCurrentOrg(Long userId, Long targetOrgId) {
-        assertAccessibleOrg(userId, targetOrgId);
+        requireAccessibleOrgMember(userId, targetOrgId);
         cacheCurrentOrgId(userId, targetOrgId, getCurrentOrgTtlSeconds(userId));
     }
 
@@ -78,15 +107,17 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
     /**
      * 获取用户的备用组织ID（默认组织 -> 第一个加入的有效组织）
      */
-    private Long resolveFallbackOrgId(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user != null
-                && user.getDefaultOrgId() != null
-                && user.getDefaultOrgId() > 0
-                && isAccessibleOrg(userId, user.getDefaultOrgId())) {
-            return user.getDefaultOrgId();
+    private OrganizationMember resolveFallbackOrgMember(Long userId, Long defaultOrgId) {
+        if (defaultOrgId == null || defaultOrgId <= 0) {
+            User user = userMapper.selectById(userId);
+            defaultOrgId = user == null ? null : user.getDefaultOrgId();
         }
-        // 查询用户启用状态的组织成员信息，按加入时间升序
+
+        OrganizationMember defaultOrgMember = getAccessibleOrganizationMember(userId, defaultOrgId);
+        if (defaultOrgMember != null) {
+            return defaultOrgMember;
+        }
+
         List<OrganizationMember> organizationMembers = organizationMemberMapper.selectList(
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, userId)
@@ -96,8 +127,9 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
 
         // 遍历获取第一个可用组织
         for (OrganizationMember organizationMember : organizationMembers) {
-            if (isAccessibleOrg(userId, organizationMember.getOrgId())) {
-                return organizationMember.getOrgId();
+            OrganizationMember accessibleMember = getAccessibleOrganizationMember(userId, organizationMember.getOrgId());
+            if (accessibleMember != null) {
+                return accessibleMember;
             }
         }
 
@@ -107,44 +139,50 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
     /**
      * 判断组织是否可访问（组织有效 + 用户是该组织启用状态成员）
      */
-    private boolean isAccessibleOrg(Long userId, Long orgId) {
+    private OrganizationMember getAccessibleOrganizationMember(Long userId, Long orgId) {
         if (orgId == null || orgId <= 0) {
-            return false;
+            return null;
         }
 
         Organization organization = organizationMapper.selectById(orgId);
         if (organization == null || organization.getStatus() != Status.ENABLED) {
-            return false;
+            return null;
         }
 
-        OrganizationMember organizationMember = organizationMemberMapper.selectOne(
+        return organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, userId)
                         .eq(OrganizationMember::getOrgId, orgId)
                         .eq(OrganizationMember::getStatus, Status.ENABLED)
                         .last("LIMIT 1")
         );
-
-        return organizationMember != null;
     }
 
-    /**
-     * 断言组织可访问，抛出异常原因。
-     */
-    private void assertAccessibleOrg(Long userId, Long orgId) {
+    private CurrentOrganizationContextBO toCurrentOrganizationContext(OrganizationMember organizationMember) {
+        List<String> roles = StringUtils.hasText(organizationMember.getOrgRole())
+                ? List.of(organizationMember.getOrgRole())
+                : List.of();
+        return CurrentOrganizationContextBO.builder()
+                .orgId(organizationMember.getOrgId())
+                .memberId(organizationMember.getId())
+                .roles(roles)
+                .build();
+    }
+
+    private OrganizationMember requireAccessibleOrgMember(Long userId, Long orgId) {
         if (orgId == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织不能为空");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不能为空");
         }
         if (orgId <= 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织ID不合法");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织ID不合法");
         }
 
         Organization organization = organizationMapper.selectById(orgId);
         if (organization == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织不存在");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在");
         }
         if (organization.getStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "目标组织已被禁用");
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织已被禁用");
         }
 
         OrganizationMember organizationMember = organizationMemberMapper.selectOne(
@@ -159,6 +197,7 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
         if (organizationMember.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
         }
+        return organizationMember;
     }
 
     /**
@@ -189,8 +228,8 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
     }
 
     private long getCurrentOrgTtlSeconds(Long userId) {
-        Long expireSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userId, TimeUnit.SECONDS);
-        if (expireSeconds == null || expireSeconds <= 0) {
+        long expireSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userId, TimeUnit.SECONDS);
+        if (expireSeconds <= 0) {
             return RedisConstants.EXPIRE_TIME.longValue();
         }
         return expireSeconds;

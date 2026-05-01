@@ -114,8 +114,10 @@ public class ResourceService {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
 
-    public String getFileAccessUrl(Long resourceID) {
-        Resource resource = resourceMapper.selectById(resourceID);
+    private String buildFileAccessUrl(Resource resource) {
+        if (resource == null || resource.getStorageType() == null || resource.getStorageKey() == null) {
+            return null;
+        }
         StorageType type = resource.getStorageType();
         String key = resource.getStorageKey();
         String baseUrl = "";

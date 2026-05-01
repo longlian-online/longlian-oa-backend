@@ -18,7 +18,7 @@ public class BaseTaskCreateDTO {
     @Schema(description = "任务说明")
     private String description;
 
-    @Schema(description = "图标文件ID")
+    @Schema(type = "string", description = "图标文件ID")
     private Long iconFileId;
 
     @Schema(description = "元数据字段定义(JSON数组)，示例：[{\"name\":\"附件\",\"fieldType\":\"file\",\"required\":true},{\"name\":\"作者\",\"fieldType\":\"text\",\"required\":true},{\"name\":\"源链接\",\"fieldType\":\"text\",\"required\":true}]")

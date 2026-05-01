@@ -7,7 +7,7 @@ import lombok.Data;
 @Schema(description = "组员原子任务提交数明细")
 public class OrgMemberBaseTaskSubmitCountItemVO {
 
-    @Schema(description = "原子任务ID")
+    @Schema(type = "string", description = "原子任务ID")
     private Long baseTaskId;
 
     @Schema(description = "原子任务名称")

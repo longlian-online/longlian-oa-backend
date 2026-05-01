@@ -88,6 +88,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private UserDetailImpl buildUserDetail(LoginSessionCacheBO sessionCacheBO) {
         UserDetailImpl userDetail = new UserDetailImpl();
         BeanUtils.copyProperties(sessionCacheBO, userDetail);
+        userDetail.setId(sessionCacheBO.getUserId());
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         if (sessionCacheBO.getPermissions() != null) {

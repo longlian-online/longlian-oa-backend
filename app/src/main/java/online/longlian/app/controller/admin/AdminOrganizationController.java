@@ -25,14 +25,14 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ORG_ADMIN')")
-public class OrganizationController {
+public class AdminOrganizationController {
 
     private final OrganizationService organizationService;
     private final SessionService sessionService;
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
-    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@RequestBody @Valid OrgListDTO dto) {
+    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@ModelAttribute @Valid OrgListDTO dto) {
         AdminOrganizationListParamsBO bo = new AdminOrganizationListParamsBO(
                 dto.getOrgName(),
                 dto.getStartCreateTime(),
@@ -76,9 +76,9 @@ public class OrganizationController {
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
-    @PatchMapping("/status")
-    public Result<Void> changeOrgStatus(@RequestBody @Valid ChangeStatusDTO dto) {
-        AdminOrganizationUpdateStatusParamsBO bo = new AdminOrganizationUpdateStatusParamsBO(dto.getOrgId(), dto.getStatus());
+    @PatchMapping("/{orgId}/status")
+    public Result<Void> changeOrgStatus(@PathVariable Long orgId, @RequestBody @Valid ChangeStatusDTO dto) {
+        AdminOrganizationUpdateStatusParamsBO bo = new AdminOrganizationUpdateStatusParamsBO(orgId, dto.getStatus());
         organizationService.updateOrgStatus(bo);
         return Result.success("ok");
     }

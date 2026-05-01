@@ -126,11 +126,15 @@ CREATE TABLE `group_application` (
                                      `reviewer_id` bigint DEFAULT NULL COMMENT '审核人ID',
                                      `reviewed_at` datetime DEFAULT NULL COMMENT '审核时间',
                                      `review_remark` varchar(500) DEFAULT '' COMMENT '审核备注',
+                                     `application_type` tinyint COMMENT '申请入组的类型：0-注册入组 1-已注册用户入组',
+                                     `username` varchar(50) NOT NULL COMMENT '用户名',
+                                     `password` varchar(100) NOT NULL COMMENT '密码',
+                                     `nickname` varchar(50) NOT NULL DEFAULT '' COMMENT '昵称',
+                                     `email` varchar(100) NOT NULL DEFAULT '' COMMENT '邮箱',
                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                      `deleted_at` datetime DEFAULT NULL,
-                                     PRIMARY KEY (`id`) USING BTREE,
-                                     UNIQUE INDEX `uk_application_org_user`(`org_id`, `user_id`) USING BTREE
+                                     PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='入组申请表';
 
 -- 2.4 一次性密码表 one_time_password

@@ -9,6 +9,6 @@ import lombok.Data;
 public class OrgIdDTO {
 
     @NotNull(message = "组织id不能为空")
-    @Schema(description = "组织id")
+    @Schema(type = "string", description = "组织id")
     private Long orgId;
 }

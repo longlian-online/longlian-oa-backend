@@ -26,6 +26,6 @@ public class ProjectUpdateDTO {
     private String description;
 
     @NotNull(message = "封面不能为空")
-    @Schema(description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long coverFileId;
 }

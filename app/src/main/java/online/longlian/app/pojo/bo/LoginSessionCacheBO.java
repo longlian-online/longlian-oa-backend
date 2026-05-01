@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.generator.enumeration.Status;
 
 import java.util.List;
 
@@ -14,11 +15,9 @@ import java.util.List;
 public class LoginSessionCacheBO {
     private Long userId;
     private String username;
-    private String nickname;
     private String email;
-    private Integer status;
-    private Long avatarFileId;
-    private Long defaultOrgId;
+    private Status status;
+    private Long currentOrgId;
     private List<String> roles;
     private List<String> permissions;
 }

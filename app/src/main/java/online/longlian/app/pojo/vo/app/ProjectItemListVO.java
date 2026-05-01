@@ -11,7 +11,7 @@ import java.util.List;
 @Schema(description = "项目列表信息")
 public class ProjectItemListVO {
 
-    @Schema(description = "项目ID")
+    @Schema(type = "string", description = "项目ID")
     private Long id;
 
     @Schema(description = "项目标题")

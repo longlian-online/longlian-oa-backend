@@ -5,15 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserSwitchOrgResultBO {
+public class UserGetMyInfoResultBO {
     private Long id;
-    private String name;
+    private String username;
+    private String email;
+    private String nickname;
     private String avatarUrl;
-    private List<String> roles;
+    private Long defaultOrgId;
 }

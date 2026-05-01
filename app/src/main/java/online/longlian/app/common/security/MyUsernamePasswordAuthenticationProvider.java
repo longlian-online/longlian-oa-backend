@@ -33,6 +33,9 @@ public class MyUsernamePasswordAuthenticationProvider implements AuthenticationP
 
         // 2. 按用户名查询用户（调用自定义UserDetailsService）
         UserDetails userDetails = userDetailsServiceImpl.loadUserByUsernameOnly(username);
+        if (!userDetails.isEnabled()) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "账号已被禁用");
+        }
 
         // 3. 验证密码
         if (!passwordEncoder.matches(password, userDetails.getPassword())) {

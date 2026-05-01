@@ -55,9 +55,10 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/admin/session/login", HttpMethod.POST.name()),
                                 // 验证码
                                 new AntPathRequestMatcher("/app/session/email/code", HttpMethod.POST.name()),
-                                // 注册与邀请码信息
-                                new AntPathRequestMatcher("/app/user/", HttpMethod.POST.name()),
-                                new AntPathRequestMatcher("/app/user/invite-info", HttpMethod.GET.name()),
+                                // 注册与注册页邀请码信息
+                                new AntPathRequestMatcher("/app/user/register/create-organization", HttpMethod.POST.name()),
+                                new AntPathRequestMatcher("/app/user/register/join-organization", HttpMethod.POST.name()),
+                                new AntPathRequestMatcher("/app/user/register/join-organization/invite-info", HttpMethod.GET.name()),
                                 // Swagger
                                 new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/swagger-ui/**"),

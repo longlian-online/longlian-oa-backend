@@ -5,15 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserSwitchOrgResultBO {
+public class OrgAdminApplicationInfoResultBO {
     private Long id;
-    private String name;
+    private Long userId;
+    private String nickname;
+    private String username;
     private String avatarUrl;
-    private List<String> roles;
+    private LocalDateTime appliedAt;
 }

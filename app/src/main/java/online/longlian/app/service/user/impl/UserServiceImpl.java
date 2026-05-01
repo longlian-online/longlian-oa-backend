@@ -6,8 +6,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationCreateOptMapper;
 import online.longlian.app.mapper.OrganizationJoinOptMapper;
 import online.longlian.app.mapper.OrganizationMapper;
@@ -15,22 +15,25 @@ import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationCreateOpt;
+import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationJoinOpt;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.service.VerifyCodeService;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
+import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.generator.enumeration.ApplicationType;
 import online.longlian.generator.enumeration.OTPType;
 import online.longlian.generator.enumeration.Status;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +53,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final OrganizationMemberMapper organizationMemberMapper;
     private final OrganizationCreateOptMapper organizationCreateOptMapper;
     private final OrganizationJoinOptMapper organizationJoinOptMapper;
+    private final GroupApplicationMapper groupApplicationMapper;
     private final ResourceService resourceService;
     private final UserMapper userMapper;
     private final SessionService sessionService;
@@ -56,13 +61,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final OneTimePasswordService oneTimePasswordService;
 
     @Override
-    public Result<UserInfoVO> getMyInfo() {
-        Long userId = sessionService.getCurrentUserId();
+    public UserGetMyInfoResultBO getMyInfo(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
-        UserInfoVO.UserInfoVOBuilder builder = UserInfoVO.builder()
+        UserGetMyInfoResultBO.UserGetMyInfoResultBOBuilder builder = UserGetMyInfoResultBO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
@@ -71,7 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user.getAvatarFileId() != null) {
             builder.avatarUrl(resourceService.getFileAccessUrl(user.getAvatarFileId()));
         }
-        return Result.success("查询成功", builder.build());
+        return builder.build();
     }
 
     @Override
@@ -95,7 +99,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .role(organizationMember == null ? null : organizationMember.getOrgRole())
+                .roles(organizationMember == null || organizationMember.getOrgRole() == null
+                        ? List.of()
+                        : List.of(organizationMember.getOrgRole()))
                 .build();
     }
 
@@ -158,22 +164,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Organization organization = validateJoinTargetOrganization(organizationJoinOpt.getOrgId());
 
         LocalDateTime now = LocalDateTime.now();
-        User user = createUser(params, now);
-
-        OrganizationMember organizationMember = OrganizationMember.builder()
+        GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
-                .userId(user.getId())
-                .orgRole(InviteConstants.ROLE_ORG_USER)
-                .joinedAt(now)
-                .submitCount(0)
-                .status(Status.ENABLED)
+                .userId(0L)
+                .status(ApplicationStatus.PENDING)
+                .applicationType(ApplicationType.REGISTER)
+                .username(params.getUsername())
+                .password(passwordEncoder.encode(params.getPassword()))
+                .nickname(params.getNickname())
+                .email(params.getEmail())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        organizationMemberMapper.insert(organizationMember);
-
-        user.setDefaultOrgId(organization.getId());
-        userMapper.updateById(user);
+        groupApplicationMapper.insert(groupApplication);
 
         oneTimePasswordService.useOTP(oneTimePassword.getId());
         organizationJoinOptMapper.update(
@@ -181,8 +184,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 new LambdaUpdateWrapper<OrganizationJoinOpt>()
                         .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
                         .isNull(OrganizationJoinOpt::getInvitedUserId)
-                        .set(OrganizationJoinOpt::getInvitedUserId, user.getId())
-                        .set(OrganizationJoinOpt::getOrgMemberId, organizationMember.getId())
                         .set(OrganizationJoinOpt::getUsedAt, now)
         );
     }
@@ -208,17 +209,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         LocalDateTime now = LocalDateTime.now();
-        OrganizationMember organizationMember = OrganizationMember.builder()
+        GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .userId(userId)
-                .orgRole(InviteConstants.ROLE_ORG_USER)
-                .joinedAt(now)
-                .submitCount(0)
-                .status(Status.ENABLED)
+                .status(ApplicationStatus.PENDING)
+                .applicationType(ApplicationType.EXISTING_USER)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        organizationMemberMapper.insert(organizationMember);
+        groupApplicationMapper.insert(groupApplication);
 
         oneTimePasswordService.useOTP(oneTimePassword.getId());
         organizationJoinOptMapper.update(
@@ -227,7 +226,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .eq(OrganizationJoinOpt::getId, organizationJoinOpt.getId())
                         .isNull(OrganizationJoinOpt::getInvitedUserId)
                         .set(OrganizationJoinOpt::getInvitedUserId, userId)
-                        .set(OrganizationJoinOpt::getOrgMemberId, organizationMember.getId())
                         .set(OrganizationJoinOpt::getUsedAt, now)
         );
     }
