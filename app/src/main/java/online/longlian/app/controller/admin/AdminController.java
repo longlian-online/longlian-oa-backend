@@ -33,7 +33,7 @@ public class AdminController {
 
     @Operation(summary = "创建管理员")
     @PostMapping("/")
-    public Result<Long> create(@RequestBody @Valid AdminCreateDTO dto) {
+    public Result<String> create(@RequestBody @Valid AdminCreateDTO dto) {
         Long adminId = adminManagementService.create(
                 AdminCreateParamsBO.builder()
                         .username(dto.getUsername())
@@ -41,7 +41,7 @@ public class AdminController {
                         .build(),
                 adminSessionService.getCurrentAdminId()
         );
-        return Result.success("创建成功", adminId);
+        return Result.success("创建成功", String.valueOf(adminId));
     }
 
     @Operation(summary = "删除管理员")
@@ -53,7 +53,7 @@ public class AdminController {
 
     @Operation(summary = "分页查询管理员列表")
     @GetMapping("/")
-    public Result<PageResultVO<AdminVO>> list(@RequestBody @Valid AdminListDTO dto) {
+    public Result<PageResultVO<AdminVO>> list(@Valid AdminListDTO dto) {
         AdminListParamsBO bo = AdminListParamsBO.builder()
                 .page(new PageParamsBO(dto.getPageNum(), dto.getPageSize()))
                 .build();
