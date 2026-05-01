@@ -109,11 +109,15 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                         .toList())
                 .stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<Long, String> avatarUrlMap = resourceService.getFileReadUrls(existingUserMap.values().stream()
+        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(existingUserMap.values().stream()
                 .map(User::getAvatarFileId)
                 .filter(fileId -> fileId != null && fileId > 0)
                 .distinct()
-                .toList());
+                .toList())
+                // 返回的对象中包含其他元信息，这里只取 url
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getUrl()));
 
         List<OrgAdminApplicationInfoResultBO> list = applications.stream()
                 .map(application -> toApplicationInfoResult(application, existingUserMap, avatarUrlMap))
