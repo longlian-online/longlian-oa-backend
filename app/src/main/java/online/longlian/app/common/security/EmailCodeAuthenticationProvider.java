@@ -32,6 +32,9 @@ public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
 
         // 3. 按邮箱查询用户
         UserDetails userDetails = userDetailsServiceImpl.loadUserByEmailOnly(email);
+        if (!userDetails.isEnabled()) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "账号已被禁用");
+        }
 
         // 4. 认证成功：返回已认证令牌
         return new EmailCodeAuthenticationToken(userDetails, null, userDetails.getAuthorities());
