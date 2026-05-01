@@ -2,6 +2,7 @@ package online.longlian.app.service.admin.impl;
 
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import online.longlian.app.common.constants.RedisConstants;
@@ -58,9 +59,10 @@ public class SessionServiceImpl implements SessionService {
 
         // 更新最后登录时间
         LocalDateTime now = LocalDateTime.now();
+
         adminMapper.update(
                 null,
-                new LambdaQueryWrapper<Admin>()
+                new LambdaUpdateWrapper<Admin>()
                         .eq(Admin::getId, admin.getId())
                         .set(Admin::getLastLoginAt, now)
                         .set(Admin::getUpdatedAt, now)
