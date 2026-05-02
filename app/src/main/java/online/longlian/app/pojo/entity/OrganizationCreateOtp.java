@@ -59,13 +59,6 @@ public class OrganizationCreateOtp implements Serializable {
     @ApiModelProperty("创建成功后的组织ID")
     private Long orgId;
 
-    /**
-     * 使用时间
-     */
-    @TableField("used_at")
-    @ApiModelProperty("使用时间")
-    private LocalDateTime usedAt;
-
     @TableField("created_at")
     private LocalDateTime createdAt;
 

@@ -66,13 +66,6 @@ public class OrganizationJoinOtp implements Serializable {
     @ApiModelProperty("加入成功后的组织成员ID")
     private Long orgMemberId;
 
-    /**
-     * 使用时间
-     */
-    @TableField("used_at")
-    @ApiModelProperty("使用时间")
-    private LocalDateTime usedAt;
-
     @TableField("created_at")
     private LocalDateTime createdAt;
 

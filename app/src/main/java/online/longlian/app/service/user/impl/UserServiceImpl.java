@@ -150,7 +150,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .isNull(OrganizationCreateOtp::getInvitedUserId)
                         .set(OrganizationCreateOtp::getInvitedUserId, user.getId())
                         .set(OrganizationCreateOtp::getOrgId, organization.getId())
-                        .set(OrganizationCreateOtp::getUsedAt, now)
         );
     }
 
@@ -179,13 +178,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         groupApplicationMapper.insert(groupApplication);
 
         oneTimePasswordService.useOTP(oneTimePassword.getId());
-        organizationJoinOtpMapper.update(
-                null,
-                new LambdaUpdateWrapper<OrganizationJoinOtp>()
-                        .eq(OrganizationJoinOtp::getId, organizationJoinOtp.getId())
-                        .isNull(OrganizationJoinOtp::getInvitedUserId)
-                        .set(OrganizationJoinOtp::getUsedAt, now)
-        );
     }
 
     @Override
@@ -226,7 +218,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .eq(OrganizationJoinOtp::getId, organizationJoinOtp.getId())
                         .isNull(OrganizationJoinOtp::getInvitedUserId)
                         .set(OrganizationJoinOtp::getInvitedUserId, userId)
-                        .set(OrganizationJoinOtp::getUsedAt, now)
         );
     }
 
@@ -288,7 +279,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organizationCreateOtp == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        validateInvitationAvailable(organizationCreateOtp.getInvitedUserId(), organizationCreateOtp.getUsedAt());
+        validateInvitationAvailable(organizationCreateOtp.getInvitedUserId());
         return organizationCreateOtp;
     }
 
@@ -301,12 +292,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organizationJoinOtp == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        validateInvitationAvailable(organizationJoinOtp.getInvitedUserId(), organizationJoinOtp.getUsedAt());
+        validateInvitationAvailable(organizationJoinOtp.getInvitedUserId());
         return organizationJoinOtp;
     }
 
-    private void validateInvitationAvailable(Long invitedUserId, LocalDateTime usedAt) {
-        if (invitedUserId != null || usedAt != null) {
+    private void validateInvitationAvailable(Long invitedUserId) {
+        if (invitedUserId != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已使用");
         }
     }
