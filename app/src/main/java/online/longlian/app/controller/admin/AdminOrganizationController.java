@@ -24,7 +24,6 @@ import java.util.List;
 @RequestMapping("/admin/organizations")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
 public class AdminOrganizationController {
 
     private final OrganizationService organizationService;
@@ -32,7 +31,7 @@ public class AdminOrganizationController {
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
-    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@ModelAttribute @Valid OrgListDTO dto) {
+    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@Valid OrgListDTO dto) {
         AdminOrganizationListParamsBO bo = new AdminOrganizationListParamsBO(
                 dto.getOrgName(),
                 dto.getStartCreateTime(),

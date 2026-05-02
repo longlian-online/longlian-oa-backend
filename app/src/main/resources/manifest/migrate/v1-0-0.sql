@@ -388,3 +388,32 @@ CREATE TABLE `resource` (
                                 `deleted_at` datetime DEFAULT NULL,
                                 PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通用文件存储表';
+
+-- 管理员表
+CREATE TABLE `admin`  (
+  `id` bigint NOT NULL,
+  `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户名',
+  `password` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '密码',
+  `role` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色：root/normal',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '管理员表' ROW_FORMAT = Dynamic;
+
+-- Token黑名单表
+CREATE TABLE `token_blacklist` (
+  `id` bigint NOT NULL COMMENT '主键ID',
+  `token` varchar(512) NOT NULL COMMENT 'Token字符串',
+  `token_type` tinyint NOT NULL COMMENT 'Token类型 1-用户端 2-管理端',
+  `user_id` bigint NOT NULL COMMENT '用户/管理员ID',
+  `reason` varchar(200) DEFAULT '' COMMENT '加入黑名单原因',
+  `expired_at` datetime NOT NULL COMMENT 'Token过期时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_token`(`token`) USING BTREE COMMENT 'Token唯一索引',
+  INDEX `idx_user`(`token_type`, `user_id`) USING BTREE COMMENT '用户索引',
+  INDEX `idx_expired`(`expired_at`) USING BTREE COMMENT '过期时间索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Token黑名单表';

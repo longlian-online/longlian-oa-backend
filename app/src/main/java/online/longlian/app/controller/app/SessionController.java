@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
@@ -72,10 +71,15 @@ public class SessionController {
     @Operation(summary = "退出登录")
     @DeleteMapping("/")
     public Result<Void> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Result.success("登出成功");
+        }
+        String token = authHeader.substring(7);
         sessionService.logout(
                 SessionLogoutParamsBO.builder()
                         .userId(sessionService.getCurrentUserId())
-                        .token((String) request.getAttribute(CommonConstants.CURRENT_TOKEN))
+                        .token(token)
                         .build()
         );
         return Result.success("登出成功");

@@ -50,6 +50,9 @@ public class SecurityConfig {
                                 // 登录
                                 new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
                                 new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
+
+                                // 管理端登录
+                                new AntPathRequestMatcher("/admin/session/login", HttpMethod.POST.name()),
                                 // 验证码
                                 new AntPathRequestMatcher("/app/session/email/code", HttpMethod.POST.name()),
                                 // 注册与注册页邀请码信息

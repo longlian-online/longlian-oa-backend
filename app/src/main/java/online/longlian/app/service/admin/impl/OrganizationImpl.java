@@ -10,13 +10,7 @@ import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.OrganizationCreateOptMapper;
 import online.longlian.app.mapper.OrganizationMapper;
-import online.longlian.app.pojo.bo.AdminGenerateCreateOrgInviteCodeParamsBO;
-import online.longlian.app.pojo.bo.AdminGenerateInviteCodeResultBO;
-import online.longlian.app.pojo.bo.AdminOrganizationListParamsBO;
-import online.longlian.app.pojo.bo.AdminOrganizationListResultBO;
-import online.longlian.app.pojo.bo.AdminOrganizationUpdateStatusParamsBO;
-import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.*;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationCreateOpt;
@@ -58,11 +52,12 @@ public class OrganizationImpl implements OrganizationService {
         long total = organizationPage.getTotal();
 
         List<Long> avatarIds = organizations.stream().map(Organization::getAvatarFileId).toList();
-        Map<Long, String> fileUrlMap = resourceService.getFileReadUrls(avatarIds);
+        Map<Long, ResourceReadUrlGetResultBO> resourceMap = resourceService.getResourceReadUrls(avatarIds);
 
+        ResourceReadUrlGetResultBO defaultResource = new ResourceReadUrlGetResultBO("", 0L, "");
         List<AdminOrganizationListResultBO> list = organizations.stream().map(organization -> new AdminOrganizationListResultBO(organization.getId(),
                 organization.getName(),
-                fileUrlMap.get(organization.getAvatarFileId()),
+                resourceMap.getOrDefault(organization.getAvatarFileId(), defaultResource).getUrl(),
                 organization.getStatus(),
                 organization.getCreatedAt()
         )).toList();
@@ -97,7 +92,7 @@ public class OrganizationImpl implements OrganizationService {
     }
 
     public void updateOrgStatus(@NonNull AdminOrganizationUpdateStatusParamsBO params) {
-        LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getId, params.getOrganizationId());
+        LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getStatus, params.getStatus());
         organizationMapper.update(null, wrapper);
     }
 }

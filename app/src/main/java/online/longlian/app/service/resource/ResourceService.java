@@ -3,11 +3,14 @@ package online.longlian.app.service.resource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.ResourceCreateParamsBO;
+import online.longlian.app.pojo.bo.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourcCreateVO;
 import online.longlian.generator.enumeration.FileProcessStatus;
@@ -16,11 +19,12 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
 
 @Service
 @RequiredArgsConstructor
@@ -65,29 +69,45 @@ public class ResourceService {
         return new ResourcCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
     }
 
-    public Map<Long, String> getFileReadUrls(List<Long> fileIds) {
-        if (fileIds == null || fileIds.isEmpty()) {
-            return Collections.emptyMap();
+    public String getResourceReadUrl(Long fileId) {
+        Map<Long, ResourceReadUrlGetResultBO> resourceMap = this.getResourceReadUrls(List.of(fileId));
+        if (resourceMap.size() != 1 && resourceMap.get(fileId) == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
 
-        List<Long> distinctFileIds = fileIds.stream()
-                .filter(fileId -> fileId != null && fileId > 0)
-                .distinct()
-                .toList();
-        if (distinctFileIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        return resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
-                        .in(Resource::getId, distinctFileIds))
-                .stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(Resource::getId, this::buildFileAccessUrl));
+        return resourceMap.get(fileId).getUrl();
     }
 
-    public String getFileAccessUrl(Long fileID) {
-        Resource resource = resourceMapper.selectById(fileID);
-        return buildFileAccessUrl(resource);
+    /**
+     * 获取资源读取链接
+     * <p><strong>调用方须自行检查是否有权限读取该资源</strong></p>
+     * @return key: 资源ID, value: 资源读取链接 BO 对象
+     *
+     */
+    public Map<Long, ResourceReadUrlGetResultBO> getResourceReadUrls(List<Long> resourceIds) {
+        LambdaQueryWrapper<Resource> query = lambdaQuery(Resource.class).select(
+                Resource::getId,
+                Resource::getStorageKey,
+                Resource::getStorageType,
+                Resource::getOrgId
+        ).in(Resource::getId, resourceIds);
+
+        List<Resource> resources = resourceMapper.selectList(query);
+
+        Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));
+
+        Stream<ResourceReadUrlGetResultBO> resourceReadUrlResultStream = resources.stream().map(resource -> {
+            StorageService storageService = storageFactory.get(resource.getStorageType());
+            String resourceReadUrl = storageService.getResourceReadUrl(resource.getStorageKey());
+
+            return new ResourceReadUrlGetResultBO(
+                    resourceReadUrl,
+                    resource.getOrgId(),
+                    resource.getStorageKey()
+            );
+        });
+
+        return resourceReadUrlResultStream.collect(Collectors.toMap((org) -> resourceIdKeyMap.get(org.getKey()), org -> org));
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {

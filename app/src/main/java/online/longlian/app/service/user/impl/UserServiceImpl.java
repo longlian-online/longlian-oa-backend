@@ -73,7 +73,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null) {
-            builder.avatarUrl(resourceService.getFileAccessUrl(user.getAvatarFileId()));
+            builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
         }
         return builder.build();
     }
@@ -92,7 +92,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null) {
-            avatarUrl = resourceService.getFileAccessUrl(organization.getAvatarFileId());
+            avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
         }
 
         return UserSwitchOrgResultBO.builder()
