@@ -1,18 +1,18 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import online.longlian.app.pojo.entity.OrganizationJoinOpt;
+import online.longlian.app.pojo.entity.OrganizationCreateOtp;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
  * <p>
- * 邀请加入组织表 Mapper 接口
+ * 邀请创建组织表 Mapper 接口
  * </p>
  *
  * @author longlian
  * @since 2026-04-20
  */
 @Mapper
-public interface OrganizationJoinOptMapper extends BaseMapper<OrganizationJoinOpt> {
+public interface OrganizationCreateOtpMapper extends BaseMapper<OrganizationCreateOtp> {
 
 }

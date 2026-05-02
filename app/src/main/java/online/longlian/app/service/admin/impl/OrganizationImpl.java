@@ -8,12 +8,12 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.util.RandomCodeUtil;
-import online.longlian.app.mapper.OrganizationCreateOptMapper;
+import online.longlian.app.mapper.OrganizationCreateOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.*;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.entity.OrganizationCreateOpt;
+import online.longlian.app.pojo.entity.OrganizationCreateOtp;
 import online.longlian.app.service.admin.OrganizationService;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
@@ -35,7 +35,7 @@ public class OrganizationImpl implements OrganizationService {
     private final OrganizationMapper organizationMapper;
     private final ResourceService resourceService;
     private final OneTimePasswordService oneTimePasswordService;
-    private final OrganizationCreateOptMapper organizationCreateOptMapper;
+    private final OrganizationCreateOtpMapper organizationCreateOtpMapper;
 
     public PageResultBO<AdminOrganizationListResultBO> getOrgListInfo(@NonNull AdminOrganizationListParamsBO params) {
         Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
@@ -80,10 +80,10 @@ public class OrganizationImpl implements OrganizationService {
                         .build()
         );
 
-        OrganizationCreateOpt organizationCreateOpt = OrganizationCreateOpt.builder()
+        OrganizationCreateOtp organizationCreateOtp = OrganizationCreateOtp.builder()
                 .otpId(oneTimePassword.getId())
                 .build();
-        organizationCreateOptMapper.insert(organizationCreateOpt);
+        organizationCreateOtpMapper.insert(organizationCreateOtp);
 
         return AdminGenerateInviteCodeResultBO.builder()
                 .inviteCode(inviteCode)

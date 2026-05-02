@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 邀请加入组织表
+ * 邀请创建组织表
  * </p>
  *
  * @author longlian
@@ -25,9 +25,9 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("organization_join_opt")
-@ApiModel(value = "OrganizationJoinOpt对象", description = "邀请加入组织表")
-public class OrganizationJoinOpt implements Serializable {
+@TableName("organization_create_otp")
+@ApiModel(value = "OrganizationCreateOtp对象", description = "邀请创建组织表")
+public class OrganizationCreateOtp implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -46,13 +46,6 @@ public class OrganizationJoinOpt implements Serializable {
     private Long otpId;
 
     /**
-     * 目标组织ID
-     */
-    @TableField("org_id")
-    @ApiModelProperty("目标组织ID")
-    private Long orgId;
-
-    /**
      * 被邀请用户ID
      */
     @ApiModelProperty("被邀请用户ID")
@@ -60,11 +53,11 @@ public class OrganizationJoinOpt implements Serializable {
     private Long invitedUserId;
 
     /**
-     * 加入成功后的组织成员ID
+     * 创建成功后的组织ID
      */
-    @TableField("org_member_id")
-    @ApiModelProperty("加入成功后的组织成员ID")
-    private Long orgMemberId;
+    @TableField("org_id")
+    @ApiModelProperty("创建成功后的组织ID")
+    private Long orgId;
 
     /**
      * 使用时间

@@ -151,8 +151,8 @@ CREATE TABLE `one_time_password` (
                                       PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='一次性密码（OTP）表';
 
--- 2.5 邀请创建组织表 organization_create_opt
-CREATE TABLE `organization_create_opt` (
+-- 2.5 邀请创建组织表 organization_create_otp
+CREATE TABLE `organization_create_otp` (
                                                   `id` bigint NOT NULL COMMENT '邀请ID',
                                                   `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
                                                   `invited_user_id` bigint COMMENT '被邀请用户ID',
@@ -164,8 +164,8 @@ CREATE TABLE `organization_create_opt` (
                                                   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请创建组织表';
 
--- 2.6 邀请加入组织表 organization_join_opt
-CREATE TABLE `organization_join_opt` (
+-- 2.6 邀请加入组织表 organization_join_otp
+CREATE TABLE `organization_join_otp` (
                                                 `id` bigint NOT NULL COMMENT '邀请ID',
                                                 `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
                                                 `org_id` bigint COMMENT '目标组织ID',

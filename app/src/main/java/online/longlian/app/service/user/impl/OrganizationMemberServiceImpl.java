@@ -11,7 +11,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationJoinOptMapper;
+import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
@@ -25,7 +25,7 @@ import online.longlian.app.pojo.bo.PageResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.entity.OrganizationJoinOpt;
+import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.OneTimePasswordService;
@@ -58,7 +58,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
     private final OneTimePasswordService oneTimePasswordService;
-    private final OrganizationJoinOptMapper organizationJoinOptMapper;
+    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final ResourceService resourceService;
 
     @Override
@@ -173,11 +173,11 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                         .build()
         );
 
-        OrganizationJoinOpt organizationJoinOpt = OrganizationJoinOpt.builder()
+        OrganizationJoinOtp organizationJoinOtp = OrganizationJoinOtp.builder()
                 .otpId(oneTimePassword.getId())
                 .orgId(organization.getId())
                 .build();
-        organizationJoinOptMapper.insert(organizationJoinOpt);
+        organizationJoinOtpMapper.insert(organizationJoinOtp);
 
         return OrgAdminGenerateJoinOrgInviteCodeResultBO.builder()
                 .inviteCode(inviteCode)
