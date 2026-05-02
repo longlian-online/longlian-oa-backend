@@ -2,6 +2,7 @@ package online.longlian.app.service.user.impl;
 
 import com.alibaba.fastjson2.JSON;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
@@ -122,15 +124,19 @@ public class SessionServiceImpl implements SessionService {
     }
 
     private void cacheLoginSession(UserDetailImpl userDetail, long ttlSeconds) {
-        LoginSessionCacheBO sessionCacheBO = new LoginSessionCacheBO();
-        BeanUtils.copyProperties(userDetail, sessionCacheBO);
-        sessionCacheBO.setUserId(userDetail.getId());
+        try {
+            LoginSessionCacheBO sessionCacheBO = new LoginSessionCacheBO();
+            BeanUtils.copyProperties(userDetail, sessionCacheBO);
+            sessionCacheBO.setUserId(userDetail.getId());
 
-        redisTemplate.opsForValue().set(
-                RedisConstants.LOGIN_USER + userDetail.getId(),
-                JSON.toJSONString(sessionCacheBO),
-                ttlSeconds,
-                TimeUnit.SECONDS
-        );
+            redisTemplate.opsForValue().set(
+                    RedisConstants.LOGIN_USER + userDetail.getId(),
+                    JSON.toJSONString(sessionCacheBO),
+                    ttlSeconds,
+                    TimeUnit.SECONDS
+            );
+        } catch (Exception e) {
+            log.warn("缓存用户登录会话失败，userId={}", userDetail.getId(), e);
+        }
     }
 }
