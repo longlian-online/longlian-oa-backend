@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.dto.app;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,6 +28,7 @@ public class ProjectUpdateDTO {
     private String description;
 
     @NotNull(message = "封面不能为空")
+    @JsonLongIdString
     @Schema(type = "string", description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long coverFileId;
 }

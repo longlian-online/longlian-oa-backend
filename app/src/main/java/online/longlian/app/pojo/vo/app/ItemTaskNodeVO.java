@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.app;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.TaskInstanceStatus;
@@ -8,9 +10,11 @@ import online.longlian.generator.enumeration.TaskInstanceStatus;
 @Schema(description = "任务流节点信息（含执行状态，用于流程图可视化）")
 public class ItemTaskNodeVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "任务节点ID")
     private Long id;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "关联原子任务ID")
     private Long baseTaskId;
 
@@ -31,6 +35,7 @@ public class ItemTaskNodeVO {
     )
     private TaskInstanceStatus taskStatus;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "接取人ID（已接取时有值）")
     private Long assigneeId;
 

@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,6 +15,7 @@ import lombok.NoArgsConstructor;
 @Schema(description = "组织管理员端当前组织信息")
 public class OrgAdmintOrganizationInfoVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "组织ID")
     private Long id;
 

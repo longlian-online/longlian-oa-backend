@@ -2,12 +2,15 @@ package online.longlian.app.common.config;
 
 import com.fasterxml.jackson.databind.BeanDescription;
 import com.fasterxml.jackson.databind.SerializationConfig;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
+import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
+import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.app.common.constants.PatternConstants;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +24,7 @@ import java.util.List;
 public class JacksonConfig {
 
     /**
-     * JSON 序列化配置，将雪花ID字段序列化为字符串，序列化时间
+     * JSON 序列化配置，将显式标记的雪花ID字段序列化为字符串，序列化时间
      */
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer jacksonCustomizer() {
@@ -39,7 +42,7 @@ public class JacksonConfig {
                         List<BeanPropertyWriter> beanProperties
                 ) {
                     for (BeanPropertyWriter writer : beanProperties) {
-                        if (isLongType(writer) && isIdField(writer.getName())) {
+                        if (isJsonLongIdString(writer, beanDesc)) {
                             writer.assignSerializer(ToStringSerializer.instance);
                         }
                     }
@@ -51,13 +54,22 @@ public class JacksonConfig {
         };
     }
 
-    private static boolean isLongType(BeanPropertyWriter writer) {
+    private static boolean isJsonLongIdString(BeanPropertyWriter writer, BeanDescription beanDesc) {
         Class<?> rawClass = writer.getType().getRawClass();
-        return Long.class.equals(rawClass) || Long.TYPE.equals(rawClass);
+        if (!Long.class.equals(rawClass) && !Long.TYPE.equals(rawClass)) {
+            return false;
+        }
+
+        for (BeanPropertyDefinition property : beanDesc.findProperties()) {
+            if (writer.getName().equals(property.getName())) {
+                return hasJsonLongIdString(property.getField()) || hasJsonLongIdString(property.getGetter());
+            }
+        }
+        return false;
     }
 
-    private static boolean isIdField(String fieldName) {
-        return "id".equals(fieldName) || fieldName.endsWith("Id");
+    private static boolean hasJsonLongIdString(AnnotatedMember member) {
+        return member != null && member.hasAnnotation(JsonLongIdString.class);
     }
 
 }

@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.ProjectStatus;
@@ -10,12 +12,14 @@ import java.time.LocalDateTime;
 @Schema(description = "企划管理列表信息")
 public class ProjectAdminInfoVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "企划ID")
     private Long id;
 
     @Schema(description = "企划标题")
     private String title;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "企划类型ID")
     private Long typeId;
 
@@ -25,6 +29,7 @@ public class ProjectAdminInfoVO {
     @Schema(description = "企划状态：IN_PROGRESS-进行中，COMPLETED-已完成，ARCHIVED-已归档")
     private ProjectStatus status;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "创建人ID")
     private Long creatorId;
 

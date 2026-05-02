@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.Status;
@@ -10,9 +12,11 @@ import java.time.LocalDateTime;
 @Schema(description = "组员信息")
 public class OrgMemberInfoVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "成员ID")
     private Long id;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "用户ID")
     private Long userId;
 

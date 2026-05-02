@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -18,6 +20,7 @@ public class ProjectAdminListDTO extends PageRequestDTO {
     @Schema(description = "企划标题模糊搜索关键词")
     private String keyword;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "企划类型ID（精确筛选）")
     private Long typeId;
 

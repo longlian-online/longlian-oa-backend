@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.Status;
@@ -10,6 +12,7 @@ import java.time.LocalDateTime;
 @Schema(description = "任务模板列表行信息")
 public class TaskTemplateListVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "模板ID")
     private Long id;
 
@@ -25,6 +28,7 @@ public class TaskTemplateListVO {
     @Schema(description = "引用次数（已基于该模板创建的任务流数量）")
     private Integer refCount;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "创建人ID")
     private Long creatorId;
 

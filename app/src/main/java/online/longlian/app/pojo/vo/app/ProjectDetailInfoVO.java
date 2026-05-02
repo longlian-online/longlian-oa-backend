@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.app;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.ProjectStatus;
@@ -8,6 +10,7 @@ import online.longlian.generator.enumeration.ProjectStatus;
 @Schema(description = "企划详情")
 public class ProjectDetailInfoVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "企划ID")
     private Long id;
 

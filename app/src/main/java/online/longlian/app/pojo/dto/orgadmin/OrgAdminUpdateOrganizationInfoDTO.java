@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +18,7 @@ public class OrgAdminUpdateOrganizationInfoDTO {
     private String name;
 
     @NotNull(message = "组织头像文件ID不能为空")
+    @JsonLongIdString
     @Schema(type = "string", description = "组织头像文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long avatarFileId;
 
