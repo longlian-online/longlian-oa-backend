@@ -56,6 +56,14 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return buildUserDetails(user);
     }
 
+    public UserDetails loadUserById(Long userId) throws UsernameNotFoundException {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return buildUserDetails(user);
+    }
+
     private UserDetailImpl buildUserDetails(User user) {
         CurrentOrganizationContextBO currentOrgContext = currentOrganizationService.resolveCurrentOrgContext(
                 user.getId(),
