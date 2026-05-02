@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.app;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.ItemStatus;
@@ -11,6 +13,7 @@ import java.util.List;
 @Schema(description = "项目列表信息")
 public class ProjectItemListVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "项目ID")
     private Long id;
 

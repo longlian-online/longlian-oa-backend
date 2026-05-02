@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +12,7 @@ import lombok.Data;
 public class TaskTemplateNodeDTO {
 
     @NotNull(message = "原子任务ID不能为空")
+    @JsonLongIdString
     @Schema(type = "string", description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long baseTaskId;
 

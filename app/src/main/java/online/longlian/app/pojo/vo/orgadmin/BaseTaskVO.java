@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.generator.enumeration.Status;
@@ -10,6 +12,7 @@ import java.time.LocalDateTime;
 @Schema(description = "原子任务信息")
 public class BaseTaskVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "原子任务ID")
     private Long id;
 

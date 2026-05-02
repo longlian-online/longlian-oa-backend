@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -9,9 +11,11 @@ import java.util.List;
 @Schema(description = "组员各原子任务提交数")
 public class OrgMemberBaseTaskSubmitCountVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "成员ID")
     private Long memberId;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "用户ID")
     private Long userId;
 

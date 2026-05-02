@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.app;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,9 +17,11 @@ import java.util.List;
 @Schema(description = "登录返回信息")
 public class LoginVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "用户id")
     private Long userId;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "当前组织ID")
     private Long currentOrgId;
 

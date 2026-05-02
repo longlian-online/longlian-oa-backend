@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -7,9 +9,11 @@ import lombok.Data;
 @Schema(description = "任务模板节点信息")
 public class TaskTemplateNodeVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "模板节点ID")
     private Long id;
 
+    @JsonLongIdString
     @Schema(type = "string", description = "关联原子任务ID")
     private Long baseTaskId;
 

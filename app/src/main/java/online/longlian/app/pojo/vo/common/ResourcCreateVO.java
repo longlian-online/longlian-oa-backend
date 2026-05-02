@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.vo.common;
 
+import online.longlian.app.common.annotation.JsonLongIdString;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,6 +12,7 @@ import online.longlian.generator.enumeration.StorageType;
 @Schema(description = "创建文件上传响应")
 public class ResourcCreateVO {
 
+    @JsonLongIdString
     @Schema(type = "string", description = "文件ID")
     private Long fileId;
 
