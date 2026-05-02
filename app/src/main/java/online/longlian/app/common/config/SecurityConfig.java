@@ -1,6 +1,7 @@
 package online.longlian.app.common.config;
 
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
@@ -8,7 +9,6 @@ import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvi
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -20,7 +20,6 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -46,25 +45,7 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                // 登录
-                                new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
-                                new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
-
-                                // 管理端登录
-                                new AntPathRequestMatcher("/admin/session/login", HttpMethod.POST.name()),
-                                // 验证码
-                                new AntPathRequestMatcher("/app/session/email/code", HttpMethod.POST.name()),
-                                // 注册与注册页邀请码信息
-                                new AntPathRequestMatcher("/app/user/register/create-organization", HttpMethod.POST.name()),
-                                new AntPathRequestMatcher("/app/user/register/join-organization", HttpMethod.POST.name()),
-                                new AntPathRequestMatcher("/app/user/register/join-organization/invite-info", HttpMethod.GET.name()),
-                                // Swagger
-                                new AntPathRequestMatcher("/swagger-ui.html"),
-                                new AntPathRequestMatcher("/swagger-ui/**"),
-                                new AntPathRequestMatcher("/v3/api-docs/**"),
-                                new AntPathRequestMatcher("/swagger-resources/**")
-                        ).permitAll()
+                        .requestMatchers(SecurityConstants.PERMIT_ALL_MATCHERS).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

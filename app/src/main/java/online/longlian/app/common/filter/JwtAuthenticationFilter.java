@@ -8,8 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
@@ -22,6 +22,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -38,6 +39,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final RedisTemplate<String, Object> redisTemplate;
     private final AuthenticationEntryPoint authenticationEntryPoint;
     private final TokenBlacklistService tokenBlacklistService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        for (RequestMatcher matcher : SecurityConstants.PERMIT_ALL_MATCHERS) {
+            if (matcher.matches(request)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
