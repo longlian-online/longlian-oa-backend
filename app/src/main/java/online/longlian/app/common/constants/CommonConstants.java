@@ -10,9 +10,6 @@ public class CommonConstants {
     public static final long FILE_UPLOAD_MAX_SIZE = 50L * 1024 * 1024;
 
     public static final String NOTIFY_TITLE = "这个是通知标题";
-    public static final String NOTIFY_CONTENT = "这个是通知内容";
 
     public static final String THREAD_NAME_PREFIX = "verify-code-";
-
-    public static final String CURRENT_TOKEN = "current-token";
 }

@@ -143,7 +143,7 @@ CREATE TABLE `one_time_password` (
                                      `code` varchar(128) NOT NULL COMMENT '验证码',
                                      `expired_at` datetime NOT NULL COMMENT '过期时间',
                                      `used_at` datetime DEFAULT NULL COMMENT '使用时间',
-                                     `biz_type` tinyint NOT NULL COMMENT '业务类型 1-邀请创建组织 2-邀请加入组织',
+                                     `biz_type` tinyint NOT NULL COMMENT '业务类型 1-邀请创建组织 2-邀请加入组织 3-邮箱验证码',
                                      `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-待使用 1-已使用',
                                      `creator_id` bigint NOT NULL COMMENT '创建者ID',
                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -151,7 +151,18 @@ CREATE TABLE `one_time_password` (
                                       PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='一次性密码（OTP）表';
 
--- 2.5 邀请创建组织表 organization_create_otp
+-- 2.5 邮箱验证码表 email_verify_otp
+CREATE TABLE `email_verify_otp` (
+                                    `id` bigint NOT NULL COMMENT '邮箱验证码ID',
+                                    `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
+                                    `receiver` varchar(255) NOT NULL COMMENT '接收者邮箱',
+                                    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                    `deleted_at` datetime DEFAULT NULL,
+                                    PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮箱验证码扩展表';
+
+-- 2.6 邀请创建组织表 organization_create_otp
 CREATE TABLE `organization_create_otp` (
                                                   `id` bigint NOT NULL COMMENT '邀请ID',
                                                   `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
@@ -163,7 +174,7 @@ CREATE TABLE `organization_create_otp` (
                                                   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请创建组织表';
 
--- 2.6 邀请加入组织表 organization_join_otp
+-- 2.7 邀请加入组织表 organization_join_otp
 CREATE TABLE `organization_join_otp` (
                                                 `id` bigint NOT NULL COMMENT '邀请ID',
                                                 `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
