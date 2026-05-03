@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import online.longlian.generator.annotation.ModelEnum;
 
-@Getter
 @AllArgsConstructor
 @ModelEnum(model = "email_verify_otp", field = "send_status")
 public enum EmailVerifySendStatus implements CodeEnum {
@@ -14,5 +13,11 @@ public enum EmailVerifySendStatus implements CodeEnum {
     FAILED(2, "发送失败");
 
     private final Integer code;
+    @Getter
     private final String desc;
+
+    @Override
+    public Integer getCode() {
+        return code;
+    }
 }
