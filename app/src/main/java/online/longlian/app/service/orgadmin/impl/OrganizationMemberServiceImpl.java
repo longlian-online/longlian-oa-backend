@@ -1,4 +1,4 @@
-package online.longlian.app.service.user.impl;
+package online.longlian.app.service.orgadmin.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -29,8 +29,8 @@ import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.OneTimePasswordService;
+import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.generator.enumeration.ApplicationStatus;
 import online.longlian.generator.enumeration.ApplicationType;
 import online.longlian.generator.enumeration.OTPType;
@@ -101,19 +101,25 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             return new PageResultBO<>(Collections.emptyList(), applicationPage.getTotal());
         }
 
-        Map<Long, User> existingUserMap = userMapper.selectBatchIds(applications.stream()
-                        .filter(application -> application.getApplicationType() == ApplicationType.EXISTING_USER)
-                        .map(GroupApplication::getUserId)
-                        .filter(userId -> userId != null && userId > 0)
+        // 批量查询用户
+        List<Long> existingUserIds = applications.stream()
+                .filter(app -> app.getApplicationType() == ApplicationType.EXISTING_USER)
+                .map(GroupApplication::getUserId)
+                .filter(userId -> userId != null && userId > 0)
+                .distinct()
+                .toList();
+
+        Map<Long, User> existingUserMap = existingUserIds.isEmpty()
+                ? Collections.emptyMap()
+                : userMapper.selectBatchIds(existingUserIds)
+                  .stream()
+                  .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(existingUserMap.values().stream()
+                        .map(User::getAvatarFileId)
+                        .filter(fileId -> fileId != null && fileId > 0)
                         .distinct()
                         .toList())
-                .stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(existingUserMap.values().stream()
-                .map(User::getAvatarFileId)
-                .filter(fileId -> fileId != null && fileId > 0)
-                .distinct()
-                .toList())
                 // 返回的对象中包含其他元信息，这里只取 url
                 .entrySet()
                 .stream()

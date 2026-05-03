@@ -1,4 +1,4 @@
-package online.longlian.app.service.user;
+package online.longlian.app.service.orgadmin;
 
 import lombok.NonNull;
 import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;

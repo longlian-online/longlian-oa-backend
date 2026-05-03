@@ -1,90 +1,18 @@
 package online.longlian.app.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.constants.CommonConstants;
-import online.longlian.app.common.constants.PatternConstants;
-import online.longlian.app.common.constants.RedisConstants;
-import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.util.RandomCodeUtil;
-import online.longlian.app.service.notify.NotificationManager;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
+import online.longlian.app.pojo.entity.OneTimePassword;
 
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
+public interface VerifyCodeService {
 
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class VerifyCodeService {
-
-    private final StringRedisTemplate stringRedisTemplate;
-    private final NotificationManager notificationManager;
     /**
-     * 生成6位数字验证码
+     * 发送邮箱验证码
      */
-    public String generateCode() {
-        return RandomCodeUtil.generateCode(CommonConstants.CODE_LENGTH);
-    }
+    boolean sendCode(String receiver);
 
-    public boolean sendCode(String receiver) {
-        if (!isValidEmail(receiver)) {
-            throw new AppException(ResultCode.OPERATION_FAIL,"邮箱格式不合法");
-        }
-        if (stringRedisTemplate.hasKey(RedisConstants.LIMIT_KEY + receiver)) {
-            throw new AppException(ResultCode.OPERATION_FAIL,"发送验证码过于频繁");
-        }
-        stringRedisTemplate.opsForValue().set(
-                RedisConstants.LIMIT_KEY + receiver,
-                "1",
-                CommonConstants.CODE_LIMIT,
-                TimeUnit.SECONDS
-        );
-        // 2. 异步发送验证码
-        asyncSendCode(receiver);
-        return true;
-    }
     /**
-     * 异步发送验证码
+     * 验证邮箱验证码
+     *
+     * @return 可用的邮箱验证码 OTP
      */
-    @Async("verifyCodeExecutor")
-    public void asyncSendCode(String receiver) {
-        String code = generateCode();
-        try {
-            notificationManager.send(receiver, code);
-            stringRedisTemplate.opsForValue().set(
-                    RedisConstants.CODE_KEY + receiver,
-                    code,
-                    CommonConstants.CODE_EXPIRE,
-                    TimeUnit.SECONDS
-            );
-        } catch (Exception e) {
-            log.error("{}验证码发送失败", receiver, e);
-            stringRedisTemplate.delete(RedisConstants.LIMIT_KEY + receiver);
-        }
-    }
-    public boolean validateCode(String receiver, String code) {
-        // 1. 检查Redis中是否存在验证码
-        String redisCode = stringRedisTemplate.opsForValue().get(RedisConstants.CODE_KEY + receiver);
-        if (redisCode == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL,"验证码已过期或未发送");
-        }
-        // 2. 校验验证码是否一致
-        boolean isValid = redisCode.equals(code);
-        // 3. 验证成功后删除验证码
-        if (isValid) {
-            stringRedisTemplate.delete(RedisConstants.CODE_KEY + receiver);
-        }
-        return !isValid;
-    }
-
-    private boolean isValidEmail(String email) {
-        if (email == null || email.trim().isEmpty()) {
-            return false;
-        }
-        return Pattern.compile(PatternConstants.EMAIL_PATTERN).matcher(email.trim()).matches();
-    }
+    OneTimePassword validateCode(String receiver, String code);
 }

@@ -108,7 +108,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void registerAndCreateOrganizationByInvite(UserRegisterByInviteParamsBO params) {
-        validateRegisterRequest(params);
+        OneTimePassword emailOtp = validateRegisterRequest(params);
         OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationInvite);
         OrganizationCreateOtp organizationCreateOtp = validatePendingOrganizationCreateInvitation(oneTimePassword.getId());
         if (params.getOrgName() == null || params.getOrgName().isBlank()) {
@@ -142,6 +142,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setDefaultOrgId(organization.getId());
         userMapper.updateById(user);
 
+        oneTimePasswordService.useOTP(emailOtp.getId());
         oneTimePasswordService.useOTP(oneTimePassword.getId());
         organizationCreateOtpMapper.update(
                 null,
@@ -150,14 +151,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .isNull(OrganizationCreateOtp::getInvitedUserId)
                         .set(OrganizationCreateOtp::getInvitedUserId, user.getId())
                         .set(OrganizationCreateOtp::getOrgId, organization.getId())
-                        .set(OrganizationCreateOtp::getUsedAt, now)
         );
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params) {
-        validateRegisterRequest(params);
+        OneTimePassword emailOtp = validateRegisterRequest(params);
         OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
         OrganizationJoinOtp organizationJoinOtp = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
 
@@ -178,14 +178,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         groupApplicationMapper.insert(groupApplication);
 
+        oneTimePasswordService.useOTP(emailOtp.getId());
         oneTimePasswordService.useOTP(oneTimePassword.getId());
-        organizationJoinOtpMapper.update(
-                null,
-                new LambdaUpdateWrapper<OrganizationJoinOtp>()
-                        .eq(OrganizationJoinOtp::getId, organizationJoinOtp.getId())
-                        .isNull(OrganizationJoinOtp::getInvitedUserId)
-                        .set(OrganizationJoinOtp::getUsedAt, now)
-        );
     }
 
     @Override
@@ -226,7 +220,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .eq(OrganizationJoinOtp::getId, organizationJoinOtp.getId())
                         .isNull(OrganizationJoinOtp::getInvitedUserId)
                         .set(OrganizationJoinOtp::getInvitedUserId, userId)
-                        .set(OrganizationJoinOtp::getUsedAt, now)
         );
     }
 
@@ -241,16 +234,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
     }
 
-    private void validateRegisterRequest(UserRegisterByInviteParamsBO params) {
-        if (verifyCodeService.validateCode(params.getEmail(), params.getCode())) {
-            throw new AppException(ResultCode.PARAM_ERROR, "邮箱验证码错误");
-        }
+    private OneTimePassword validateRegisterRequest(UserRegisterByInviteParamsBO params) {
+        OneTimePassword emailOtp = verifyCodeService.validateCode(params.getEmail(), params.getCode());
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, params.getUsername())) != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
         }
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, params.getEmail())) != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
         }
+        return emailOtp;
     }
 
     private Organization validateJoinTargetOrganization(Long orgId) {
@@ -288,7 +280,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organizationCreateOtp == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        validateInvitationAvailable(organizationCreateOtp.getInvitedUserId(), organizationCreateOtp.getUsedAt());
+        validateInvitationAvailable(organizationCreateOtp.getInvitedUserId());
         return organizationCreateOtp;
     }
 
@@ -301,12 +293,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (organizationJoinOtp == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        validateInvitationAvailable(organizationJoinOtp.getInvitedUserId(), organizationJoinOtp.getUsedAt());
+        validateInvitationAvailable(organizationJoinOtp.getInvitedUserId());
         return organizationJoinOtp;
     }
 
-    private void validateInvitationAvailable(Long invitedUserId, LocalDateTime usedAt) {
-        if (invitedUserId != null || usedAt != null) {
+    private void validateInvitationAvailable(Long invitedUserId) {
+        if (invitedUserId != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已使用");
         }
     }

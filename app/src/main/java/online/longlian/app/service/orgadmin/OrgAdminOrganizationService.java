@@ -1,4 +1,4 @@
-package online.longlian.app.service.user;
+package online.longlian.app.service.orgadmin;
 
 public interface OrgAdminOrganizationService {
 

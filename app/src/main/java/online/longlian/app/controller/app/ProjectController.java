@@ -14,7 +14,7 @@ import online.longlian.app.pojo.vo.app.ProjectDetailInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.user.ProjectService;
+import online.longlian.app.service.orgadmin.ProjectService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
