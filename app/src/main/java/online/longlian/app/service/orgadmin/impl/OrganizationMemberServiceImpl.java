@@ -101,19 +101,25 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             return new PageResultBO<>(Collections.emptyList(), applicationPage.getTotal());
         }
 
-        Map<Long, User> existingUserMap = userMapper.selectBatchIds(applications.stream()
-                        .filter(application -> application.getApplicationType() == ApplicationType.EXISTING_USER)
-                        .map(GroupApplication::getUserId)
-                        .filter(userId -> userId != null && userId > 0)
+        // 批量查询用户
+        List<Long> existingUserIds = applications.stream()
+                .filter(app -> app.getApplicationType() == ApplicationType.EXISTING_USER)
+                .map(GroupApplication::getUserId)
+                .filter(userId -> userId != null && userId > 0)
+                .distinct()
+                .toList();
+
+        Map<Long, User> existingUserMap = existingUserIds.isEmpty()
+                ? Collections.emptyMap()
+                : userMapper.selectBatchIds(existingUserIds)
+                  .stream()
+                  .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(existingUserMap.values().stream()
+                        .map(User::getAvatarFileId)
+                        .filter(fileId -> fileId != null && fileId > 0)
                         .distinct()
                         .toList())
-                .stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(existingUserMap.values().stream()
-                .map(User::getAvatarFileId)
-                .filter(fileId -> fileId != null && fileId > 0)
-                .distinct()
-                .toList())
                 // 返回的对象中包含其他元信息，这里只取 url
                 .entrySet()
                 .stream()
