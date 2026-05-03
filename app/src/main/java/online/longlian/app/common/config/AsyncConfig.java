@@ -13,16 +13,6 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AsyncConfig {
 
-//    @Bean("verifyCodeExecutor")
-//    public Executor verifyCodeExecutor() {
-//        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-//        executor.setCorePoolSize(5);
-//        executor.setMaxPoolSize(10);
-//        executor.setQueueCapacity(100);
-//        executor.setThreadNamePrefix(CommonConstants.THREAD_NAME_PREFIX);
-//        executor.initialize();
-//        return executor;
-//    }
     @Bean("verifyCodeExecutor")
     public Executor verifyCodeExecutor() {
         return new VirtualThreadTaskExecutor(CommonConstants.THREAD_NAME_PREFIX);

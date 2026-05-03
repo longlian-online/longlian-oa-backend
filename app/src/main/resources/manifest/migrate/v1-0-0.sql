@@ -417,3 +417,28 @@ CREATE TABLE `token_blacklist` (
   INDEX `idx_user`(`token_type`, `user_id`) USING BTREE COMMENT '用户索引',
   INDEX `idx_expired`(`expired_at`) USING BTREE COMMENT '过期时间索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Token黑名单表';
+
+-- ----------------------------
+-- 5. 定时任务模块表
+-- ----------------------------
+
+-- 5.1 定时任务执行日志表 scheduled_task_log
+CREATE TABLE `scheduled_task_log` (
+  `id` bigint NOT NULL COMMENT '日志ID',
+  `task_name` varchar(100) NOT NULL COMMENT '任务名称',
+  `trigger_source` tinyint NOT NULL COMMENT '触发来源 1-SCHEDULED(定时触发) 2-MANUAL(手动触发)',
+  `execute_time_param` datetime NOT NULL COMMENT '上层传递的执行时间',
+  `status` tinyint NOT NULL COMMENT '执行状态 1-RUNNING(执行中) 2-SUCCESS(成功) 3-FAILED(失败)',
+  `error_message` text DEFAULT NULL COMMENT '失败时的错误信息',
+  `execution_id` varchar(64) NOT NULL COMMENT '执行追踪ID',
+  `triggered_by` bigint DEFAULT NULL COMMENT '手动触发人ID（定时触发时为NULL）',
+  `started_at` datetime NOT NULL COMMENT '开始执行时间',
+  `ended_at` datetime DEFAULT NULL COMMENT '结束执行时间',
+  `duration_ms` bigint DEFAULT NULL COMMENT '执行耗时（毫秒）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_task_name` (`task_name`) USING BTREE COMMENT '按任务名查询',
+  KEY `idx_started_at` (`started_at`) USING BTREE COMMENT '按执行时间查询'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时任务执行日志表';
