@@ -29,7 +29,12 @@ app/src/main/java/online/longlian/app/
 │   ├── admin/           # 系统管理服务
 │   ├── notify/          # 通知服务（邮件等）
 │   ├── resource/        # 文件存储服务
+│   ├── scheduled/       # 定时任务服务
 │   └── common/          # 通用服务
+├── scheduled/           # 定时任务调度核心（接口+引擎+任务实现）
+│   ├── ScheduledTask.java      # 任务接口
+│   ├── ScheduledTaskEngine.java # 调度引擎（实现 ApplicationRunner）
+│   └── task/                   # 任务实现（如 HeartbeatTask）
 ├── mapper/              # MyBatis Mapper 接口 + XML
 ├── pojo/
 │   ├── entity/          # 数据库实体（与表一一对应）
@@ -94,9 +99,9 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
+| 定时任务 | `ScheduledTask` 接口定义任务，`ScheduledTaskEngine` 调度引擎（Spring Cron），手动触发通过 `admin/ScheduledTaskController` |
 
 ## 项目中不具备的基础设施（如需使用需从零搭建）
 
-- 定时任务/调度（无 `@EnableScheduling`、无 Quartz）
 - 分布式锁（Redis 可用但无封装）
 - 消息队列
