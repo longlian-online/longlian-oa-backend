@@ -1,7 +1,6 @@
 package online.longlian.app.controller.orgadmin;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,11 +10,8 @@ import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectAdminListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ProjectAdminInfoVO;
-import online.longlian.app.service.user.ProjectService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @Tag(name = "企划接口", description = "企划相关接口")

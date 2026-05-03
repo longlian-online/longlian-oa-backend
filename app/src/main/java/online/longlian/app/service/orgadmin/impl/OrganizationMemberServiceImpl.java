@@ -1,4 +1,4 @@
-package online.longlian.app.service.user.impl;
+package online.longlian.app.service.orgadmin.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -29,8 +29,8 @@ import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.OneTimePasswordService;
+import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.app.service.user.OrganizationMemberService;
 import online.longlian.generator.enumeration.ApplicationStatus;
 import online.longlian.generator.enumeration.ApplicationType;
 import online.longlian.generator.enumeration.OTPType;

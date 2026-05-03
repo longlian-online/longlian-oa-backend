@@ -156,10 +156,15 @@ CREATE TABLE `email_verify_otp` (
                                     `id` bigint NOT NULL COMMENT '邮箱验证码ID',
                                     `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
                                     `receiver` varchar(255) NOT NULL COMMENT '接收者邮箱',
+                                    `send_status` tinyint NOT NULL DEFAULT 0 COMMENT '发送状态 0-待发送 1-发送成功 2-发送失败',
+                                    `sent_at` datetime DEFAULT NULL COMMENT '发送成功时间',
+                                    `failed_at` datetime DEFAULT NULL COMMENT '发送失败时间',
+                                    `fail_reason` varchar(500) NOT NULL DEFAULT '' COMMENT '发送失败原因',
                                     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                     `deleted_at` datetime DEFAULT NULL,
-                                    PRIMARY KEY (`id`) USING BTREE
+                                    PRIMARY KEY (`id`) USING BTREE,
+                                    INDEX `idx_receiver_send_status_created_at`(`receiver`, `send_status`, `created_at`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮箱验证码扩展表';
 
 -- 2.6 邀请创建组织表 organization_create_otp
