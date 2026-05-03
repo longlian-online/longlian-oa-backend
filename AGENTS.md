@@ -105,3 +105,7 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 
 - 分布式锁（Redis 可用但无封装）
 - 消息队列
+
+## Pull Request
+
+生成 pull request 消息必须参考 docs/pull_request_template.md 的格式
