@@ -3,7 +3,9 @@ package online.longlian.app.common.security;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.VerifyCodeService;
+import online.longlian.app.service.common.OneTimePasswordService;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -18,23 +20,21 @@ import org.springframework.stereotype.Component;
 public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
     private final UserDetailsServiceImpl userDetailsServiceImpl;
     private final VerifyCodeService verifyCodeService;
+    private final OneTimePasswordService oneTimePasswordService;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         // 1. 获取邮箱和验证码
         String email = (String) authentication.getPrincipal();
         String code = (String) authentication.getCredentials();
-
-        // 2. 验证验证码
-        if (verifyCodeService.validateCode(email, code)) {
-            throw new AppException(ResultCode.OPERATION_FAIL,"验证码错误或已过期");
-        }
-
+        // 2. 校验验证码
+        OneTimePassword otp = verifyCodeService.validateCode(email, code);
         // 3. 按邮箱查询用户
         UserDetails userDetails = userDetailsServiceImpl.loadUserByEmailOnly(email);
         if (!userDetails.isEnabled()) {
             throw new AppException(ResultCode.OPERATION_FAIL, "账号已被禁用");
         }
+        oneTimePasswordService.useOTP(otp.getId());
 
         // 4. 认证成功：返回已认证令牌
         return new EmailCodeAuthenticationToken(userDetails, null, userDetails.getAuthorities());

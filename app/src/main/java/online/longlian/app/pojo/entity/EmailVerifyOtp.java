@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.generator.enumeration.EmailVerifySendStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -51,6 +52,34 @@ public class EmailVerifyOtp implements Serializable {
     @TableField("receiver")
     @ApiModelProperty("接收者邮箱")
     private String receiver;
+
+    /**
+     * 发送状态 0-待发送 1-发送成功 2-发送失败
+     */
+    @TableField("send_status")
+    @ApiModelProperty("发送状态 0-待发送 1-发送成功 2-发送失败")
+    private EmailVerifySendStatus sendStatus;
+
+    /**
+     * 发送成功时间
+     */
+    @TableField("sent_at")
+    @ApiModelProperty("发送成功时间")
+    private LocalDateTime sentAt;
+
+    /**
+     * 发送失败时间
+     */
+    @TableField("failed_at")
+    @ApiModelProperty("发送失败时间")
+    private LocalDateTime failedAt;
+
+    /**
+     * 发送失败原因
+     */
+    @TableField("fail_reason")
+    @ApiModelProperty("发送失败原因")
+    private String failReason;
 
     @TableField("created_at")
     private LocalDateTime createdAt;

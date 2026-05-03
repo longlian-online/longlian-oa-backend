@@ -108,7 +108,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void registerAndCreateOrganizationByInvite(UserRegisterByInviteParamsBO params) {
-        validateRegisterRequest(params);
+        OneTimePassword emailOtp = validateRegisterRequest(params);
         OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationInvite);
         OrganizationCreateOtp organizationCreateOtp = validatePendingOrganizationCreateInvitation(oneTimePassword.getId());
         if (params.getOrgName() == null || params.getOrgName().isBlank()) {
@@ -142,6 +142,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setDefaultOrgId(organization.getId());
         userMapper.updateById(user);
 
+        oneTimePasswordService.useOTP(emailOtp.getId());
         oneTimePasswordService.useOTP(oneTimePassword.getId());
         organizationCreateOtpMapper.update(
                 null,
@@ -156,7 +157,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params) {
-        validateRegisterRequest(params);
+        OneTimePassword emailOtp = validateRegisterRequest(params);
         OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
         OrganizationJoinOtp organizationJoinOtp = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
 
@@ -177,6 +178,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         groupApplicationMapper.insert(groupApplication);
 
+        oneTimePasswordService.useOTP(emailOtp.getId());
         oneTimePasswordService.useOTP(oneTimePassword.getId());
     }
 
@@ -232,16 +234,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
     }
 
-    private void validateRegisterRequest(UserRegisterByInviteParamsBO params) {
-        if (verifyCodeService.validateCode(params.getEmail(), params.getCode())) {
-            throw new AppException(ResultCode.PARAM_ERROR, "邮箱验证码错误");
-        }
+    private OneTimePassword validateRegisterRequest(UserRegisterByInviteParamsBO params) {
+        OneTimePassword emailOtp = verifyCodeService.validateCode(params.getEmail(), params.getCode());
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, params.getUsername())) != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
         }
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, params.getEmail())) != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
         }
+        return emailOtp;
     }
 
     private Organization validateJoinTargetOrganization(Long orgId) {
