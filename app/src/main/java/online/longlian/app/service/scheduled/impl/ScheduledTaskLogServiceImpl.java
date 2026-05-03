@@ -2,7 +2,6 @@ package online.longlian.app.service.scheduled.impl;
 
 import com.baomidou.mybatisplus.core.incrementer.DefaultIdentifierGenerator;
 import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.ScheduledTaskLogMapper;
 import online.longlian.app.pojo.entity.ScheduledTaskLog;
@@ -12,7 +11,6 @@ import online.longlian.generator.enumeration.TriggerSource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor

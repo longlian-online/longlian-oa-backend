@@ -22,7 +22,7 @@ public class HeartbeatTask implements ScheduledTask {
         return ScheduledTaskDefinition.builder()
                 .taskName("heartbeat")
                 .description("心跳检测任务，每 5 分钟执行一次，用于验证调度链路")
-                .cronExpression("* 0/5 * * * ?")
+                .cronExpression("0 0/5 * * * ?")
                 .enabled(false)
                 .build();
     }

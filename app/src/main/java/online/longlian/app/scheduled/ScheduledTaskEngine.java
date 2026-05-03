@@ -1,9 +1,5 @@
 package online.longlian.app.scheduled;
 
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Scope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
@@ -24,8 +20,6 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static io.opentelemetry.api.GlobalOpenTelemetry.getTracer;
 
 /**
  * 定时任务调度引擎。
