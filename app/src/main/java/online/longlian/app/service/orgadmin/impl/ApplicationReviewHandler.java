@@ -66,6 +66,9 @@ public class ApplicationReviewHandler {
     }
 
     public void rejectApplication(GroupApplication application) {
+        if (application == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "入组申请不存在");
+        }
     }
 
     User createUserByApplication(GroupApplication application, LocalDateTime now) {
