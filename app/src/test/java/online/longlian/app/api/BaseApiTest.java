@@ -97,6 +97,38 @@ public abstract class BaseApiTest {
     }
 
     /**
+     * 创建组织
+     */
+    protected void createOrganization(long orgId, String name) {
+        jdbcTemplate.update(
+                "INSERT INTO `organization` (id, name, creator_id, status) VALUES (?, ?, 0, 1)",
+                orgId, name
+        );
+    }
+
+    /**
+     * 创建组织成员关联
+     */
+    protected void createOrganizationMember(long id, long orgId, long userId, String orgRole) {
+        jdbcTemplate.update(
+                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
+                id, orgId, userId, orgRole
+        );
+    }
+
+    /**
+     * 一次性创建用户及其组织（包含：组织 + 用户（设置默认组织）+ 组织成员）
+     */
+    protected void createUserWithOrganization(long userId, String username, String password,
+                                               String email,
+                                               long orgMemberId, long orgId, String orgRole) {
+        createOrganization(orgId, "组织" + orgId);
+        createTestUser(userId, username, password, email);
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", orgId, userId);
+        createOrganizationMember(orgMemberId, orgId, userId, orgRole);
+    }
+
+    /**
      * 创建带默认 Content-Type 的请求规范
      */
     protected RequestSpecification request() {

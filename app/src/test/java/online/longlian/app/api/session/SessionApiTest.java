@@ -2,6 +2,7 @@ package online.longlian.app.api.session;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.Matchers.*;
@@ -10,7 +11,7 @@ public class SessionApiTest extends BaseApiTest {
 
     @Test
     void shouldLoginSuccessfully() {
-        createTestUser(1L, "testuser", "123456", "test@example.com");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
 
         Response response = request()
                 .body("{\"username\":\"testuser\",\"password\":\"123456\"}")
@@ -48,6 +49,6 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 }
