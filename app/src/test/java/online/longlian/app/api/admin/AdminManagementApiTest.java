@@ -12,7 +12,7 @@ public class AdminManagementApiTest extends BaseApiTest {
 
     @Test
     void shouldCreateAdminSuccessfully() {
-        createAdmin(1L, "superadmin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "superadmin", "123456", "root");
         String token = adminLoginAs("superadmin", "123456");
 
         Response response = authRequest(token)
@@ -35,13 +35,12 @@ public class AdminManagementApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .statusCode(401);
     }
 
     @Test
     void shouldDeleteAdminSuccessfully() {
-        createAdmin(2L, "superadmin2", "123456", "SUPER_ADMIN");
+        createAdmin(2L, "superadmin2", "123456", "root");
         String token = adminLoginAs("superadmin2", "123456");
 
         createAdmin(3L, "todelete", "123456", "ADMIN");
@@ -58,7 +57,7 @@ public class AdminManagementApiTest extends BaseApiTest {
 
     @Test
     void shouldListAdminsSuccessfully() {
-        createAdmin(4L, "superadmin3", "123456", "SUPER_ADMIN");
+        createAdmin(4L, "superadmin3", "123456", "root");
         String token = adminLoginAs("superadmin3", "123456");
 
         createAdmin(5L, "admin5", "123456", "ADMIN");
@@ -79,7 +78,7 @@ public class AdminManagementApiTest extends BaseApiTest {
 
     @Test
     void shouldListAdminsWithPagination() {
-        createAdmin(7L, "superadmin4", "123456", "SUPER_ADMIN");
+        createAdmin(7L, "superadmin4", "123456", "root");
         String token = adminLoginAs("superadmin4", "123456");
 
         createAdmin(8L, "admin8", "123456", "ADMIN");

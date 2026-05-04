@@ -39,7 +39,7 @@ public class AdminSessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test

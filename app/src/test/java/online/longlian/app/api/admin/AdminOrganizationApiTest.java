@@ -76,8 +76,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .statusCode(401);
     }
 
     @Test
@@ -128,7 +127,6 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .statusCode(401);
     }
 }

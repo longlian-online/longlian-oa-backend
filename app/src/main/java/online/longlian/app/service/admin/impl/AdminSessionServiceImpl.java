@@ -90,6 +90,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         );
     }
 
+    // TODO 修改为不依赖上下文的实现
     @Override
     public Long getCurrentAdminId() {
         // 尝试从Security上下文获取

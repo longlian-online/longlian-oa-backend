@@ -2,6 +2,7 @@ package online.longlian.app.api.admin;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.Matchers.*;
@@ -31,7 +32,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(200)
+                .statusCode(401)
                 .body("code", not(equalTo(0)));
     }
 
@@ -47,7 +48,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200);
 
-        if (listResponse.jsonPath().getList("data").size() > 0) {
+        if (!listResponse.jsonPath().getList("data").isEmpty()) {
             String taskName = listResponse.jsonPath().getString("data[0].taskName");
 
             Response triggerResponse = authRequest(token)
@@ -74,7 +75,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     @Test
@@ -85,7 +86,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(200)
+                .statusCode(401)
                 .body("code", not(equalTo(0)));
     }
 }
