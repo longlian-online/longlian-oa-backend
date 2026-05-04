@@ -1,5 +1,8 @@
 package online.longlian.app.pojo.vo.orgadmin;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -8,6 +11,9 @@ import lombok.Data;
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "组员各原子任务提交数")
 public class OrgMemberBaseTaskSubmitCountVO {
 
