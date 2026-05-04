@@ -71,7 +71,10 @@ public abstract class BaseApiTest {
         Response response = given()
                 .contentType(ContentType.JSON)
                 .body(Map.of("username", username, "password", password))
-                .post("/admin/session/login");
+                .post("/admin/session");
+        if (response.statusCode() != 200 || response.jsonPath().getInt("code") != 0) {
+            throw new RuntimeException("管理端登录失败: " + response.jsonPath().getString("msg"));
+        }
 
         return response.jsonPath().getString("data.token");
     }
