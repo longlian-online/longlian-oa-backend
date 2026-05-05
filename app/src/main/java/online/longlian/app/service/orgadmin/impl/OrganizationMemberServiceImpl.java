@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
@@ -27,7 +28,6 @@ import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.service.common.CodeGenerator;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.generator.enumeration.ApplicationStatus;
@@ -50,7 +50,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
     private final Clock clock;
-    private final CodeGenerator codeGenerator;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMapper organizationMapper;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
@@ -133,7 +132,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
         }
         LocalDateTime expiredAt = LocalDateTime.now(clock).plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
-        String inviteCode = codeGenerator.generate(InviteConstants.INVITE_CODE_LENGTH);
+        String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
 
         OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
