@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.generator.enumeration.EmailVerifyBusinessType;
 import online.longlian.generator.enumeration.EmailVerifySendStatus;
 
 import java.io.Serializable;
@@ -52,6 +53,13 @@ public class EmailVerifyOtp implements Serializable {
     @TableField("receiver")
     @ApiModelProperty("接收者邮箱")
     private String receiver;
+
+    /**
+     * 业务类型 0-登录 1-注册 2-忘记密码
+     */
+    @TableField("business_type")
+    @ApiModelProperty("业务类型 0-登录 1-注册 2-忘记密码")
+    private EmailVerifyBusinessType businessType;
 
     /**
      * 发送状态 0-待发送 1-发送成功 2-发送失败
