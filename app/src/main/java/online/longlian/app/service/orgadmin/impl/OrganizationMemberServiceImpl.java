@@ -1,6 +1,7 @@
 package online.longlian.app.service.orgadmin.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.generator.enumeration.ApplicationType;
 import online.longlian.generator.enumeration.OTPType;
 import online.longlian.generator.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -86,7 +88,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         LocalDateTime now = LocalDateTime.now(clock);
         Long approvedUserId = null;
         if (params.getApplicationStatus() == ApplicationStatus.APPROVED) {
-            approvedUserId = applicationReviewHandler.approveApplication(application);
+            OrganizationMember newMember = applicationReviewHandler.approveApplication(application);
+            approvedUserId = newMember.getUserId();
+            backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
         } else if (params.getApplicationStatus() == ApplicationStatus.REJECTED) {
             applicationReviewHandler.rejectApplication(application);
         }
@@ -94,6 +98,32 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         applicationReviewHandler.updateApplicationStatus(
                 application, params.getApplicationStatus(), params.getReviewerId(),
                 params.getReviewRemark(), approvedUserId, now);
+    }
+
+    private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
+        LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
+                .eq(OrganizationJoinOtp::getOrgId, application.getOrgId())
+                .orderByDesc(OrganizationJoinOtp::getId)
+                .last("LIMIT 1");
+
+        if (application.getApplicationType() == ApplicationType.EXISTING_USER) {
+            queryWrapper.eq(OrganizationJoinOtp::getInvitedUserId, application.getUserId());
+        } else {
+            queryWrapper.isNull(OrganizationJoinOtp::getInvitedUserId);
+        }
+
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(queryWrapper);
+        if (joinOtp == null) {
+            return;
+        }
+
+        LambdaUpdateWrapper<OrganizationJoinOtp> updateWrapper = new LambdaUpdateWrapper<OrganizationJoinOtp>()
+                .eq(OrganizationJoinOtp::getId, joinOtp.getId())
+                .set(OrganizationJoinOtp::getOrgMemberId, orgMemberId);
+        if (application.getApplicationType() == ApplicationType.REGISTER) {
+            updateWrapper.set(OrganizationJoinOtp::getInvitedUserId, userId);
+        }
+        organizationJoinOtpMapper.update(null, updateWrapper);
     }
 
     @Override

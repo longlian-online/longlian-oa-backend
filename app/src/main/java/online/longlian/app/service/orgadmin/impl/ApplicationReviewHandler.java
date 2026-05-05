@@ -43,7 +43,7 @@ public class ApplicationReviewHandler {
     /**
      * 通过申请：REGISTER 类型需同步创建用户账户
      */
-    public Long approveApplication(GroupApplication application) {
+    public OrganizationMember approveApplication(GroupApplication application) {
         LocalDateTime now = LocalDateTime.now(clock);
         User user = switch (application.getApplicationType()) {
             case REGISTER -> createUserByApplication(application, now);
@@ -62,7 +62,7 @@ public class ApplicationReviewHandler {
                 .build();
         organizationMemberMapper.insert(organizationMember);
 
-        return user.getId();
+        return organizationMember;
     }
 
     public void rejectApplication(GroupApplication application) {
