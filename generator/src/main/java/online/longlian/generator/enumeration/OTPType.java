@@ -9,8 +9,8 @@ import online.longlian.generator.annotation.ModelEnum;
 @ModelEnum(model = "one_time_password", field = "biz_type")
 public enum OTPType implements CodeEnum {
 
-    OrganizationInvite(1, "邀请创建组织"),
-    OrganizationUserInvite(2, "邀请加入组织"),
+    OrganizationInvite(1, "邀请创建组织码"),
+    OrganizationUserInvite(2, "邀请加入组织码"),
     EmailVerify(3, "邮箱验证码");
 
     private final Integer code;

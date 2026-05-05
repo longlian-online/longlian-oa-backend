@@ -9,13 +9,10 @@ import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationJoinOtpMapper;
-import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
+import online.longlian.app.pojo.bo.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
@@ -24,11 +21,9 @@ import online.longlian.app.pojo.bo.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.PageResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
-import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.OneTimePasswordService;
+import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.generator.enumeration.ApplicationStatus;
@@ -53,13 +48,11 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
-    private final OrganizationMapper organizationMapper;
     private final UserMapper userMapper;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final OneTimePasswordService oneTimePasswordService;
-    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final ResourceService resourceService;
+    private final OTPServiceFactory otpServiceFactory;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -166,28 +159,15 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     @Override
     public OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params) {
-        Organization organization = getEnabledOrganization(params.getOrgId());
-        LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
-        String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
-
-        OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
-                OneTimePasswordCreateParamsBO.builder()
-                        .code(inviteCode)
-                        .expiredAt(expiredAt)
-                        .bizType(OTPType.OrganizationUserInvite)
+        OneTimePassword oneTimePassword = otpServiceFactory.get(OTPType.OrganizationUserInvite).generate(
+                OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
+                        .orgId(params.getOrgId())
                         .build()
         );
-
-        OrganizationJoinOtp organizationJoinOtp = OrganizationJoinOtp.builder()
-                .otpId(oneTimePassword.getId())
-                .orgId(organization.getId())
-                .build();
-        organizationJoinOtpMapper.insert(organizationJoinOtp);
-
         return OrgAdminGenerateJoinOrgInviteCodeResultBO.builder()
-                .inviteCode(inviteCode)
-                .expireAt(expiredAt.format(DEFAULT_DATE_TIME_FORMATTER))
+                .inviteCode(oneTimePassword.getCode())
+                .expireAt(oneTimePassword.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
                 .build();
     }
 
@@ -270,13 +250,5 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                     .username(application.getUsername());
         }
         return builder.build();
-    }
-
-    private Organization getEnabledOrganization(Long orgId) {
-        Organization organization = organizationMapper.selectById(orgId);
-        if (organization == null || organization.getStatus() == Status.DISABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
-        }
-        return organization;
     }
 }

@@ -6,9 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.bo.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.SessionLoginResultBO;
@@ -17,8 +16,9 @@ import online.longlian.app.pojo.dto.app.EmailLoginCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
-import online.longlian.app.service.VerifyCodeService;
+import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.user.SessionService;
+import online.longlian.generator.enumeration.OTPType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class SessionController {
     private final SessionService sessionService;
-    private final VerifyCodeService verifyCodeService;
+    private final OTPServiceFactory otpServiceFactory;
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
@@ -62,9 +62,12 @@ public class SessionController {
     @Operation(summary = "发送邮箱验证码", security = {})
     @PostMapping("/email/code")
     public Result<Void> sendCode(@RequestBody EmailLoginCodeDTO emailLoginCodeDTO) {
-        if (!verifyCodeService.sendCode(emailLoginCodeDTO.getEmail())) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "验证码发送失败");
-        }
+        otpServiceFactory.get(OTPType.EmailVerify).generate(
+                OTPGenerateContextBO.builder()
+                        .target(emailLoginCodeDTO.getEmail())
+                        .creatorId(0L)
+                        .build()
+        );
         return Result.success("验证码发送请求已提交，请注意查收邮箱");
     }
 
