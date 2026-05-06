@@ -1,6 +1,5 @@
 package online.longlian.app.service.otp.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
@@ -66,16 +65,7 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
 
     @Override
     public OneTimePassword getValid(OTPValidateContextBO otpValidateContextBO) {
-        OneTimePassword otp = oneTimePasswordService.getValidOTP(otpValidateContextBO.getCode(), OTPType.OrganizationUserInvite);
-        OrganizationJoinOtp organizationJoinOtp = organizationJoinOtpMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationJoinOtp>()
-                        .eq(OrganizationJoinOtp::getOtpId, otp.getId())
-                        .last("LIMIT 1")
-        );
-        if (organizationJoinOtp == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
-        }
-        return otp;
+        return oneTimePasswordService.getValidOTP(otpValidateContextBO.getCode(), OTPType.OrganizationUserInvite);
     }
 
     @Override
@@ -83,16 +73,12 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
     public void use(OTPUseContextBO otpUseContextBO) {
         oneTimePasswordService.useOTP(otpUseContextBO.getOtpId());
         if (otpUseContextBO.getUserId() != null) {
-            int rows = organizationJoinOtpMapper.update(
+            organizationJoinOtpMapper.update(
                     null,
                     new LambdaUpdateWrapper<OrganizationJoinOtp>()
                             .eq(OrganizationJoinOtp::getOtpId, otpUseContextBO.getOtpId())
-                            .isNull(OrganizationJoinOtp::getInvitedUserId)
                             .set(OrganizationJoinOtp::getInvitedUserId, otpUseContextBO.getUserId())
             );
-            if (rows == 0) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已被使用");
-            }
         }
     }
 

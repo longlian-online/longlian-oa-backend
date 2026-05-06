@@ -1,11 +1,8 @@
 package online.longlian.app.service.otp.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
-import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.OrganizationCreateOtpMapper;
 import online.longlian.app.pojo.bo.OTPGenerateContextBO;
@@ -60,32 +57,19 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
 
     @Override
     public OneTimePassword getValid(OTPValidateContextBO otpValidateContextBO) {
-        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(otpValidateContextBO.getCode(), OTPType.OrganizationInvite);
-        OrganizationCreateOtp organizationCreateOtp = organizationCreateOtpMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationCreateOtp>()
-                        .eq(OrganizationCreateOtp::getOtpId, oneTimePassword.getId())
-                        .last("LIMIT 1")
-        );
-        if (organizationCreateOtp == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
-        }
-        return oneTimePassword;
+        return oneTimePasswordService.getValidOTP(otpValidateContextBO.getCode(), OTPType.OrganizationInvite);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void use(OTPUseContextBO otpUseContextBO) {
         oneTimePasswordService.useOTP(otpUseContextBO.getOtpId());
-        int rows = organizationCreateOtpMapper.update(
+        organizationCreateOtpMapper.update(
                 null,
                 new LambdaUpdateWrapper<OrganizationCreateOtp>()
                         .eq(OrganizationCreateOtp::getOtpId, otpUseContextBO.getOtpId())
-                        .isNull(OrganizationCreateOtp::getInvitedUserId)
                         .set(OrganizationCreateOtp::getInvitedUserId, otpUseContextBO.getUserId())
                         .set(otpUseContextBO.getOrgId() != null, OrganizationCreateOtp::getOrgId, otpUseContextBO.getOrgId())
         );
-        if (rows == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已被使用");
-        }
     }
 }
