@@ -17,6 +17,7 @@ import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.app.service.otp.OTPStrategyService;
+import online.longlian.generator.enumeration.EmailVerifyBusinessType;
 import online.longlian.generator.enumeration.EmailVerifySendStatus;
 import online.longlian.generator.enumeration.OTPType;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,8 @@ public class EmailVerifyService implements OTPStrategyService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
-        String receiver = otpGenerateContextBO.getTarget();
+        String receiver = otpGenerateContextBO.getReceiver();
+        EmailVerifyBusinessType businessType = otpGenerateContextBO.getBusinessType();
         if (!isValidEmail(receiver)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱格式不合法");
         }
@@ -75,6 +77,7 @@ public class EmailVerifyService implements OTPStrategyService {
         EmailVerifyOtp emailVerifyOtp = EmailVerifyOtp.builder()
                 .otpId(oneTimePassword.getId())
                 .receiver(receiver)
+                .businessType(businessType)
                 .sendStatus(EmailVerifySendStatus.PENDING)
                 .createdAt(now)
                 .updatedAt(now)

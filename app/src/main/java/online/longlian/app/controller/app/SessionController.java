@@ -12,7 +12,7 @@ import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.SessionLoginResultBO;
 import online.longlian.app.pojo.bo.SessionLogoutParamsBO;
-import online.longlian.app.pojo.dto.app.EmailLoginCodeDTO;
+import online.longlian.app.pojo.dto.app.EmailCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
@@ -61,11 +61,12 @@ public class SessionController {
 
     @Operation(summary = "发送邮箱验证码", security = {})
     @PostMapping("/email/code")
-    public Result<Void> sendCode(@RequestBody EmailLoginCodeDTO emailLoginCodeDTO) {
+    public Result<Void> sendCode(@RequestBody EmailCodeDTO emailCodeDTO) {
         otpServiceFactory.get(OTPType.EmailVerify).generate(
                 OTPGenerateContextBO.builder()
-                        .target(emailLoginCodeDTO.getEmail())
                         .creatorId(0L)
+                        .receiver(emailCodeDTO.getEmail())
+                        .businessType(emailCodeDTO.getBusinessType())
                         .build()
         );
         return Result.success("验证码发送请求已提交，请注意查收邮箱");

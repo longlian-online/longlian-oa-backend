@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.generator.enumeration.EmailVerifyBusinessType;
 
 @Data
 @Builder
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OTPGenerateContextBO {
     private Long creatorId;
-    private String target;
+    private String receiver;
+    private EmailVerifyBusinessType businessType;
     private Long orgId;
 }
