@@ -1,4 +1,4 @@
-package online.longlian.app.service.impl;
+package online.longlian.app.service.otp.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
