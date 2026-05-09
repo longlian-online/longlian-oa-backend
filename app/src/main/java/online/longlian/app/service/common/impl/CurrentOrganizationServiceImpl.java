@@ -13,7 +13,7 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.CurrentOrganizationService;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;

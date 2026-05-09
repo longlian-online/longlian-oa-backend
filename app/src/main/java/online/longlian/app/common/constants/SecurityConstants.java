@@ -8,7 +8,7 @@ public class SecurityConstants {
     public static final RequestMatcher[] PERMIT_ALL_MATCHERS = {
             new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
-            new AntPathRequestMatcher("/admin/session/login", HttpMethod.POST.name()),
+            new AntPathRequestMatcher("/admin/session", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email/code", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/user/register/create-organization", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/user/register/join-organization", HttpMethod.POST.name()),

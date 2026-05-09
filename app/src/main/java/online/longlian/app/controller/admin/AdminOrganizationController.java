@@ -12,6 +12,7 @@ import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
+import online.longlian.app.service.admin.AdminSessionService;
 import online.longlian.app.service.admin.OrganizationService;
 import online.longlian.app.service.user.SessionService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,7 +28,7 @@ import java.util.List;
 public class AdminOrganizationController {
 
     private final OrganizationService organizationService;
-    private final SessionService sessionService;
+    private final AdminSessionService sessionService;
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
@@ -65,7 +66,7 @@ public class AdminOrganizationController {
     @PostMapping("/invite-codes/create-org")
     public Result<InviteCodeVO> generateCreateOrgInviteCode() {
         AdminGenerateInviteCodeResultBO resultBO = organizationService.generateCreateOrgInviteCode(
-                new AdminGenerateCreateOrgInviteCodeParamsBO(sessionService.getCurrentUserId())
+                new AdminGenerateCreateOrgInviteCodeParamsBO(sessionService.getCurrentAdminId())
         );
         InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())

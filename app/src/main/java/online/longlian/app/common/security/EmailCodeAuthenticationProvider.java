@@ -8,7 +8,7 @@ import online.longlian.app.pojo.bo.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;

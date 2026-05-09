@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.AdminLogoutParamsBO;
 import online.longlian.app.pojo.entity.Admin;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.admin.AdminSessionService;
-import online.longlian.generator.enumeration.TokenType;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -90,6 +90,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         );
     }
 
+    // TODO 修改为不依赖上下文的实现
     @Override
     public Long getCurrentAdminId() {
         // 尝试从Security上下文获取

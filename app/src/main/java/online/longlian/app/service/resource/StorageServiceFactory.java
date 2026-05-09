@@ -1,6 +1,6 @@
 package online.longlian.app.service.resource;
 
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

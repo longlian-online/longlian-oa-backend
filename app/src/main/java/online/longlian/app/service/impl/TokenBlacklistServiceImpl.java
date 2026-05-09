@@ -7,7 +7,7 @@ import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.mapper.TokenBlacklistMapper;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.app.service.TokenBlacklistService;
-import online.longlian.generator.enumeration.TokenType;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

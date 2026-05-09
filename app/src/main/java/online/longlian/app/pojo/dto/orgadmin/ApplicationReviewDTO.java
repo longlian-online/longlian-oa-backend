@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.ApplicationStatus;
 
 @Data
 @Schema(description = "审核入组申请请求参数")

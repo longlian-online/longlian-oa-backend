@@ -26,7 +26,7 @@ public class AdminSessionController {
     private final AdminSessionService adminSessionService;
 
     @Operation(summary = "管理员登录", description = "使用用户名+密码登录", security = {})
-    @PostMapping("/login")
+    @PostMapping("")
     public Result<AdminLoginVO> login(@RequestBody @Valid AdminLoginDTO dto) {
         AdminLoginResultBO resultBO = adminSessionService.login(
                 AdminLoginParamsBO.builder()
@@ -40,7 +40,7 @@ public class AdminSessionController {
     }
 
     @Operation(summary = "管理员登出")
-    @DeleteMapping("/")
+    @DeleteMapping("")
     public Result<Void> logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {

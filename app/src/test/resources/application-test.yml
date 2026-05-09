@@ -1,0 +1,12 @@
+# =====================================================
+# 测试环境配置 (spring.profiles.active=test)
+# 使用独立测试数据库，避免污染开发库
+# =====================================================
+
+# 覆盖 .env 中的数据库名，host/port/user/pass 复用 .env 的值
+DB_DATABASE: longlian_oa_test
+
+spring:
+  sql:
+    init:
+      mode: never

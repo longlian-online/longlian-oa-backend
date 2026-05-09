@@ -2,7 +2,7 @@ package online.longlian.app.service.otp;
 
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

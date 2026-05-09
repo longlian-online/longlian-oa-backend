@@ -16,7 +16,7 @@ import online.longlian.app.pojo.bo.PageResultBO;
 import online.longlian.app.pojo.entity.Admin;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.admin.AdminManagementService;
-import online.longlian.generator.enumeration.TokenType;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

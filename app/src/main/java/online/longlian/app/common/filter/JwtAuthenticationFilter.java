@@ -73,7 +73,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (claims == null) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
+
             long userId = Long.parseLong(claims.getSubject());
+
+            // 管理端接口
+            if (request.getRequestURI().startsWith("/admin")) {
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userId, null, null);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
 
             UserDetailImpl userDetailImpl = getCachedUserDetail(userId);
             if (userDetailImpl == null) {
