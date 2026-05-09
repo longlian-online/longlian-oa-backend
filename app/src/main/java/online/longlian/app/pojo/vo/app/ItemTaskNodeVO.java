@@ -4,7 +4,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.generator.enumeration.TaskInstanceStatus;
+import online.longlian.common.enumeration.TaskInstanceStatus;
 
 @Data
 @Schema(description = "任务流节点信息（含执行状态，用于流程图可视化）")

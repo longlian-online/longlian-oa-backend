@@ -17,7 +17,7 @@ import online.longlian.app.pojo.entity.OrganizationCreateOtp;
 import online.longlian.app.service.admin.OrganizationService;
 import online.longlian.app.service.common.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

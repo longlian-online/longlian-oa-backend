@@ -5,7 +5,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 
 @Data
 @AllArgsConstructor

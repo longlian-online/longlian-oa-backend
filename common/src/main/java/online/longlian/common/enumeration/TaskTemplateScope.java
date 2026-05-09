@@ -1,12 +1,9 @@
-package online.longlian.generator.enumeration;
+package online.longlian.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import online.longlian.generator.annotation.ModelEnum;
+import online.longlian.common.annotation.ModelEnum;
 
-/**
- * 任务模板作用域
- */
 @Getter
 @AllArgsConstructor
 @ModelEnum(model = "task_template", field = "scope")

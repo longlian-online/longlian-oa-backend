@@ -1,11 +1,8 @@
-package online.longlian.generator.enumeration;
+package online.longlian.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-/**
- * 项目流程节点状态
- */
 @Getter
 @AllArgsConstructor
 public enum ItemNodeState implements CodeEnum {

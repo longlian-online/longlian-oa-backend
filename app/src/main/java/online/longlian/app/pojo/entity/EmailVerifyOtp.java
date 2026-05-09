@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.EmailVerifySendStatus;
+import online.longlian.common.enumeration.EmailVerifySendStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

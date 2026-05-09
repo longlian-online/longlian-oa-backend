@@ -14,6 +14,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: testpass
       MYSQL_DATABASE: longlian_oa_test
+    command: --default-authentication-plugin=mysql_native_password
     ports:
       - "3307:3306"
     healthcheck:
@@ -87,13 +88,11 @@ services:
       - maven-repo:/root/.m2
     working_dir: /app
     entrypoint:
-      [
-        "mvn",
-        "-pl", "app",
-        "test",
-        "--no-transfer-progress",
-        "-Dtest=online.longlian.app.api.**"
-      ]
+      - sh
+      - -c
+      - >
+        mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
+        && mvn -pl app test --no-transfer-progress -Dtest=online.longlian.app.api.**
 
 volumes:
   maven-repo:

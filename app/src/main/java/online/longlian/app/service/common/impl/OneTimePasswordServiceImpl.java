@@ -10,8 +10,8 @@ import online.longlian.app.mapper.OneTimePasswordMapper;
 import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.common.OneTimePasswordService;
-import online.longlian.generator.enumeration.OPTStatus;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OPTStatus;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.service.notify.NotificationManager;
-import online.longlian.generator.enumeration.EmailVerifySendStatus;
+import online.longlian.common.enumeration.EmailVerifySendStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 

@@ -1,8 +1,8 @@
-package online.longlian.generator.enumeration;
+package online.longlian.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import online.longlian.generator.annotation.ModelEnum;
+import online.longlian.common.annotation.ModelEnum;
 
 @Getter
 @AllArgsConstructor
@@ -15,11 +15,13 @@ import online.longlian.generator.annotation.ModelEnum;
 @ModelEnum(model = "base_task", field = "status")
 @ModelEnum(model = "task_template", field = "status")
 @ModelEnum(model = "resource", field = "is_referenced")
-public enum Status implements CodeEnum{
-    ENABLED(1,"启用"),
-    DISABLED(0,"禁用");
+public enum Status implements CodeEnum {
+    ENABLED(1, "启用"),
+    DISABLED(0, "禁用");
+
     private final Integer code;
     private final String desc;
+
     @Override
     public Integer getCode() {
         return code;

@@ -1,4 +1,4 @@
-package online.longlian.generator.enumeration;
+package online.longlian.common.enumeration;
 
 public interface CodeEnum {
     Integer getCode();

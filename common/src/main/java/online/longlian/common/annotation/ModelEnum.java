@@ -1,6 +1,4 @@
-package online.longlian.generator.annotation;
-
-import jakarta.validation.constraints.NotNull;
+package online.longlian.common.annotation;
 
 import java.lang.annotation.*;
 
@@ -8,6 +6,6 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Repeatable(ModelEnums.class)
 public @interface ModelEnum {
-    @NotNull String model();
-    @NotNull String field();
+    String model();
+    String field();
 }

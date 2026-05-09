@@ -1,12 +1,9 @@
-package online.longlian.generator.enumeration;
+package online.longlian.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import online.longlian.generator.annotation.ModelEnum;
+import online.longlian.common.annotation.ModelEnum;
 
-/**
- * 项目状态
- */
 @Getter
 @AllArgsConstructor
 @ModelEnum(model = "item", field = "status")

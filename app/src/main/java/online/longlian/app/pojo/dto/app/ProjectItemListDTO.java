@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import online.longlian.generator.enumeration.ItemStatus;
+import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.app.common.enumeration.SortByTime;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;

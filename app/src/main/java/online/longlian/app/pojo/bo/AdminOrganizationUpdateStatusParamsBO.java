@@ -2,7 +2,7 @@ package online.longlian.app.pojo.bo;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 
 @Data
 @AllArgsConstructor

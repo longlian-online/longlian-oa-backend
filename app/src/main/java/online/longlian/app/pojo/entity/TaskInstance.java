@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.TaskInstanceStatus;
+import online.longlian.common.enumeration.TaskInstanceStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
