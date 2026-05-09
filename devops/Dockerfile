@@ -18,7 +18,7 @@ COPY generator/src generator/src
 COPY app/src app/src
 
 # 构建 app 模块
-RUN mvn package -DskipTests -B -pl app -am
+RUN mvn package -Dmaven.test.skip=true -B -pl app -am
 
 # 下载 OpenTelemetry Java Agent
 RUN curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar
