@@ -16,7 +16,7 @@ services:
       MYSQL_DATABASE: longlian_oa_test
     command: --default-authentication-plugin=mysql_native_password
     ports:
-      - "3307:3306"
+      - "3306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 3s
@@ -29,7 +29,7 @@ services:
     image: redis:7-alpine
     container_name: longlian-oa-redis-test
     ports:
-      - "6380:6379"
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -45,40 +45,8 @@ services:
         condition: service_healthy
       redis-test:
         condition: service_healthy
-    environment:
-      # MySQL 连接（通过 Docker 内部网络直连 service name）
-      DB_HOST: mysql-test
-      DB_PORT: 3306
-      DB_DATABASE: longlian_oa_test
-      DB_USERNAME: root
-      DB_PASSWORD: testpass
-
-      # Redis 连接
-      REDIS_HOST: redis-test
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DATABASE: 9
-
-      # 基础设施开关
-      CACHE_TYPE: redis
-      STORAGE_TYPE: LOCAL
-      DATASOURCE_TYPE: mysql
-
-      # JWT 密钥（仅测试用）
-      JWT_SECRET: test-secret-key-for-testing-only-minimum-length
-
-      # 禁用邮件发送
-      NOTIFY_HOST: ""
-      NOTIFY_PORT: ""
-      NOTIFY_USERNAME: ""
-      NOTIFY_PASSWORD: ""
-      MAIL_STARTTLS: ""
-      MAIL_SSL: ""
-
-      # 测试配置
-      SPRING_PROFILES_ACTIVE: test
-      APP_DEBUG: "false"
-      SPRINGDOC_ENABLED: "false"
+    env_file:
+      - ../.env.test
     volumes:
       # 挂载项目源码
       - ..:/app
