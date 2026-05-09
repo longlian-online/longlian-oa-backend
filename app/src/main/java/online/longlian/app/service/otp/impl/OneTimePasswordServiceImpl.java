@@ -50,6 +50,9 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
     @Override
     public void useOTP(Long otpId) {
         OneTimePassword oneTimePassword = oneTimePasswordMapper.selectById(otpId);
+        if (oneTimePassword == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "一次性密码不存在");
+        }
         validateOtpAvailability(oneTimePassword, oneTimePassword.getBizType());
 
         int rows = oneTimePasswordMapper.update(
