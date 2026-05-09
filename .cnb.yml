@@ -44,14 +44,25 @@ sit:
       imports: https://cnb.cool/longlian.online/env/-/blob/main/feishu-notice.yml
       stages:
         - name: run api tests
-          script: docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
+          script: |
+            docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner > /tmp/docker-test.log 2>&1
+            TEST_EXIT=$?
+            SUMMARY=$(docker compose -f devops/docker-compose.test.yml logs test-runner 2>&1 | grep -oP 'Tests run: \d+, Failures: \d+, Errors: \d+, Skipped: \d+' | tail -1)
+            if [ "$TEST_EXIT" -eq 0 ]; then
+              RESULT="✅ 全部通过"
+            else
+              RESULT="❌ 存在失败"
+            fi
+            echo -n "${RESULT} | ${SUMMARY} | 分支: ${CNB_BRANCH:-N/A} | 提交: ${CNB_COMMIT_SHORT:-N/A}"
+          exports:
+            info: TEST_RESULT
         - name: send  message
           image: tencentcom/feishu-message
           settings:
             robot: $ROBOT
             content: |
               {
-                  "text": "测试完毕"
+                  "text": "API 测试结果: ${TEST_RESULT}"
               }
   web_trigger_one:
     - services:
