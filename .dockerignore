@@ -15,3 +15,7 @@ docs/
 README.md
 *.md
 .env
+
+# 排除 devops 目录（包含 docker-compose 等配置文件）
+devops/
+.devcontainer/

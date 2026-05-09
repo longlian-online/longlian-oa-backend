@@ -4,6 +4,7 @@ WORKDIR /app
 
 # 复制各级 pom.xml，下载依赖
 COPY pom.xml .
+COPY common/pom.xml common/pom.xml
 COPY app/pom.xml app/pom.xml
 COPY generator/pom.xml generator/pom.xml
 COPY settings.xml /root/.m2/settings.xml
@@ -11,7 +12,9 @@ COPY settings.xml /root/.m2/settings.xml
 # 下载 app 模块及其父模块的所有依赖
 RUN mvn dependency:go-offline -B -pl app -am
 
-# 复制 app 模块源码
+# 复制所有模块源码
+COPY common/src common/src
+COPY generator/src generator/src
 COPY app/src app/src
 
 # 构建 app 模块
