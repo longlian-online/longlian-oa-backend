@@ -13,7 +13,7 @@ import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.OrganizationCreateOtp;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.app.service.otp.OTPStrategyService;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import online.longlian.app.common.constants.PatternConstants;
-import online.longlian.generator.enumeration.EmailVerifyBusinessType;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
 @Data
 @Schema(description = "发送邮箱验证码请求参数")

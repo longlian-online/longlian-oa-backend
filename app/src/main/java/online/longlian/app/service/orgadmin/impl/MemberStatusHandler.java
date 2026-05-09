@@ -7,7 +7,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;

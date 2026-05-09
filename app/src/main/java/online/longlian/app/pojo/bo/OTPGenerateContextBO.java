@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.EmailVerifyBusinessType;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
 @Data
 @Builder

@@ -4,7 +4,7 @@ import online.longlian.app.pojo.bo.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.OTPUseContextBO;
 import online.longlian.app.pojo.bo.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OTPType;
 
 /**
  * OTP 生命周期策略接口 —— 每种 OTP 类型（邮箱验证码/组织邀请码等）封装完整的生成、校验、使用逻辑。

@@ -18,7 +18,7 @@ import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.user.SessionService;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

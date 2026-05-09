@@ -8,7 +8,7 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.generator.enumeration.ApplicationType;
+import online.longlian.common.enumeration.ApplicationType;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;

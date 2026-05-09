@@ -1,7 +1,7 @@
 package online.longlian.generator.internal;
 
-import online.longlian.generator.annotation.ModelEnum;
-import online.longlian.generator.annotation.ModelEnums;
+import online.longlian.common.annotation.ModelEnum;
+import online.longlian.common.annotation.ModelEnums;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,7 +13,7 @@ import java.util.List;
 
 public class EnumProcessor {
 
-    private static final String ENUM_PACKAGE = "online.longlian.generator.enumeration";
+    private static final String ENUM_PACKAGE = "online.longlian.common.enumeration";
 
     public static HashMap<EnumFieldMeta, ModelEnumMeta> scanAndPrintModelEnums() throws IOException, ClassNotFoundException {
         var enumMap = new HashMap<EnumFieldMeta, ModelEnumMeta>();
