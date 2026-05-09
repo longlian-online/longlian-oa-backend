@@ -1,6 +1,7 @@
 package online.longlian.app.common.config;
 
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
@@ -19,7 +20,6 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -33,6 +33,7 @@ public class SecurityConfig {
     private final MyUsernamePasswordAuthenticationProvider emailPasswordProvider;
     private final EmailCodeAuthenticationProvider emailCodeProvider;
     private final UserDetailsServiceImpl userDetailsService;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -44,22 +45,7 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                // 登录
-                                new AntPathRequestMatcher("/app/user/login/pwd"),
-                                new AntPathRequestMatcher("/app/user/login/code"),
-                                // 验证码
-                                new AntPathRequestMatcher("/app/user/send-code"),
-                                // 注册（通过邀请链接）
-                                new AntPathRequestMatcher("/app/user/invite/*"),
-                                new AntPathRequestMatcher("/app/user/register/invite"),
-                                new AntPathRequestMatcher("/app/org/member/invite/info"),
-                                // Swagger
-                                new AntPathRequestMatcher("/swagger-ui.html"),
-                                new AntPathRequestMatcher("/swagger-ui/**"),
-                                new AntPathRequestMatcher("/v3/api-docs/**"),
-                                new AntPathRequestMatcher("/swagger-resources/**")
-                        ).permitAll()
+                        .requestMatchers(SecurityConstants.PERMIT_ALL_MATCHERS).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
@@ -73,6 +59,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
         AuthenticationManagerBuilder builder = http.getSharedObject(AuthenticationManagerBuilder.class);
@@ -84,3 +71,4 @@ public class SecurityConfig {
     }
 
 }
+

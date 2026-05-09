@@ -1,0 +1,61 @@
+package online.longlian.app.pojo.vo.app;
+
+import online.longlian.app.common.annotation.JsonLongIdString;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+import online.longlian.common.enumeration.TaskSubmissionStatus;
+
+import java.time.LocalDateTime;
+
+@Data
+@Schema(description = "任务提交记录信息（提交列表页）")
+public class TaskSubmissionVO {
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "提交记录ID")
+    private Long id;
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "任务实例ID")
+    private Long taskInstanceId;
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "项目任务节点ID")
+    private Long itemTaskNodeId;
+
+    @Schema(description = "任务类型名称（如：嵌字、翻译）")
+    private String baseTaskName;
+
+    @Schema(description = "提交状态")
+    private TaskSubmissionStatus status;
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "提交人ID")
+    private Long submitterId;
+
+    @Schema(description = "提交人昵称")
+    private String submitterNickname;
+
+    @Schema(description = "提交人头像URL")
+    private String submitterAvatarUrl;
+
+    @Schema(description = "提交元数据(JSON对象，按节点 metaSchema 组织)")
+    private String metadata;
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "审核人ID（打回操作人）")
+    private Long reviewerId;
+
+    @Schema(description = "审核人昵称")
+    private String reviewerNickname;
+
+    @Schema(description = "打回意见")
+    private String reviewComment;
+
+    @Schema(description = "提交时间")
+    private LocalDateTime createdAt;
+
+    @Schema(description = "审核/打回时间")
+    private LocalDateTime reviewedAt;
+}

@@ -5,35 +5,47 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
 public class JwtUtil {
 
     @Value("${jwt.secret}")
-    private String SECRET;
+    private String secret;
 
     @Value("${jwt.expiration}")
-    private Integer EXPIRATION; // 秒
+    private Integer expiration; // 秒
+
+    private SecretKey signingKey;
+
+    @PostConstruct
+    public void init() {
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
     public String generateToken(Long userId) {
         return Jwts.builder()
                 .setSubject(userId.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION * 1000L))
-                .signWith(SignatureAlgorithm.HS256,SECRET)
+                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000L))
+                .signWith(signingKey, SignatureAlgorithm.HS256)
                 .compact();
     }
+
     public Claims parseToken(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(SECRET)
+                .setSigningKey(signingKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
+
     public boolean validateToken(String token) {
         try {
             parseToken(token);
@@ -42,6 +54,7 @@ public class JwtUtil {
             return false;
         }
     }
+
     public Claims parseTokenIfValid(String token) {
         try {
             return parseToken(token);
@@ -51,6 +64,7 @@ public class JwtUtil {
             return null;
         }
     }
+
     public long getRemainingTimeSeconds(String token) {
         try {
             Claims claims = parseToken(token);
@@ -60,5 +74,9 @@ public class JwtUtil {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    public long getExpirationSeconds() {
+        return expiration == null ? 0 : expiration.longValue();
     }
 }

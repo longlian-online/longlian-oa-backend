@@ -1,0 +1,22 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  api-test-docker:
+    desc: "在 Docker 中运行 API 测试（自动启动 MySQL + Redis）"
+    cmd: |
+      docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
+
+  api-test-docker-clean:
+    desc: "清理测试容器和数据卷"
+    cmd: |
+      docker compose -f devops/docker-compose.test.yml down -v
+
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true

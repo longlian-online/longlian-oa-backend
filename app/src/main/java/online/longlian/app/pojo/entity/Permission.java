@@ -1,17 +1,17 @@
 package online.longlian.app.pojo.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import online.longlian.app.common.enumeration.PermissionType;
-import online.longlian.app.common.enumeration.Status;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.PermissionType;
+import online.longlian.common.enumeration.Status;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -21,92 +21,92 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-02-04
+ * @since 2026-04-19
  */
-@Getter
-@Setter
-@ToString
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("permission")
-@Schema(name = "Permission", description = "权限表")
+@ApiModel(value = "Permission对象", description = "权限表")
 public class Permission implements Serializable {
 
-    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
      * 权限ID
      */
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    @Schema(description = "权限ID")
+    @TableId("id")
+    @ApiModelProperty("权限ID")
     private Long id;
 
     /**
-     * 权限编码 user:add
+     * 权限编码（如：org:member:disable）
      */
     @TableField("perm_code")
-    @Schema(description = "权限编码 user:add")
+    @ApiModelProperty("权限编码（如：org:member:disable）")
     private String permCode;
 
     /**
      * 权限名称
      */
     @TableField("perm_name")
-    @Schema(description = "权限名称")
+    @ApiModelProperty("权限名称")
     private String permName;
 
     /**
      * 类型 1-菜单 2-按钮 3-接口
      */
     @TableField("perm_type")
-    @Schema(description = "类型 1-菜单 2-按钮 3-接口")
+    @ApiModelProperty("类型 1-菜单 2-按钮 3-接口")
     private PermissionType permType;
 
     /**
-     * 前端路由 / 接口路径
+     * 前端路由/接口路径
      */
     @TableField("path")
-    @Schema(description = "前端路由 / 接口路径")
+    @ApiModelProperty("前端路由/接口路径")
     private String path;
 
     /**
-     * 父权限ID
+     * 父权限ID（用于菜单层级）
      */
     @TableField("parent_id")
-    @Schema(description = "父权限ID")
+    @ApiModelProperty("父权限ID（用于菜单层级）")
     private Long parentId;
 
     /**
-     * 排序
+     * 排序（前端展示顺序）
      */
     @TableField("sort")
-    @Schema(description = "排序")
+    @ApiModelProperty("排序（前端展示顺序）")
     private Integer sort;
 
     /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")
-    @Schema(description = "状态 1-启用 0-禁用")
+    @ApiModelProperty("状态 1-启用 0-禁用")
     private Status status;
 
     /**
      * 创建时间
      */
-    @TableField("create_at")
-    @Schema(description = "创建时间")
-    private LocalDateTime createAt;
+    @ApiModelProperty("创建时间")
+    @TableField("created_at")
+    private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
-    @TableField("update_at")
-    @Schema(description = "更新时间")
-    private LocalDateTime updateAt;
+    @ApiModelProperty("更新时间")
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
 
     /**
-     * 删除时间
+     * 软删除时间
      */
-    @TableField("delete_at")
-    @Schema(description = "删除时间")
-    private LocalDateTime deleteAt;
+    @TableField("deleted_at")
+    @ApiModelProperty("软删除时间")
+    private LocalDateTime deletedAt;
 }

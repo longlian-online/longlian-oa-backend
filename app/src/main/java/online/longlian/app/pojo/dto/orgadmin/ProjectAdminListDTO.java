@@ -1,0 +1,35 @@
+package online.longlian.app.pojo.dto.orgadmin;
+
+import online.longlian.app.common.annotation.JsonLongIdString;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import online.longlian.app.common.enumeration.SortDirection;
+import online.longlian.app.pojo.dto.common.PageRequestDTO;
+
+import java.time.LocalDateTime;
+
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Schema(description = "企划管理列表查询请求参数")
+public class ProjectAdminListDTO extends PageRequestDTO {
+
+    @Size(max = 100, message = "搜索关键词长度不能超过 100 个字符")
+    @Schema(description = "企划标题模糊搜索关键词")
+    private String keyword;
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "企划类型ID（精确筛选）")
+    private Long typeId;
+
+    @Schema(description = "创建时间-起始")
+    private LocalDateTime startCreatedTime;
+
+    @Schema(description = "创建时间-结束")
+    private LocalDateTime endCreatedTime;
+
+    @Schema(description = "排序方式，默认创建时间倒序")
+    private SortDirection orderDir = SortDirection.DESC;
+}

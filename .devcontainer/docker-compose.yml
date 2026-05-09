@@ -1,0 +1,14 @@
+services:
+  longlian-oa-dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    container_name: longlian-oa-backend-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ..:/app
+    # 让容器保持运行
+    stdin_open: true
+    tty: true
+    # 添加 DNS 配置解决域名解析问题

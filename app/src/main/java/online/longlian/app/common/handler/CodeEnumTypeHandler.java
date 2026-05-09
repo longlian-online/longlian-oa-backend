@@ -1,6 +1,6 @@
 package online.longlian.app.common.handler;
 
-import online.longlian.app.common.enumeration.CodeEnum;
+import online.longlian.common.enumeration.CodeEnum;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedTypes;

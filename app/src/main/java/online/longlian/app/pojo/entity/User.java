@@ -1,11 +1,16 @@
 package online.longlian.app.pojo.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
-import online.longlian.app.common.enumeration.Status;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.Status;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -15,96 +20,80 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-02-04
+ * @since 2026-04-19
  */
-@Getter
-@Setter
-@ToString
+@Data
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor
 @TableName("user")
-@Schema(name = "User", description = "系统用户表")
+@AllArgsConstructor
+@ApiModel(value = "User对象", description = "系统用户表")
 public class User implements Serializable {
 
-    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
      * 用户ID
      */
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    @Schema(description = "用户ID")
+    @TableId("id")
+    @ApiModelProperty("用户ID")
     private Long id;
 
     /**
-     * 用户名
+     * 用户名（登录用）
      */
     @TableField("username")
-    @Schema(description = "用户名")
+    @ApiModelProperty("用户名（登录用）")
     private String username;
 
     /**
-     * 密码
+     * 密码（加密存储）
      */
     @TableField("password")
-    @Schema(description = "密码")
+    @ApiModelProperty("密码（加密存储）")
     private String password;
 
     /**
-     * 昵称
+     * 昵称（展示用）
      */
     @TableField("nickname")
-    @Schema(description = "昵称")
+    @ApiModelProperty("昵称（展示用）")
     private String nickname;
 
     /**
-     * 邮箱
+     * 邮箱（登录/通知）
      */
     @TableField("email")
-    @Schema(description = "邮箱")
+    @ApiModelProperty("邮箱（登录/通知）")
     private String email;
 
     /**
      * 用户头像
      */
+    @ApiModelProperty("用户头像")
     @TableField("avatar_file_id")
-    @Schema(description = "用户头像文件ID")
     private Long avatarFileId;
 
     /**
      * 默认组织ID
      */
+    @ApiModelProperty("默认组织ID")
     @TableField("default_org_id")
-    @Schema(description = "默认组织ID")
     private Long defaultOrgId;
 
     /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")
-    @Schema(description = "状态 1-启用 0-禁用")
+    @ApiModelProperty("状态 1-启用 0-禁用")
     private Status status;
 
-    /**
-     * 创建时间
-     */
-    @TableField("create_at")
-    @Schema(description = "创建时间")
+    @TableField("created_at")
     private LocalDateTime createdAt;
 
-    /**
-     * 更新时间
-     */
-    @TableField("update_at")
-    @Schema(description = "更新时间")
+    @TableField("updated_at")
     private LocalDateTime updatedAt;
 
-    /**
-     * 删除时间
-     */
-    @TableField("delete_at")
-    @Schema(description = "删除时间")
-    @TableLogic
+    @TableField("deleted_at")
     private LocalDateTime deletedAt;
 }

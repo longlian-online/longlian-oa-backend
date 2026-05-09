@@ -5,11 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.Status;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,36 +21,27 @@ public class UserDetailImpl implements UserDetails {
     private Long id;
 
     private String username;
+
     @JsonIgnore
     private String password;
 
-    private String nickname;
-
     private String email;
 
-    private Integer status;
+    private Status status;
 
-    private Long avatarFileId;
-
-    private Long defaultOrgId;
+    private Long currentOrgId;
 
     private List<String> roles;
 
     private List<String> permissions;
 
     private List<GrantedAuthority> authorities;
-    @JsonIgnore
-    private boolean accountNonExpired = true;
-    @JsonIgnore
-    private boolean accountNonLocked = true;
-    @JsonIgnore
-    private boolean credentialsNonExpired = true;
-    @JsonIgnore
-    private boolean enabled;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return this.authorities != null ? this.authorities : List.of();
     }
+
     @Override
     public String getPassword() {
         return this.password;
@@ -56,10 +49,11 @@ public class UserDetailImpl implements UserDetails {
 
     @Override
     public String getUsername() {
-        return this.email;
+        return this.username != null ? this.username : this.email;
     }
+
     @Override
     public boolean isEnabled() {
-        return this.status != null && this.status == 1;
+        return this.status == Status.ENABLED;
     }
 }

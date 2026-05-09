@@ -7,20 +7,47 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.*;
-import online.longlian.app.pojo.vo.*;
-import online.longlian.app.service.user.OrganizationMemberService;
+import online.longlian.app.pojo.bo.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
+import online.longlian.app.pojo.bo.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
+import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
+import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.OrgAdminReviewApplicationParamsBO;
+import online.longlian.app.pojo.bo.PageParamsBO;
+import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.OrgnMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
+import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
+import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
+import online.longlian.app.pojo.dto.orgadmin.OrgMemberListDTO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
+import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
+import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.service.orgadmin.OrganizationMemberService;
+import online.longlian.app.service.user.SessionService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @Tag(name = "组织成员管理", description = "组织成员管理：入组申请审核、组员列表、邀请")
-@RequestMapping("/app/org/member")
+@RequestMapping("/orgadmin/members")
 @RestController
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ORG_ADMIN')")
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
+    private final SessionService sessionService;
+    private final CurrentOrganizationService currentOrganizationService;
 
     // -------------------------
     // 入组申请
@@ -31,12 +58,30 @@ public class OrganizationMemberController {
         description = "仅返回 status=PENDING(待审核) 的申请，默认按申请时间倒序"
     )
     @PostMapping("/applications")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<PageResultVO<ApplicationInfoVO>> listApplications(
             @RequestBody @Valid ApplicationListDTO applicationListDTO) {
-        // TODO
-        // return organizationMemberService.listApplications(applicationListDTO);
-        return Result.success("查询成功", null);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        PageResultBO<OrgAdminApplicationInfoResultBO> resultBO = organizationMemberService.listApplications(
+                OrgAdminApplicationListParamsBO.builder()
+                        .orgId(currentOrgId)
+                        .keyword(applicationListDTO.getKeyword())
+                        .startApplyTime(applicationListDTO.getStartApplyTime())
+                        .endApplyTime(applicationListDTO.getEndApplyTime())
+                        .orderDir(applicationListDTO.getOrderDir())
+                        .page(new PageParamsBO(applicationListDTO.getPageNum(), applicationListDTO.getPageSize()))
+                        .build()
+        );
+
+        List<ApplicationInfoVO> applicationInfoVOS = resultBO.getList().stream()
+                .map(bo -> {
+                    ApplicationInfoVO applicationInfoVO = new ApplicationInfoVO();
+                    BeanUtils.copyProperties(bo, applicationInfoVO);
+                    return applicationInfoVO;
+                })
+                .toList();
+        return Result.success("查询成功", new PageResultVO<>(applicationInfoVOS, resultBO.getTotal()));
     }
 
     @Operation(
@@ -45,12 +90,21 @@ public class OrganizationMemberController {
     )
     @Parameter(name = "applicationId", description = "入组申请ID")
     @PutMapping("/applications/{applicationId}/review")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
     public Result<Void> reviewApplication(
             @PathVariable Long applicationId,
             @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
-        // TODO
-        // return organizationMemberService.reviewApplication(applicationId, applicationReviewDTO);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        organizationMemberService.reviewApplication(
+                OrgAdminReviewApplicationParamsBO.builder()
+                        .applicationId(applicationId)
+                        .orgId(currentOrgId)
+                        .reviewerId(currentUserId)
+                        .applicationStatus(applicationReviewDTO.getApplicationStatus())
+                        .reviewRemark(applicationReviewDTO.getReviewRemark())
+                        .build()
+        );
         return Result.success("审核完成");
     }
 
@@ -62,62 +116,94 @@ public class OrganizationMemberController {
         summary = "分页查询组员列表",
         description = "仅返回已通过审核的成员，默认按入组时间倒序"
     )
-    @PostMapping("/list")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PostMapping("")
     public Result<PageResultVO<OrgMemberInfoVO>> listMembers(
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
-        // TODO
-        // return organizationMemberService.listMembers(orgMemberListDTO);
-        return Result.success("查询成功", null);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        PageResultBO<OrgMemberInfoResultBO> resultBO = organizationMemberService.listMembers(
+                OrgMemberListParamsBO.builder()
+                        .orgId(currentOrgId)
+                        .keyword(orgMemberListDTO.getKeyword())
+                        .startJoinedTime(orgMemberListDTO.getStartJoinedTime())
+                        .endJoinedTime(orgMemberListDTO.getEndJoinedTime())
+                        .orderDir(orgMemberListDTO.getOrderDir())
+                        .page(new PageParamsBO(orgMemberListDTO.getPageNum(), orgMemberListDTO.getPageSize()))
+                        .build()
+        );
+
+        List<OrgMemberInfoVO> memberInfoVOS = resultBO.getList().stream()
+                .map(bo -> {
+                    OrgMemberInfoVO orgMemberInfoVO = new OrgMemberInfoVO();
+                    BeanUtils.copyProperties(bo, orgMemberInfoVO);
+                    return orgMemberInfoVO;
+                })
+                .toList();
+        return Result.success("查询成功", new PageResultVO<>(memberInfoVOS, resultBO.getTotal()));
+    }
+
+    @Operation(
+        summary = "查询组员各原子任务提交数"
+    )
+    @Parameter(name = "memberId", description = "成员ID")
+    @GetMapping("/{memberId}/base-tasks/submit-counts")
+    public Result<OrgMemberBaseTaskSubmitCountVO> getMemberBaseTaskSubmitCounts(@PathVariable Long memberId) {
+        OrgnMemberBaseTaskSubmitCountResultBO resultBO = organizationMemberService.getMemberBaseTaskSubmitCounts(memberId);
+
+        OrgMemberBaseTaskSubmitCountVO orgMemberBaseTaskSubmitCountVO = OrgMemberBaseTaskSubmitCountVO.builder()
+                .memberId(resultBO.getMemberId())
+                .userId(resultBO.getUserId())
+                .totalSubmitCount(resultBO.getTotalSubmitCount())
+                .list(resultBO.getItems().stream()
+                        .map(item -> OrgMemberBaseTaskSubmitCountItemVO.builder()
+                                .baseTaskId(item.getBaseTaskId())
+                                .baseTaskName(item.getBaseTaskName())
+                                .submitCount(item.getSubmitCount())
+                                .build())
+                        .toList())
+                .build();
+        return Result.success("查询成功", orgMemberBaseTaskSubmitCountVO);
     }
 
     @Operation(
             summary = "启用/禁用组员",
             description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
     )
-    @PatchMapping("/member/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeMemberStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        // TODO
-        // organizationMemberService.changeMemberStatus(changeStatusDTO.getStatus());
+    @PatchMapping("/{memberId}/status")
+    public Result<Void> changeMemberStatus(@PathVariable Long memberId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        organizationMemberService.changeMemberStatus(
+                OrgMemberChangeStatusParamsBO.builder()
+                        .orgId(currentOrgId)
+                        .memberId(memberId)
+                        .status(changeStatusDTO.getStatus())
+                        .build()
+        );
         return Result.success(null);
     }
 
     // -------------------------
     // 邀请（管理员生成）
     // -------------------------
-
     @Operation(
-        summary = "生成邀请链接（管理员）",
-        description = "生成一次性邀请链接，有效期30分钟；供新用户注册并提交入组申请使用。注册页需先通过 inviteToken 查询组织信息后展示为只读"
+        summary = "生成加入组织邀请码（管理员）",
+        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供组织管理员邀请用户加入当前组织使用"
     )
-    @PostMapping("/invite/link")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<InviteLinkVO> generateInviteLink() {
-        return organizationMemberService.generateInviteLink();
+    @PostMapping("/invite-codes/join-org")
+    public Result<InviteCodeVO> generateJoinOrgInviteCode() {
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
+                new OrgAdminGenerateJoinOrgInviteCodeParamsBO(currentUserId, currentOrgId)
+        );
+        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
+                .inviteCode(resultBO.getInviteCode())
+                .expireAt(resultBO.getExpireAt())
+                .build();
+        return Result.success("生成成功", inviteCodeVO);
     }
-
-    @Operation(
-        summary = "生成邀请码（管理员）",
-        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供已登录用户加入本组织时使用"
-    )
-    @PostMapping("/invite/code")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<InviteCodeVO> generateInviteCode() {
-        return organizationMemberService.generateInviteCode();
-    }
-
-    // -------------------------
-    // 邀请（注册页使用）
-    // -------------------------
-
-    @Operation(
-        summary = "根据邀请token获取组织信息",
-        description = "注册页使用。仅管理员邀请入组场景会调用该接口返回组织信息"
-    )
-    @GetMapping("/invite/info")
-    public Result<InviteInfoVO> getInviteOrgInfo(@RequestParam String inviteToken) {
-        return organizationMemberService.getInviteOrgInfo(inviteToken);
-    }
-
 }

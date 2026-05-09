@@ -1,6 +1,7 @@
 sit:
   push:
-    - services:
+    - name: build-and-deploy
+      services:
         - docker
       imports: https://cnb.cool/longlian.online/env/-/blob/main/longlian-backend-sit.yml
 
@@ -8,7 +9,7 @@ sit:
         - name: get latest version tag
           script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest"
           exports:
-            info: LATEST_VERSION_TAG 
+            info: LATEST_VERSION_TAG
 
         - name: get current version tag
           script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_COMMIT_SHORT}"
@@ -36,6 +37,13 @@ sit:
               sudo docker stop ${APP_NAME} || true
               sudo docker rm ${APP_NAME} || true
               sudo docker run --network ${NET_WORK} --restart=always -d --name ${APP_NAME} --env-file ${ENV_FILE} -p 8018:8080 ${LATEST_VERSION_TAG}
+
+    - name: api-test
+      services:
+        - docker
+      stages:
+        - name: run api tests
+          script: docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner || true
   web_trigger_one:
     - services:
         - docker

@@ -37,10 +37,6 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>me.paulschwarz</groupId>
-            <artifactId>spring-dotenv</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
@@ -51,6 +47,7 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.15</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -67,13 +64,9 @@
             <version>5.6.227</version>
         </dependency>
         <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>5.8.16</version>
-        </dependency>
-        <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>3.5.15</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -148,13 +141,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>online.longlian</groupId>
+            <artifactId>generator</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
         <!-- Source: https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-api -->
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <version>1.60.1</version>
             <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>5.5.7</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

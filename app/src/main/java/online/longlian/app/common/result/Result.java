@@ -10,7 +10,7 @@ import lombok.Data;
 @Data
 @Schema(description = "通用返回结果")
 public class Result<T> {
-    @Schema(description = "状态码：2000成功，4xxx客户端错误，5xxx服务端错误，1xxx业务错误")
+    @Schema(description = "状态码：0 为成功，非0即异常")
     private int code;
 
     @Schema(description = "操作提示信息")

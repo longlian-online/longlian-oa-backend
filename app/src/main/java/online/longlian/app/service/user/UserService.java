@@ -1,15 +1,13 @@
 package online.longlian.app.service.user;
 
-import jakarta.servlet.http.HttpServletRequest;
-import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.JoinByInviteCodeDTO;
-import online.longlian.app.pojo.dto.LoginByCodeDTO;
-import online.longlian.app.pojo.dto.LoginByPwdDTO;
-import online.longlian.app.pojo.dto.RegisterByInviteDTO;
-import online.longlian.app.pojo.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-import online.longlian.app.pojo.vo.LoginVO;
-import online.longlian.app.pojo.vo.UserInfoVO;
+import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
+import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.UserGetMyInfoResultBO;
+import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.entity.User;
 
 /**
  * <p>
@@ -20,15 +18,16 @@ import online.longlian.app.pojo.vo.UserInfoVO;
  * @since 2026-02-04
  */
 public interface UserService extends IService<User> {
-    Result<LoginVO> loginByPwd(LoginByPwdDTO loginByPwdDTO);
 
-    Result<LoginVO> loginByCode(LoginByCodeDTO loginByCodeDTO);
+    UserGetMyInfoResultBO getMyInfo(Long userId);
 
-    Result<Void> registerByInvite(RegisterByInviteDTO registerByInviteDTO);
+    UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params);
 
-    Result<UserInfoVO> getMyInfo();
+    void registerAndCreateOrganizationByInvite(UserRegisterByInviteParamsBO params);
 
-    Result<Void> logout(HttpServletRequest request);
+    void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params);
 
-    Result<Void> joinByInviteCode(JoinByInviteCodeDTO joinByInviteCodeDTO);
+    void joinOrganizationByInvite(Long userId, String inviteCode);
+
+    UserGetJoinOrgInviteInfoResultBO getJoinOrgInviteInfo(UserGetJoinOrgInviteInfoParamsBO params);
 }

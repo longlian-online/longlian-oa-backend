@@ -3,7 +3,7 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-
+.claude
 ### STS ###
 .apt_generated
 .classpath
@@ -19,7 +19,8 @@ target/
 *.iml
 *.ipr
 
-**/.env
+**/.env*
+
 
 ### NetBeans ###
 /nbproject/private/
@@ -32,7 +33,8 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/
+.vscode/**
+!.vscode/launch.json
 
 data/
 

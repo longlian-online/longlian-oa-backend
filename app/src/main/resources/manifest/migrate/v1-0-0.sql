@@ -126,12 +126,72 @@ CREATE TABLE `group_application` (
                                      `reviewer_id` bigint DEFAULT NULL COMMENT '审核人ID',
                                      `reviewed_at` datetime DEFAULT NULL COMMENT '审核时间',
                                      `review_remark` varchar(500) DEFAULT '' COMMENT '审核备注',
+                                     `application_type` tinyint COMMENT '申请入组的类型：0-注册入组 1-已注册用户入组',
+                                     `username` varchar(50) NOT NULL COMMENT '用户名',
+                                     `password` varchar(100) NOT NULL COMMENT '密码',
+                                     `nickname` varchar(50) NOT NULL DEFAULT '' COMMENT '昵称',
+                                     `email` varchar(100) NOT NULL DEFAULT '' COMMENT '邮箱',
                                      `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                      `deleted_at` datetime DEFAULT NULL,
-                                     PRIMARY KEY (`id`) USING BTREE,
-                                     UNIQUE INDEX `uk_application_org_user`(`org_id`, `user_id`) USING BTREE
+                                     PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='入组申请表';
+
+-- 2.4 一次性密码表 one_time_password
+CREATE TABLE `one_time_password` (
+                                     `id` bigint NOT NULL COMMENT '验证码ID',
+                                     `code` varchar(128) NOT NULL COMMENT '验证码',
+                                     `expired_at` datetime NOT NULL COMMENT '过期时间',
+                                     `used_at` datetime DEFAULT NULL COMMENT '使用时间',
+                                     `biz_type` tinyint NOT NULL COMMENT '业务类型 1-邀请创建组织 2-邀请加入组织 3-邮箱验证码',
+                                     `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-待使用 1-已使用',
+                                     `creator_id` bigint NOT NULL COMMENT '创建者ID',
+                                     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                      PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='一次性密码（OTP）表';
+
+-- 2.5 邮箱验证码表 email_verify_otp
+CREATE TABLE `email_verify_otp` (
+                                    `id` bigint NOT NULL COMMENT '邮箱验证码ID',
+                                    `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
+                                    `receiver` varchar(255) NOT NULL COMMENT '接收者邮箱',
+                                    `business_type` tinyint NOT NULL DEFAULT 0 COMMENT '业务类型 0-登录 1-注册 2-忘记密码',
+                                    `send_status` tinyint NOT NULL DEFAULT 0 COMMENT '发送状态 0-待发送 1-发送成功 2-发送失败',
+                                    `sent_at` datetime DEFAULT NULL COMMENT '发送成功时间',
+                                    `failed_at` datetime DEFAULT NULL COMMENT '发送失败时间',
+                                    `fail_reason` varchar(500) NOT NULL DEFAULT '' COMMENT '发送失败原因',
+                                    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                    `deleted_at` datetime DEFAULT NULL,
+                                    PRIMARY KEY (`id`) USING BTREE,
+                                    INDEX `idx_receiver_send_status_created_at`(`receiver`, `send_status`, `created_at`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮箱验证码扩展表';
+
+-- 2.6 邀请创建组织表 organization_create_otp
+CREATE TABLE `organization_create_otp` (
+                                                  `id` bigint NOT NULL COMMENT '邀请ID',
+                                                  `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
+                                                  `invited_user_id` bigint COMMENT '被邀请用户ID',
+                                                  `org_id` bigint DEFAULT NULL COMMENT '创建成功后的组织ID',
+                                                  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                                  `deleted_at` datetime DEFAULT NULL,
+                                                  PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请创建组织表';
+
+-- 2.7 邀请加入组织表 organization_join_otp
+CREATE TABLE `organization_join_otp` (
+                                                `id` bigint NOT NULL COMMENT '邀请ID',
+                                                `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
+                                                `org_id` bigint COMMENT '目标组织ID',
+                                                `invited_user_id` bigint COMMENT '被邀请用户ID',
+                                                `org_member_id` bigint DEFAULT NULL COMMENT '加入成功后的组织成员ID',
+                                                `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                                `deleted_at` datetime DEFAULT NULL,
+                                                PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邀请加入组织表';
 
 -- ----------------------------
 -- 3. 企划/项目管理模块表
@@ -325,10 +385,10 @@ CREATE TABLE `project_workshop` (
 
 -- 4.1 文件存储表 file_storage
 
-CREATE TABLE `file_storage` (
+CREATE TABLE `resource` (
                                 `id` bigint NOT NULL COMMENT '文件ID',
                                 `org_id` bigint NOT NULL COMMENT '所属组织ID',
-                                `storage_type` tinyint NOT NULL COMMENT '存储类型 1-本地存储 2-阿里云OSS 3-腾讯云COS',
+                                `storage_type` tinyint NOT NULL COMMENT '存储类型 1-本地存储 2-云对象存储',
                                 `storage_key` varchar(255) NOT NULL COMMENT '存储唯一标识（如OSS的objectKey/本地文件路径）',
                                 `file_name` varchar(255) NOT NULL COMMENT '原始文件名',
                                 `file_ext` varchar(20) NOT NULL COMMENT '文件扩展名',
@@ -336,11 +396,65 @@ CREATE TABLE `file_storage` (
                                 `file_mime` varchar(100) DEFAULT '' COMMENT '文件MIME类型',
                                 `biz_type` varchar(50) NOT NULL COMMENT '业务类型（如：avatar/cover/task_submit）',
                                 `biz_id` bigint NOT NULL COMMENT '业务ID（关联的用户ID/组织ID/企划ID/任务提交ID）',
-                                `process_status` tinyint NOT NULL DEFAULT 0 COMMENT '文件处理状态 0-未处理 1-处理中 2-已压缩 3-处理失败',
-                                `is_referenced` tinyint NOT NULL DEFAULT 1 COMMENT '是否被引用 1-是 0-否（清理无用文件）',
+                                `process_status` tinyint NOT NULL DEFAULT 0 COMMENT '状态 0-未上传 1-已上传 3-已废弃',
                                 `creator_id` bigint NOT NULL COMMENT '上传人ID',
                                 `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                 `deleted_at` datetime DEFAULT NULL,
                                 PRIMARY KEY (`id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通用文件存储表';
+
+-- 管理员表
+CREATE TABLE `admin`  (
+  `id` bigint NOT NULL,
+  `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户名',
+  `password` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '密码',
+  `role` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色：root/normal',
+    `last_login_at` datetime COMMENT '最后登录时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '管理员表' ROW_FORMAT = Dynamic;
+
+-- Token黑名单表
+CREATE TABLE `token_blacklist` (
+  `id` bigint NOT NULL COMMENT '主键ID',
+  `token` varchar(512) NOT NULL COMMENT 'Token字符串',
+  `token_type` tinyint NOT NULL COMMENT 'Token类型 1-用户端 2-管理端',
+  `user_id` bigint NOT NULL COMMENT '用户/管理员ID',
+  `reason` varchar(200) DEFAULT '' COMMENT '加入黑名单原因',
+  `expired_at` datetime NOT NULL COMMENT 'Token过期时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_token`(`token`) USING BTREE COMMENT 'Token唯一索引',
+  INDEX `idx_user`(`token_type`, `user_id`) USING BTREE COMMENT '用户索引',
+  INDEX `idx_expired`(`expired_at`) USING BTREE COMMENT '过期时间索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Token黑名单表';
+
+-- ----------------------------
+-- 5. 定时任务模块表
+-- ----------------------------
+
+-- 5.1 定时任务执行日志表 scheduled_task_log
+CREATE TABLE `scheduled_task_log` (
+  `id` bigint NOT NULL COMMENT '日志ID',
+  `task_name` varchar(100) NOT NULL COMMENT '任务名称',
+  `trigger_source` tinyint NOT NULL COMMENT '触发来源 1-SCHEDULED(定时触发) 2-MANUAL(手动触发)',
+  `execute_time_param` datetime NOT NULL COMMENT '上层传递的执行时间',
+  `status` tinyint NOT NULL COMMENT '执行状态 1-RUNNING(执行中) 2-SUCCESS(成功) 3-FAILED(失败)',
+  `error_message` text DEFAULT NULL COMMENT '失败时的错误信息',
+  `execution_id` varchar(64) NOT NULL COMMENT '执行追踪ID',
+  `triggered_by` bigint DEFAULT NULL COMMENT '手动触发人ID（定时触发时为NULL）',
+  `started_at` datetime NOT NULL COMMENT '开始执行时间',
+  `ended_at` datetime DEFAULT NULL COMMENT '结束执行时间',
+  `duration_ms` bigint DEFAULT NULL COMMENT '执行耗时（毫秒）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_task_name` (`task_name`) USING BTREE COMMENT '按任务名查询',
+  KEY `idx_started_at` (`started_at`) USING BTREE COMMENT '按执行时间查询'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时任务执行日志表';

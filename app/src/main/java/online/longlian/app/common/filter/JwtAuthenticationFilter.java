@@ -7,26 +7,31 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.constants.CommonConstants;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.common.util.RedisBlacklistUtil;
-import online.longlian.app.common.util.ThreadLocalUtil;
-import online.longlian.app.pojo.bo.UserBO;
 import online.longlian.app.common.security.UserDetailImpl;
+import online.longlian.app.common.security.UserDetailsServiceImpl;
+import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.pojo.bo.LoginSessionCacheBO;
+import online.longlian.app.service.TokenBlacklistService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -34,7 +39,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final RedisTemplate<String, Object> redisTemplate;
     private final AuthenticationEntryPoint authenticationEntryPoint;
-    private final RedisBlacklistUtil redisBlacklistUtil;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final UserDetailsServiceImpl userDetailsService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        for (RequestMatcher matcher : SecurityConstants.PERMIT_ALL_MATCHERS) {
+            if (matcher.matches(request)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -49,38 +65,73 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
-        request.setAttribute(CommonConstants.CURRENT_TOKEN, token);
         try {
-            if (redisBlacklistUtil.isInBlacklist(token)) {
+            if (tokenBlacklistService.isBlacklisted(token)) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
             Claims claims = jwtUtil.parseTokenIfValid(token);
             if (claims == null) {
                 throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
             }
+
             long userId = Long.parseLong(claims.getSubject());
 
-            String json = Objects.requireNonNull(redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId)).toString();
-            UserDetailImpl userDetailImpl = JSON.parseObject(json, UserDetailImpl.class);
-            if (userDetailImpl == null) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
+            // 管理端接口
+            if (request.getRequestURI().startsWith("/admin")) {
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userId, null, null);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                filterChain.doFilter(request, response);
+                return;
             }
 
-            // 设置 Spring Security 上下文
+
+            UserDetailImpl userDetailImpl = getCachedUserDetail(userId);
+            if (userDetailImpl == null) {
+                userDetailImpl = (UserDetailImpl) userDetailsService.loadUserById(userId);
+            }
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetailImpl, null, userDetailImpl.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            UserBO userBO = new UserBO();
-            BeanUtils.copyProperties(userDetailImpl, userBO);
-            ThreadLocalUtil.setUserBO(userBO);
 
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
             authenticationEntryPoint.commence(request, response, null);
-        } finally {
-            ThreadLocalUtil.removeUserBO();
         }
+    }
+
+    private UserDetailImpl getCachedUserDetail(Long userId) {
+        try {
+            Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId);
+            if (cached == null) {
+                return null;
+            }
+            LoginSessionCacheBO sessionCacheBO = JSON.parseObject(cached.toString(), LoginSessionCacheBO.class);
+            return sessionCacheBO == null ? null : buildUserDetail(sessionCacheBO);
+        } catch (Exception e) {
+            log.warn("读取用户登录缓存失败，userId={}", userId, e);
+            return null;
+        }
+    }
+
+    private UserDetailImpl buildUserDetail(LoginSessionCacheBO sessionCacheBO) {
+        UserDetailImpl userDetail = new UserDetailImpl();
+        BeanUtils.copyProperties(sessionCacheBO, userDetail);
+        userDetail.setId(sessionCacheBO.getUserId());
+
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        if (sessionCacheBO.getPermissions() != null) {
+            authorities.addAll(sessionCacheBO.getPermissions().stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .toList());
+        }
+        if (sessionCacheBO.getRoles() != null) {
+            authorities.addAll(sessionCacheBO.getRoles().stream()
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .toList());
+        }
+        userDetail.setAuthorities(new ArrayList<>(authorities));
+        return userDetail;
     }
 }

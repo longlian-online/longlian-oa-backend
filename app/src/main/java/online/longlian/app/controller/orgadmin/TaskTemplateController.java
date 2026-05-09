@@ -6,20 +6,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.enumeration.Status;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.ChangeStatusDTO;
-import online.longlian.app.pojo.dto.TaskTemplateCreateDTO;
-import online.longlian.app.pojo.dto.TaskTemplateListDTO;
-import online.longlian.app.pojo.vo.PageResultVO;
-import online.longlian.app.pojo.vo.TaskTemplateDetailVO;
-import online.longlian.app.pojo.vo.TaskTemplateListVO;
+import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
+import online.longlian.app.pojo.dto.orgadmin.TaskTemplateCreateDTO;
+import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
+import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @Tag(name = "任务模板管理", description = "任务流模板的增删改查与状态管理，仅管理员可操作")
-@RequestMapping("/app/task/template")
+@RequestMapping("/orgadmin/task/template")
 @RestController
 @RequiredArgsConstructor
 public class TaskTemplateController {
@@ -81,9 +80,9 @@ public class TaskTemplateController {
             summary = "启用/禁用任务模板",
             description = "禁用后无法基于该模板创建新任务流，已有任务流不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
-    @PatchMapping("/task-template/status")
+    @PatchMapping("/{templateId}/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeTaskTemplateStatus(@RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+    public Result<Void> changeTaskTemplateStatus(@PathVariable Long templateId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         // TODO
         // taskTemplateService.changeTaskTemplateStatus(changeStatusDTO.getStatus());
         return Result.success(null);

@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import org.slf4j.MDC;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -31,10 +30,10 @@ public class GlobalExceptionHandler {
         );
         return Result.fail(appException.getCode(), appException.getMsg());
     }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     @ResponseBody
     public <T> Result<T> handleAuthorizationDeniedException(AuthorizationDeniedException e, HttpServletRequest request) {
-        String traceId = MDC.get("traceId");
         log.warn("方法权限不足 | msg={} | uri={} | method={}",
                 e.getMessage(),
                 request.getRequestURI(),

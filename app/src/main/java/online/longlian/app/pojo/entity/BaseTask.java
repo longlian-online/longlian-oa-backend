@@ -3,13 +3,14 @@ package online.longlian.app.pojo.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import online.longlian.app.common.enumeration.Status;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.Status;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -19,83 +20,80 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-03-17
+ * @since 2026-04-19
  */
-@Getter
-@Setter
-@ToString
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("base_task")
-@Schema(name = "BaseTask", description = "原子任务表（最小任务单元）")
+@ApiModel(value = "BaseTask对象", description = "原子任务表（最小任务单元）")
 public class BaseTask implements Serializable {
 
-    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
      * 原子任务ID
      */
     @TableId("id")
-    @Schema(description = "原子任务ID")
+    @ApiModelProperty("原子任务ID")
     private Long id;
 
     /**
      * 所属组织ID
      */
     @TableField("org_id")
-    @Schema(description = "所属组织ID")
+    @ApiModelProperty("所属组织ID")
     private Long orgId;
 
     /**
-     * 任务名称（如：创建/翻译/校对）
+     * 任务名称（标题）（如：创建/翻译/校对）
      */
     @TableField("name")
-    @Schema(description = "任务名称（如：创建/翻译/校对）")
+    @ApiModelProperty("任务名称（标题）（如：创建/翻译/校对）")
     private String name;
 
     /**
      * 图标标识
      */
+    @ApiModelProperty("图标标识")
     @TableField("icon_file_id")
-    @Schema(description = "图标标识")
     private Long iconFileId;
 
     /**
-     * 任务说明
+     * 任务说明（简介）
      */
     @TableField("description")
-    @Schema(description = "任务说明")
+    @ApiModelProperty("任务说明（简介）")
     private String description;
 
     /**
      * 元数据字段定义(JSON数组)
      */
     @TableField("meta_schema")
-    @Schema(description = "元数据字段定义(JSON数组)")
+    @ApiModelProperty("元数据字段定义(JSON数组)")
     private String metaSchema;
 
     /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")
-    @Schema(description = "状态 1-启用 0-禁用")
+    @ApiModelProperty("状态 1-启用 0-禁用")
     private Status status;
 
     /**
      * 创建人ID
      */
     @TableField("creator_id")
-    @Schema(description = "创建人ID")
+    @ApiModelProperty("创建人ID")
     private Long creatorId;
 
     @TableField("created_at")
-    @Schema(description = "创建时间")
     private LocalDateTime createdAt;
 
     @TableField("updated_at")
-    @Schema(description = "更新时间")
     private LocalDateTime updatedAt;
 
     @TableField("deleted_at")
-    @Schema(description = "删除时间")
     private LocalDateTime deletedAt;
 }

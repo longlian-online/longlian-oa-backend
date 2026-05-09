@@ -74,21 +74,16 @@ springdoc:
     enabled: ${SPRINGDOC_ENABLED:true}
   api-docs:
     enabled: ${SPRINGDOC_ENABLED:true}
-  packages-to-scan:
-    - online.longlian.app.controller.admin
-    - online.longlian.app.controller.orgadmin
-    - online.longlian.app.controller.app
 storage:
-  type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 COS
+  type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 OSS
   local:
-    upload-url: ${STORAGE_LOCAL_UPLOAD_URL:}
-    base-path: ${STORAGE_LOCAL_BASE_PATH:}
-  cos:
-    bucket: ${STORAGE_COS_BUCKET:}
-    region: ${STORAGE_COS_REGION:}
-    secret-id: ${STORAGE_COS_SECRET_ID:}
-    secret-key: ${STORAGE_COS_SECRET_KEY:}
-    url-prefix: ${STORAGE_COS_URL_PREFIX:}
+    base-url: ${STORAGE_LOCAL_BASE_URL:}
+  oss:
+    bucket: ${STORAGE_OSS_BUCKET}
+    region: ${STORAGE_OSS_REGION}
+    secret-id: ${STORAGE_OSS_SECRET_ID}
+    secret-key: ${STORAGE_OSS_SECRET_KEY}
+    base-url: ${STORAGE_OSS_BASE_URL}
 notify:
   type: EMAIL
   email:

@@ -1,0 +1,18 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
+{
+	"name": "longlian-oa-dev",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "longlian-oa-dev",
+	"workspaceFolder": "/app",
+	// "forwardPorts": [
+	// 	8080
+	// ],
+	// // 可选：给端口加标签、自动打开浏览器等
+	// "portsAttributes": {
+	// 	"8080": {
+	// 		"label": "Backend API",
+	// 		"onAutoForward": "openBrowser" // 启动后自动打开 http://localhost:8080
+	// 	}
+	// },
+}
