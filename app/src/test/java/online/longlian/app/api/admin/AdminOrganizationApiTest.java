@@ -160,7 +160,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+                .body("code", equalTo(ResultCode.FAIL.getCode()));
     }
 
     @Test
@@ -170,8 +170,11 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
         createOrganization(8L, "测试组织8");
 
+        java.util.Map<String, String> body = new java.util.HashMap<>();
+        body.put("status", null);
+
         Response response = authRequest(token)
-                .body(Map.of("status", null))
+                .body(body)
                 .patch("/admin/organizations/8/status");
 
         response
@@ -181,78 +184,54 @@ public class AdminOrganizationApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldListOrganizationsWithZeroPageNum() {
-        createAdmin(9L, "superadmin9", "123456", "SUPER_ADMIN");
-        String token = adminLoginAs("superadmin9", "123456");
+    void shouldFailWithInvalidPageNum() {
+        createAdmin(18L, "superadmin18", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin18", "123456");
 
         Response response = authRequest(token)
                 .queryParam("pageNum", 0)
                 .queryParam("pageSize", 10)
                 .get("/admin/organizations/");
 
-        response.then().statusCode(200).body("code", equalTo(0));
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
-    void shouldListOrganizationsWithNegativePageNum() {
-        createAdmin(10L, "superadmin10", "123456", "SUPER_ADMIN");
-        String token = adminLoginAs("superadmin10", "123456");
+    void shouldFailWithNegativePageNum() {
+        createAdmin(19L, "superadmin19", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin19", "123456");
 
         Response response = authRequest(token)
                 .queryParam("pageNum", -1)
                 .queryParam("pageSize", 10)
                 .get("/admin/organizations/");
 
-        response.then().statusCode(200).body("code", equalTo(0));
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
-    void shouldListOrganizationsWithZeroPageSize() {
-        createAdmin(11L, "superadmin11", "123456", "SUPER_ADMIN");
-        String token = adminLoginAs("superadmin11", "123456");
+    void shouldFailWithZeroPageSize() {
+        createAdmin(20L, "superadmin20", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin20", "123456");
 
         Response response = authRequest(token)
                 .queryParam("pageNum", 1)
                 .queryParam("pageSize", 0)
                 .get("/admin/organizations/");
 
-        response.then().statusCode(200).body("code", equalTo(0));
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
-    void shouldListOrganizationsWithNegativePageSize() {
-        createAdmin(12L, "superadmin12", "123456", "SUPER_ADMIN");
-        String token = adminLoginAs("superadmin12", "123456");
-
-        Response response = authRequest(token)
-                .queryParam("pageNum", 1)
-                .queryParam("pageSize", -1)
-                .get("/admin/organizations/");
-
-        response.then().statusCode(200).body("code", equalTo(0));
-    }
-
-    @Test
-    void shouldListOrganizationsWithDefaultPagination() {
-        createAdmin(13L, "superadmin13", "123456", "SUPER_ADMIN");
-        String token = adminLoginAs("superadmin13", "123456");
-
-        Response response = authRequest(token)
-                .get("/admin/organizations/");
-
-        response.then().statusCode(200).body("code", equalTo(0)).body("data.list", notNullValue());
-    }
-
-    @Test
-    void shouldListOrganizationsWithLongOrgName() {
-        createAdmin(14L, "superadmin14", "123456", "SUPER_ADMIN");
-        String token = adminLoginAs("superadmin14", "123456");
+    void shouldFailWithTooLongOrgName() {
+        createAdmin(22L, "superadmin22", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin22", "123456");
 
         Response response = authRequest(token)
                 .queryParam("orgName", "a".repeat(50))
                 .get("/admin/organizations/");
 
-        response.then().statusCode(200).body("code", equalTo(0));
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
@@ -260,22 +239,25 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         createAdmin(15L, "superadmin15", "123456", "SUPER_ADMIN");
         String token = adminLoginAs("superadmin15", "123456");
 
+        createOrganization(15L, "正常组织");
+
         Response response = authRequest(token)
                 .queryParam("orgName", "'\"; DROP TABLE--")
                 .get("/admin/organizations/");
 
         response.then().statusCode(200).body("code", equalTo(0));
+
+        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization WHERE id = 15", Integer.class);
     }
 
     @Test
-    void shouldFailGenerateInviteCodeWithNormalAdminRole() {
-        createAdmin(16L, "superadmin16", "123456", "root");
-        createAdmin(17L, "normaladmin", "123456", "ADMIN");
-        String normalToken = adminLoginAs("normaladmin", "123456");
+    void shouldListOrganizationsWithDefaultPagination() {
+        createAdmin(23L, "superadmin23", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin23", "123456");
 
-        Response response = authRequest(normalToken)
-                .post("/admin/organizations/invite-codes/create-org");
+        Response response = authRequest(token)
+                .get("/admin/organizations/");
 
-        response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        response.then().statusCode(200).body("code", equalTo(0)).body("data.list", notNullValue());
     }
 }

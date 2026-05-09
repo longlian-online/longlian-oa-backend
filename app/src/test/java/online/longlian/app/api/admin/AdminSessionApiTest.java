@@ -65,8 +65,7 @@ public class AdminSessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0))
-                .body("msg", equalTo("登出成功"));
+                .body("code", equalTo(0));
     }
 
     @Test
@@ -138,12 +137,12 @@ public class AdminSessionApiTest extends BaseApiTest {
     @Test
     void shouldLogoutSucceedWithoutAuthHeader() {
         Response response = request().delete("/admin/session");
-        response.then().statusCode(200).body("code", equalTo(0));
+        response.then().statusCode(401);
     }
 
     @Test
-    void shouldLogoutSucceedWithInvalidToken() {
+    void shouldLogoutFailedWithInvalidToken() {
         Response response = authRequest("invalid.token").delete("/admin/session");
-        response.then().statusCode(200).body("code", equalTo(0));
+        response.then().statusCode(401);
     }
 }

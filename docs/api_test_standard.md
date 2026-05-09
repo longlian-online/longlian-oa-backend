@@ -431,6 +431,7 @@ void shouldDeleteXxx() { createXxx(); /* 再创建一个用于删除 */ }
 5. 使用 `authRequest(token)` 发送请求
 6. 使用 `response.then().body(...)` 断言
 7. 不要硬编码 msg 这种描述性文本断言，如 body("msg", equalTo("操作成功"))
+8. 构建测试需要在函数名上面写清楚注释
 
 ---
 

@@ -36,7 +36,7 @@ public abstract class BaseApiTest {
     private DatabaseCleanupUtil databaseCleanupUtil;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    protected JdbcTemplate jdbcTemplate;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
