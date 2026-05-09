@@ -41,7 +41,7 @@ sit:
     - name: api-test
       services:
         - docker
-      imports: https://cnb.cool/longlian.online/env/-/blob/main/longlian-backend-sit.yml
+      imports: https://cnb.cool/longlian.online/env/-/blob/main/feishu-notice.yml
       stages:
         - name: run api tests
           script: docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
