@@ -43,7 +43,7 @@ sit:
         - docker
       stages:
         - name: run api tests
-          script: docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner || true
+          script: docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
   web_trigger_one:
     - services:
         - docker
