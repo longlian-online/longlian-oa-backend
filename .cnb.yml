@@ -41,9 +41,18 @@ sit:
     - name: api-test
       services:
         - docker
+      imports: https://cnb.cool/longlian.online/env/-/blob/main/longlian-backend-sit.yml
       stages:
         - name: run api tests
           script: docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
+        - name: send  message
+          image: tencentcom/feishu-message
+          settings:
+            robot: $ROBOT
+            content: |
+              {
+                  "text": "测试完毕"
+              }
   web_trigger_one:
     - services:
         - docker
