@@ -171,7 +171,6 @@ response
     .then()
     .statusCode(200)
     .body("code", equalTo(0))
-    .body("msg", equalTo("操作成功"))
     .body("data.token", notNullValue())
     .body("data.list.size()", greaterThanOrEqualTo(0));
 ```
@@ -303,7 +302,6 @@ public class XxxApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0))
-                .body("msg", equalTo("操作成功"))
                 .body("data", notNullValue());
     }
 
@@ -432,6 +430,7 @@ void shouldDeleteXxx() { createXxx(); /* 再创建一个用于删除 */ }
 4. 使用 `adminLoginAs()` 获取认证 Token
 5. 使用 `authRequest(token)` 发送请求
 6. 使用 `response.then().body(...)` 断言
+7. 不要硬编码 msg 这种描述性文本断言，如 body("msg", equalTo("操作成功"))
 
 ---
 

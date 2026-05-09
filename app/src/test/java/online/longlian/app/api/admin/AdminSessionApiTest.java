@@ -68,4 +68,82 @@ public class AdminSessionApiTest extends BaseApiTest {
                 .body("code", equalTo(0))
                 .body("msg", equalTo("登出成功"));
     }
+
+    @Test
+    void shouldFailWithBlacklistedToken() {
+        createAdmin(4L, "admin4", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("admin4", "123456");
+
+        authRequest(token).delete("/admin/session");
+
+        Response response = authRequest(token).get("/admin/admins/");
+        response.then().statusCode(401);
+    }
+
+    @Test
+    void shouldFailWithInvalidToken() {
+        Response response = authRequest("invalid.token.here")
+                .get("/admin/admins/");
+        response.then().statusCode(401);
+    }
+
+    @Test
+    void shouldFailWithEmptyUsername() {
+        Response response = request()
+                .body(Map.of("username", "", "password", "123456"))
+                .post("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailWithEmptyPassword() {
+        Response response = request()
+                .body(Map.of("username", "admin", "password", ""))
+                .post("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailWithMissingUsername() {
+        Response response = request()
+                .body(Map.of("password", "123456"))
+                .post("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailWithMissingPassword() {
+        Response response = request()
+                .body(Map.of("username", "admin"))
+                .post("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailWithTooLongUsername() {
+        Response response = request()
+                .body(Map.of("username", "a".repeat(33), "password", "123456"))
+                .post("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailWithTooShortPassword() {
+        Response response = request()
+                .body(Map.of("username", "admin", "password", "12345"))
+                .post("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldLogoutSucceedWithoutAuthHeader() {
+        Response response = request().delete("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(0));
+    }
+
+    @Test
+    void shouldLogoutSucceedWithInvalidToken() {
+        Response response = authRequest("invalid.token").delete("/admin/session");
+        response.then().statusCode(200).body("code", equalTo(0));
+    }
 }

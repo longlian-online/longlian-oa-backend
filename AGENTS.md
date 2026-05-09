@@ -109,3 +109,9 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 ## Pull Request
 
 生成 pull request 消息必须参考 docs/pull_request_template.md 的格式
+
+## 测试
+
+### API 测试
+
+编写 API 测试需要遵循 @docs/api_test_standard.md 文档
