@@ -1,4 +1,4 @@
-package online.longlian.app.service.impl;
+package online.longlian.app.service.otp.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +9,9 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
+import online.longlian.app.pojo.bo.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.OTPUseContextBO;
+import online.longlian.app.pojo.bo.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
@@ -28,20 +31,27 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class VerifyCodeServiceImpl implements VerifyCodeService {
+public class EmailVerifyService implements OTPStrategyService {
 
     private final OneTimePasswordService oneTimePasswordService;
     private final EmailVerifyOtpMapper emailVerifyOtpMapper;
     private final EmailVerifyCodeAsyncSender emailVerifyCodeAsyncSender;
 
     @Override
+    public OTPType getOtpType() {
+        return OTPType.EmailVerify;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean sendCode(String receiver) {
+    public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
+        String receiver = otpGenerateContextBO.getReceiver();
+        EmailVerifyBusinessType businessType = otpGenerateContextBO.getBusinessType();
         if (!isValidEmail(receiver)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱格式不合法");
         }
 
-        // 检查最近60秒内是否有发送记录
+        // 限制60s内发送验证码
         LocalDateTime now = LocalDateTime.now();
         Long recentCount = emailVerifyOtpMapper.selectCount(
                 new LambdaQueryWrapper<EmailVerifyOtp>()
@@ -54,29 +64,59 @@ public class VerifyCodeServiceImpl implements VerifyCodeService {
         }
 
         String code = RandomCodeUtil.generateCode(CommonConstants.CODE_LENGTH);
-        OneTimePassword otp = oneTimePasswordService.generateOTP(
+        OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
                         .code(code)
                         .expiredAt(now.plusSeconds(CommonConstants.CODE_EXPIRE))
                         .bizType(OTPType.EmailVerify)
-                        .creatorId(0L)
+                        .creatorId(otpGenerateContextBO.getCreatorId() != null ? otpGenerateContextBO.getCreatorId() : 0L)
                         .build()
         );
 
         EmailVerifyOtp emailVerifyOtp = EmailVerifyOtp.builder()
-                .otpId(otp.getId())
+                .otpId(oneTimePassword.getId())
                 .receiver(receiver)
+                .businessType(businessType)
                 .sendStatus(EmailVerifySendStatus.PENDING)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
         emailVerifyOtpMapper.insert(emailVerifyOtp);
 
+        // 事务提交后才异步发邮件：避免邮件发出后事务回滚导致验证码无效
         sendAfterCommit(emailVerifyOtp.getId(), receiver, code);
 
-        return true;
+        return oneTimePassword;
     }
 
+    @Override
+    public OneTimePassword getValid(OTPValidateContextBO otpValidateContextBO) {
+        String code = otpValidateContextBO.getCode();
+        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(code, OTPType.EmailVerify);
+        // 校验发送状态和收件人：只允许已成功发送且收件人匹配的验证码通过
+        EmailVerifyOtp emailVerifyOtp = emailVerifyOtpMapper.selectOne(
+                new LambdaQueryWrapper<EmailVerifyOtp>()
+                        .eq(EmailVerifyOtp::getOtpId, oneTimePassword.getId())
+                        .eq(EmailVerifyOtp::getReceiver, otpValidateContextBO.getTarget())
+                        .eq(EmailVerifyOtp::getSendStatus, EmailVerifySendStatus.SENT)
+                        .last("LIMIT 1")
+        );
+        if (emailVerifyOtp == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "验证码不存在");
+        }
+        return oneTimePassword;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void use(OTPUseContextBO otpUseContextBO) {
+        oneTimePasswordService.useOTP(otpUseContextBO.getOtpId());
+    }
+
+    /**
+     * 如果当前在事务中则注册回调等待提交后发送，否则直接发送。
+     * 保证 OTP 记录已持久化再发邮件。
+     */
     private void sendAfterCommit(Long emailVerifyOtpId, String receiver, String code) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -88,22 +128,6 @@ public class VerifyCodeServiceImpl implements VerifyCodeService {
             return;
         }
         emailVerifyCodeAsyncSender.send(emailVerifyOtpId, receiver, code);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public OneTimePassword validateCode(String receiver, String code) {
-        OneTimePassword otp = oneTimePasswordService.getValidOTP(code, OTPType.EmailVerify);
-        EmailVerifyOtp emailVerifyOtp = emailVerifyOtpMapper.selectOne(
-                new LambdaQueryWrapper<EmailVerifyOtp>()
-                        .eq(EmailVerifyOtp::getOtpId, otp.getId())
-                        .eq(EmailVerifyOtp::getReceiver, receiver)
-                        .eq(EmailVerifyOtp::getSendStatus, EmailVerifySendStatus.SENT)
-        );
-        if (emailVerifyOtp == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "验证码不存在");
-        }
-        return otp;
     }
 
     private boolean isValidEmail(String email) {

@@ -1,4 +1,4 @@
-package online.longlian.app.service.common;
+package online.longlian.app.service.otp;
 
 import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;

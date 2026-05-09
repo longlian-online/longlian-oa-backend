@@ -1,4 +1,4 @@
-package online.longlian.app.service.common.impl;
+package online.longlian.app.service.otp.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -43,16 +43,16 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                         .eq(OneTimePassword::getBizType, bizType)
                         .last("LIMIT 1")
         );
-        validateOtpAvailability(oneTimePassword);
+        validateOtpAvailability(oneTimePassword, bizType);
         return oneTimePassword;
     }
 
     @Override
     public void useOTP(Long otpId) {
         OneTimePassword oneTimePassword = oneTimePasswordMapper.selectById(otpId);
-        validateOtpAvailability(oneTimePassword);
+        validateOtpAvailability(oneTimePassword, oneTimePassword.getBizType());
 
-        oneTimePasswordMapper.update(
+        int rows = oneTimePasswordMapper.update(
                 null,
                 new LambdaUpdateWrapper<OneTimePassword>()
                         .eq(OneTimePassword::getId, otpId)
@@ -62,17 +62,20 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                         .set(OneTimePassword::getUsedAt, LocalDateTime.now())
                         .set(OneTimePassword::getStatus, OPTStatus.USED)
         );
+        if (rows == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, oneTimePassword.getBizType().getDesc() + "已被使用");
+        }
     }
 
-    private void validateOtpAvailability(OneTimePassword oneTimePassword) {
+    private void validateOtpAvailability(OneTimePassword oneTimePassword, OTPType bizType) {
         if (oneTimePassword == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
+            throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "不存在");
         }
         if (oneTimePassword.getUsedAt() != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已使用");
+            throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "已使用");
         }
         if (oneTimePassword.getExpiredAt() == null || !oneTimePassword.getExpiredAt().isAfter(LocalDateTime.now())) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
+            throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "已过期");
         }
     }
 }
