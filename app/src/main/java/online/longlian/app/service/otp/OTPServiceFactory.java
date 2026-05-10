@@ -20,11 +20,13 @@ public class OTPServiceFactory {
     private final Map<OTPType, OTPStrategyService> otpCodeServices;
 
     public OTPServiceFactory(List<OTPStrategyService> strategyList) {
-        this.otpCodeServices = strategyList.stream()
-                .collect(Collectors.toMap(
-                    OTPStrategyService::getOtpType,
-                    Function.identity()
-                ));
+        this.otpCodeServices = java.util.Collections.unmodifiableMap(
+                strategyList.stream()
+                        .collect(Collectors.toMap(
+                                OTPStrategyService::getOtpType,
+                                Function.identity()
+                        ))
+        );
     }
 
     public OTPStrategyService get(OTPType type) {

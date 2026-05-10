@@ -16,7 +16,7 @@ public class StorageServiceFactory {
 
     // 构造函数注入：将 List 转为 Map
     public StorageServiceFactory(List<StorageService> storageServiceList) {
-        this.services = storageServiceList.stream()
+        this.services = new ArrayList<>(storageServiceList).stream()
                 .collect(Collectors.toMap(StorageService::getStorageType, Function.identity()));
     }
 
