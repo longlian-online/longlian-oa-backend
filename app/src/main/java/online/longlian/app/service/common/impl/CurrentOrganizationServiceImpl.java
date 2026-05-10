@@ -13,7 +13,7 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.CurrentOrganizationService;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -79,12 +79,8 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
      * 初始化用户当前组织
      */
     @Override
-    public void refreshCurrentOrgTtl(Long userId, long ttlSeconds) {
-        Long cachedOrgId = getCachedCurrentOrgId(userId);
-        if (cachedOrgId == null || cachedOrgId <= 0) {
-            cachedOrgId = resolveCurrentOrgContext(userId, null).getOrgId();
-        }
-        cacheCurrentOrgId(userId, cachedOrgId, ttlSeconds);
+    public void refreshCurrentOrgTtl(Long userId, Long currentOrgId, long ttlSeconds) {
+        cacheCurrentOrgId(userId, currentOrgId, ttlSeconds);
     }
 
     /**

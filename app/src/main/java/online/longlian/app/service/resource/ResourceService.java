@@ -13,8 +13,8 @@ import online.longlian.app.pojo.bo.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourcCreateVO;
-import online.longlian.generator.enumeration.FileProcessStatus;
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.FileProcessStatus;
+import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;

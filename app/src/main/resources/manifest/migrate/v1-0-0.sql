@@ -156,6 +156,7 @@ CREATE TABLE `email_verify_otp` (
                                     `id` bigint NOT NULL COMMENT '邮箱验证码ID',
                                     `otp_id` bigint NOT NULL COMMENT '关联验证码ID',
                                     `receiver` varchar(255) NOT NULL COMMENT '接收者邮箱',
+                                    `business_type` tinyint NOT NULL DEFAULT 0 COMMENT '业务类型 0-登录 1-注册 2-忘记密码',
                                     `send_status` tinyint NOT NULL DEFAULT 0 COMMENT '发送状态 0-待发送 1-发送成功 2-发送失败',
                                     `sent_at` datetime DEFAULT NULL COMMENT '发送成功时间',
                                     `failed_at` datetime DEFAULT NULL COMMENT '发送失败时间',

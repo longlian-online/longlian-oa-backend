@@ -12,7 +12,7 @@ import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;

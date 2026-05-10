@@ -2,6 +2,7 @@ package online.longlian.app.api.admin;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -96,5 +97,172 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(0))
                 .body("data.list.size()", equalTo(2))
                 .body("data.total", greaterThanOrEqualTo(4));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithNormalAdminRole() {
+        createAdmin(11L, "superadmin5", "123456", "root");
+        createAdmin(12L, "normaladmin", "123456", "ADMIN");
+        String normalToken = adminLoginAs("normaladmin", "123456");
+
+        Response response = authRequest(normalToken)
+                .body(Map.of("username", "newadmin", "password", "654321"))
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void shouldFailDeleteAdminWithNormalAdminRole() {
+        createAdmin(13L, "superadmin6", "123456", "root");
+        createAdmin(14L, "normaladmin2", "123456", "ADMIN");
+        String normalToken = adminLoginAs("normaladmin2", "123456");
+
+        createAdmin(15L, "todelete", "123456", "ADMIN");
+
+        Response response = authRequest(normalToken)
+                .delete("/admin/admins/15");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void shouldFailDeleteRootAdmin() {
+        createAdmin(16L, "superadmin7", "123456", "root");
+        String token = adminLoginAs("superadmin7", "123456");
+
+        Response response = authRequest(token)
+                .delete("/admin/admins/16");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void shouldFailDeleteSelf() {
+        createAdmin(17L, "superadmin8", "123456", "root");
+        String token = adminLoginAs("superadmin8", "123456");
+
+        Response response = authRequest(token)
+                .delete("/admin/admins/17");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void shouldFailDeleteNonexistentAdmin() {
+        createAdmin(18L, "superadmin9", "123456", "root");
+        String token = adminLoginAs("superadmin9", "123456");
+
+        Response response = authRequest(token)
+                .delete("/admin/admins/99999");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithDuplicateUsername() {
+        createAdmin(19L, "superadmin10", "123456", "root");
+        String token = adminLoginAs("superadmin10", "123456");
+
+        createAdmin(20L, "existingadmin", "123456", "ADMIN");
+
+        Response response = authRequest(token)
+                .body(Map.of("username", "existingadmin", "password", "654321"))
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithShortUsername() {
+        createAdmin(21L, "superadmin11", "123456", "root");
+        String token = adminLoginAs("superadmin11", "123456");
+
+        Response response = authRequest(token)
+                .body(Map.of("username", "ab", "password", "654321"))
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithLongUsername() {
+        createAdmin(22L, "superadmin12", "123456", "root");
+        String token = adminLoginAs("superadmin12", "123456");
+
+        Response response = authRequest(token)
+                .body(Map.of("username", "a".repeat(33), "password", "654321"))
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithShortPassword() {
+        createAdmin(23L, "superadmin13", "123456", "root");
+        String token = adminLoginAs("superadmin13", "123456");
+
+        Response response = authRequest(token)
+                .body(Map.of("username", "newadmin", "password", "12345"))
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithLongPassword() {
+        createAdmin(24L, "superadmin14", "123456", "root");
+        String token = adminLoginAs("superadmin14", "123456");
+
+        Response response = authRequest(token)
+                .body(Map.of("username", "newadmin", "password", "a".repeat(65)))
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailCreateAdminWithEmptyBody() {
+        createAdmin(25L, "superadmin15", "123456", "root");
+        String token = adminLoginAs("superadmin15", "123456");
+
+        Response response = authRequest(token)
+                .body("{}")
+                .post("/admin/admins/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 }

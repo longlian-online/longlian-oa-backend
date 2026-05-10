@@ -1,6 +1,6 @@
 package online.longlian.app.service;
 
-import online.longlian.generator.enumeration.TokenType;
+import online.longlian.common.enumeration.TokenType;
 
 public interface TokenBlacklistService {
 

@@ -5,19 +5,17 @@ import com.baomidou.mybatisplus.generator.config.po.TableField;
 import com.baomidou.mybatisplus.generator.config.rules.IColumnType;
 import com.baomidou.mybatisplus.generator.type.ITypeConvertHandler;
 import com.baomidou.mybatisplus.generator.type.TypeRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import static online.longlian.generator.CodeGenerator.enumTypeConvertMap;
+import static online.longlian.generator.CodeGenerator.getEnumTypeConvertMap;
 
 public class TypeConverter implements ITypeConvertHandler {
-    private static final Logger log = LoggerFactory.getLogger(TypeConverter.class);
 
     @Override
     public IColumnType convert(GlobalConfig globalConfig, TypeRegistry typeRegistry, TableField.MetaInfo metaInfo) {
 
         if (metaInfo.getTypeName().equals("TINYINT")) {
             var key = new EnumFieldMeta(metaInfo.getTableName(), metaInfo.getColumnName());
+            var enumTypeConvertMap = getEnumTypeConvertMap();
 
             if (enumTypeConvertMap.containsKey(key)) {
                 var value = enumTypeConvertMap.get(key);

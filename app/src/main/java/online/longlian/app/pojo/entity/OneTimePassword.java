@@ -9,8 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.OPTStatus;
-import online.longlian.generator.enumeration.OTPType;
+import online.longlian.common.enumeration.OPTStatus;
+import online.longlian.common.enumeration.OTPType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

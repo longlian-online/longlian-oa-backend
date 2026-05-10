@@ -7,6 +7,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
+import online.longlian.app.pojo.bo.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
@@ -14,6 +17,7 @@ import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
 import online.longlian.app.pojo.bo.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.PageParamsBO;
 import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.OrgnMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
@@ -22,6 +26,7 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
@@ -71,9 +76,9 @@ public class OrganizationMemberController {
 
         List<ApplicationInfoVO> applicationInfoVOS = resultBO.getList().stream()
                 .map(bo -> {
-                    ApplicationInfoVO vo = new ApplicationInfoVO();
-                    BeanUtils.copyProperties(bo, vo);
-                    return vo;
+                    ApplicationInfoVO applicationInfoVO = new ApplicationInfoVO();
+                    BeanUtils.copyProperties(bo, applicationInfoVO);
+                    return applicationInfoVO;
                 })
                 .toList();
         return Result.success("查询成功", new PageResultVO<>(applicationInfoVOS, resultBO.getTotal()));
@@ -114,9 +119,28 @@ public class OrganizationMemberController {
     @PostMapping("")
     public Result<PageResultVO<OrgMemberInfoVO>> listMembers(
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
-        // TODO
-        // return organizationMemberService.listMembers(orgMemberListDTO);
-        return Result.success("查询成功", null);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        PageResultBO<OrgMemberInfoResultBO> resultBO = organizationMemberService.listMembers(
+                OrgMemberListParamsBO.builder()
+                        .orgId(currentOrgId)
+                        .keyword(orgMemberListDTO.getKeyword())
+                        .startJoinedTime(orgMemberListDTO.getStartJoinedTime())
+                        .endJoinedTime(orgMemberListDTO.getEndJoinedTime())
+                        .orderDir(orgMemberListDTO.getOrderDir())
+                        .page(new PageParamsBO(orgMemberListDTO.getPageNum(), orgMemberListDTO.getPageSize()))
+                        .build()
+        );
+
+        List<OrgMemberInfoVO> memberInfoVOS = resultBO.getList().stream()
+                .map(bo -> {
+                    OrgMemberInfoVO orgMemberInfoVO = new OrgMemberInfoVO();
+                    BeanUtils.copyProperties(bo, orgMemberInfoVO);
+                    return orgMemberInfoVO;
+                })
+                .toList();
+        return Result.success("查询成功", new PageResultVO<>(memberInfoVOS, resultBO.getTotal()));
     }
 
     @Operation(
@@ -125,9 +149,21 @@ public class OrganizationMemberController {
     @Parameter(name = "memberId", description = "成员ID")
     @GetMapping("/{memberId}/base-tasks/submit-counts")
     public Result<OrgMemberBaseTaskSubmitCountVO> getMemberBaseTaskSubmitCounts(@PathVariable Long memberId) {
-        // TODO
-        // return organizationMemberService.getMemberBaseTaskSubmitCounts(memberId);
-        return Result.success("查询成功", null);
+        OrgnMemberBaseTaskSubmitCountResultBO resultBO = organizationMemberService.getMemberBaseTaskSubmitCounts(memberId);
+
+        OrgMemberBaseTaskSubmitCountVO orgMemberBaseTaskSubmitCountVO = OrgMemberBaseTaskSubmitCountVO.builder()
+                .memberId(resultBO.getMemberId())
+                .userId(resultBO.getUserId())
+                .totalSubmitCount(resultBO.getTotalSubmitCount())
+                .list(resultBO.getItems().stream()
+                        .map(item -> OrgMemberBaseTaskSubmitCountItemVO.builder()
+                                .baseTaskId(item.getBaseTaskId())
+                                .baseTaskName(item.getBaseTaskName())
+                                .submitCount(item.getSubmitCount())
+                                .build())
+                        .toList())
+                .build();
+        return Result.success("查询成功", orgMemberBaseTaskSubmitCountVO);
     }
 
     @Operation(
@@ -136,8 +172,16 @@ public class OrganizationMemberController {
     )
     @PatchMapping("/{memberId}/status")
     public Result<Void> changeMemberStatus(@PathVariable Long memberId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        // TODO
-        // organizationMemberService.changeMemberStatus(changeStatusDTO.getStatus());
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        organizationMemberService.changeMemberStatus(
+                OrgMemberChangeStatusParamsBO.builder()
+                        .orgId(currentOrgId)
+                        .memberId(memberId)
+                        .status(changeStatusDTO.getStatus())
+                        .build()
+        );
         return Result.success(null);
     }
 

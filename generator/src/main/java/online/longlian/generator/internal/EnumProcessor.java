@@ -1,22 +1,23 @@
 package online.longlian.generator.internal;
 
-import online.longlian.generator.annotation.ModelEnum;
-import online.longlian.generator.annotation.ModelEnums;
+import online.longlian.common.annotation.ModelEnum;
+import online.longlian.common.annotation.ModelEnums;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class EnumProcessor {
 
-    private static final String ENUM_PACKAGE = "online.longlian.generator.enumeration";
+    private static final String ENUM_PACKAGE = "online.longlian.common.enumeration";
 
-    public static HashMap<EnumFieldMeta, ModelEnumMeta> scanAndPrintModelEnums() throws IOException, ClassNotFoundException {
-        var enumMap = new HashMap<EnumFieldMeta, ModelEnumMeta>();
+    public static Map<EnumFieldMeta, ModelEnumMeta> scanAndPrintModelEnums() throws IOException, ClassNotFoundException {
+        var enumMap = new LinkedHashMap<EnumFieldMeta, ModelEnumMeta>();
         List<Class<?>> classes = getClasses();
         for (Class<?> clazz : classes) {
             if (clazz.isEnum()) {

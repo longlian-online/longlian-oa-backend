@@ -1,7 +1,7 @@
 package online.longlian.app.common.properties;
 
 import lombok.Data;
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "storage")

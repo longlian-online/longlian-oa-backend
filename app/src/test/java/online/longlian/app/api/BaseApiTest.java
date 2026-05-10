@@ -18,6 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
 
 /**
  * API 测试基类。
@@ -35,7 +36,7 @@ public abstract class BaseApiTest {
     private DatabaseCleanupUtil databaseCleanupUtil;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    protected JdbcTemplate jdbcTemplate;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -145,5 +146,21 @@ public abstract class BaseApiTest {
         return given()
                 .contentType(ContentType.JSON)
                 .header("Authorization", "Bearer " + token);
+    }
+
+    protected String createRootAdmin() {
+        long id = System.currentTimeMillis();
+        createAdmin(id, "root_" + id, "123456", "root");
+        return adminLoginAs("root_" + id, "123456");
+    }
+
+    protected String createNormalAdmin() {
+        long id = System.currentTimeMillis();
+        createAdmin(id, "admin_" + id, "123456", "ADMIN");
+        return adminLoginAs("admin_" + id, "123456");
+    }
+
+    protected void assertErrorCode(Response response, int expectedCode) {
+        response.then().body("code", equalTo(expectedCode));
     }
 }

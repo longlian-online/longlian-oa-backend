@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.ScheduledTaskLogMapper;
 import online.longlian.app.pojo.entity.ScheduledTaskLog;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
-import online.longlian.generator.enumeration.ScheduledTaskStatus;
-import online.longlian.generator.enumeration.TriggerSource;
+import online.longlian.common.enumeration.ScheduledTaskStatus;
+import online.longlian.common.enumeration.TriggerSource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
