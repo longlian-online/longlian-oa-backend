@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        for (RequestMatcher matcher : SecurityConstants.PERMIT_ALL_MATCHERS) {
+        for (RequestMatcher matcher : SecurityConstants.getPermitAllMatchers()) {
             if (matcher.matches(request)) {
                 return true;
             }
