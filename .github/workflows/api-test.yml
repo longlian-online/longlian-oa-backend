@@ -1,0 +1,31 @@
+name: API Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  api-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: go-task/setup-task@v2
+
+      - name: Run API Tests
+        run: task api-test-docker
+
+      - name: Report results to DeepSource
+        run: |
+        # 安装CLI
+          curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
+
+        # 上报数据
+          ./bin/deepsource report --analyzer test-coverage --key java --value-file ./path/to/report
+
+        env:
+          DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
