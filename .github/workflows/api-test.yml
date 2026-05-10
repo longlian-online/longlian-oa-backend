@@ -21,10 +21,10 @@ jobs:
 
       - name: Report results to DeepSource
         run: |
-        # 安装CLI
+          # 安装CLI
           curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
 
-        # 上报数据
+          # 上报数据
           ./bin/deepsource report --analyzer test-coverage --key java --value-file ./path/to/report
 
         env:
