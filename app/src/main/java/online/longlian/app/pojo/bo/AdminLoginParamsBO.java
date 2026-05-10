@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Data
 @Builder
@@ -13,9 +14,7 @@ import jakarta.validation.constraints.NotBlank;
 @AllArgsConstructor
 public class AdminLoginParamsBO {
 
-    @NotBlank(message = "用户名不能为空")
     private String username;
 
-    @NotBlank(message = "密码不能为空")
     private String password;
 }
