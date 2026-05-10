@@ -25,7 +25,7 @@ jobs:
           curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
 
           # 上报数据
-          ./bin/deepsource report --analyzer test-coverage --key java --value-file ./path/to/report
+          ./bin/deepsource report --analyzer test-coverage --key java --value-file app/target/site/jacoco/jacoco.xml
 
         env:
           DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
