@@ -60,7 +60,7 @@ services:
       - -c
       - >
         mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
-        && mvn -pl app test --no-transfer-progress -Dtest=online.longlian.app.api.**
+        && mvn -pl app test jacoco:report -Dtest=online.longlian.app.api.**
 
 volumes:
   maven-repo:
