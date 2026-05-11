@@ -42,7 +42,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 0L, 0, "REGISTER", "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+                1L, 1L, 0L, 0, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
         );
 
         Response response = authRequest(token)

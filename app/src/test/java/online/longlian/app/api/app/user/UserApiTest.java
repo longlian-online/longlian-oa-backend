@@ -25,12 +25,15 @@ public class UserApiTest extends BaseApiTest {
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
-        // 使用邀请码注册并创建组织（需要邮箱验证码 code）
+        long userId = System.nanoTime();
+        createEmailVerifyOTP("123456", userId);
+        createOrganizationCreateInviteOTP(inviteCode);
+
         Response response = request()
                 .body(Map.of(
-                        "email", "newuser@example.com",
+                        "email", "newuser_" + userId + "@example.com",
                         "password", "123456",
-                        "username", "newuser",
+                        "username", "newuser_" + userId,
                         "nickname", "新用户",
                         "inviteCode", inviteCode,
                         "code", "123456"
@@ -54,12 +57,15 @@ public class UserApiTest extends BaseApiTest {
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String adminInviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
-        // 使用邀请码注册并加入组织（用户端公开接口，不需要认证）
+        long userId = System.nanoTime();
+        createEmailVerifyOTP("123456", userId);
+        createOrganizationUserInviteOTP(adminInviteCode, 0L);
+
         Response createResponse = request()
                 .body(Map.of(
-                        "email", "orgadmin@example.com",
+                        "email", "orgadmin_" + userId + "@example.com",
                         "password", "123456",
-                        "username", "orgadmin",
+                        "username", "orgadmin_" + userId,
                         "nickname", "组织管理员",
                         "inviteCode", adminInviteCode,
                         "code", "123456"
