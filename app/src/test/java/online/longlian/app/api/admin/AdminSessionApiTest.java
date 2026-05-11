@@ -11,6 +11,9 @@ import static org.hamcrest.Matchers.*;
 
 public class AdminSessionApiTest extends BaseApiTest {
 
+    /**
+     * 管理端登录成功
+     */
     @Test
     void shouldLoginSuccessfully() {
         createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
@@ -28,6 +31,9 @@ public class AdminSessionApiTest extends BaseApiTest {
                 .body("data.adminId", notNullValue());
     }
 
+    /**
+     * 管理端密码错误登录失败
+     */
     @Test
     void shouldFailWithWrongPassword() {
         createAdmin(2L, "admin2", "123456", "SUPER_ADMIN");
@@ -42,6 +48,9 @@ public class AdminSessionApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 管理端用户名不存在登录失败
+     */
     @Test
     void shouldFailWithNonexistentAdmin() {
         Response response = request()
@@ -54,6 +63,9 @@ public class AdminSessionApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 
+    /**
+     * 管理端登出成功
+     */
     @Test
     void shouldLogoutSuccessfully() {
         createAdmin(3L, "admin3", "123456", "SUPER_ADMIN");
@@ -68,6 +80,9 @@ public class AdminSessionApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
     }
 
+    /**
+     * 使用黑名单 Token 访问接口失败（已登出）
+     */
     @Test
     void shouldFailWithBlacklistedToken() {
         createAdmin(4L, "admin4", "123456", "SUPER_ADMIN");
@@ -79,6 +94,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(401);
     }
 
+    /**
+     * 使用无效 Token 访问接口失败
+     */
     @Test
     void shouldFailWithInvalidToken() {
         Response response = authRequest("invalid.token.here")
@@ -86,6 +104,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(401);
     }
 
+    /**
+     * 用户名为空时登录失败
+     */
     @Test
     void shouldFailWithEmptyUsername() {
         Response response = request()
@@ -94,6 +115,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 密码为空时登录失败
+     */
     @Test
     void shouldFailWithEmptyPassword() {
         Response response = request()
@@ -102,6 +126,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 缺少用户名时登录失败
+     */
     @Test
     void shouldFailWithMissingUsername() {
         Response response = request()
@@ -110,6 +137,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 缺少密码时登录失败
+     */
     @Test
     void shouldFailWithMissingPassword() {
         Response response = request()
@@ -118,6 +148,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 用户名过长时登录失败
+     */
     @Test
     void shouldFailWithTooLongUsername() {
         Response response = request()
@@ -126,6 +159,9 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 密码过短时登录失败
+     */
     @Test
     void shouldFailWithTooShortPassword() {
         Response response = request()
@@ -134,12 +170,18 @@ public class AdminSessionApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 登出时不带认证头失败
+     */
     @Test
     void shouldLogoutSucceedWithoutAuthHeader() {
         Response response = request().delete("/admin/session");
         response.then().statusCode(401);
     }
 
+    /**
+     * 使用无效 Token 登出失败
+     */
     @Test
     void shouldLogoutFailedWithInvalidToken() {
         Response response = authRequest("invalid.token").delete("/admin/session");
