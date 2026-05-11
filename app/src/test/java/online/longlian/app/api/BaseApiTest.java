@@ -39,7 +39,7 @@ public abstract class BaseApiTest {
     protected JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    protected PasswordEncoder passwordEncoder;
 
     @BeforeAll
     void baseBeforeAll() {

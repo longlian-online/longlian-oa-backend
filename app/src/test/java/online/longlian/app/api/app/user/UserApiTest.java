@@ -22,23 +22,24 @@ public class UserApiTest extends BaseApiTest {
         String adminToken = createRootAdmin();
         Response inviteResponse = authRequest(adminToken)
                 .post("/admin/organizations/invite-codes/create-org");
-        inviteResponse.then().statusCode(200).body("code", equalTo(0));
+        inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
-        // 使用邀请码注册并创建组织
+        // 使用邀请码注册并创建组织（需要邮箱验证码 code）
         Response response = request()
                 .body(Map.of(
                         "email", "newuser@example.com",
                         "password", "123456",
                         "username", "newuser",
                         "nickname", "新用户",
-                        "inviteCode", inviteCode
+                        "inviteCode", inviteCode,
+                        "code", "123456"
                 ))
                 .post("/app/user/register/create-organization");
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -50,23 +51,24 @@ public class UserApiTest extends BaseApiTest {
         String adminToken = createRootAdmin();
         Response inviteResponse = authRequest(adminToken)
                 .post("/admin/organizations/invite-codes/create-org");
-        inviteResponse.then().statusCode(200).body("code", equalTo(0));
+        inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String adminInviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
-        // 使用邀请码注册并创建组织
-        Response createResponse = authRequest(adminToken)
+        // 使用邀请码注册并加入组织（用户端公开接口，不需要认证）
+        Response createResponse = request()
                 .body(Map.of(
                         "email", "orgadmin@example.com",
                         "password", "123456",
                         "username", "orgadmin",
                         "nickname", "组织管理员",
-                        "inviteCode", adminInviteCode
+                        "inviteCode", adminInviteCode,
+                        "code", "123456"
                 ))
                 .post("/app/user/register/create-organization");
 
         createResponse.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     // ========== 邀请码查询 ==========
@@ -76,11 +78,13 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldGetInviteInfo() {
-        // 创建超管并生成组织管理员邀请码
-        String adminToken = createRootAdmin();
+        // 创建用户和组织，orgadmin 生成加入组织的邀请码（OrganizationUserInvite 类型）
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String adminToken = loginAs("orgadmin", "123456");
+
         Response inviteResponse = authRequest(adminToken)
-                .post("/admin/organizations/invite-codes/create-org");
-        inviteResponse.then().statusCode(200).body("code", equalTo(0));
+                .post("/orgadmin/members/invite-codes/join-org");
+        inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
         // 获取邀请码对应的组织信息
@@ -89,7 +93,7 @@ public class UserApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0))
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.orgName", notNullValue());
     }
 
@@ -157,13 +161,13 @@ public class UserApiTest extends BaseApiTest {
     void shouldJoinOrganizationByInvite() {
         // 创建两个用户和对应的组织
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
-        createUserWithOrganization(2L, "user2", "123456", "user2@example.com", 2L, 2L, "MEMBER");
+        createUserWithOrganization(2L, "user2", "123456", "user2@example.com", 2L, 2L, "ORG_ADMIN");
 
         // user1 登录并生成加入自己组织的邀请码
         String token1 = loginAs("user1", "123456");
         Response inviteResponse = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org");
-        inviteResponse.then().statusCode(200).body("code", equalTo(0));
+        inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
         // user2 登录并使用邀请码加入 user1 的组织
@@ -174,7 +178,7 @@ public class UserApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**

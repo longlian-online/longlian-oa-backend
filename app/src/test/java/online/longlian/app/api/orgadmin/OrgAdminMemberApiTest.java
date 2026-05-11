@@ -2,6 +2,7 @@ package online.longlian.app.api.orgadmin;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -26,7 +27,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -37,6 +38,13 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
+        // 插入待审核的入组申请
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 0L, 0, "REGISTER", "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+        );
+
         Response response = authRequest(token)
                 .body(Map.of(
                         "applicationStatus", "APPROVED",
@@ -46,7 +54,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     // ========== 组员列表 ==========
@@ -65,7 +73,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -81,7 +89,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -90,15 +98,18 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     @Test
     void shouldChangeMemberStatus() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        // 创建第二个 MEMBER 角色成员用于测试禁用
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "MEMBER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
                 .body(Map.of("status", "DISABLED"))
-                .patch("/orgadmin/members/1/status");
+                .patch("/orgadmin/members/2/status");
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     // ========== 邀请码 ==========
@@ -116,7 +127,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0))
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.inviteCode", notNullValue())
                 .body("data.expireAt", notNullValue());
     }
