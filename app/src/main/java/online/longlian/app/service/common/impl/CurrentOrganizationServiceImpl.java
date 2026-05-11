@@ -79,12 +79,8 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
      * 初始化用户当前组织
      */
     @Override
-    public void refreshCurrentOrgTtl(Long userId, long ttlSeconds) {
-        Long cachedOrgId = getCachedCurrentOrgId(userId);
-        if (cachedOrgId == null || cachedOrgId <= 0) {
-            cachedOrgId = resolveCurrentOrgContext(userId, null).getOrgId();
-        }
-        cacheCurrentOrgId(userId, cachedOrgId, ttlSeconds);
+    public void refreshCurrentOrgTtl(Long userId, Long currentOrgId, long ttlSeconds) {
+        cacheCurrentOrgId(userId, currentOrgId, ttlSeconds);
     }
 
     /**
