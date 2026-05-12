@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.common.enumeration.TaskTemplateSortBy;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 
 import java.time.LocalDateTime;

@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.orgadmin.BaseTaskService;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

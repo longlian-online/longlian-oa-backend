@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.ProjectStatus;
+import online.longlian.common.enumeration.ProjectStatus;
 
 import java.time.LocalDateTime;
 
