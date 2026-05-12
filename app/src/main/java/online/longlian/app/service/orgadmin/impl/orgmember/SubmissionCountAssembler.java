@@ -1,4 +1,4 @@
-package online.longlian.app.service.orgadmin.impl;
+package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountItemBO;
 import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;

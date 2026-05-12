@@ -1,4 +1,4 @@
-package online.longlian.app.service.orgadmin.impl;
+package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
@@ -103,8 +104,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
         LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
                 .eq(OrganizationJoinOtp::getOrgId, application.getOrgId())
-                .orderByDesc(OrganizationJoinOtp::getId)
-                .last("LIMIT 1");
+                .orderByDesc(OrganizationJoinOtp::getId);
 
         if (application.getApplicationType() == ApplicationType.EXISTING_USER) {
             queryWrapper.eq(OrganizationJoinOtp::getInvitedUserId, application.getUserId());
@@ -112,7 +112,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             queryWrapper.isNull(OrganizationJoinOtp::getInvitedUserId);
         }
 
-        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(queryWrapper);
+        Page<OrganizationJoinOtp> page = new Page<>(1, 1);
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectPage(page, queryWrapper)
+                .getRecords().stream().findFirst().orElse(null);
         if (joinOtp == null) {
             return;
         }
@@ -147,10 +149,13 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
-    public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(Long memberId) {
-        OrganizationMember member = organizationMemberMapper.selectById(memberId);
+    public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params) {
+        OrganizationMember member = organizationMemberMapper.selectById(params.getMemberId());
         if (member == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "成员不存在");
+        }
+        if (!params.getOrgId().equals(member.getOrgId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该成员");
         }
         return memberSubmissionHandler.getSubmitCounts(member);
     }
