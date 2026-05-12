@@ -51,24 +51,30 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldRegisterAndJoinOrganization() {
-        // 创建超管并生成邀请码
-        String adminToken = createRootAdmin();
-        Response inviteResponse = authRequest(adminToken)
-                .post("/admin/organizations/invite-codes/create-org");
-        inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        String adminInviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
+        // 创建组织和管理员，由管理员生成加入组织邀请码
+        long orgId = uniqueId();
+        long adminUserId = System.currentTimeMillis();
+        createUserWithOrganization(adminUserId, "orgadmin_" + adminUserId, "123456",
+                "orgadmin_" + adminUserId + "@example.com",
+                orgId, orgId, "ORG_ADMIN");
+        String orgAdminToken = loginAs("orgadmin_" + adminUserId, "123456");
 
+        Response inviteResponse = authRequest(orgAdminToken)
+                .post("/orgadmin/members/invite-codes/join-org");
+        inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
+
+        // 新用户通过邀请码注册并加入组织
         long userId = uniqueId();
-        createEmailVerifyOTP("123456", userId, "orgadmin_" + userId + "@example.com");
-        createOrganizationUserInviteOTP(adminInviteCode, 0L);
+        createEmailVerifyOTP("123456", userId, "newuser_" + userId + "@example.com");
 
         Response createResponse = request()
                 .body(Map.of(
-                        "email", "orgadmin_" + userId + "@example.com",
+                        "email", "newuser_" + userId + "@example.com",
                         "password", "123456",
-                        "username", "orgadmin_" + userId,
-                        "nickname", "组织管理员",
-                        "inviteCode", adminInviteCode,
+                        "username", "newuser_" + userId,
+                        "nickname", "新用户",
+                        "inviteCode", inviteCode,
                         "code", "123456"
                 ))
                 .post("/app/user/register/join-organization");
