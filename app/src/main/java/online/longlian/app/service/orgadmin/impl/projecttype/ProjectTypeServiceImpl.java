@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.service.orgadmin.ProjectTypeService;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -18,8 +18,8 @@ import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
-import online.longlian.generator.enumeration.Status;
-import online.longlian.generator.enumeration.TaskTemplateScope;
+import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TaskTemplateScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

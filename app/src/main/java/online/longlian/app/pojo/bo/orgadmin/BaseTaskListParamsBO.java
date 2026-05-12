@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import online.longlian.app.common.enumeration.BaseTaskSortBy;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.PageParamsBO;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
 
