@@ -1,4 +1,4 @@
-package online.longlian.app.service.orgadmin.impl;
+package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.UserMapper;

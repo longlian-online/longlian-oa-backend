@@ -1,7 +1,7 @@
-package online.longlian.app.service.orgadmin.impl;
+package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountItemBO;
-import online.longlian.app.pojo.bo.OrgnMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.TaskSubmission;
@@ -21,7 +21,7 @@ public class SubmissionCountAssembler {
     /**
      * 按原子任务聚合提交数并构建结果。
      */
-    public OrgnMemberBaseTaskSubmitCountResultBO assembleResult(
+    public OrgMemberBaseTaskSubmitCountResultBO assembleResult(
             OrganizationMember member,
             List<BaseTask> baseTasks,
             Map<Long, Long> nodeIdToBaseTaskId,
@@ -47,7 +47,7 @@ public class SubmissionCountAssembler {
     /**
      * 无提交数据时的空结果。若 baseTasks 为空则 items 为空列表。
      */
-    public OrgnMemberBaseTaskSubmitCountResultBO buildEmptyResult(
+    public OrgMemberBaseTaskSubmitCountResultBO buildEmptyResult(
             OrganizationMember member, List<BaseTask> baseTasks) {
 
         List<OrgMemberBaseTaskSubmitCountItemBO> items = baseTasks.stream()
@@ -62,10 +62,10 @@ public class SubmissionCountAssembler {
         return toResult(member, items);
     }
 
-    private OrgnMemberBaseTaskSubmitCountResultBO toResult(
+    private OrgMemberBaseTaskSubmitCountResultBO toResult(
             OrganizationMember member,
             List<OrgMemberBaseTaskSubmitCountItemBO> items) {
-        return OrgnMemberBaseTaskSubmitCountResultBO.builder()
+        return OrgMemberBaseTaskSubmitCountResultBO.builder()
                 .memberId(member.getId())
                 .userId(member.getUserId())
                 .totalSubmitCount(member.getSubmitCount())

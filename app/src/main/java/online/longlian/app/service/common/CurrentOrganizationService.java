@@ -28,7 +28,7 @@ public interface CurrentOrganizationService {
     /**
      * 刷新用户当前组织上下文缓存过期时间。
      */
-    void refreshCurrentOrgTtl(Long userId, long ttlSeconds);
+    void refreshCurrentOrgTtl(Long userId, Long currentOrgId, long ttlSeconds);
 
     /**
      * 切换用户当前组织。

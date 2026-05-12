@@ -1,11 +1,11 @@
-package online.longlian.app.service.orgadmin.impl;
+package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.OrgnMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.OrganizationMember;
@@ -34,7 +34,7 @@ public class MemberSubmissionHandler {
      * 从原子任务→任务节点→提交记录逐层关联，每层结果为空时提前返回
      * 委托SubmissionCountAssembler组装
      */
-    public OrgnMemberBaseTaskSubmitCountResultBO getSubmitCounts(OrganizationMember member) {
+    public OrgMemberBaseTaskSubmitCountResultBO getSubmitCounts(OrganizationMember member) {
         List<BaseTask> baseTasks = baseTaskMapper.selectList(
                 new LambdaQueryWrapper<BaseTask>()
                         .eq(BaseTask::getOrgId, member.getOrgId())

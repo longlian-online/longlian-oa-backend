@@ -112,7 +112,7 @@ public class SessionServiceImpl implements SessionService {
         String token = jwtUtil.generateToken(userId);
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
-        currentOrganizationService.refreshCurrentOrgTtl(userId, sessionTtlSeconds);
+        currentOrganizationService.refreshCurrentOrgTtl(userId, userDetail.getCurrentOrgId(), sessionTtlSeconds);
         cacheLoginSession(userDetail, sessionTtlSeconds);
 
         return SessionLoginResultBO.builder()
