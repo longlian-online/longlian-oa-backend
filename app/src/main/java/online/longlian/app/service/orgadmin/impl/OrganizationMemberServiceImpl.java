@@ -18,7 +18,7 @@ import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
-import online.longlian.app.pojo.bo.OrgnMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.OrgMemberListParamsBO;
@@ -147,7 +147,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
-    public OrgnMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(Long memberId) {
+    public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(Long memberId) {
         OrganizationMember member = organizationMemberMapper.selectById(memberId);
         if (member == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "成员不存在");

@@ -11,7 +11,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrgnMemberBaseTaskSubmitCountResultBO {
+public class OrgMemberBaseTaskSubmitCountResultBO {
     private Long memberId;
     private Long userId;
     private Integer totalSubmitCount;
