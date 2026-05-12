@@ -1,4 +1,4 @@
-package online.longlian.app.service.orgadmin.impl;
+package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -71,7 +71,7 @@ public class ApplicationReviewHandler {
         }
     }
 
-    User createUserByApplication(GroupApplication application, LocalDateTime now) {
+    public User createUserByApplication(GroupApplication application, LocalDateTime now) {
         User user = User.builder()
                 .username(application.getUsername())
                 .password(application.getPassword())
@@ -86,7 +86,7 @@ public class ApplicationReviewHandler {
         return user;
     }
 
-    User getExistingApplicationUser(GroupApplication application) {
+    public User getExistingApplicationUser(GroupApplication application) {
         User user = userMapper.selectById(application.getUserId());
         // 校验链：用户必须存在、未被禁用、且未重复加入同一组织
         if (user == null) {
