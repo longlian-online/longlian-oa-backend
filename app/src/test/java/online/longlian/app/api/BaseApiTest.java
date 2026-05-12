@@ -176,10 +176,25 @@ public abstract class BaseApiTest {
     }
 
     /**
+     * 生成较短的用户 ID（避免超出 DTO 长度限制）
+     */
+    protected long uniqueId() {
+        return System.currentTimeMillis() % 100000;
+    }
+
+    /**
      * 创建邮箱验证码 OTP（默认 30 分钟后过期）
      */
-    protected void createEmailVerifyOTP(String code, Long creatorId) {
-        createOTP(code, 3, creatorId, LocalDateTime.now().plusMinutes(30));
+    protected void createEmailVerifyOTP(String code, Long creatorId, String receiver) {
+        long otpId = System.nanoTime();
+        jdbcTemplate.update(
+                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                otpId, code, LocalDateTime.now().plusMinutes(30), 3, creatorId
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
+                otpId, otpId, receiver, 1, 1
+        );
     }
 
     /**

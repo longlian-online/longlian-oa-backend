@@ -25,8 +25,8 @@ public class UserApiTest extends BaseApiTest {
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
-        long userId = System.nanoTime();
-        createEmailVerifyOTP("123456", userId);
+        long userId = uniqueId();
+        createEmailVerifyOTP("123456", userId, "newuser_" + userId + "@example.com");
         createOrganizationCreateInviteOTP(inviteCode);
 
         Response response = request()
@@ -36,7 +36,8 @@ public class UserApiTest extends BaseApiTest {
                         "username", "newuser_" + userId,
                         "nickname", "新用户",
                         "inviteCode", inviteCode,
-                        "code", "123456"
+                        "code", "123456",
+                        "orgName", "测试组织"
                 ))
                 .post("/app/user/register/create-organization");
 
@@ -57,8 +58,8 @@ public class UserApiTest extends BaseApiTest {
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String adminInviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
-        long userId = System.nanoTime();
-        createEmailVerifyOTP("123456", userId);
+        long userId = uniqueId();
+        createEmailVerifyOTP("123456", userId, "orgadmin_" + userId + "@example.com");
         createOrganizationUserInviteOTP(adminInviteCode, 0L);
 
         Response createResponse = request()
@@ -70,7 +71,7 @@ public class UserApiTest extends BaseApiTest {
                         "inviteCode", adminInviteCode,
                         "code", "123456"
                 ))
-                .post("/app/user/register/create-organization");
+                .post("/app/user/register/join-organization");
 
         createResponse.then()
                 .statusCode(200)
