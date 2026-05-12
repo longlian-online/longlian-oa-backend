@@ -5,6 +5,7 @@ import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
@@ -40,7 +41,7 @@ public interface OrganizationMemberService {
     /**
      * 查询组员各原子任务提交数。
      */
-    OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(Long memberId);
+    OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params);
 
     /**
      * 生成组织加入邀请码。

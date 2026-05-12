@@ -17,6 +17,7 @@ import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
 import online.longlian.app.pojo.bo.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.PageParamsBO;
 import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
@@ -149,7 +150,15 @@ public class OrganizationMemberController {
     @Parameter(name = "memberId", description = "成员ID")
     @GetMapping("/{memberId}/base-tasks/submit-counts")
     public Result<OrgMemberBaseTaskSubmitCountVO> getMemberBaseTaskSubmitCounts(@PathVariable Long memberId) {
-        OrgMemberBaseTaskSubmitCountResultBO resultBO = organizationMemberService.getMemberBaseTaskSubmitCounts(memberId);
+        Long currentUserId = sessionService.getCurrentUserId();
+        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+
+        OrgMemberBaseTaskSubmitCountResultBO resultBO = organizationMemberService.getMemberBaseTaskSubmitCounts(
+                OrgMemberBaseTaskSubmitCountParamsBO.builder()
+                        .memberId(memberId)
+                        .orgId(currentOrgId)
+                        .build()
+        );
 
         OrgMemberBaseTaskSubmitCountVO orgMemberBaseTaskSubmitCountVO = OrgMemberBaseTaskSubmitCountVO.builder()
                 .memberId(resultBO.getMemberId())
