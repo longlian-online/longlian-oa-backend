@@ -5,7 +5,7 @@ import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

@@ -9,8 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.Status;
-import online.longlian.generator.enumeration.TaskTemplateScope;
+import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TaskTemplateScope;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

@@ -12,8 +12,8 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.generator.enumeration.ApplicationStatus;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;

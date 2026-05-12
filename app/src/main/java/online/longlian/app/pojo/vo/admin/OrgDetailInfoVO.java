@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
 @NoArgsConstructor

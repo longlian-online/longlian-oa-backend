@@ -3,40 +3,39 @@ package online.longlian.app.common.security;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.bo.OTPUseContextBO;
+import online.longlian.app.pojo.bo.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
-import online.longlian.app.service.VerifyCodeService;
-import online.longlian.app.service.common.OneTimePasswordService;
+import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.otp.OTPStrategyService;
+import online.longlian.common.enumeration.OTPType;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-/**
- * 邮箱验证码认证提供者：实现邮箱+验证码的认证逻辑
- */
 @Component
 @RequiredArgsConstructor
 public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
     private final UserDetailsServiceImpl userDetailsServiceImpl;
-    private final VerifyCodeService verifyCodeService;
-    private final OneTimePasswordService oneTimePasswordService;
+    private final OTPServiceFactory otpServiceFactory;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        // 1. 获取邮箱和验证码
         String email = (String) authentication.getPrincipal();
         String code = (String) authentication.getCredentials();
-        // 2. 校验验证码
-        OneTimePassword otp = verifyCodeService.validateCode(email, code);
-        // 3. 按邮箱查询用户
+
+        OTPStrategyService otpStrategyService = otpServiceFactory.get(OTPType.EmailVerify);
+        OneTimePassword oneTimePassword = otpStrategyService.getValid(
+                OTPValidateContextBO.builder().code(code).target(email).build());
+
         UserDetails userDetails = userDetailsServiceImpl.loadUserByEmailOnly(email);
         if (!userDetails.isEnabled()) {
             throw new AppException(ResultCode.OPERATION_FAIL, "账号已被禁用");
         }
-        oneTimePasswordService.useOTP(otp.getId());
+        otpStrategyService.use(OTPUseContextBO.builder().otpId(oneTimePassword.getId()).build());
 
-        // 4. 认证成功：返回已认证令牌
         return new EmailCodeAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 

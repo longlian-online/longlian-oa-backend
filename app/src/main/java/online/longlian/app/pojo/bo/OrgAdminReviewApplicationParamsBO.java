@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.generator.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.ApplicationStatus;
 
 @Data
 @Builder

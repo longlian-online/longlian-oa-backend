@@ -6,7 +6,7 @@ import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.ResourceCreateParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.service.resource.impl.OssStorageService;
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

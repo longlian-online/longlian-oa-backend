@@ -1,41 +1,38 @@
 package online.longlian.app.service.user.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationCreateOtpMapper;
 import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.OTPUseContextBO;
+import online.longlian.app.pojo.bo.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.pojo.entity.OrganizationCreateOtp;
-import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.VerifyCodeService;
 import online.longlian.app.service.common.CurrentOrganizationService;
-import online.longlian.app.service.common.OneTimePasswordService;
+import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.app.service.user.SessionService;
 import online.longlian.app.service.user.UserService;
-import online.longlian.generator.enumeration.ApplicationStatus;
-import online.longlian.generator.enumeration.ApplicationType;
-import online.longlian.generator.enumeration.OTPType;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.ApplicationType;
+import online.longlian.common.enumeration.OTPType;
+import online.longlian.common.enumeration.Status;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,18 +44,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    private final VerifyCodeService verifyCodeService;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final OrganizationCreateOtpMapper organizationCreateOtpMapper;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final GroupApplicationMapper groupApplicationMapper;
     private final ResourceService resourceService;
     private final UserMapper userMapper;
-    private final SessionService sessionService;
     private final CurrentOrganizationService currentOrganizationService;
-    private final OneTimePasswordService oneTimePasswordService;
+    private final OTPServiceFactory otpServiceFactory;
 
     @Override
     public UserGetMyInfoResultBO getMyInfo(Long userId) {
@@ -109,8 +103,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional(rollbackFor = Exception.class)
     public void registerAndCreateOrganizationByInvite(UserRegisterByInviteParamsBO params) {
         OneTimePassword emailOtp = validateRegisterRequest(params);
-        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationInvite);
-        OrganizationCreateOtp organizationCreateOtp = validatePendingOrganizationCreateInvitation(oneTimePassword.getId());
+        OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationInvite).getValid(
+                OTPValidateContextBO.builder().code(params.getInviteCode()).build());
         if (params.getOrgName() == null || params.getOrgName().isBlank()) {
             throw new AppException(ResultCode.PARAM_ERROR, "组织名称不能为空");
         }
@@ -142,26 +136,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setDefaultOrgId(organization.getId());
         userMapper.updateById(user);
 
-        oneTimePasswordService.useOTP(emailOtp.getId());
-        oneTimePasswordService.useOTP(oneTimePassword.getId());
-        organizationCreateOtpMapper.update(
-                null,
-                new LambdaUpdateWrapper<OrganizationCreateOtp>()
-                        .eq(OrganizationCreateOtp::getId, organizationCreateOtp.getId())
-                        .isNull(OrganizationCreateOtp::getInvitedUserId)
-                        .set(OrganizationCreateOtp::getInvitedUserId, user.getId())
-                        .set(OrganizationCreateOtp::getOrgId, organization.getId())
-        );
+        otpServiceFactory.get(OTPType.EmailVerify).use(
+                OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+        otpServiceFactory.get(OTPType.OrganizationInvite).use(
+                OTPUseContextBO.builder()
+                        .otpId(inviteOtp.getId())
+                        .userId(user.getId())
+                        .orgId(organization.getId())
+                        .build());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params) {
         OneTimePassword emailOtp = validateRegisterRequest(params);
-        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
-        OrganizationJoinOtp organizationJoinOtp = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
-
-        Organization organization = validateJoinTargetOrganization(organizationJoinOtp.getOrgId());
+        OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
+                OTPValidateContextBO.builder().code(params.getInviteCode()).build());
+        Organization organization = getJoinTargetOrganization(inviteOtp);
 
         LocalDateTime now = LocalDateTime.now();
         GroupApplication groupApplication = GroupApplication.builder()
@@ -178,16 +169,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         groupApplicationMapper.insert(groupApplication);
 
-        oneTimePasswordService.useOTP(emailOtp.getId());
-        oneTimePasswordService.useOTP(oneTimePassword.getId());
+        otpServiceFactory.get(OTPType.EmailVerify).use(
+                OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+        otpServiceFactory.get(OTPType.OrganizationUserInvite).use(
+                OTPUseContextBO.builder().otpId(inviteOtp.getId()).build());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void joinOrganizationByInvite(Long userId, String inviteCode) {
-        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(inviteCode, OTPType.OrganizationUserInvite);
-        OrganizationJoinOtp organizationJoinOtp = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
-        Organization organization = validateJoinTargetOrganization(organizationJoinOtp.getOrgId());
+        OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
+                OTPValidateContextBO.builder().code(inviteCode).build());
+        Organization organization = getJoinTargetOrganization(inviteOtp);
 
         OrganizationMember existedMember = organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
@@ -213,21 +206,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         groupApplicationMapper.insert(groupApplication);
 
-        oneTimePasswordService.useOTP(oneTimePassword.getId());
-        organizationJoinOtpMapper.update(
-                null,
-                new LambdaUpdateWrapper<OrganizationJoinOtp>()
-                        .eq(OrganizationJoinOtp::getId, organizationJoinOtp.getId())
-                        .isNull(OrganizationJoinOtp::getInvitedUserId)
-                        .set(OrganizationJoinOtp::getInvitedUserId, userId)
-        );
+        otpServiceFactory.get(OTPType.OrganizationUserInvite).use(
+                OTPUseContextBO.builder()
+                        .otpId(inviteOtp.getId())
+                        .userId(userId)
+                        .build());
     }
 
     @Override
     public UserGetJoinOrgInviteInfoResultBO getJoinOrgInviteInfo(UserGetJoinOrgInviteInfoParamsBO params) {
-        OneTimePassword oneTimePassword = oneTimePasswordService.getValidOTP(params.getInviteCode(), OTPType.OrganizationUserInvite);
-        OrganizationJoinOtp organizationJoinOtp = validatePendingOrganizationJoinInvitation(oneTimePassword.getId());
-        Organization organization = validateJoinTargetOrganization(organizationJoinOtp.getOrgId());
+        OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
+                OTPValidateContextBO.builder().code(params.getInviteCode()).build());
+        Organization organization = getJoinTargetOrganization(inviteOtp);
         return UserGetJoinOrgInviteInfoResultBO.builder()
                 .orgId(organization.getId())
                 .orgName(organization.getName())
@@ -235,7 +225,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     private OneTimePassword validateRegisterRequest(UserRegisterByInviteParamsBO params) {
-        OneTimePassword emailOtp = verifyCodeService.validateCode(params.getEmail(), params.getCode());
+        OneTimePassword emailOtp = otpServiceFactory.get(OTPType.EmailVerify).getValid(
+                OTPValidateContextBO.builder().code(params.getCode()).target(params.getEmail()).build());
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, params.getUsername())) != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
         }
@@ -245,8 +236,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return emailOtp;
     }
 
-    private Organization validateJoinTargetOrganization(Long orgId) {
-        Organization organization = organizationMapper.selectById(orgId);
+    private Organization getJoinTargetOrganization(OneTimePassword inviteOtp) {
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationJoinOtp>()
+                        .eq(OrganizationJoinOtp::getOtpId, inviteOtp.getId())
+                        .last("LIMIT 1")
+        );
+        if (joinOtp == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
+        }
+        Organization organization = organizationMapper.selectById(joinOtp.getOrgId());
         if (organization == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在");
         }
@@ -269,37 +268,5 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .build();
         userMapper.insert(user);
         return user;
-    }
-
-    private OrganizationCreateOtp validatePendingOrganizationCreateInvitation(Long otpId) {
-        OrganizationCreateOtp organizationCreateOtp = organizationCreateOtpMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationCreateOtp>()
-                        .eq(OrganizationCreateOtp::getOtpId, otpId)
-                        .last("LIMIT 1")
-        );
-        if (organizationCreateOtp == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
-        }
-        validateInvitationAvailable(organizationCreateOtp.getInvitedUserId());
-        return organizationCreateOtp;
-    }
-
-    private OrganizationJoinOtp validatePendingOrganizationJoinInvitation(Long otpId) {
-        OrganizationJoinOtp organizationJoinOtp = organizationJoinOtpMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationJoinOtp>()
-                        .eq(OrganizationJoinOtp::getOtpId, otpId)
-                        .last("LIMIT 1")
-        );
-        if (organizationJoinOtp == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
-        }
-        validateInvitationAvailable(organizationJoinOtp.getInvitedUserId());
-        return organizationJoinOtp;
-    }
-
-    private void validateInvitationAvailable(Long invitedUserId) {
-        if (invitedUserId != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已使用");
-        }
     }
 }

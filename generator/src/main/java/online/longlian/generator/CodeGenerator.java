@@ -17,7 +17,9 @@ import org.springframework.core.io.FileSystemResource;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 
 
@@ -25,7 +27,11 @@ import java.util.Properties;
 public class CodeGenerator {
 
     private static final String OUTPUT_DIR = Paths.get("app", "src", "main", "java").toString();
-    public static HashMap<EnumFieldMeta, ModelEnumMeta> enumTypeConvertMap;
+    private static Map<EnumFieldMeta, ModelEnumMeta> enumTypeConvertMap = new LinkedHashMap<>();
+
+    public static Map<EnumFieldMeta, ModelEnumMeta> getEnumTypeConvertMap() {
+        return Collections.unmodifiableMap(enumTypeConvertMap);
+    }
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         ConfigurableEnvironment env = loadSpringEnv();

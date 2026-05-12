@@ -4,7 +4,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.generator.enumeration.TaskSubmissionStatus;
+import online.longlian.common.enumeration.TaskSubmissionStatus;
 
 import java.time.LocalDateTime;
 

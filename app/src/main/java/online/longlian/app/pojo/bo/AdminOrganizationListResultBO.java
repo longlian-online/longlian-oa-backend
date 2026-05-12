@@ -3,7 +3,7 @@ package online.longlian.app.pojo.bo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import online.longlian.generator.enumeration.Status;
+import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
 

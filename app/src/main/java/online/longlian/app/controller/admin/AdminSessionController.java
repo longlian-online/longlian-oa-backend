@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.pojo.bo.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.AdminLoginResultBO;
 import online.longlian.app.pojo.bo.AdminLogoutParamsBO;
@@ -24,9 +25,10 @@ import org.springframework.web.bind.annotation.*;
 public class AdminSessionController {
 
     private final AdminSessionService adminSessionService;
+    private final JwtUtil jwtUtil;
 
     @Operation(summary = "管理员登录", description = "使用用户名+密码登录", security = {})
-    @PostMapping("/login")
+    @PostMapping("")
     public Result<AdminLoginVO> login(@RequestBody @Valid AdminLoginDTO dto) {
         AdminLoginResultBO resultBO = adminSessionService.login(
                 AdminLoginParamsBO.builder()
@@ -40,16 +42,20 @@ public class AdminSessionController {
     }
 
     @Operation(summary = "管理员登出")
-    @DeleteMapping("/")
+    @DeleteMapping("")
     public Result<Void> logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Result.success("登出成功");
         }
+        Long adminId = adminSessionService.getCurrentAdminId();
+        if (adminId == null) {
+            return Result.success("登出成功");
+        }
         String token = authHeader.substring(7);
         adminSessionService.logout(
                 AdminLogoutParamsBO.builder()
-                        .adminId(adminSessionService.getCurrentAdminId())
+                        .adminId(adminId)
                         .token(token)
                         .build()
         );

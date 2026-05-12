@@ -1,6 +1,6 @@
 package online.longlian.app.service.resource;
 
-import online.longlian.generator.enumeration.StorageType;
+import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,8 +16,8 @@ public class StorageServiceFactory {
 
     // 构造函数注入：将 List 转为 Map
     public StorageServiceFactory(List<StorageService> storageServiceList) {
-        this.services = storageServiceList.stream()
-                .collect(Collectors.toMap(StorageService::getStorageType, Function.identity()));
+        this.services = Map.copyOf(storageServiceList.stream()
+                .collect(Collectors.toMap(StorageService::getStorageType, Function.identity())));
     }
 
     public StorageService get(StorageType type) {
