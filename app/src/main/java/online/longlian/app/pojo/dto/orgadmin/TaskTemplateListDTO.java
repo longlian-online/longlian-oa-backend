@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.app.common.enumeration.SortDirection;
+import online.longlian.app.common.enumeration.TaskTemplateSortBy;
 import online.longlian.generator.enumeration.Status;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 
@@ -28,8 +29,8 @@ public class TaskTemplateListDTO extends PageRequestDTO {
     @Schema(description = "创建时间-结束")
     private LocalDateTime endCreatedTime;
 
-    @Schema(description = "排序字段：createdAt-创建时间，refCount-引用次数，默认 refCount")
-    private String sortBy = "refCount";
+    @Schema(description = "排序字段：CREATED_AT-创建时间，REF_COUNT-引用次数，默认 REF_COUNT")
+    private TaskTemplateSortBy sortBy = TaskTemplateSortBy.REF_COUNT;
 
     @Schema(description = "排序方式，默认倒序")
     private SortDirection orderDir = SortDirection.DESC;
