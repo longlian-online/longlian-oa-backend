@@ -10,7 +10,6 @@ tasks:
     desc: "在 Docker 中运行 API 测试（自动启动 MySQL + Redis）"
     cmd: |
       docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
-      task: api-test-docker-clean
 
   api-test-docker-clean:
     desc: "清理测试容器和数据卷"
