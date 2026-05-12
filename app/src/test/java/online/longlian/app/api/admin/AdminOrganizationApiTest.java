@@ -11,6 +11,9 @@ import static org.hamcrest.Matchers.*;
 
 public class AdminOrganizationApiTest extends BaseApiTest {
 
+    /**
+     * 分页查询组织列表成功
+     */
     @Test
     void shouldListOrganizationsSuccessfully() {
         createAdmin(1L, "superadmin", "123456", "SUPER_ADMIN");
@@ -32,6 +35,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("data.total", greaterThanOrEqualTo(2));
     }
 
+    /**
+     * 按组织名称筛选查询组织列表成功
+     */
     @Test
     void shouldListOrganizationsWithNameFilter() {
         createAdmin(2L, "superadmin2", "123456", "SUPER_ADMIN");
@@ -53,6 +59,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("data.list", notNullValue());
     }
 
+    /**
+     * 生成创建组织邀请码成功
+     */
     @Test
     void shouldGenerateCreateOrgInviteCode() {
         createAdmin(3L, "superadmin3", "123456", "SUPER_ADMIN");
@@ -70,6 +79,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("data.expireAt", notNullValue());
     }
 
+    /**
+     * 无认证生成邀请码失败
+     */
     @Test
     void shouldFailGenerateInviteCodeWithoutAuth() {
         Response response = request()
@@ -80,6 +92,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .statusCode(401);
     }
 
+    /**
+     * 禁用组织成功
+     */
     @Test
     void shouldChangeOrgStatusToDisabled() {
         createAdmin(4L, "superadmin4", "123456", "SUPER_ADMIN");
@@ -98,6 +113,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("msg", equalTo("ok"));
     }
 
+    /**
+     * 启用组织成功
+     */
     @Test
     void shouldChangeOrgStatusToEnabled() {
         createAdmin(5L, "superadmin5", "123456", "SUPER_ADMIN");
@@ -120,6 +138,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("msg", equalTo("ok"));
     }
 
+    /**
+     * 无认证修改组织状态失败
+     */
     @Test
     void shouldFailChangeOrgStatusWithoutAuth() {
         Response response = request()
@@ -131,6 +152,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .statusCode(401);
     }
 
+    /**
+     * 修改不存在的组织状态失败
+     */
     @Test
     void shouldFailChangeNonexistentOrgStatus() {
         createAdmin(6L, "superadmin6", "123456", "SUPER_ADMIN");
@@ -146,6 +170,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
+    /**
+     * 使用无效状态修改组织状态失败
+     */
     @Test
     void shouldFailChangeOrgStatusWithInvalidStatus() {
         createAdmin(7L, "superadmin7", "123456", "SUPER_ADMIN");
@@ -163,6 +190,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.FAIL.getCode()));
     }
 
+    /**
+     * 使用空状态修改组织状态失败
+     */
     @Test
     void shouldFailChangeOrgStatusWithNullStatus() {
         createAdmin(8L, "superadmin8", "123456", "SUPER_ADMIN");
@@ -183,6 +213,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * pageNum 为 0 时查询组织列表失败
+     */
     @Test
     void shouldFailWithInvalidPageNum() {
         createAdmin(18L, "superadmin18", "123456", "SUPER_ADMIN");
@@ -196,6 +229,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * pageNum 为负数时查询组织列表失败
+     */
     @Test
     void shouldFailWithNegativePageNum() {
         createAdmin(19L, "superadmin19", "123456", "SUPER_ADMIN");
@@ -209,6 +245,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * pageSize 为 0 时查询组织列表失败
+     */
     @Test
     void shouldFailWithZeroPageSize() {
         createAdmin(20L, "superadmin20", "123456", "SUPER_ADMIN");
@@ -222,6 +261,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 组织名称过长时查询组织列表失败
+     */
     @Test
     void shouldFailWithTooLongOrgName() {
         createAdmin(22L, "superadmin22", "123456", "SUPER_ADMIN");
@@ -234,6 +276,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 使用 SQL 注入尝试查询组织列表（防注入验证）
+     */
     @Test
     void shouldListOrganizationsWithSqlInjectionAttempt() {
         createAdmin(15L, "superadmin15", "123456", "SUPER_ADMIN");
@@ -250,6 +295,9 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization WHERE id = 15", Integer.class);
     }
 
+    /**
+     * 不带分页参数时使用默认分页
+     */
     @Test
     void shouldListOrganizationsWithDefaultPagination() {
         createAdmin(23L, "superadmin23", "123456", "SUPER_ADMIN");

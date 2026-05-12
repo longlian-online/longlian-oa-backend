@@ -37,6 +37,11 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
+            <groupId>online.longlian</groupId>
+            <artifactId>common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
@@ -141,11 +146,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <dependency>
-            <groupId>online.longlian</groupId>
-            <artifactId>generator</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
+
         <!-- Source: https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-api -->
         <dependency>
             <groupId>io.opentelemetry</groupId>

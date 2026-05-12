@@ -11,6 +11,9 @@ import static org.hamcrest.Matchers.*;
 
 public class AdminManagementApiTest extends BaseApiTest {
 
+    /**
+     * 超管创建管理员成功
+     */
     @Test
     void shouldCreateAdminSuccessfully() {
         createAdmin(1L, "superadmin", "123456", "root");
@@ -28,6 +31,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("data", notNullValue());
     }
 
+    /**
+     * 无认证创建管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithoutAuth() {
         Response response = request()
@@ -39,6 +45,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .statusCode(401);
     }
 
+    /**
+     * 超管删除管理员成功
+     */
     @Test
     void shouldDeleteAdminSuccessfully() {
         createAdmin(2L, "superadmin2", "123456", "root");
@@ -56,6 +65,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("msg", equalTo("删除成功"));
     }
 
+    /**
+     * 分页查询管理员列表成功
+     */
     @Test
     void shouldListAdminsSuccessfully() {
         createAdmin(4L, "superadmin3", "123456", "root");
@@ -77,6 +89,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("data.total", greaterThanOrEqualTo(3));
     }
 
+    /**
+     * 分页查询管理员列表并验证分页
+     */
     @Test
     void shouldListAdminsWithPagination() {
         createAdmin(7L, "superadmin4", "123456", "root");
@@ -99,6 +114,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("data.total", greaterThanOrEqualTo(4));
     }
 
+    /**
+     * 普通管理员创建管理员失败（权限不足）
+     */
     @Test
     void shouldFailCreateAdminWithNormalAdminRole() {
         createAdmin(11L, "superadmin5", "123456", "root");
@@ -115,6 +133,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
+    /**
+     * 普通管理员删除管理员失败（权限不足）
+     */
     @Test
     void shouldFailDeleteAdminWithNormalAdminRole() {
         createAdmin(13L, "superadmin6", "123456", "root");
@@ -132,6 +153,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
+    /**
+     * 删除超管自身失败（权限不足）
+     */
     @Test
     void shouldFailDeleteRootAdmin() {
         createAdmin(16L, "superadmin7", "123456", "root");
@@ -146,6 +170,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
+    /**
+     * 删除自己失败（权限不足）
+     */
     @Test
     void shouldFailDeleteSelf() {
         createAdmin(17L, "superadmin8", "123456", "root");
@@ -160,6 +187,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
+    /**
+     * 删除不存在的管理员失败
+     */
     @Test
     void shouldFailDeleteNonexistentAdmin() {
         createAdmin(18L, "superadmin9", "123456", "root");
@@ -174,6 +204,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
+    /**
+     * 创建重复用户名管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithDuplicateUsername() {
         createAdmin(19L, "superadmin10", "123456", "root");
@@ -191,6 +224,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
 
+    /**
+     * 用户名过短时创建管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithShortUsername() {
         createAdmin(21L, "superadmin11", "123456", "root");
@@ -206,6 +242,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 用户名过长时创建管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithLongUsername() {
         createAdmin(22L, "superadmin12", "123456", "root");
@@ -221,6 +260,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 密码过短时创建管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithShortPassword() {
         createAdmin(23L, "superadmin13", "123456", "root");
@@ -236,6 +278,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 密码过长时创建管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithLongPassword() {
         createAdmin(24L, "superadmin14", "123456", "root");
@@ -251,6 +296,9 @@ public class AdminManagementApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
+    /**
+     * 空请求体创建管理员失败
+     */
     @Test
     void shouldFailCreateAdminWithEmptyBody() {
         createAdmin(25L, "superadmin15", "123456", "root");

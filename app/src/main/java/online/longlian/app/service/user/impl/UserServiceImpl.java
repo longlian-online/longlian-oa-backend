@@ -195,12 +195,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
         }
 
+        User user = userMapper.selectById(userId);
+
         LocalDateTime now = LocalDateTime.now();
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .userId(userId)
                 .status(ApplicationStatus.PENDING)
                 .applicationType(ApplicationType.EXISTING_USER)
+                .username(user.getUsername())
+                .password(user.getPassword())
+                .nickname(user.getNickname())
+                .email(user.getEmail())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();

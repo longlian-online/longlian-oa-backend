@@ -9,6 +9,9 @@ import static org.hamcrest.Matchers.*;
 
 public class SessionApiTest extends BaseApiTest {
 
+    /**
+     * 用户端登录成功
+     */
     @Test
     void shouldLoginSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
@@ -26,6 +29,9 @@ public class SessionApiTest extends BaseApiTest {
                 .body("data.userId", notNullValue());
     }
 
+    /**
+     * 用户端密码错误登录失败
+     */
     @Test
     void shouldFailWithWrongPassword() {
         createTestUser(2L, "testuser2", "123456", "test2@example.com");
@@ -40,6 +46,9 @@ public class SessionApiTest extends BaseApiTest {
                 .body("code", not(equalTo(0)));
     }
 
+    /**
+     * 用户端用户名不存在登录失败
+     */
     @Test
     void shouldFailWithNonexistentUser() {
         Response response = request()

@@ -14,6 +14,7 @@ tasks:
   api-test-docker-clean:
     desc: "清理测试容器和数据卷"
     cmd: |
+      rm -rf app/target
       docker compose -f devops/docker-compose.test.yml down -v
 
   default:
