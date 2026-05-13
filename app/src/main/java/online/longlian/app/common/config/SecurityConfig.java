@@ -46,7 +46,7 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(SecurityConstants.getPermitAllMatchers().toArray(new RequestMatcher[0])).permitAll()
+                        .requestMatchers(SecurityConstants.getPermitAllMatchers()).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

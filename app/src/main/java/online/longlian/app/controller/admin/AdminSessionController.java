@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.*;
 public class AdminSessionController {
 
     private final AdminSessionService adminSessionService;
-    private final JwtUtil jwtUtil;
 
     @Operation(summary = "管理员登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("")

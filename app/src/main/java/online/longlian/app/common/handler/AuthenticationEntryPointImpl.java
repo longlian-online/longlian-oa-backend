@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
-import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.http.HttpStatus;

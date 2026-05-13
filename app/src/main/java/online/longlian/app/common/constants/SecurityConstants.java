@@ -7,7 +7,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import java.util.List;
 
 public class SecurityConstants {
-    private static final List<RequestMatcher> PERMIT_ALL_MATCHERS = List.of(
+    private static final RequestMatcher[] PERMIT_ALL_MATCHERS = {
             new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/admin/session", HttpMethod.POST.name()),
@@ -20,9 +20,9 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/v3/api-docs/**"),
             new AntPathRequestMatcher("/swagger-resources/**"),
             new AntPathRequestMatcher("/error")
-    );
+    };
 
-    public static List<RequestMatcher> getPermitAllMatchers() {
+    public static  RequestMatcher[] getPermitAllMatchers() {
         return PERMIT_ALL_MATCHERS;
     }
 
