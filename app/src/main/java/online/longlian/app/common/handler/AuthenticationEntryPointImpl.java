@@ -48,7 +48,11 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                 return;
             }
         } catch (Exception e) {
-            throw new AppException(ResultCode.FAIL);
+            log.error("获取对应 handler 失败, err: {}", e.getMessage());
+            response.setContentType(CommonConstants.CONTENT_TYPE);
+            response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.FAIL)));
+            return;
         }
 
         String msg = (authException != null) ? authException.getMessage() : "未认证访问";
