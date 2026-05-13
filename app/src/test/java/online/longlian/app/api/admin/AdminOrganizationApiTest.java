@@ -187,7 +187,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.FAIL.getCode()));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**

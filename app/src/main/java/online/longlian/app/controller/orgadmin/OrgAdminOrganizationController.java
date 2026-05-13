@@ -36,7 +36,7 @@ public class OrgAdminOrganizationController {
     @GetMapping("")
     public Result<OrgAdmintOrganizationInfoVO> getOrganizationInfo() {
         Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+        Long currentOrgId = currentOrganizationService.resolveCurrentOrgId(currentUserId);
 
         OrgAdminGetOrganizationInfoResultBO resultBO = orgAdminOrganizationService.getOrganizationInfo(currentOrgId);
 
@@ -54,7 +54,7 @@ public class OrgAdminOrganizationController {
     public Result<Void> updateOrganizationInfo(
             @RequestBody @Valid OrgAdminUpdateOrganizationInfoDTO updateOrganizationInfoDTO) {
         Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
+        Long currentOrgId = currentOrganizationService.resolveCurrentOrgId(currentUserId);
 
         orgAdminOrganizationService.updateOrganizationInfo(
                 OrgAdminUpdateOrganizationInfoParamsBO.builder()
