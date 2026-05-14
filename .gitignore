@@ -41,3 +41,4 @@ data/
 
 **/.env
 *.jar
+.worktrees/
