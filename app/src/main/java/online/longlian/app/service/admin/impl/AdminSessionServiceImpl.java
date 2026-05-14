@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.mapper.AdminMapper;
 import online.longlian.app.pojo.bo.AdminLoginParamsBO;
@@ -64,7 +65,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         );
 
         // 生成token
-        String token = jwtUtil.generateToken(admin.getId());
+        String token = jwtUtil.generateToken(admin.getId(), TokenType.Admin.name().toLowerCase());
 
         return AdminLoginResultBO.builder()
                 .adminId(admin.getId())
@@ -90,16 +91,12 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         );
     }
 
-    // TODO 修改为不依赖上下文的实现
     @Override
     public Long getCurrentAdminId() {
-        // 尝试从Security上下文获取
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof Long adminId) {
-            return adminId;
+        if (authentication != null && authentication.getPrincipal() instanceof AdminUserDetails adminUserDetails) {
+            return adminUserDetails.getId();
         }
-
-        // 如果Security上下文没有，则返回null（后续可扩展从token解析）
         return null;
     }
 }
