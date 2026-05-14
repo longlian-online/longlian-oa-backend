@@ -43,7 +43,7 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, title, description, type_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试企划", "描述", 0L, "DISABLED", 1L
+                1L, 1L, "测试企划", "描述", 0L, 2, 1L
         );
 
         Response response = authRequest(token)
@@ -66,7 +66,7 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, title, description, type_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试企划", "描述", 0L, "ENABLED", 1L
+                1L, 1L, "测试企划", "描述", 0L, 1, 1L
         );
 
         Response response = authRequest(token)
@@ -121,7 +121,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .patch("/orgadmin/projects/1/status");
 
         response.then()
-                .statusCode(400);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
@@ -137,7 +138,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .patch("/orgadmin/projects/1/status");
 
         response.then()
-                .statusCode(400);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     // ========== 业务规则失败 ==========
@@ -174,7 +176,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .post("/orgadmin/projects");
 
         response.then()
-                .statusCode(400);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
@@ -190,7 +193,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .post("/orgadmin/projects");
 
         response.then()
-                .statusCode(400);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**

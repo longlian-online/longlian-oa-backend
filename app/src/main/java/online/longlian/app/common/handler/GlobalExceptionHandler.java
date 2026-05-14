@@ -5,11 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -54,6 +57,26 @@ public class GlobalExceptionHandler {
                 request.getMethod());
 
         return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseBody
+    public <T> Result<T> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
+        log.warn("请求参数解析失败 | msg={} | uri={} | method={}",
+                e.getMessage(),
+                request.getRequestURI(),
+                request.getMethod());
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), "请求参数格式错误");
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    @ResponseBody
+    public <T> Result<T> handleMethodArgumentTypeMismatchException(Exception e, HttpServletRequest request) {
+        log.warn("请求参数类型不匹配 | msg={} | uri={} | method={}",
+                e.getMessage(),
+                request.getRequestURI(),
+                request.getMethod());
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), "请求参数无效");
     }
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
