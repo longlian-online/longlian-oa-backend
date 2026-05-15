@@ -1,10 +1,12 @@
 package online.longlian.app.common.handler;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -63,6 +65,25 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 request.getMethod());
         return Result.fail(ResultCode.NOT_FOUND);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseBody
+    public <T> Result<T> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
+        String errorMsg = "参数解析失败";
+        Throwable cause = e.getCause();
+        if (cause instanceof InvalidFormatException ife && ife.getTargetType().isEnum()) {
+            errorMsg = "无效的枚举值: " + ife.getValue();
+        } else if (e.getMessage() != null && e.getMessage().contains("enum")) {
+            errorMsg = "无效的枚举值";
+        }
+
+        log.warn("参数解析失败 | msg={} | uri={} | method={}",
+                errorMsg,
+                request.getRequestURI(),
+                request.getMethod());
+
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
     }
 
     /**
