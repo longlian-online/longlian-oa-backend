@@ -38,8 +38,8 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401)
-                .body("code", not(equalTo(0)));
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -101,7 +101,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401)
-                .body("code", not(equalTo(0)));
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 }

@@ -66,7 +66,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .get("/orgadmin/organizations");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -79,7 +80,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .put("/orgadmin/organizations");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -91,7 +93,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .get("/orgadmin/organizations");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 参数校验失败 ==========

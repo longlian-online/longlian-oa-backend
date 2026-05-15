@@ -132,7 +132,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base/list");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -145,7 +146,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -158,7 +160,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .patch("/orgadmin/task/base/1/status");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 参数校验失败 ==========

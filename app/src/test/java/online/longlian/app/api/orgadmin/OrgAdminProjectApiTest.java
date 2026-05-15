@@ -90,7 +90,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .post("/orgadmin/projects");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -103,7 +104,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .patch("/orgadmin/projects/1/status");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 参数校验失败 ==========
@@ -266,7 +268,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .post("/orgadmin/projects");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**

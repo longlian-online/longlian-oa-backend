@@ -105,7 +105,8 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
                 .get("/orgadmin/project-types?pageNum=1&pageSize=10");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -118,7 +119,8 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
                 .post("/orgadmin/project-types");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -131,7 +133,8 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
                 .patch("/orgadmin/project-types/1/status");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 参数校验失败 ==========
@@ -281,7 +284,8 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
                 .get("/orgadmin/project-types?pageNum=1&pageSize=10");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**

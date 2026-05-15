@@ -42,7 +42,8 @@ public class AdminManagementApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**

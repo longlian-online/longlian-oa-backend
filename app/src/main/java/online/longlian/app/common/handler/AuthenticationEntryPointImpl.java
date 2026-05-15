@@ -42,14 +42,14 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                         request.getRequestURI(),
                         request.getMethod());
                 response.setContentType(CommonConstants.CONTENT_TYPE);
-                response.setStatus(HttpStatus.NOT_FOUND.value());
+                response.setStatus(HttpStatus.OK.value());
                 response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.NOT_FOUND)));
                 return;
             }
         } catch (Exception e) {
             log.error("获取对应 handler 失败, err: {}", e.getMessage());
             response.setContentType(CommonConstants.CONTENT_TYPE);
-            response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+            response.setStatus(HttpStatus.OK.value());
             response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.FAIL)));
             return;
         }
@@ -61,7 +61,7 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                 request.getMethod()
         );
         response.setContentType(CommonConstants.CONTENT_TYPE);
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setStatus(HttpStatus.OK.value());
         response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.UNAUTHORIZED)));
     }
 }

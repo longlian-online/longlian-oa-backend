@@ -91,7 +91,7 @@ public class AdminSessionApiTest extends BaseApiTest {
         authRequest(token).delete("/admin/session");
 
         Response response = authRequest(token).get("/admin/admins/");
-        response.then().statusCode(401);
+        response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -101,7 +101,7 @@ public class AdminSessionApiTest extends BaseApiTest {
     void shouldFailWithInvalidToken() {
         Response response = authRequest("invalid.token.here")
                 .get("/admin/admins/");
-        response.then().statusCode(401);
+        response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -176,7 +176,7 @@ public class AdminSessionApiTest extends BaseApiTest {
     @Test
     void shouldLogoutSucceedWithoutAuthHeader() {
         Response response = request().delete("/admin/session");
-        response.then().statusCode(401);
+        response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -185,6 +185,6 @@ public class AdminSessionApiTest extends BaseApiTest {
     @Test
     void shouldLogoutFailedWithInvalidToken() {
         Response response = authRequest("invalid.token").delete("/admin/session");
-        response.then().statusCode(401);
+        response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 }
