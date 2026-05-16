@@ -23,25 +23,6 @@ public class ItemTaskFlowController {
 
     // private final ItemTaskFlowService itemTaskFlowService;
 
-    // -------------------------
-    // 任务流
-    // -------------------------
-
-    @Operation(
-        summary = "为项目创建任务流",
-        description = "基于指定模板快照节点结构创建任务流；创建后模板变更不影响该任务流节点"
-    )
-    @Parameter(name = "itemId", description = "项目ID")
-    @PostMapping("/{itemId}/flow")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> createItemTaskFlow(
-            @PathVariable Long itemId,
-            @RequestBody @Valid ItemTaskFlowCreateDTO itemTaskFlowCreateDTO) {
-        // TODO
-        // return itemTaskFlowService.createItemTaskFlow(itemId, itemTaskFlowCreateDTO);
-        return Result.success("创建成功");
-    }
-
     @Operation(
         summary = "获取项目任务流（含节点执行状态）",
         description = "返回任务流基本信息及各节点当前执行状态，" +
