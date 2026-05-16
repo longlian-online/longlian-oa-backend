@@ -9,14 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
-import online.longlian.app.pojo.vo.app.TaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @Tag(name = "任务实例接口", description = "任务接取、放弃、提交、重置、打回、下载")
@@ -26,22 +23,6 @@ import java.util.List;
 public class TaskInstanceController {
 
     // private final TaskInstanceService taskInstanceService;
-
-    // -------------------------
-    // 任务列表
-    // -------------------------
-
-    @Operation(
-        summary = "查询企划下可执行的任务列表",
-        description = "返回当前用户在指定企划下可见的任务实例列表（PENDING/CLAIMED 状态）"
-    )
-    @Parameter(name = "projectId", description = "企划ID")
-    @GetMapping("/project/{projectId}")
-    public Result<List<TaskInstanceVO>> listProjectTasks(@PathVariable Long projectId) {
-        // TODO
-        // return taskInstanceService.listProjectTasks(projectId);
-        return Result.success("查询成功", null);
-    }
 
     // -------------------------
     // 提交记录列表

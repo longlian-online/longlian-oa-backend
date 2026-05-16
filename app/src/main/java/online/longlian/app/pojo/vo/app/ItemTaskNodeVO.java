@@ -30,6 +30,10 @@ public class ItemTaskNodeVO {
     @Schema(description = "并行组内排序")
     private Integer parallelSort;
 
+    @JsonLongIdString
+    @Schema(type = "string", description = "任务实例ID，null 表示该节点尚未生成实例（前序未完成）")
+    private Long taskInstanceId;
+
     @Schema(
             description = "任务实例状态：1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)，null 表示该节点尚未生成实例（前序节点未完成）"
     )

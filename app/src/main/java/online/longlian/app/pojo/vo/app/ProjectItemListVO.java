@@ -7,7 +7,6 @@ import lombok.Data;
 import online.longlian.common.enumeration.ItemStatus;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @Schema(description = "项目列表信息")
