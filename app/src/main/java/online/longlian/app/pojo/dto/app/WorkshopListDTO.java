@@ -15,7 +15,10 @@ public class WorkshopListDTO extends PageRequestDTO {
     @Schema(description = "搜索关键词（标题）")
     private String keyword;
 
-    @Size(max = 20, message = "企划类型名称长度不能超过20")
+    @Size(max = 20, message = "企划类型名称长度不能超过20，为空则查询所有类型的企划")
     @Schema(description = "企划类型")
     private String projectType;
+
+    @Schema(description = "选择是否为我创建的企划，false=查询全部")
+    private Boolean isMyCreated;
 }
