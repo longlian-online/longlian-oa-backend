@@ -59,8 +59,10 @@ services:
       - sh
       - -c
       - >
-        mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
-        && mvn -pl app test jacoco:report -Dtest=online.longlian.app.api.**
+        echo "等待服务完全就绪..."
+        && sleep 15
+        && mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
+        && mvn -pl app test jacoco:report -e -Dtest=online.longlian.app.api.**
 
 volumes:
   maven-repo:

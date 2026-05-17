@@ -10,6 +10,7 @@ spring:
   sql:
     init:
       mode: never
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+  data:
+    redis:
+      timeout: 5s
+      connect-timeout: 5s

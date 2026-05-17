@@ -19,6 +19,13 @@ jobs:
       - name: Run API Tests
         run: task api-test-docker
 
+      - name: Dump test logs on failure
+        if: failure()
+        run: |
+          echo "=== Surefire test reports ==="
+          find app/target/surefire-reports -name "*.txt" -exec echo "--- {} ---" \; -exec cat {} \;
+        continue-on-error: true
+
       - name: Report results to DeepSource
         run: |
           # 安装CLI

@@ -4,6 +4,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.api.util.DatabaseCleanupUtil;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,7 @@ import static org.hamcrest.Matchers.equalTo;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Slf4j
 public abstract class BaseApiTest {
 
     @LocalServerPort
@@ -44,14 +46,39 @@ public abstract class BaseApiTest {
 
     @BeforeAll
     void baseBeforeAll() {
-        databaseCleanupUtil.initSchema();
+        log.info("=== 开始测试数据库初始化 ===");
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                databaseCleanupUtil.initSchema();
+                log.info("=== 数据库初始化成功 ===");
+                return;
+            } catch (Exception e) {
+                log.error("=== 数据库初始化失败（第{}次尝试） ===", i + 1, e);
+                if (i < maxRetries - 1) {
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("数据库初始化被中断", ie);
+                    }
+                } else {
+                    throw new RuntimeException("数据库初始化失败，已重试" + maxRetries + "次", e);
+                }
+            }
+        }
     }
 
     @BeforeEach
     void baseSetUp() {
-        RestAssured.port = port;
-        RestAssured.baseURI = "http://localhost";
-        databaseCleanupUtil.truncateAllTables();
+        try {
+            RestAssured.port = port;
+            RestAssured.baseURI = "http://localhost";
+            databaseCleanupUtil.truncateAllTables();
+        } catch (Exception e) {
+            log.error("测试数据清理失败", e);
+            throw new RuntimeException("测试数据清理失败: " + e.getMessage(), e);
+        }
     }
 
     /**
