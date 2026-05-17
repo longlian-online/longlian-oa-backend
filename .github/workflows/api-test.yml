@@ -21,6 +21,8 @@ jobs:
 
       - name: Report results to DeepSource
         run: |
+
+          echo ${{ DEEPSOURCE_COMMIT_SHA }}
           # 安装CLI
           curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
 
@@ -29,4 +31,4 @@ jobs:
         env:
           DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
           # 🌟 核心修改：如果是 PR 触发，强制使用真实源头 Commit ID；如果是 Push 触发，使用当前 Commit ID
-          DEEPSOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          DEEPSOURCE_COMMIT_SHA: ${{ GITHUB_SHA }}
