@@ -59,7 +59,7 @@ public class DatabaseCleanupUtil {
     }
 
     private void verifyDatabaseConnection() {
-        int maxRetries = 5;
+        int maxRetries = 10;
         for (int i = 0; i < maxRetries; i++) {
             try (Connection conn = dataSource.getConnection()) {
                 if (conn != null && !conn.isClosed()) {
@@ -67,10 +67,11 @@ public class DatabaseCleanupUtil {
                     return;
                 }
             } catch (SQLException e) {
+                log.warn("数据库连接验证失败（第{}次尝试）: {} - {}",
+                        i + 1, e.getClass().getSimpleName(), e.getMessage());
                 if (i < maxRetries - 1) {
-                    log.warn("数据库连接验证失败（第{}次重试）: {}", i + 1, e.getMessage());
                     try {
-                        Thread.sleep(3000);
+                        Thread.sleep(2000);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("数据库连接验证被中断", ie);
@@ -78,7 +79,7 @@ public class DatabaseCleanupUtil {
                 }
             }
         }
-        throw new RuntimeException("数据库连接验证失败，已重试" + maxRetries + "次");
+        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 MySQL 和 Redis 服务是否正常运行");
     }
 
     public void truncateAllTables() {

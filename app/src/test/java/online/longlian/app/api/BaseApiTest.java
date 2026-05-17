@@ -46,14 +46,16 @@ public abstract class BaseApiTest {
 
     @BeforeAll
     void baseBeforeAll() {
+        log.info("=== 开始测试数据库初始化 ===");
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
                 databaseCleanupUtil.initSchema();
+                log.info("=== 数据库初始化成功 ===");
                 return;
             } catch (Exception e) {
+                log.error("=== 数据库初始化失败（第{}次尝试） ===", i + 1, e);
                 if (i < maxRetries - 1) {
-                    log.warn("数据库初始化失败（第{}次重试）: {}", i + 1, e.getMessage());
                     try {
                         Thread.sleep(3000);
                     } catch (InterruptedException ie) {
@@ -69,9 +71,14 @@ public abstract class BaseApiTest {
 
     @BeforeEach
     void baseSetUp() {
-        RestAssured.port = port;
-        RestAssured.baseURI = "http://localhost";
-        databaseCleanupUtil.truncateAllTables();
+        try {
+            RestAssured.port = port;
+            RestAssured.baseURI = "http://localhost";
+            databaseCleanupUtil.truncateAllTables();
+        } catch (Exception e) {
+            log.error("测试数据清理失败", e);
+            throw new RuntimeException("测试数据清理失败: " + e.getMessage(), e);
+        }
     }
 
     /**
