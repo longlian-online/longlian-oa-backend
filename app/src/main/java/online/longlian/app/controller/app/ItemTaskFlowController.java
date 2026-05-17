@@ -3,44 +3,21 @@ package online.longlian.app.controller.app;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.dto.app.ItemTaskFlowCreateDTO;
-import online.longlian.app.pojo.dto.app.ItemTaskNodeAddDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
-import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
-import org.springframework.security.access.prepost.PreAuthorize;
+import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
-@Tag(name = "项目任务流接口", description = "企划项目的任务流管理：创建、查询、节点增删")
+@Tag(name = "项目任务流接口", description = "项目任务流查询、任务实例列表")
 @RequestMapping("/app/item")
 @RestController
 @RequiredArgsConstructor
 public class ItemTaskFlowController {
-
-    // private final ItemTaskFlowService itemTaskFlowService;
-
-    // -------------------------
-    // 任务流
-    // -------------------------
-
-    @Operation(
-        summary = "为项目创建任务流",
-        description = "基于指定模板快照节点结构创建任务流；创建后模板变更不影响该任务流节点"
-    )
-    @Parameter(name = "itemId", description = "项目ID")
-    @PostMapping("/{itemId}/flow")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> createItemTaskFlow(
-            @PathVariable Long itemId,
-            @RequestBody @Valid ItemTaskFlowCreateDTO itemTaskFlowCreateDTO) {
-        // TODO
-        // return itemTaskFlowService.createItemTaskFlow(itemId, itemTaskFlowCreateDTO);
-        return Result.success("创建成功");
-    }
 
     @Operation(
         summary = "获取项目任务流（含节点执行状态）",
@@ -55,4 +32,15 @@ public class ItemTaskFlowController {
         return Result.success("查询成功", null);
     }
 
+    @Operation(
+            summary = "查询项目下的任务实例列表",
+            description = "返回当前项目所有已生成的任务实例"
+    )
+    @Parameter(name = "itemId", description = "项目ID")
+    @GetMapping("/{itemId}/task-instances")
+    public Result<List<ItemTaskInstanceVO>> listItemTaskInstances(@PathVariable Long itemId) {
+        // TODO
+        // return itemTaskFlowService.listItemTaskInstances(itemId);
+        return Result.success("查询成功", null);
+    }
 }
