@@ -7,7 +7,7 @@
 - **数据库**: MySQL + MyBatis Plus 3.5.15 ORM
 - **认证**: Spring Security + JWT (jjwt 0.11.5)
 - **构建**: Maven 多模块 (app, generator)
-- **缓存**: Redis + Caffeine 本地缓存
+- **缓存**: Redis 缓存
 - **连接池**: Druid
 - **文件存储**: 腾讯云 COS (OSS) + 本地存储
 - **邮件**: Spring Mail
@@ -95,7 +95,7 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 |---|---|
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`），如邮件发送 |
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT；支持邮箱验证码 + 用户名密码两种登录 |
-| JWT 黑名单 | 登出时 JWT 加入 Redis 黑名单 (`RedisBlacklistUtil`) |
+| JWT 黑名单 | 登出时 JWT 加入 Redis 黑名单 (`TokenBlacklistService`) |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
