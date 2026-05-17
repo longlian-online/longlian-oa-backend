@@ -59,7 +59,9 @@ services:
       - sh
       - -c
       - >
-        mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
+        echo "等待数据库完全启动..."
+        && sleep 10
+        && mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
         && mvn -pl app test jacoco:report -Dtest=online.longlian.app.api.**
 
 volumes:
