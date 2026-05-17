@@ -135,6 +135,11 @@
                 <artifactId>swagger-annotations</artifactId>
                 <version>1.6.16</version>
             </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>3.27.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

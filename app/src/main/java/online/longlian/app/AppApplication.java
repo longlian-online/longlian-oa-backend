@@ -8,7 +8,7 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-@SpringBootApplication()
+@SpringBootApplication(scanBasePackages = {"online.longlian.app", "online.longlian.common"})
 @MapperScan("online.longlian.app.mapper")
 @EnableCaching
 @EnableMethodSecurity(prePostEnabled = true)
