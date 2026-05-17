@@ -10,3 +10,6 @@ spring:
   sql:
     init:
       mode: never
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration

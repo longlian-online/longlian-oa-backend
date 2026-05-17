@@ -37,7 +37,7 @@ import java.util.List;
 @Slf4j
 @Tag(name = "任务模板管理", description = "任务流模板的增删改查与状态管理，仅管理员可操作")
 @RequestMapping("/orgadmin/task/template")
-@RestController
+@RestController("orgAdminTaskTemplateController")
 @RequiredArgsConstructor
 public class TaskTemplateController {
 
