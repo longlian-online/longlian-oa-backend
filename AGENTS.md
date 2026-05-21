@@ -80,7 +80,7 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 3. 请求体必须用 DTO 接收，响应体必须用 VO 返回，禁止直接暴露 entity
 4. 完全信任 Controller 预处理后的入参，Service 层不做重复非空判断、不做分页参数兜底、不做防御性编码
 5. 多入参时定义独立入参类（如 service 层使用 BO 类），以便后续扩展
-6. 注释应说明「为什么这样做」而非「做了什么」（逻辑简单时无需注释）
+6. 核心代码必须要有注释，注释应说明「为什么这样做」而非「做了什么」（逻辑简单时无需注释）
 
 ## 通用返回格式
 
