@@ -8,7 +8,7 @@ import online.longlian.app.common.enumeration.InboxTargetType;
 import online.longlian.app.mapper.InboxMessageMapper;
 import online.longlian.app.mapper.InboxMessageReadMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.pojo.dto.common.InboxMessageDTO;
+import online.longlian.app.pojo.bo.InboxMessageBO;
 import online.longlian.app.pojo.entity.InboxMessage;
 import online.longlian.app.pojo.entity.InboxMessageRead;
 import online.longlian.app.pojo.entity.OrganizationMember;
@@ -36,18 +36,18 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void sendToUser(Long userId, InboxMessageDTO dto) {
+    public void sendToUser(Long userId, InboxMessageBO bo) {
         InboxMessage message = InboxMessage.builder()
                 .id(generateId())
-                .type(dto.getType())
-                .title(dto.getTitle())
-                .content(dto.getContent())
+                .type(bo.getType())
+                .title(bo.getTitle())
+                .content(bo.getContent())
                 .targetType(InboxTargetType.USER)
                 .targetId(userId)
-                .linkType(dto.getLinkType())
-                .linkValue(dto.getLinkValue())
-                .relatedType(dto.getRelatedType())
-                .relatedId(dto.getRelatedId())
+                .linkType(bo.getLinkType())
+                .linkValue(bo.getLinkValue())
+                .relatedType(bo.getRelatedType())
+                .relatedId(bo.getRelatedId())
                 .createdAt(LocalDateTime.now(clock))
                 .build();
         inboxMessageMapper.insert(message);
@@ -55,18 +55,18 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void sendToOrganization(Long orgId, InboxMessageDTO dto) {
+    public void sendToOrganization(Long orgId, InboxMessageBO bo) {
         InboxMessage message = InboxMessage.builder()
                 .id(generateId())
-                .type(dto.getType())
-                .title(dto.getTitle())
-                .content(dto.getContent())
+                .type(bo.getType())
+                .title(bo.getTitle())
+                .content(bo.getContent())
                 .targetType(InboxTargetType.ORGANIZATION)
                 .targetId(orgId)
-                .linkType(dto.getLinkType())
-                .linkValue(dto.getLinkValue())
-                .relatedType(dto.getRelatedType())
-                .relatedId(dto.getRelatedId())
+                .linkType(bo.getLinkType())
+                .linkValue(bo.getLinkValue())
+                .relatedType(bo.getRelatedType())
+                .relatedId(bo.getRelatedId())
                 .createdAt(LocalDateTime.now(clock))
                 .build();
         inboxMessageMapper.insert(message);

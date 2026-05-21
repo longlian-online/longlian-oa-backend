@@ -22,9 +22,9 @@ public class InboxMessageEventListener {
             InboxTargetType targetType = event.getTargetType();
             Long targetId = event.getTargetId();
             if (targetType == InboxTargetType.USER) {
-                inboxMessageService.sendToUser(targetId, event.getMessageDTO());
+                inboxMessageService.sendToUser(targetId, event.getMessageBO());
             } else if (targetType == InboxTargetType.ORGANIZATION) {
-                inboxMessageService.sendToOrganization(targetId, event.getMessageDTO());
+                inboxMessageService.sendToOrganization(targetId, event.getMessageBO());
             }
         } catch (Exception e) {
             log.error("处理站内消息事件失败，targetType={}, targetId={}", event.getTargetType(), event.getTargetId(), e);
