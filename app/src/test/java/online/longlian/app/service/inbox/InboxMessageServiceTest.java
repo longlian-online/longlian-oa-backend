@@ -146,7 +146,7 @@ class InboxMessageServiceTest {
 
         inboxMessageService.markAsRead(1L, 100L);
 
-        verify(inboxMessageReadMapper, never()).insert(any());
+        verify(inboxMessageReadMapper, never()).insert(any(InboxMessageRead.class));
     }
 
     // ==================== getPage ====================
@@ -180,10 +180,10 @@ class InboxMessageServiceTest {
 
         Page<InboxMessage> page = new Page<>(1, 10);
         page.setRecords(List.of(msg));
+        page.setTotal(1L);
 
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
         when(inboxMessageMapper.selectPage(any(), any())).thenReturn(page);
-        when(inboxMessageMapper.selectCount(any())).thenReturn(1L);
         when(inboxMessageReadMapper.selectList(any())).thenReturn(List.of());
 
         PageResultVO<InboxMessageVO> result = inboxMessageService.getPage(userId, 1, 10);
@@ -220,10 +220,10 @@ class InboxMessageServiceTest {
 
         Page<InboxMessage> page = new Page<>(1, 10);
         page.setRecords(List.of(orgMsg));
+        page.setTotal(1L);
 
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of(member));
         when(inboxMessageMapper.selectPage(any(), any())).thenReturn(page);
-        when(inboxMessageMapper.selectCount(any())).thenReturn(1L);
         when(inboxMessageReadMapper.selectList(any())).thenReturn(List.of());
 
         PageResultVO<InboxMessageVO> result = inboxMessageService.getPage(userId, 1, 10);
@@ -249,13 +249,13 @@ class InboxMessageServiceTest {
 
         Page<InboxMessage> page = new Page<>(1, 10);
         page.setRecords(List.of(msg1, msg2));
+        page.setTotal(2L);
 
         InboxMessageRead readRecord = InboxMessageRead.builder()
                 .id(99L).messageId(2L).userId(userId).readAt(readAt).build();
 
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
         when(inboxMessageMapper.selectPage(any(), any())).thenReturn(page);
-        when(inboxMessageMapper.selectCount(any())).thenReturn(2L);
         when(inboxMessageReadMapper.selectList(any())).thenReturn(List.of(readRecord));
 
         PageResultVO<InboxMessageVO> result = inboxMessageService.getPage(userId, 1, 10);
