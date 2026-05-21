@@ -1,6 +1,7 @@
 package online.longlian.app.service.inbox.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -93,12 +93,12 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
 
     @Override
     public PageResultVO<InboxMessageVO> getPage(Long userId, Integer page, Integer size) {
-        List<InboxMessage> messages = getMessagesForUser(userId, page, size);
+        Page<InboxMessage> resultPage = queryMessagesForUser(userId, page, size);
+        List<InboxMessage> messages = resultPage.getRecords();
         if (messages.isEmpty()) {
             return new PageResultVO<>(List.of(), 0L);
         }
 
-        Long total = countMessagesForUser(userId);
         List<Long> messageIds = messages.stream().map(InboxMessage::getId).toList();
         Map<Long, LocalDateTime> readMap = getReadStatus(userId, messageIds);
 
@@ -121,34 +121,24 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
                 })
                 .collect(Collectors.toList());
 
-        return new PageResultVO<>(voList, total);
+        return new PageResultVO<>(voList, resultPage.getTotal());
     }
 
-    private List<InboxMessage> getMessagesForUser(Long userId, Integer page, Integer size) {
+    private Page<InboxMessage> queryMessagesForUser(Long userId, Integer page, Integer size) {
         Page<InboxMessage> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<InboxMessage> queryWrapper = new LambdaQueryWrapper<InboxMessage>()
-                .and(wrapper -> wrapper
-                        .eq(InboxMessage::getTargetType, InboxTargetType.USER)
-                        .eq(InboxMessage::getTargetId, userId)
-                        .or()
-                        .eq(InboxMessage::getTargetType, InboxTargetType.ORGANIZATION)
-                        .in(InboxMessage::getTargetId, getUserOrgIds(userId))
-                )
+                .and(w -> {
+                    w.eq(InboxMessage::getTargetType, InboxTargetType.USER)
+                     .eq(InboxMessage::getTargetId, userId);
+                    List<Long> orgIds = getUserOrgIds(userId);
+                    if (!orgIds.isEmpty()) {
+                        w.or()
+                         .eq(InboxMessage::getTargetType, InboxTargetType.ORGANIZATION)
+                         .in(InboxMessage::getTargetId, orgIds);
+                    }
+                })
                 .orderByDesc(InboxMessage::getCreatedAt);
-        Page<InboxMessage> resultPage = inboxMessageMapper.selectPage(pageParam, queryWrapper);
-        return resultPage.getRecords();
-    }
-
-    private Long countMessagesForUser(Long userId) {
-        LambdaQueryWrapper<InboxMessage> queryWrapper = new LambdaQueryWrapper<InboxMessage>()
-                .and(wrapper -> wrapper
-                        .eq(InboxMessage::getTargetType, InboxTargetType.USER)
-                        .eq(InboxMessage::getTargetId, userId)
-                        .or()
-                        .eq(InboxMessage::getTargetType, InboxTargetType.ORGANIZATION)
-                        .in(InboxMessage::getTargetId, getUserOrgIds(userId))
-                );
-        return inboxMessageMapper.selectCount(queryWrapper);
+        return inboxMessageMapper.selectPage(pageParam, queryWrapper);
     }
 
     private Map<Long, LocalDateTime> getReadStatus(Long userId, List<Long> messageIds) {
@@ -170,6 +160,6 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
     }
 
     private Long generateId() {
-        return System.currentTimeMillis();
+        return IdWorker.getId();
     }
 }
