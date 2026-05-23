@@ -22,10 +22,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,11 +47,9 @@ class InboxMessageServiceTest {
     @Mock
     private OrganizationMemberMapper organizationMemberMapper;
 
-    /** 固定时钟，使 createdAt / readAt 等时间字段可断⾔ */
-    private final Clock clock = Clock.fixed(Instant.parse("2026-05-22T10:00:00Z"), ZoneId.systemDefault());
-
     private InboxMessageServiceImpl inboxMessageService;
 
+    // 捕获插⼊的 InboxMessage 和 InboxMessageRead 对象，验证字段正确映射
     @Captor
     private ArgumentCaptor<InboxMessage> messageCaptor;
 
@@ -64,7 +59,7 @@ class InboxMessageServiceTest {
     @BeforeEach
     void setUp() {
         inboxMessageService = new InboxMessageServiceImpl(
-                inboxMessageMapper, inboxMessageReadMapper, organizationMemberMapper, clock
+                inboxMessageMapper, inboxMessageReadMapper, organizationMemberMapper
         );
     }
 
@@ -140,7 +135,7 @@ class InboxMessageServiceTest {
         // 已读消息，selectOne 返回记录不应重复插⼊
         InboxMessageRead existing = InboxMessageRead.builder()
                 .id(999L).messageId(1L).userId(100L)
-                .readAt(LocalDateTime.now(clock))
+                .readAt(LocalDateTime.now())
                 .build();
         when(inboxMessageReadMapper.selectOne(any())).thenReturn(existing);
 
@@ -175,7 +170,7 @@ class InboxMessageServiceTest {
                 .targetType(InboxTargetType.USER).targetId(userId)
                 .linkType(InboxLinkType.INTERNAL).linkValue("/path")
                 .relatedType("project").relatedId(10L)
-                .createdAt(LocalDateTime.now(clock))
+                .createdAt(LocalDateTime.now())
                 .build();
 
         Page<InboxMessage> page = new Page<>(1, 10);
@@ -215,7 +210,7 @@ class InboxMessageServiceTest {
                 .id(2L).type(InboxMessageType.PROJECT_UPDATE)
                 .title("Org Msg").content("Org Content")
                 .targetType(InboxTargetType.ORGANIZATION).targetId(orgId)
-                .createdAt(LocalDateTime.now(clock))
+                .createdAt(LocalDateTime.now())
                 .build();
 
         Page<InboxMessage> page = new Page<>(1, 10);
@@ -236,7 +231,7 @@ class InboxMessageServiceTest {
     void shouldMapReadStatusCorrectlyAcrossMessages() {
         // 多条消息各⾃独⽴映射已读/未读状态，不应相互⼲扰
         Long userId = 100L;
-        LocalDateTime readAt = LocalDateTime.now(clock);
+        LocalDateTime readAt = LocalDateTime.now();
 
         InboxMessage msg1 = InboxMessage.builder().id(1L).title("Unread")
                 .targetType(InboxTargetType.USER).targetId(userId)
