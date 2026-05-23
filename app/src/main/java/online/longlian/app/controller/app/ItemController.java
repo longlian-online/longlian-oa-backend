@@ -9,14 +9,22 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.bo.PageParamsBO;
+import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.service.app.ItemService;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.orgadmin.ProjectService;
-import online.longlian.app.service.user.SessionService;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @Tag(name = "项目相关接口", description = "项目列表、创建编辑、发布")
@@ -27,7 +35,7 @@ public class ItemController {
 
     private final ProjectService projectService;
     private final SessionService sessionService;
-    // private final ItemService itemService;
+    private final ItemService itemService;
 
     @Operation(
         summary = "分页查询项目列表",
@@ -38,20 +46,35 @@ public class ItemController {
     public Result<PageResultVO<ProjectItemListVO>> listProjectItems(
             @PathVariable Long projectId,
             @ModelAttribute @Valid ProjectItemListDTO projectItemListDTO) {
-        // TODO
-        // return itemService.listProjectItems(projectId, projectItemListDTO);
-        return Result.success("查询成功", null);
+        PageResultBO<ProjectItemListVO> resultBO = itemService.listProjectItems(
+                ItemListParamsBO.builder()
+                        .projectId(projectId)
+                        .keyword(projectItemListDTO.getKeyword())
+                        .status(projectItemListDTO.getStatus())
+                        .sortByTime(projectItemListDTO.getSortByTime())
+                        .orderDir(projectItemListDTO.getOrderDir())
+                        .page(new PageParamsBO(projectItemListDTO.getPageNum(), projectItemListDTO.getPageSize()))
+                        .build());
+
+        return Result.success("查询成功", new PageResultVO<>(resultBO.getList(), resultBO.getTotal()));
     }
 
-    @Operation(summary = "创建项目", description = "创建项目并关联流程模板")
+    @Operation(summary = "创建项目", description = "创建项目并关联流程模板，自动生成任务流和所有任务实例")
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("")
     public Result<Void> createProjectItem(
             @PathVariable Long projectId,
             @RequestBody @Valid ProjectItemCreateDTO projectItemCreateDTO) {
         checkProjectCreator(projectId);
-        // TODO
-        // return itemService.createProjectItem(projectId, projectItemCreateDTO);
+        Long userId = sessionService.getCurrentUserId();
+
+        itemService.createProjectItem(
+                ItemCreateParamsBO.builder()
+                        .projectId(projectId)
+                        .title(projectItemCreateDTO.getTitle())
+                        .taskTemplateId(projectItemCreateDTO.getTaskTemplateId())
+                        .creatorId(userId)
+                        .build());
         return Result.success("创建成功");
     }
 
@@ -63,8 +86,8 @@ public class ItemController {
             @PathVariable Long projectId,
             @PathVariable Long itemId) {
         checkProjectCreator(projectId);
-        // TODO
-        // return itemService.deleteProjectItem(projectId, itemId);
+        itemService.deleteProjectItem(
+                ItemOperationParamsBO.builder().projectId(projectId).itemId(itemId).build());
         return Result.success("删除成功");
     }
 
@@ -76,8 +99,8 @@ public class ItemController {
             @PathVariable Long projectId,
             @PathVariable Long itemId) {
         checkProjectCreator(projectId);
-        // TODO
-        // return itemService.publishProjectItem(projectId, itemId);
+        itemService.publishProjectItem(
+                ItemOperationParamsBO.builder().projectId(projectId).itemId(itemId).build());
         return Result.success("公布成功");
     }
 
