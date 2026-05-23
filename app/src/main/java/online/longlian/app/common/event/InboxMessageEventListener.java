@@ -8,6 +8,20 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+/**
+ * 站内信事件监听器，异步消费 {@link InboxMessageEvent}。
+ *
+ * <p>根据事件中的 {@link InboxTargetType} 路由到不同发送方式：
+ * <ul>
+ *   <li>{@link InboxTargetType#USER} → {@link InboxMessageService#sendToUser}</li>
+ *   <li>{@link InboxTargetType#ORGANIZATION} → {@link InboxMessageService#sendToOrganization}</li>
+ * </ul>
+ *
+ * <p>消费失败只打日志，不影响主事务。
+ *
+ * @see InboxMessageEvent
+ * @see InboxMessageService
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
