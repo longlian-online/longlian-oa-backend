@@ -7,23 +7,58 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
+import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.service.app.SessionService;
+import online.longlian.app.service.app.TaskInstanceService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
-@Tag(name = "任务实例接口", description = "任务接取、放弃、提交、重置、打回、查看详情")
+@Tag(name = "任务实例接口", description = "任务接取、放弃、提交、重置、打回、查看详情、按项目查询实例列表")
 @RequestMapping("/app/task/instance")
 @RestController
 @RequiredArgsConstructor
 public class TaskInstanceController {
 
-    // private final TaskInstanceService taskInstanceService;
+    private final TaskInstanceService taskInstanceService;
+    private final SessionService sessionService;
 
-    // -------------------------
-    // 任务操作
-    // -------------------------
+    @Operation(
+            summary = "查询项目下的任务实例列表",
+            description = "返回当前项目所有已生成的任务实例"
+    )
+    @Parameter(name = "itemId", description = "项目ID")
+    @GetMapping("/item/{itemId}")
+    public Result<List<ItemTaskInstanceVO>> listItemTaskInstances(@PathVariable Long itemId) {
+        List<ItemTaskInstanceVO> instances = taskInstanceService.listItemTaskInstances(
+                TaskInstanceListParamsBO.builder()
+                        .itemId(itemId)
+                        .build());
+        return Result.success("查询成功", instances);
+    }
+
+    @Operation(
+            summary = "查看任务实例详情",
+            description = "返回任务实例信息及最近一次提交的元数据详情"
+    )
+    @Parameter(name = "instanceId", description = "任务实例ID")
+    @GetMapping("/{instanceId}/detail")
+    public Result<TaskInstanceDetailVO> getTaskInstanceDetail(@PathVariable Long instanceId) {
+        TaskInstanceDetailVO taskInstanceDetailVO = taskInstanceService.getTaskInstanceDetail(
+                TaskInstanceDetailParamsBO.builder()
+                        .instanceId(instanceId)
+                        .build());
+        return Result.success("查询成功", taskInstanceDetailVO);
+    }
 
     @Operation(
         summary = "接取任务",
@@ -32,8 +67,12 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/claim")
     public Result<Void> claimTask(@PathVariable Long instanceId) {
-        // TODO
-        // return taskInstanceService.claimTask(instanceId);
+        Long userId = sessionService.getCurrentUserId();
+        taskInstanceService.claimTask(
+                TaskInstanceOperateParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(userId)
+                        .build());
         return Result.success("接取成功");
     }
 
@@ -44,8 +83,12 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/abandon")
     public Result<Void> abandonTask(@PathVariable Long instanceId) {
-        // TODO
-        // return taskInstanceService.abandonTask(instanceId);
+        Long userId = sessionService.getCurrentUserId();
+        taskInstanceService.abandonTask(
+                TaskInstanceOperateParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(userId)
+                        .build());
         return Result.success("已放弃");
     }
 
@@ -58,8 +101,13 @@ public class TaskInstanceController {
     public Result<Void> submitTask(
             @PathVariable Long instanceId,
             @RequestBody @Valid TaskSubmitDTO taskSubmitDTO) {
-        // TODO
-        // return taskInstanceService.submitTask(instanceId, taskSubmitDTO);
+        Long userId = sessionService.getCurrentUserId();
+        taskInstanceService.submitTask(
+                TaskInstanceSubmitParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(userId)
+                        .metadata(taskSubmitDTO.getMetadata())
+                        .build());
         return Result.success("提交成功");
     }
 
@@ -70,8 +118,12 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/reset")
     public Result<Void> resetTask(@PathVariable Long instanceId) {
-        // TODO
-        // return taskInstanceService.resetTask(instanceId);
+        Long userId = sessionService.getCurrentUserId();
+        taskInstanceService.resetTask(
+                TaskInstanceOperateParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(userId)
+                        .build());
         return Result.success("已重置");
     }
 
@@ -85,20 +137,14 @@ public class TaskInstanceController {
     public Result<Void> rejectTask(
             @PathVariable Long instanceId,
             @RequestBody @Valid TaskRejectDTO taskRejectDTO) {
-        // TODO
-        // return taskInstanceService.rejectTask(instanceId, taskRejectDTO);
+        Long userId = sessionService.getCurrentUserId();
+        taskInstanceService.rejectTask(
+                TaskInstanceRejectParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(userId)
+                        .reviewComment(taskRejectDTO.getReviewComment())
+                        .build());
         return Result.success("已打回");
     }
 
-    @Operation(
-        summary = "查看任务实例详情",
-        description = "返回任务实例信息及最近一次提交的元数据详情"
-    )
-    @Parameter(name = "instanceId", description = "任务实例ID")
-    @GetMapping("/{instanceId}/detail")
-    public Result<TaskInstanceDetailVO> getTaskInstanceDetail(@PathVariable Long instanceId) {
-        // TODO
-        // return taskInstanceService.getTaskInstanceDetail(instanceId);
-        return Result.success("查询成功", null);
-    }
 }
