@@ -30,12 +30,18 @@ public class JwtUtil {
     }
 
     public String generateToken(Long userId) {
-        return Jwts.builder()
-                .setSubject(userId.toString())
+        return generateToken(userId, null);
+    }
+
+    public String generateToken(Long id, String type) {
+        var builder = Jwts.builder()
+                .setSubject(id.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000L))
-                .signWith(signingKey, SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000L));
+        if (type != null && !type.isEmpty()) {
+            builder.claim("type", type);
+        }
+        return builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
     }
 
     public Claims parseToken(String token) {

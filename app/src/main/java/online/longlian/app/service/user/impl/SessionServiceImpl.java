@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.SessionLoginResultBO;
 import online.longlian.app.pojo.bo.SessionLogoutParamsBO;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.user.SessionService;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -109,7 +110,7 @@ public class SessionServiceImpl implements SessionService {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();
 
-        String token = jwtUtil.generateToken(userId);
+        String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase());
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
         currentOrganizationService.refreshCurrentOrgTtl(userId, userDetail.getCurrentOrgId(), sessionTtlSeconds);

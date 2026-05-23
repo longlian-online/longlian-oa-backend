@@ -1,5 +1,6 @@
 package online.longlian.app.common.handler;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
@@ -59,16 +60,6 @@ public class GlobalExceptionHandler {
         return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseBody
-    public <T> Result<T> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
-        log.warn("请求参数解析失败 | msg={} | uri={} | method={}",
-                e.getMessage(),
-                request.getRequestURI(),
-                request.getMethod());
-        return Result.fail(ResultCode.PARAM_ERROR.getCode(), "请求参数格式错误");
-    }
-
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
     @ResponseBody
     public <T> Result<T> handleMethodArgumentTypeMismatchException(Exception e, HttpServletRequest request) {
@@ -86,6 +77,25 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 request.getMethod());
         return Result.fail(ResultCode.NOT_FOUND);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseBody
+    public <T> Result<T> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
+        String errorMsg = "参数解析失败";
+        Throwable cause = e.getCause();
+        if (cause instanceof InvalidFormatException ife && ife.getTargetType().isEnum()) {
+            errorMsg = "无效的枚举值: " + ife.getValue();
+        } else if (e.getMessage() != null && e.getMessage().contains("enum")) {
+            errorMsg = "无效的枚举值";
+        }
+
+        log.warn("参数解析失败 | msg={} | uri={} | method={}",
+                errorMsg,
+                request.getRequestURI(),
+                request.getMethod());
+
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
     }
 
     /**
