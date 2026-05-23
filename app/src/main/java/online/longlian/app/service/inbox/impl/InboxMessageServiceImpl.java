@@ -19,7 +19,6 @@ import online.longlian.app.service.inbox.InboxMessageService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +31,6 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
     private final InboxMessageMapper inboxMessageMapper;
     private final InboxMessageReadMapper inboxMessageReadMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final Clock clock;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -48,7 +46,7 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
                 .linkValue(bo.getLinkValue())
                 .relatedType(bo.getRelatedType())
                 .relatedId(bo.getRelatedId())
-                .createdAt(LocalDateTime.now(clock))
+                .createdAt(LocalDateTime.now())
                 .build();
         inboxMessageMapper.insert(message);
     }
@@ -67,7 +65,7 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
                 .linkValue(bo.getLinkValue())
                 .relatedType(bo.getRelatedType())
                 .relatedId(bo.getRelatedId())
-                .createdAt(LocalDateTime.now(clock))
+                .createdAt(LocalDateTime.now())
                 .build();
         inboxMessageMapper.insert(message);
     }
@@ -86,7 +84,7 @@ public class InboxMessageServiceImpl extends ServiceImpl<InboxMessageMapper, Inb
                 .id(generateId())
                 .messageId(messageId)
                 .userId(userId)
-                .readAt(LocalDateTime.now(clock))
+                .readAt(LocalDateTime.now())
                 .build();
         inboxMessageReadMapper.insert(readRecord);
     }
