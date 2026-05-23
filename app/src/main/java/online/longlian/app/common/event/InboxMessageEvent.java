@@ -1,6 +1,5 @@
 package online.longlian.app.common.event;
 
-import lombok.Data;
 import lombok.Getter;
 import online.longlian.app.common.enumeration.InboxTargetType;
 import online.longlian.app.pojo.bo.InboxMessageBO;
@@ -23,15 +22,16 @@ import org.springframework.context.ApplicationEvent;
  * @see InboxMessageBO
  */
 @Getter
-@Data
 public class InboxMessageEvent extends ApplicationEvent {
 
-    /** 接收方类型：USER（个人）/ ORGANIZATION（组织） */
     private final InboxTargetType targetType;
-
-    /** 接收方 ID：userId（个人）或 orgId（组织） */
     private final Long targetId;
-
-    /** 消息内容 */
     private final InboxMessageBO messageBO;
+
+    public InboxMessageEvent(Object source, InboxTargetType targetType, Long targetId, InboxMessageBO messageBO) {
+        super(source);
+        this.targetType = targetType;
+        this.targetId = targetId;
+        this.messageBO = messageBO;
+    }
 }
