@@ -7,7 +7,7 @@
 - **数据库**: MySQL + MyBatis Plus 3.5.15 ORM
 - **认证**: Spring Security + JWT (jjwt 0.11.5)
 - **构建**: Maven 多模块 (app, generator)
-- **缓存**: Redis + Caffeine 本地缓存
+- **缓存**: Redis 缓存
 - **连接池**: Druid
 - **文件存储**: 腾讯云 COS (OSS) + 本地存储
 - **邮件**: Spring Mail
@@ -80,7 +80,7 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 3. 请求体必须用 DTO 接收，响应体必须用 VO 返回，禁止直接暴露 entity
 4. 完全信任 Controller 预处理后的入参，Service 层不做重复非空判断、不做分页参数兜底、不做防御性编码
 5. 多入参时定义独立入参类（如 service 层使用 BO 类），以便后续扩展
-6. 注释应说明「为什么这样做」而非「做了什么」（逻辑简单时无需注释）
+6. 核心代码必须要有注释，注释应说明「为什么这样做」而非「做了什么」（逻辑简单时无需注释）
 
 ## 通用返回格式
 
@@ -95,7 +95,7 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 |---|---|
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`），如邮件发送 |
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT；支持邮箱验证码 + 用户名密码两种登录 |
-| JWT 黑名单 | 登出时 JWT 加入 Redis 黑名单 (`RedisBlacklistUtil`) |
+| JWT 黑名单 | 登出时 JWT 加入 Redis 黑名单 (`TokenBlacklistService`) |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
