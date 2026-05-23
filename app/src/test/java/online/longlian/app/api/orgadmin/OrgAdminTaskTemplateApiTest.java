@@ -102,7 +102,7 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `task_template` (id, org_id, name, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原模板名", "原描述", 1, 1L
+                1L, 1L, "测试模板", "描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -178,7 +178,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .post("/orgadmin/task/template/list");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -190,7 +191,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .get("/orgadmin/task/template/1");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -203,7 +205,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .post("/orgadmin/task/template");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -216,7 +219,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .put("/orgadmin/task/template/1");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -229,7 +233,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .patch("/orgadmin/task/template/1/status");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 参数校验失败 ==========
