@@ -9,7 +9,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;

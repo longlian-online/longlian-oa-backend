@@ -1,7 +1,7 @@
 package online.longlian.app.scheduled.task;
 
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.pojo.bo.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 import online.longlian.app.scheduled.ScheduledTask;
 import org.springframework.stereotype.Component;
 

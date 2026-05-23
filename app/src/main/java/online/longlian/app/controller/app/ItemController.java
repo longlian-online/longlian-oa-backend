@@ -9,8 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.pojo.bo.PageParamsBO;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
@@ -23,8 +23,6 @@ import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.orgadmin.ProjectService;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @Tag(name = "项目相关接口", description = "项目列表、创建编辑、发布")

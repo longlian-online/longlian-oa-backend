@@ -8,7 +8,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.CurrentOrganizationContextBO;
+import online.longlian.app.pojo.bo.common.CurrentOrganizationContextBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;

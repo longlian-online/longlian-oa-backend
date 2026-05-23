@@ -1,7 +1,7 @@
 package online.longlian.app.service.orgadmin;
 
-import online.longlian.app.pojo.bo.OrgAdminGetOrganizationInfoResultBO;
-import online.longlian.app.pojo.bo.OrgAdminUpdateOrganizationInfoParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
 
 public interface OrgAdminOrganizationService {
 

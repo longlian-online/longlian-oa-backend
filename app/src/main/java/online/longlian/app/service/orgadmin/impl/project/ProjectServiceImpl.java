@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectMapper;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectAdminListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectAdminListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectChangeStatusParamsBO;

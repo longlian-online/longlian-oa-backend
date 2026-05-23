@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.OrganizationMember;

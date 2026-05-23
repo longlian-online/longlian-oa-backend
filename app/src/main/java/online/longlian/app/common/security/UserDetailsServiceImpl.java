@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.CurrentOrganizationContextBO;
+import online.longlian.app.pojo.bo.common.CurrentOrganizationContextBO;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import org.springframework.beans.BeanUtils;

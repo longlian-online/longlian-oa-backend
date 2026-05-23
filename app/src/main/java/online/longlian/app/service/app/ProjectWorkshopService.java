@@ -1,7 +1,7 @@
 package online.longlian.app.service.app;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateListParamsBO;

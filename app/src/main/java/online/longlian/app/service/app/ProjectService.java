@@ -1,6 +1,6 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;

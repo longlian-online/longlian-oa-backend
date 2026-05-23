@@ -14,7 +14,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.pojo.bo.LoginSessionCacheBO;
+import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.app.service.TokenBlacklistService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;

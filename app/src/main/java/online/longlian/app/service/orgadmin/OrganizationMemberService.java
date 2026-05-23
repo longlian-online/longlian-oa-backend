@@ -1,17 +1,17 @@
 package online.longlian.app.service.orgadmin;
 
 import lombok.NonNull;
-import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
-import online.longlian.app.pojo.bo.OrgAdminApplicationListParamsBO;
-import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
-import online.longlian.app.pojo.bo.OrgAdminGenerateJoinOrgInviteCodeResultBO;
-import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountParamsBO;
-import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
-import online.longlian.app.pojo.bo.OrgMemberChangeStatusParamsBO;
-import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
-import online.longlian.app.pojo.bo.OrgMemberListParamsBO;
-import online.longlian.app.pojo.bo.OrgAdminReviewApplicationParamsBO;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 
 /**
  * 组织管理员视角的成员管理接口。
