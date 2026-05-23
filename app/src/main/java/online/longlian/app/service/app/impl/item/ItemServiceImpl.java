@@ -112,7 +112,8 @@ public class ItemServiceImpl implements ItemService {
                 .build();
         itemTaskFlowMapper.insert(flow);
 
-        for (TaskTemplateNode templateNode : templateNodes) {
+        for (int i = 0; i < templateNodes.size(); i++) {
+            TaskTemplateNode templateNode = templateNodes.get(i);
             BaseTask baseTask = baseTaskMap.get(templateNode.getBaseTaskId());
             ItemTaskNode node = ItemTaskNode.builder()
                     .itemTaskFlowId(flow.getId())
@@ -127,12 +128,15 @@ public class ItemServiceImpl implements ItemService {
                     .updatedAt(now)
                     .build();
             itemTaskNodeMapper.insert(node);
+
+            boolean isFirstNode = i == 0;
             TaskInstance instance = TaskInstance.builder()
                     .projectId(params.getProjectId())
                     .itemId(item.getId())
                     .itemTaskNodeId(node.getId())
                     .taskFlowId(flow.getId())
-                    .status(TaskInstanceStatus.PENDING)
+                    .status(isFirstNode ? TaskInstanceStatus.CLAIMED : TaskInstanceStatus.PENDING)
+                    .assigneeId(isFirstNode ? params.getCreatorId() : null)
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
