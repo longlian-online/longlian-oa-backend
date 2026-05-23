@@ -60,16 +60,6 @@ public class GlobalExceptionHandler {
         return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    @ResponseBody
-    public <T> Result<T> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
-        log.warn("请求参数解析失败 | msg={} | uri={} | method={}",
-                e.getMessage(),
-                request.getRequestURI(),
-                request.getMethod());
-        return Result.fail(ResultCode.PARAM_ERROR.getCode(), "请求参数格式错误");
-    }
-
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
     @ResponseBody
     public <T> Result<T> handleMethodArgumentTypeMismatchException(Exception e, HttpServletRequest request) {
