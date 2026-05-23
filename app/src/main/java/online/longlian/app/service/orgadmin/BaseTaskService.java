@@ -1,6 +1,6 @@
 package online.longlian.app.service.orgadmin;
 
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;

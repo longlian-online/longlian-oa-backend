@@ -1,6 +1,6 @@
 package online.longlian.app.service.common;
 
-import online.longlian.app.pojo.bo.CurrentOrganizationContextBO;
+import online.longlian.app.pojo.bo.common.CurrentOrganizationContextBO;
 
 public interface CurrentOrganizationService {
 

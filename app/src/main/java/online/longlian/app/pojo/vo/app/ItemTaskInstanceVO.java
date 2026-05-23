@@ -1,13 +1,19 @@
 package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 
 import java.time.LocalDateTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "项目任务实例（用于任务列表视图）")
 public class ItemTaskInstanceVO {
 

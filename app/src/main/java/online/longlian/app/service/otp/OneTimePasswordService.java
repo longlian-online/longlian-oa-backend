@@ -1,6 +1,6 @@
 package online.longlian.app.service.otp;
 
-import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
+import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.common.enumeration.OTPType;
 
