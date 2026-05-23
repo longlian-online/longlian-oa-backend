@@ -55,7 +55,8 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         listResponse
                 .then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(0));
 
         if (!listResponse.jsonPath().getList("data").isEmpty()) {
             String taskName = listResponse.jsonPath().getString("data[0].taskName");

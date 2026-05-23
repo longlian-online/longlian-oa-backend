@@ -71,7 +71,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base");
 
         response.then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
@@ -179,7 +180,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base");
 
         response.then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
@@ -212,7 +214,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .patch("/orgadmin/task/base/1/status");
 
         response.then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     // ========== 业务规则失败 ==========
@@ -249,7 +252,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base/list");
 
         response.then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
@@ -265,7 +269,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base/list");
 
         response.then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
