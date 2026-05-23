@@ -1,4 +1,4 @@
-package online.longlian.app.service.user.impl;
+package online.longlian.app.service.app.impl;
 
 import com.alibaba.fastjson2.JSON;
 import lombok.RequiredArgsConstructor;
@@ -10,14 +10,14 @@ import online.longlian.app.common.security.EmailCodeAuthenticationToken;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.pojo.bo.LoginSessionCacheBO;
+import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
+import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
+import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.app.service.TokenBlacklistService;
-import online.longlian.app.pojo.bo.SessionLoginByCodeParamsBO;
-import online.longlian.app.pojo.bo.SessionLoginByPwdParamsBO;
-import online.longlian.app.pojo.bo.SessionLoginResultBO;
-import online.longlian.app.pojo.bo.SessionLogoutParamsBO;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.CurrentOrganizationService;
-import online.longlian.app.service.user.SessionService;
 import online.longlian.common.enumeration.TokenType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;

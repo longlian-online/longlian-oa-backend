@@ -28,7 +28,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-@Service
+@Service("orgAdminTaskTemplateServiceImpl")
 @RequiredArgsConstructor
 public class TaskTemplateServiceImpl implements TaskTemplateService {
 

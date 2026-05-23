@@ -8,6 +8,7 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,8 +16,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Component
 @RequiredArgsConstructor
+@Component("orgAdminProjectAssembler")
 public class ProjectAssembler {
 
     private final ProjectTypeMapper projectTypeMapper;
