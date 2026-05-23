@@ -1,7 +1,5 @@
 package online.longlian.app.pojo.vo.app;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -10,22 +8,6 @@ import java.util.List;
 @Data
 @Schema(description = "项目任务流信息（含节点执行状态，用于流程图可视化）")
 public class ItemTaskFlowVO {
-
-    @JsonLongIdString
-    @Schema(type = "string", description = "任务流ID")
-    private Long id;
-
-    @JsonLongIdString
-    @Schema(type = "string", description = "所属项目ID")
-    private Long itemId;
-
-    @JsonLongIdString
-    @Schema(type = "string", description = "所属企划ID")
-    private Long projectId;
-
-    @JsonLongIdString
-    @Schema(type = "string", description = "关联任务模板ID")
-    private Long taskTemplateId;
 
     @Schema(description = "任务流名称")
     private String name;

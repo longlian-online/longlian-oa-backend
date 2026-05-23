@@ -214,6 +214,13 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 1, description = '组织简介' WHERE id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO `resource` (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1, "test-key", "test.png", "png", 0L, "avatar", 1L, 1, 1L
+        );
+
         Response response = authRequest(token)
                 .get("/orgadmin/organizations");
 

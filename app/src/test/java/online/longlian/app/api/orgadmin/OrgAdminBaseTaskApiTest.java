@@ -198,7 +198,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .post("/orgadmin/task/base");
 
         response.then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
