@@ -1,0 +1,23 @@
+# 开发环境
+
+services:
+  mysql-dev:
+    image: mysql:8.0
+    container_name: longlian-oa-mysql-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: dev 
+      MYSQL_DATABASE: longlian_oa_dev
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
