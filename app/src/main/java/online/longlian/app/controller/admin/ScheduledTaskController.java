@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.bo.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 import online.longlian.app.pojo.dto.admin.ScheduleTriggerDTO;
 import online.longlian.app.pojo.vo.admin.ScheduledTaskVO;
 import online.longlian.app.scheduled.ScheduledTask;

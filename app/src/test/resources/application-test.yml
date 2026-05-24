@@ -10,3 +10,7 @@ spring:
   sql:
     init:
       mode: never
+  data:
+    redis:
+      timeout: 5s
+      connect-timeout: 5s

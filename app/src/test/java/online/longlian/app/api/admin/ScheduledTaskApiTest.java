@@ -38,8 +38,8 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401)
-                .body("code", not(equalTo(0)));
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -55,7 +55,8 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         listResponse
                 .then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(0));
 
         if (!listResponse.jsonPath().getList("data").isEmpty()) {
             String taskName = listResponse.jsonPath().getString("data[0].taskName");
@@ -101,7 +102,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401)
-                .body("code", not(equalTo(0)));
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 }

@@ -43,7 +43,7 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, title, description, type_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试企划", "描述", 0L, 2, 1L
+                1L, 1L, "测试企划", "描述", 0L, 1, 1L
         );
 
         Response response = authRequest(token)
@@ -90,7 +90,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .post("/orgadmin/projects");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
@@ -103,7 +104,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .patch("/orgadmin/projects/1/status");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 参数校验失败 ==========
@@ -270,7 +272,8 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
                 .post("/orgadmin/projects");
 
         response.then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**

@@ -1,8 +1,8 @@
 package online.longlian.app.service.otp;
 
-import online.longlian.app.pojo.bo.OTPGenerateContextBO;
-import online.longlian.app.pojo.bo.OTPUseContextBO;
-import online.longlian.app.pojo.bo.OTPValidateContextBO;
+import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.common.OTPUseContextBO;
+import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.common.enumeration.OTPType;
 
