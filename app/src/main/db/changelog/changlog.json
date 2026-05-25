@@ -1,0 +1,10 @@
+{
+    "databaseChangeLog": [
+        {
+            "includeAll": {
+                "path": "changelog/",
+                "errorIfMissingOrEmpty": true
+            }
+        }
+    ]
+}
