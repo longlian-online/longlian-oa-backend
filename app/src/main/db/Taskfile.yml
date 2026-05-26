@@ -1,0 +1,26 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  update:
+    desc: "同步数据库"
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - echo "正在同步数据库..."
+      - liquibase update
+      - echo "数据库同步完成！"
+
+  diff:*:
+    silent: true
+    vars:
+      DATE:
+        sh: date +%Y%m%d
+      CHANGELOG: ./changelog/{{.DATE}}__{{index .MATCH 0}}.json
+    desc: "生成数据库差异报告"
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - "echo \"正在生成数据库差异报告: {{.CHANGELOG}}\""
+      - rm -rf {{.CHANGELOG}} # 删除旧的差异报告
+      - liquibase diff-changelog --changelog-file={{.CHANGELOG}}
+      - "echo \"数据库差异报告生成完成！目标文件: {{.CHANGELOG}}\""
