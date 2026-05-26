@@ -1,4 +1,4 @@
-package online.longlian.app.api.app.user;
+package online.longlian.app.api.app;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
