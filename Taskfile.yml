@@ -2,8 +2,8 @@
 
 version: '3'
 
-vars:
-  GREETING: Hello, World!
+includes:
+  db: app/src/main/db/Taskfile.yml
 
 tasks:
   api-test-docker:
@@ -20,3 +20,12 @@ tasks:
     cmds:
       - echo "{{.GREETING}}"
     silent: true
+
+  dev-prepare:
+    desc: "准备开发环境（安装依赖、构建项目等）"
+    cmds:
+      - echo "准备开发环境..."
+      - echo "mysql 默认监听端口 3307，redis 默认监听端口 6379，请确保这些端口未被占用"
+      - docker compose -f devops/docker-compose.dev.yml up -d
+      - task: db:update
+      - echo "开发环境已准备就绪！"
