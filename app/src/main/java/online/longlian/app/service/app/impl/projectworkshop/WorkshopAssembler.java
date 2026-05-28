@@ -38,7 +38,7 @@ public class WorkshopAssembler {
         }
 
         List<Long> coverFileIds = projects.stream()
-                .map(Project::getCoverFileId).filter(Objects::nonNull).distinct().toList();
+                .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> coverUrlMap = coverFileIds.stream()
                 .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
 
@@ -47,7 +47,7 @@ public class WorkshopAssembler {
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
         List<Long> avatarFileIds = userMap.values().stream()
-                .map(User::getAvatarFileId).filter(Objects::nonNull).distinct().toList();
+                .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> avatarUrlMap = avatarFileIds.stream()
                 .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
 
@@ -91,7 +91,7 @@ public class WorkshopAssembler {
                         .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
         List<Long> iconFileIds = baseTaskMap.values().stream()
-                .map(BaseTask::getIconFileId).filter(Objects::nonNull).distinct().toList();
+                .map(BaseTask::getIconFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> iconUrlMap = iconFileIds.stream()
                 .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
 

@@ -28,7 +28,7 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
                 .avatarFileId(organization.getAvatarFileId())
                 .name(organization.getName())
                 .description(organization.getDescription())
-                .avatarUrl(organization.getAvatarFileId() != null
+                .avatarUrl(organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0
                         ? resourceService.getResourceReadUrl(organization.getAvatarFileId())
                         : null)
                 .build();

@@ -92,7 +92,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         String coverUrl = null;
-        if (project.getCoverFileId() != null) {
+        if (project.getCoverFileId() != null && project.getCoverFileId() > 0) {
             coverUrl = resourceService.getResourceReadUrl(project.getCoverFileId());
         }
 
