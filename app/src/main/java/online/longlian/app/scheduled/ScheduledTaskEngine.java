@@ -11,18 +11,22 @@ import online.longlian.app.service.scheduled.ScheduledTaskLogService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.common.enumeration.ScheduledTaskStatus;
 import online.longlian.common.enumeration.TriggerSource;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.lang.NonNull;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
 
+import org.springframework.beans.factory.annotation.Value;
+
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 定时任务调度引擎。
@@ -32,11 +36,15 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * 内部通过 traceId（{@link TraceIdUtil}）、triggerSource、triggeredBy 记录元信息用于日志和排障，
  * 但这些信息不暴露给业务任务——业务任务只接收一个 {@code LocalDateTime executeTime} 参数。
+ * <p>
+ * 实现 {@link SmartLifecycle} 以支持优雅停机：
+ * 关闭时停止调度新任务，等待运行中的任务完成（不中断），超时后记录告警日志。
+ * <p>
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ScheduledTaskEngine implements ApplicationRunner {
+public class ScheduledTaskEngine implements SmartLifecycle {
 
     private final TaskScheduler taskScheduler;
     private final ApplicationContext applicationContext;
@@ -49,10 +57,33 @@ public class ScheduledTaskEngine implements ApplicationRunner {
      */
     private final Map<String, ScheduledTask> taskMap = new ConcurrentHashMap<>();
 
-    // ==================== 生命周期 ====================
+    /**
+     * SmartLifecycle 运行状态
+     */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
+    /**
+     * 停机超时时间，从 spring.lifecycle.timeout-per-shutdown-phase 注入，避免与配置不同步。
+     */
+    @Value("${spring.lifecycle.timeout-per-shutdown-phase}")
+    private Duration shutdownTimeout;
+
+    /**
+     * 停机标志，设置后 cron 新触发和手动触发均被拒绝。
+     * volatile 保证跨线程可见性。
+     */
+    private volatile boolean shutdown = false;
+
+    /**
+     * 当前正在执行的任务线程，按 taskName 索引，用于停机时 join 等待。
+     */
+    private final ConcurrentHashMap<String, Thread> runningTasks = new ConcurrentHashMap<>();
+
+    // ==================== SmartLifecycle ====================
 
     @Override
-    public void run(ApplicationArguments args) {
+    public void start() {
+        running.set(true);
         Map<String, ScheduledTask> beans = applicationContext.getBeansOfType(ScheduledTask.class);
         for (ScheduledTask task : beans.values()) {
             ScheduledTaskDefinition def = task.getDefinition();
@@ -63,6 +94,69 @@ public class ScheduledTaskEngine implements ApplicationRunner {
             log.info("注册定时任务: {} | cron={} | enabled={}",
                     def.getTaskName(), def.getCronExpression(), def.isEnabled());
         }
+    }
+
+    @Override
+    public void stop() {
+        log.info("开始优雅关闭，等待运行中的定时任务完成");
+        shutdown = true;
+
+        if (runningTasks.isEmpty()) {
+            log.info("优雅关闭完成，无运行中的任务");
+            running.set(false);
+            return;
+        }
+
+        // 快照当前运行中的任务，避免迭代期间 ConcurrentHashMap 弱一致性导致遗漏或重复
+        Map<String, Thread> snapshot = new HashMap<>(runningTasks);
+        long deadline = System.currentTimeMillis() + shutdownTimeout.toMillis();
+
+        for (Map.Entry<String, Thread> entry : snapshot.entrySet()) {
+            String taskName = entry.getKey();
+            Thread thread = entry.getValue();
+            long remaining = deadline - System.currentTimeMillis();
+            if (remaining > 0) {
+                try {
+                    thread.join(remaining);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("等待任务完成时被中断: {}", taskName);
+                    break;
+                }
+            }
+            if (thread.isAlive()) {
+                log.warn("定时任务未能在停机时间内完成: {}", taskName);
+            } else {
+                log.info("定时任务在关闭前完成: {}", taskName);
+            }
+        }
+
+        running.set(false);
+        log.info("优雅关闭完成，共等待 {} 个运行中的任务", snapshot.size());
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        stop();
+        callback.run();
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    /**
+     * Phase 设为 MAX_VALUE - 100，确保在 Tomcat 优雅关闭之后、Spring Bean 销毁之前执行。
+     */
+    @Override
+    public int getPhase() {
+        return Integer.MAX_VALUE - 100;
+    }
+
+    @Override
+    public boolean isAutoStartup() {
+        return true;
     }
 
     // ==================== 对外接口 ====================
@@ -86,6 +180,10 @@ public class ScheduledTaskEngine implements ApplicationRunner {
      * @param executeTime 上层传递的执行时间（为 null 时默认使用当前时间）
      */
     public void trigger(String taskName, LocalDateTime executeTime) {
+        if (shutdown) {
+            log.warn("系统正在关闭，拒绝手动触发任务: {}", taskName);
+            return;
+        }
         ScheduledTask task = getTask(taskName);
         LocalDateTime execTime = executeTime != null ? executeTime : LocalDateTime.now();
         Long userId = getCurrentUserIdSafely();
@@ -98,48 +196,67 @@ public class ScheduledTaskEngine implements ApplicationRunner {
     private void scheduleCron(String taskName, @NonNull String cronExpression) {
         ScheduledTask task = taskMap.get(taskName);
         taskScheduler.schedule(
-                () -> executeAndLog(task, taskName, LocalDateTime.now(), TriggerSource.SCHEDULED, null),
-                new CronTrigger(cronExpression)
-        );
+                () -> {
+                    if (shutdown) {
+                        log.info("系统正在关闭，跳过定时任务: {}", taskName);
+                        return;
+                    }
+                    executeAndLog(task, taskName, LocalDateTime.now(), TriggerSource.SCHEDULED, null);
+                },
+                new CronTrigger(cronExpression));
     }
 
-
     /**
-     * 执行任务并记录日志。
+     * 执行任务并记录日志，同时将执行线程注册到 runningTasks 以支持停机等待。
+     * 调用定时任务的统一入口，负责获取分布式锁、记录日志、捕获异常等公共逻辑，确保无论是 cron 触发还是手动触发都能正确记录和管理执行状态。
      */
     private void executeAndLog(ScheduledTask task, String taskName, LocalDateTime executeTime,
-                               TriggerSource source, Long triggeredBy) {
+            TriggerSource source, Long triggeredBy) {
         String lockKey = "scheduled-task:" + taskName;
         try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
             if (lock == null) {
                 log.warn("定时任务跳过（锁未获取）: {} | executeTime={} | source={}", taskName, executeTime, source);
                 return;
             }
+        }
+        Thread currentThread = Thread.currentThread();
+        runningTasks.put(taskName, currentThread);
+        try {
+            doExecuteAndLog(task, taskName, executeTime, source, triggeredBy);
+        } finally {
+            runningTasks.remove(taskName);
+        }
+    }
 
-            LocalDateTime startedAt = LocalDateTime.now();
+    /**
+     * 执行任务并记录日志。
+     * 不应该方法直接调用，而应通过 executeAndLog 获取分布式锁和管理执行线程，确保日志记录和停机等待的正确性。
+     */
+    private void doExecuteAndLog(ScheduledTask task, String taskName, LocalDateTime executeTime,
+            TriggerSource source, Long triggeredBy) {
+        LocalDateTime startedAt = LocalDateTime.now();
 
-            String traceId = TraceIdUtil.getTraceId();
-            Long logId = taskLogService.insertRunningLog(taskName, executeTime, source, traceId, triggeredBy, startedAt);
+        String traceId = TraceIdUtil.getTraceId();
+        Long logId = taskLogService.insertRunningLog(taskName, executeTime, source, traceId, triggeredBy, startedAt);
 
-            ScheduledTaskStatus finalStatus = ScheduledTaskStatus.RUNNING;
-            String errorMessage = null;
-            try {
-                log.info("定时任务开始执行: {} | executeTime={} | source={}",
-                        taskName, executeTime, source);
+        ScheduledTaskStatus finalStatus = ScheduledTaskStatus.RUNNING;
+        String errorMessage = null;
+        try {
+            log.info("定时任务开始执行: {} | executeTime={} | source={}",
+                    taskName, executeTime, source);
 
-                task.execute(executeTime);
+            task.execute(executeTime);
 
-                finalStatus = ScheduledTaskStatus.SUCCESS;
-                log.info("定时任务执行成功: {}", taskName);
-            } catch (Exception e) {
-                finalStatus = ScheduledTaskStatus.FAILED;
-                errorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
-                log.error("定时任务执行失败: {}", taskName, e);
-            } finally {
-                LocalDateTime endedAt = LocalDateTime.now();
-                long durationMs = java.time.Duration.between(startedAt, endedAt).toMillis();
-                taskLogService.updateLog(logId, finalStatus, errorMessage, endedAt, durationMs);
-            }
+            finalStatus = ScheduledTaskStatus.SUCCESS;
+            log.info("定时任务执行成功: {}", taskName);
+        } catch (Exception e) {
+            finalStatus = ScheduledTaskStatus.FAILED;
+            errorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
+            log.error("定时任务执行失败: {}", taskName, e);
+        } finally {
+            LocalDateTime endedAt = LocalDateTime.now();
+            long durationMs = java.time.Duration.between(startedAt, endedAt).toMillis();
+            taskLogService.updateLog(logId, finalStatus, errorMessage, endedAt, durationMs);
         }
     }
 
