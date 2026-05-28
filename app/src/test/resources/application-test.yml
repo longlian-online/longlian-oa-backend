@@ -14,3 +14,6 @@ spring:
     redis:
       timeout: 5s
       connect-timeout: 5s
+
+notify:
+  type: NOOP
