@@ -7,27 +7,25 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.bo.PageParamsBO;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
-import online.longlian.app.pojo.dto.orgadmin.TaskTemplateNodeDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateNodeVO;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
-import online.longlian.app.service.user.SessionService;
+import online.longlian.app.service.app.SessionService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -37,7 +35,7 @@ import java.util.List;
 @Slf4j
 @Tag(name = "任务模板管理", description = "任务流模板的增删改查与状态管理，仅管理员可操作")
 @RequestMapping("/orgadmin/task/template")
-@RestController
+@RestController("orgAdminTaskTemplateController")
 @RequiredArgsConstructor
 public class TaskTemplateController {
 

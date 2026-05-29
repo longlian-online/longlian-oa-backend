@@ -1,7 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
-import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountItemBO;
-import online.longlian.app.pojo.bo.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountItemBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.TaskSubmission;

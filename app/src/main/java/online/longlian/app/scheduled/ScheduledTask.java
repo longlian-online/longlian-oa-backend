@@ -1,6 +1,6 @@
 package online.longlian.app.scheduled;
 
-import online.longlian.app.pojo.bo.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 
 import java.time.LocalDateTime;
 

@@ -4,14 +4,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.service.DistributedLockService;
 import online.longlian.app.common.util.TraceIdUtil;
-import online.longlian.app.pojo.bo.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
-import online.longlian.app.service.user.SessionService;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.common.enumeration.ScheduledTaskStatus;
 import online.longlian.common.enumeration.TriggerSource;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.lang.NonNull;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 定时任务调度引擎。
@@ -49,6 +52,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     private final ApplicationContext applicationContext;
     private final SessionService sessionService;
     private final ScheduledTaskLogService taskLogService;
+    private final DistributedLockService lockService;
 
     /**
      * 所有已注册的任务，按 taskName 索引
@@ -191,7 +195,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
 
     // ==================== 内部实现 ====================
 
-    private void scheduleCron(String taskName, String cronExpression) {
+    private void scheduleCron(String taskName, @NonNull String cronExpression) {
         ScheduledTask task = taskMap.get(taskName);
         taskScheduler.schedule(
                 () -> {
@@ -238,16 +242,30 @@ public class ScheduledTaskEngine implements SmartLifecycle {
 
             task.execute(executeTime);
 
-            finalStatus = ScheduledTaskStatus.SUCCESS;
-            log.info("定时任务执行成功: {}", taskName);
-        } catch (Exception e) {
-            finalStatus = ScheduledTaskStatus.FAILED;
-            errorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
-            log.error("定时任务执行失败: {}", taskName, e);
-        } finally {
-            LocalDateTime endedAt = LocalDateTime.now();
-            long durationMs = java.time.Duration.between(startedAt, endedAt).toMillis();
-            taskLogService.updateLog(logId, finalStatus, errorMessage, endedAt, durationMs);
+            LocalDateTime startedAt = LocalDateTime.now();
+
+            String traceId = TraceIdUtil.getTraceId();
+            Long logId = taskLogService.insertRunningLog(taskName, executeTime, source, traceId, triggeredBy, startedAt);
+
+            ScheduledTaskStatus finalStatus = ScheduledTaskStatus.RUNNING;
+            String errorMessage = null;
+            try {
+                log.info("定时任务开始执行: {} | executeTime={} | source={}",
+                        taskName, executeTime, source);
+
+                task.execute(executeTime);
+
+                finalStatus = ScheduledTaskStatus.SUCCESS;
+                log.info("定时任务执行成功: {}", taskName);
+            } catch (Exception e) {
+                finalStatus = ScheduledTaskStatus.FAILED;
+                errorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
+                log.error("定时任务执行失败: {}", taskName, e);
+            } finally {
+                LocalDateTime endedAt = LocalDateTime.now();
+                long durationMs = java.time.Duration.between(startedAt, endedAt).toMillis();
+                taskLogService.updateLog(logId, finalStatus, errorMessage, endedAt, durationMs);
+            }
         }
     }
 

@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
 
 @Data
 @Builder

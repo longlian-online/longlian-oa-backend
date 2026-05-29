@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OneTimePasswordMapper;
-import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
+import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.common.enumeration.OPTStatus;
