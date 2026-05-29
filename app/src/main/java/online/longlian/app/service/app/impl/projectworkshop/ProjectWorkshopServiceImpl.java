@@ -1,6 +1,8 @@
 package online.longlian.app.service.app.impl.projectworkshop;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
@@ -29,14 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -59,64 +55,42 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
             return new PageResultBO<>(Collections.emptyList(), 0L);
         }
 
-        Map<Long, ProjectWorkshop> workshopMap = workshops.stream()
-                .collect(Collectors.toMap(ProjectWorkshop::getProjectId, Function.identity(),
-                        (a, b) -> a, LinkedHashMap::new));
+        List<Long> projectIds = workshops.stream()
+                .map(ProjectWorkshop::getProjectId)
+                .distinct()
+                .toList();
 
-        List<Long> projectIds = new ArrayList<>(workshopMap.keySet());
-        List<Project> projects = projectMapper.selectList(
-                workshopQueryBuilder.buildProjectQuery(params.getOrgId(), projectIds));
-        if (projects.isEmpty()) {
-            return new PageResultBO<>(Collections.emptyList(), 0L);
+        Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
+
+        Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildFilteredProjectQuery(
+                params.getOrgId(), projectIds, params.getKeyword(), typeId,
+                params.getIsMyCreated(), params.getUserId());
+        Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
+
+        if (projectPage.getRecords().isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());
         }
 
-        Map<Long, Project> projectMap = projects.stream()
-                .collect(Collectors.toMap(Project::getId, Function.identity()));
-
-        List<Project> filteredProjects = workshopProjectHandler.filterProjects(
-                projectIds, projectMap, params.getOrgId(), params.getProjectType(),
-                params.getKeyword(), params.getUserId(), params.getIsMyCreated());
-
-        long total = filteredProjects.size();
-        long fromIndex = (params.getPage().getPageNum() - 1L) * params.getPage().getPageSize();
-        if (fromIndex >= total) {
-            return new PageResultBO<>(Collections.emptyList(), total);
-        }
-        List<Project> pageProjects = filteredProjects.subList(
-                (int) fromIndex, (int) Math.min(fromIndex + params.getPage().getPageSize(), total));
-
-        return new PageResultBO<>(workshopAssembler.assembleProjectList(pageProjects), total);
+        return new PageResultBO<>(
+                workshopAssembler.assembleProjectList(projectPage.getRecords()),
+                projectPage.getTotal());
     }
 
     @Override
     public PageResultBO<WorkshopTaskTemplateVO> getWorkshopTaskTemplateList(WorkshopTaskTemplateListParamsBO params) {
-        List<TaskTemplate> orgTemplates = taskTemplateMapper.selectList(
-                workshopQueryBuilder.buildOrgTemplateQuery(params.getOrgId(), params.getKeyword()));
-        List<TaskTemplate> personalTemplates = taskTemplateMapper.selectList(
-                workshopQueryBuilder.buildPersonalTemplateQuery(params.getUserId(), params.getKeyword()));
+        Page<TaskTemplate> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<TaskTemplate> queryWrapper = workshopQueryBuilder.buildCombinedTemplateQuery(
+                params.getOrgId(), params.getUserId(), params.getKeyword(), params.getIsMyCreated());
+        Page<TaskTemplate> templatePage = taskTemplateMapper.selectPage(page, queryWrapper);
 
-        List<TaskTemplate> allTemplates = new ArrayList<>();
-        allTemplates.addAll(orgTemplates);
-        allTemplates.addAll(personalTemplates);
-        allTemplates.sort(Comparator.comparing(TaskTemplate::getCreatedAt).reversed());
-
-        if (params.getIsMyCreated() != null && params.getIsMyCreated()) {
-            allTemplates = allTemplates.stream()
-                    .filter(t -> t.getScope() == TaskTemplateScope.PERSONAL
-                            && t.getCreatorId().equals(params.getUserId()))
-                    .toList();
+        if (templatePage.getRecords().isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), templatePage.getTotal());
         }
-
-        long total = allTemplates.size();
-        long fromIndex = (params.getPage().getPageNum() - 1L) * params.getPage().getPageSize();
-        if (fromIndex >= total) {
-            return new PageResultBO<>(Collections.emptyList(), total);
-        }
-        List<TaskTemplate> pageTemplates = allTemplates.subList(
-                (int) fromIndex, (int) Math.min(fromIndex + params.getPage().getPageSize(), total));
 
         return new PageResultBO<>(
-                workshopAssembler.assembleTemplateList(pageTemplates, params.getUserId()), total);
+                workshopAssembler.assembleTemplateList(templatePage.getRecords(), params.getUserId()),
+                templatePage.getTotal());
     }
 
     @Override
