@@ -52,7 +52,10 @@ public class OrganizationImpl implements OrganizationService {
         List<Organization> organizations = organizationPage.getRecords();
         long total = organizationPage.getTotal();
 
-        List<Long> avatarIds = organizations.stream().map(Organization::getAvatarFileId).toList();
+        List<Long> avatarIds = organizations.stream()
+                .map(Organization::getAvatarFileId)
+                .filter(id -> id != null && id > 0)
+                .toList();
         Map<Long, ResourceReadUrlGetResultBO> resourceMap = resourceService.getResourceReadUrls(avatarIds);
 
         ResourceReadUrlGetResultBO defaultResource = new ResourceReadUrlGetResultBO("", 0L, "");

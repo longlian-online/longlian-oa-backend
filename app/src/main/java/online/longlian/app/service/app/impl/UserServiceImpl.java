@@ -66,7 +66,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .email(user.getEmail())
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
-        if (user.getAvatarFileId() != null) {
+        if (user.getAvatarFileId() != null && user.getAvatarFileId() > 0) {
             builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
         }
         return builder.build();
@@ -85,7 +85,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         );
 
         String avatarUrl = null;
-        if (organization.getAvatarFileId() != null) {
+        if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
             avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
         }
 
