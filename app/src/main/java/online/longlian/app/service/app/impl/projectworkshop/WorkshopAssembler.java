@@ -55,6 +55,7 @@ public class WorkshopAssembler {
                 .map(project -> {
                     User creator = userMap.get(project.getCreatorId());
                     WorkshopProjectInfoVO workshopProjectInfoVO = new WorkshopProjectInfoVO();
+                    workshopProjectInfoVO.setId(project.getId());
                     workshopProjectInfoVO.setTitle(project.getTitle());
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
                     if (creator != null && creator.getAvatarFileId() != null) {
