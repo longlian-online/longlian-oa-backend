@@ -7,6 +7,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
@@ -16,6 +17,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
+import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
@@ -41,6 +43,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemMapper itemMapper;
+    private final ProjectMapper projectMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceAssembler taskInstanceAssembler;
     private final MemberSubmitCountHandler memberSubmitCountHandler;
@@ -50,6 +53,11 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
         Item item = itemMapper.selectById(params.getItemId());
         if (item == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
+        }
+
+        Project project = projectMapper.selectById(item.getProjectId());
+        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 

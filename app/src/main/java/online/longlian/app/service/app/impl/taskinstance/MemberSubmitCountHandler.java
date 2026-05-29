@@ -4,9 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.Project;
-import online.longlian.app.service.orgadmin.ProjectService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +18,11 @@ import java.time.LocalDateTime;
 public class MemberSubmitCountHandler {
 
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final ProjectService projectService;
+    private final ProjectMapper projectMapper;
     private final Clock clock;
 
     public void incrementSubmitCount(Long userId, Long projectId) {
-        Project project = projectService.getById(projectId);
+        Project project = projectMapper.selectById(projectId);
         if (project == null) {
             return;
         }
@@ -40,7 +40,7 @@ public class MemberSubmitCountHandler {
     }
 
     public void revertSubmitCount(Long userId, Long projectId) {
-        Project project = projectService.getById(projectId);
+        Project project = projectMapper.selectById(projectId);
         if (project == null) {
             return;
         }

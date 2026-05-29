@@ -11,4 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TaskInstanceListParamsBO {
     private Long itemId;
+    private Long userId;
+    private Long orgId;
 }

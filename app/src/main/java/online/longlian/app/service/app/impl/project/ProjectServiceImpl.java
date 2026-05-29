@@ -208,6 +208,11 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params) {
+        Project project = projectMapper.selectById(params.getProjectId());
+        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
+        }
+
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())

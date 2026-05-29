@@ -169,11 +169,13 @@ public class ProjectController {
     @DeleteMapping("/{projectId}/workshop")
     public Result<Void> removeFromWorkshop(@PathVariable Long projectId) {
         Long userId = sessionService.getCurrentUserId();
+        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
 
         projectService.removeFromWorkshop(
                 ProjectWorkshopRemoveParamsBO.builder()
                         .projectId(projectId)
                         .userId(userId)
+                        .orgId(orgId)
                         .build());
         return Result.success("已从工坊移除");
     }
