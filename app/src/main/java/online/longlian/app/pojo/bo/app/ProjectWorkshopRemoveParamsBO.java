@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class ProjectWorkshopRemoveParamsBO {
     private Long projectId;
     private Long userId;
+    private Long orgId;
 }

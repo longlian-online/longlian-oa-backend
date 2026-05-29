@@ -18,6 +18,7 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.TaskInstanceService;
+import online.longlian.app.service.common.CurrentOrganizationService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +32,7 @@ public class TaskInstanceController {
 
     private final TaskInstanceService taskInstanceService;
     private final SessionService sessionService;
+    private final CurrentOrganizationService currentOrganizationService;
 
     @Operation(
             summary = "查询项目下的任务实例列表",
@@ -39,9 +41,13 @@ public class TaskInstanceController {
     @Parameter(name = "itemId", description = "项目ID")
     @GetMapping("/item/{itemId}")
     public Result<List<ItemTaskInstanceVO>> listItemTaskInstances(@PathVariable Long itemId) {
+        Long userId = sessionService.getCurrentUserId();
+        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
         List<ItemTaskInstanceVO> instances = taskInstanceService.listItemTaskInstances(
                 TaskInstanceListParamsBO.builder()
                         .itemId(itemId)
+                        .userId(userId)
+                        .orgId(orgId)
                         .build());
         return Result.success("查询成功", instances);
     }
