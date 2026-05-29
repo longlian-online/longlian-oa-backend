@@ -12,8 +12,6 @@ import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -23,11 +21,13 @@ public class ProjectProgressHandler {
     private final TaskInstanceMapper taskInstanceMapper;
 
     public ProjectProgressBO computeProgress(Long projectId) {
-        List<Item> items = itemMapper.selectList(
+        List<Object> itemIdObjs = itemMapper.selectObjs(
                 new LambdaQueryWrapper<Item>()
+                        .select(Item::getId)
                         .eq(Item::getProjectId, projectId)
                         .isNull(Item::getDeletedAt));
-        if (items.isEmpty()) {
+
+        if (itemIdObjs.isEmpty()) {
             return ProjectProgressBO.builder()
                     .progressPercent(0)
                     .claimedTaskCount(0)
@@ -35,24 +35,30 @@ public class ProjectProgressHandler {
                     .build();
         }
 
-        int totalItems = items.size();
-        long publishedCount = items.stream()
-                .filter(i -> i.getStatus() == ItemStatus.PUBLISHED)
-                .count();
+        List<Long> itemIds = itemIdObjs.stream().map(id -> (Long) id).toList();
+        int totalItems = itemIds.size();
+
+        long publishedCount = itemMapper.selectCount(
+                new LambdaQueryWrapper<Item>()
+                        .in(Item::getId, itemIds)
+                        .eq(Item::getStatus, ItemStatus.PUBLISHED));
         int progressPercent = (int) (publishedCount * 100 / totalItems);
 
-        List<Long> itemIds = items.stream().map(Item::getId).toList();
-        Map<TaskInstanceStatus, Long> statusCountMap = taskInstanceMapper.selectList(
-                        new LambdaQueryWrapper<TaskInstance>()
-                                .in(TaskInstance::getItemId, itemIds)
-                                .isNull(TaskInstance::getDeletedAt))
-                .stream()
-                .collect(Collectors.groupingBy(TaskInstance::getStatus, Collectors.counting()));
+        long claimedCount = taskInstanceMapper.selectCount(
+                new LambdaQueryWrapper<TaskInstance>()
+                        .in(TaskInstance::getItemId, itemIds)
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                        .isNull(TaskInstance::getDeletedAt));
+        long pendingCount = taskInstanceMapper.selectCount(
+                new LambdaQueryWrapper<TaskInstance>()
+                        .in(TaskInstance::getItemId, itemIds)
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
+                        .isNull(TaskInstance::getDeletedAt));
 
         return ProjectProgressBO.builder()
                 .progressPercent(progressPercent)
-                .claimedTaskCount(statusCountMap.getOrDefault(TaskInstanceStatus.CLAIMED, 0L).intValue())
-                .pendingTaskCount(statusCountMap.getOrDefault(TaskInstanceStatus.PENDING, 0L).intValue())
+                .claimedTaskCount((int) claimedCount)
+                .pendingTaskCount((int) pendingCount)
                 .build();
     }
 }
