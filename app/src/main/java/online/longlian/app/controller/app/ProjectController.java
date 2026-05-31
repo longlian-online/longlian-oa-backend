@@ -159,6 +159,7 @@ public class ProjectController {
                 ProjectWorkshopRemoveParamsBO.builder()
                         .projectId(projectId)
                         .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .build());
     }
 }

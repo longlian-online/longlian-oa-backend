@@ -19,7 +19,6 @@ import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.TaskInstanceService;
-import online.longlian.app.service.common.CurrentOrganizationService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,8 +44,8 @@ public class TaskInstanceController {
         return taskInstanceService.listItemTaskInstances(
                 TaskInstanceListParamsBO.builder()
                         .itemId(itemId)
-                        .userId(userId)
-                        .orgId(orgId)
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .build());
     }
 
@@ -62,6 +61,7 @@ public class TaskInstanceController {
         return taskInstanceService.getTaskInstanceDetail(
                 TaskInstanceDetailParamsBO.builder()
                         .instanceId(instanceId)
+                        .orgId(sessionContext.orgId())
                         .build());
     }
 

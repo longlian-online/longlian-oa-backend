@@ -7,10 +7,12 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.ItemTaskNode;
+import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.service.app.ItemTaskFlowService;
@@ -28,11 +30,17 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceMapper taskInstanceMapper;
     private final ItemTaskFlowAssembler itemTaskFlowAssembler;
+    private final ProjectMapper projectMapper;
 
     @Override
-    public ItemTaskFlowVO getItemTaskFlow(Long itemId) {
+    public ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId) {
         Item item = itemMapper.selectById(itemId);
         if (item == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
+        }
+
+        Project project = projectMapper.selectById(item.getProjectId());
+        if (project == null || !project.getOrgId().equals(orgId)) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 

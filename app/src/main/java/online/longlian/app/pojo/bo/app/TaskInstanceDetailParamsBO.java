@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TaskInstanceDetailParamsBO {
     private Long instanceId;
+    private Long orgId;
 }

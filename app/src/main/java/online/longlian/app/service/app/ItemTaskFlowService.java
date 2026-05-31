@@ -26,5 +26,5 @@ public interface ItemTaskFlowService {
      * @param itemId 项目 ID
      * @return 包含任务流名称、描述及各节点状态的可视化数据
      */
-    ItemTaskFlowVO getItemTaskFlow(Long itemId);
+    ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId);
 }

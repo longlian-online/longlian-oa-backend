@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
@@ -17,6 +18,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -44,6 +46,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ItemServiceImpl implements ItemService {
 
+    private final ProjectMapper projectMapper;
     private final ItemMapper itemMapper;
     private final ItemTaskFlowMapper itemTaskFlowMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
@@ -57,6 +60,11 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params) {
+        Project project = projectMapper.selectById(params.getProjectId());
+        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
+        }
+
         Page<Item> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
         Page<Item> itemPage = itemMapper.selectPage(page, itemQueryBuilder.buildListQuery(params));
         List<Item> items = itemPage.getRecords();

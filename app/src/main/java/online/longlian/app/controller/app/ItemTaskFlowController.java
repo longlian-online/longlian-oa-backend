@@ -29,6 +29,6 @@ public class ItemTaskFlowController {
     @ResponseMessage("查询成功")
     public ItemTaskFlowVO getItemTaskFlow(@UserSession SessionContext sessionContext,
                                            @PathVariable Long itemId) {
-        return itemTaskFlowService.getItemTaskFlow(itemId);
+        return itemTaskFlowService.getItemTaskFlow(itemId, sessionContext.orgId());
     }
 }

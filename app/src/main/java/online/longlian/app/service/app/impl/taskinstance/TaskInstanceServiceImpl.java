@@ -238,6 +238,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
 
+        Item item = itemMapper.selectById(instance.getItemId());
+        Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
+        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+
         TaskSubmission submission = taskSubmissionMapper.selectOne(
                 new LambdaQueryWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
