@@ -32,7 +32,13 @@ public class UserSessionArgumentResolver implements HandlerMethodArgumentResolve
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                    NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
+        UserSession annotation = parameter.getParameterAnnotation(UserSession.class);
+        Long orgId;
+        if (annotation != null && annotation.required()) {
+            orgId = currentOrganizationService.requireCurrentOrgId(userId);
+        } else {
+            orgId = currentOrganizationService.resolveCurrentOrgId(userId);
+        }
         return new SessionContext(userId, orgId);
     }
 }

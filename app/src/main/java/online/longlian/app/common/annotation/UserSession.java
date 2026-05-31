@@ -8,4 +8,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface UserSession {
+
+    boolean required() default false;
 }

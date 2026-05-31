@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
@@ -29,9 +32,7 @@ import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
-import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.service.app.SessionService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -47,26 +48,19 @@ import java.util.List;
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
-    private final SessionService sessionService;
-    private final CurrentOrganizationService currentOrganizationService;
-
-    // -------------------------
-    // 入组申请
-    // -------------------------
 
     @Operation(
         summary = "分页查询待审核入组申请列表",
         description = "仅返回 status=PENDING(待审核) 的申请，默认按申请时间倒序"
     )
     @PostMapping("/applications")
-    public Result<PageResultVO<ApplicationInfoVO>> listApplications(
+    @ResponseMessage("查询成功")
+    public PageResultVO<ApplicationInfoVO> listApplications(
+            @UserSession(required = true) SessionContext sessionContext,
             @RequestBody @Valid ApplicationListDTO applicationListDTO) {
-        Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
-
         PageResultBO<OrgAdminApplicationInfoResultBO> resultBO = organizationMemberService.listApplications(
                 OrgAdminApplicationListParamsBO.builder()
-                        .orgId(currentOrgId)
+                        .orgId(sessionContext.orgId())
                         .keyword(applicationListDTO.getKeyword())
                         .startApplyTime(applicationListDTO.getStartApplyTime())
                         .endApplyTime(applicationListDTO.getEndApplyTime())
@@ -82,7 +76,7 @@ public class OrganizationMemberController {
                     return applicationInfoVO;
                 })
                 .toList();
-        return Result.success("查询成功", new PageResultVO<>(applicationInfoVOS, resultBO.getTotal()));
+        return new PageResultVO<>(applicationInfoVOS, resultBO.getTotal());
     }
 
     @Operation(
@@ -91,41 +85,33 @@ public class OrganizationMemberController {
     )
     @Parameter(name = "applicationId", description = "入组申请ID")
     @PutMapping("/applications/{applicationId}/review")
-    public Result<Void> reviewApplication(
-            @PathVariable Long applicationId,
-            @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
-        Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
-
+    @ResponseMessage("审核完成")
+    public void reviewApplication(@UserSession(required = true) SessionContext sessionContext,
+                                   @PathVariable Long applicationId,
+                                   @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
         organizationMemberService.reviewApplication(
                 OrgAdminReviewApplicationParamsBO.builder()
                         .applicationId(applicationId)
-                        .orgId(currentOrgId)
-                        .reviewerId(currentUserId)
+                        .orgId(sessionContext.orgId())
+                        .reviewerId(sessionContext.userId())
                         .applicationStatus(applicationReviewDTO.getApplicationStatus())
                         .reviewRemark(applicationReviewDTO.getReviewRemark())
                         .build()
         );
-        return Result.success("审核完成");
     }
-
-    // -------------------------
-    // 组员列表
-    // -------------------------
 
     @Operation(
         summary = "分页查询组员列表",
         description = "仅返回已通过审核的成员，默认按入组时间倒序"
     )
     @PostMapping("")
-    public Result<PageResultVO<OrgMemberInfoVO>> listMembers(
+    @ResponseMessage("查询成功")
+    public PageResultVO<OrgMemberInfoVO> listMembers(
+            @UserSession(required = true) SessionContext sessionContext,
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
-        Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
-
         PageResultBO<OrgMemberInfoResultBO> resultBO = organizationMemberService.listMembers(
                 OrgMemberListParamsBO.builder()
-                        .orgId(currentOrgId)
+                        .orgId(sessionContext.orgId())
                         .keyword(orgMemberListDTO.getKeyword())
                         .startJoinedTime(orgMemberListDTO.getStartJoinedTime())
                         .endJoinedTime(orgMemberListDTO.getEndJoinedTime())
@@ -141,7 +127,7 @@ public class OrganizationMemberController {
                     return orgMemberInfoVO;
                 })
                 .toList();
-        return Result.success("查询成功", new PageResultVO<>(memberInfoVOS, resultBO.getTotal()));
+        return new PageResultVO<>(memberInfoVOS, resultBO.getTotal());
     }
 
     @Operation(
@@ -149,18 +135,18 @@ public class OrganizationMemberController {
     )
     @Parameter(name = "memberId", description = "成员ID")
     @GetMapping("/{memberId}/base-tasks/submit-counts")
-    public Result<OrgMemberBaseTaskSubmitCountVO> getMemberBaseTaskSubmitCounts(@PathVariable Long memberId) {
-        Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
-
+    @ResponseMessage("查询成功")
+    public OrgMemberBaseTaskSubmitCountVO getMemberBaseTaskSubmitCounts(
+            @UserSession(required = true) SessionContext sessionContext,
+            @PathVariable Long memberId) {
         OrgMemberBaseTaskSubmitCountResultBO resultBO = organizationMemberService.getMemberBaseTaskSubmitCounts(
                 OrgMemberBaseTaskSubmitCountParamsBO.builder()
                         .memberId(memberId)
-                        .orgId(currentOrgId)
+                        .orgId(sessionContext.orgId())
                         .build()
         );
 
-        OrgMemberBaseTaskSubmitCountVO orgMemberBaseTaskSubmitCountVO = OrgMemberBaseTaskSubmitCountVO.builder()
+        return OrgMemberBaseTaskSubmitCountVO.builder()
                 .memberId(resultBO.getMemberId())
                 .userId(resultBO.getUserId())
                 .totalSubmitCount(resultBO.getTotalSubmitCount())
@@ -172,7 +158,6 @@ public class OrganizationMemberController {
                                 .build())
                         .toList())
                 .build();
-        return Result.success("查询成功", orgMemberBaseTaskSubmitCountVO);
     }
 
     @Operation(
@@ -180,13 +165,12 @@ public class OrganizationMemberController {
             description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{memberId}/status")
-    public Result<Void> changeMemberStatus(@PathVariable Long memberId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
-
+    public Result<Void> changeMemberStatus(@UserSession(required = true) SessionContext sessionContext,
+                                            @PathVariable Long memberId,
+                                            @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         organizationMemberService.changeMemberStatus(
                 OrgMemberChangeStatusParamsBO.builder()
-                        .orgId(currentOrgId)
+                        .orgId(sessionContext.orgId())
                         .memberId(memberId)
                         .status(changeStatusDTO.getStatus())
                         .build()
@@ -194,25 +178,20 @@ public class OrganizationMemberController {
         return Result.success(null);
     }
 
-    // -------------------------
-    // 邀请（管理员生成）
-    // -------------------------
     @Operation(
         summary = "生成加入组织邀请码（管理员）",
         description = "生成一次性邀请码（6位字母数字），有效期30分钟；供组织管理员邀请用户加入当前组织使用"
     )
     @PostMapping("/invite-codes/join-org")
-    public Result<InviteCodeVO> generateJoinOrgInviteCode() {
-        Long currentUserId = sessionService.getCurrentUserId();
-        Long currentOrgId = currentOrganizationService.requireCurrentOrgId(currentUserId);
-
+    @ResponseMessage("生成成功")
+    public InviteCodeVO generateJoinOrgInviteCode(
+            @UserSession(required = true) SessionContext sessionContext) {
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
-                new OrgAdminGenerateJoinOrgInviteCodeParamsBO(currentUserId, currentOrgId)
+                new OrgAdminGenerateJoinOrgInviteCodeParamsBO(sessionContext.userId(), sessionContext.orgId())
         );
-        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
+        return InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())
                 .expireAt(resultBO.getExpireAt())
                 .build();
-        return Result.success("生成成功", inviteCodeVO);
     }
 }

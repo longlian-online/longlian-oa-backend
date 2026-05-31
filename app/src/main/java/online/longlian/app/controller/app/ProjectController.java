@@ -6,7 +6,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
@@ -24,8 +26,6 @@ import online.longlian.app.pojo.vo.app.ProjectInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.ProjectService;
-import online.longlian.app.service.app.SessionService;
-import online.longlian.app.service.common.CurrentOrganizationService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,19 +39,16 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
-    private final SessionService sessionService;
-    private final CurrentOrganizationService currentOrganizationService;
 
     @Operation(summary = "分页查询企划列表", description = "支持关键词搜索、类型筛选、排序，仅返回启用状态企划")
     @GetMapping("")
-    public Result<PageResultVO<ProjectInfoVO>> getProjectList(
+    @ResponseMessage("查询成功")
+    public PageResultVO<ProjectInfoVO> getProjectList(
+            @UserSession SessionContext sessionContext,
             @ModelAttribute @Valid ProjectListDTO projectListDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
-
         PageResultBO<ProjectListResultBO> resultBO = projectService.getProjectList(
                 ProjectListParamsBO.builder()
-                        .orgId(orgId)
+                        .orgId(sessionContext.orgId())
                         .keyword(projectListDTO.getKeyword())
                         .projectType(projectListDTO.getProjectType())
                         .sortByTime(projectListDTO.getSortByTime())
@@ -65,7 +62,7 @@ public class ProjectController {
             return vo;
         }).toList();
 
-        return Result.success("查询成功", new PageResultVO<>(voList, resultBO.getTotal()));
+        return new PageResultVO<>(voList, resultBO.getTotal());
     }
 
     @Operation(
@@ -77,38 +74,32 @@ public class ProjectController {
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("/{projectId}")
-    public Result<ProjectDetailInfoVO> getProjectDetail(@PathVariable Long projectId) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
-
-        ProjectDetailResultBO resultBO = projectService.getProjectDetail(projectId, userId, orgId);
-
+    @ResponseMessage("查询成功")
+    public ProjectDetailInfoVO getProjectDetail(@UserSession SessionContext sessionContext,
+                                                 @PathVariable Long projectId) {
+        ProjectDetailResultBO resultBO = projectService.getProjectDetail(
+                projectId, sessionContext.userId(), sessionContext.orgId());
         ProjectDetailInfoVO vo = new ProjectDetailInfoVO();
         BeanUtils.copyProperties(resultBO, vo);
-        return Result.success("查询成功", vo);
+        return vo;
     }
 
     @Operation(summary = "获取企划类型列表", description = "仅返回启用状态的类型")
     @GetMapping("/types")
-    public Result<List<ProjectTypeInfoVO>> getProjectTypes() {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
-
-        List<ProjectTypeInfoVO> types = projectService.getProjectTypes(orgId);
-        return Result.success("查询成功", types);
+    @ResponseMessage("查询成功")
+    public List<ProjectTypeInfoVO> getProjectTypes(@UserSession SessionContext sessionContext) {
+        return projectService.getProjectTypes(sessionContext.orgId());
     }
 
     @Operation(summary = "创建企划")
     @PostMapping("")
-    public Result<Void> createProject(
-            @RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
-
+    @ResponseMessage("创建成功")
+    public void createProject(@UserSession SessionContext sessionContext,
+                               @RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
         projectService.createProject(
                 ProjectCreateParamsBO.builder()
-                        .orgId(orgId)
-                        .creatorId(userId)
+                        .orgId(sessionContext.orgId())
+                        .creatorId(sessionContext.userId())
                         .title(projectCreateDTO.getTitle())
                         .alias(projectCreateDTO.getAlias())
                         .typeId(projectCreateDTO.getTypeId())
@@ -116,30 +107,26 @@ public class ProjectController {
                         .description(projectCreateDTO.getDescription())
                         .coverFileId(projectCreateDTO.getCoverFileId())
                         .build());
-        return Result.success("创建成功");
     }
 
     @Operation(summary = "编辑企划")
     @Parameter(name = "projectId", description = "企划ID")
     @PutMapping("/{projectId}")
-    public Result<Void> updateProject(
-            @PathVariable Long projectId,
-            @RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
-
+    @ResponseMessage("修改成功")
+    public void updateProject(@UserSession SessionContext sessionContext,
+                               @PathVariable Long projectId,
+                               @RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
         projectService.updateProject(
                 ProjectUpdateParamsBO.builder()
                         .projectId(projectId)
-                        .orgId(orgId)
-                        .userId(userId)
+                        .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
                         .title(projectUpdateDTO.getTitle())
                         .alias(projectUpdateDTO.getAlias())
                         .metadata(projectUpdateDTO.getMetadata())
                         .description(projectUpdateDTO.getDescription())
                         .coverFileId(projectUpdateDTO.getCoverFileId())
                         .build());
-        return Result.success("修改成功");
     }
 
     @Operation(
@@ -148,17 +135,15 @@ public class ProjectController {
     )
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("/{projectId}/workshop")
-    public Result<Void> addToWorkshop(@PathVariable Long projectId) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.resolveCurrentOrgId(userId);
-
+    @ResponseMessage("已添加到工坊")
+    public void addToWorkshop(@UserSession SessionContext sessionContext,
+                               @PathVariable Long projectId) {
         projectService.addToWorkshop(
                 ProjectWorkshopAddParamsBO.builder()
                         .projectId(projectId)
-                        .userId(userId)
-                        .orgId(orgId)
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .build());
-        return Result.success("已添加到工坊");
     }
 
     @Operation(
@@ -167,14 +152,13 @@ public class ProjectController {
     )
     @Parameter(name = "projectId", description = "企划ID")
     @DeleteMapping("/{projectId}/workshop")
-    public Result<Void> removeFromWorkshop(@PathVariable Long projectId) {
-        Long userId = sessionService.getCurrentUserId();
-
+    @ResponseMessage("已从工坊移除")
+    public void removeFromWorkshop(@UserSession SessionContext sessionContext,
+                                    @PathVariable Long projectId) {
         projectService.removeFromWorkshop(
                 ProjectWorkshopRemoveParamsBO.builder()
                         .projectId(projectId)
-                        .userId(userId)
+                        .userId(sessionContext.userId())
                         .build());
-        return Result.success("已从工坊移除");
     }
 }

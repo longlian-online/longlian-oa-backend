@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
@@ -33,7 +34,8 @@ public class SessionController {
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
-    public Result<LoginVO> loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
+    @ResponseMessage("登录成功")
+    public LoginVO loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
         SessionLoginResultBO resultBO = sessionService.loginByPwd(
                 SessionLoginByPwdParamsBO.builder()
                         .username(loginByPwdDTO.getUsername())
@@ -42,12 +44,13 @@ public class SessionController {
         );
         LoginVO loginVO = new LoginVO();
         BeanUtils.copyProperties(resultBO, loginVO);
-        return Result.success("登录成功", loginVO);
+        return loginVO;
     }
 
     @Operation(summary = "验证码登录", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/email")
-    public Result<LoginVO> loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
+    @ResponseMessage("登录成功")
+    public LoginVO loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
         SessionLoginResultBO resultBO = sessionService.loginByCode(
                 SessionLoginByCodeParamsBO.builder()
                         .email(loginByCodeDTO.getEmail())
@@ -56,12 +59,13 @@ public class SessionController {
         );
         LoginVO loginVO = new LoginVO();
         BeanUtils.copyProperties(resultBO, loginVO);
-        return Result.success("登录成功", loginVO);
+        return loginVO;
     }
 
     @Operation(summary = "发送邮箱验证码", security = {})
     @PostMapping("/email/code")
-    public Result<Void> sendCode(@RequestBody EmailCodeDTO emailCodeDTO) {
+    @ResponseMessage("验证码发送请求已提交，请注意查收邮箱")
+    public void sendCode(@RequestBody EmailCodeDTO emailCodeDTO) {
         otpServiceFactory.get(OTPType.EmailVerify).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(0L)
@@ -69,15 +73,15 @@ public class SessionController {
                         .businessType(emailCodeDTO.getBusinessType())
                         .build()
         );
-        return Result.success("验证码发送请求已提交，请注意查收邮箱");
     }
 
     @Operation(summary = "退出登录")
     @DeleteMapping("/")
-    public Result<Void> logout(HttpServletRequest request) {
+    @ResponseMessage("登出成功")
+    public void logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return Result.success("登出成功");
+            return;
         }
         String token = authHeader.substring(7);
         sessionService.logout(
@@ -86,6 +90,5 @@ public class SessionController {
                         .token(token)
                         .build()
         );
-        return Result.success("登出成功");
     }
 }

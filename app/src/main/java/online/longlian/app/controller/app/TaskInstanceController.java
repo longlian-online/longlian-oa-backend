@@ -6,7 +6,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
@@ -16,7 +18,6 @@ import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
-import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.TaskInstanceService;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,7 +31,6 @@ import java.util.List;
 public class TaskInstanceController {
 
     private final TaskInstanceService taskInstanceService;
-    private final SessionService sessionService;
 
     @Operation(
             summary = "查询项目下的任务实例列表",
@@ -38,12 +38,13 @@ public class TaskInstanceController {
     )
     @Parameter(name = "itemId", description = "项目ID")
     @GetMapping("/item/{itemId}")
-    public Result<List<ItemTaskInstanceVO>> listItemTaskInstances(@PathVariable Long itemId) {
-        List<ItemTaskInstanceVO> instances = taskInstanceService.listItemTaskInstances(
+    @ResponseMessage("查询成功")
+    public List<ItemTaskInstanceVO> listItemTaskInstances(@UserSession SessionContext sessionContext,
+                                                           @PathVariable Long itemId) {
+        return taskInstanceService.listItemTaskInstances(
                 TaskInstanceListParamsBO.builder()
                         .itemId(itemId)
                         .build());
-        return Result.success("查询成功", instances);
     }
 
     @Operation(
@@ -52,12 +53,13 @@ public class TaskInstanceController {
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @GetMapping("/{instanceId}/detail")
-    public Result<TaskInstanceDetailVO> getTaskInstanceDetail(@PathVariable Long instanceId) {
-        TaskInstanceDetailVO taskInstanceDetailVO = taskInstanceService.getTaskInstanceDetail(
+    @ResponseMessage("查询成功")
+    public TaskInstanceDetailVO getTaskInstanceDetail(@UserSession SessionContext sessionContext,
+                                                       @PathVariable Long instanceId) {
+        return taskInstanceService.getTaskInstanceDetail(
                 TaskInstanceDetailParamsBO.builder()
                         .instanceId(instanceId)
                         .build());
-        return Result.success("查询成功", taskInstanceDetailVO);
     }
 
     @Operation(
@@ -66,14 +68,14 @@ public class TaskInstanceController {
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/claim")
-    public Result<Void> claimTask(@PathVariable Long instanceId) {
-        Long userId = sessionService.getCurrentUserId();
+    @ResponseMessage("接取成功")
+    public void claimTask(@UserSession SessionContext sessionContext,
+                           @PathVariable Long instanceId) {
         taskInstanceService.claimTask(
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
-                        .userId(userId)
+                        .userId(sessionContext.userId())
                         .build());
-        return Result.success("接取成功");
     }
 
     @Operation(
@@ -82,14 +84,14 @@ public class TaskInstanceController {
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/abandon")
-    public Result<Void> abandonTask(@PathVariable Long instanceId) {
-        Long userId = sessionService.getCurrentUserId();
+    @ResponseMessage("已放弃")
+    public void abandonTask(@UserSession SessionContext sessionContext,
+                             @PathVariable Long instanceId) {
         taskInstanceService.abandonTask(
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
-                        .userId(userId)
+                        .userId(sessionContext.userId())
                         .build());
-        return Result.success("已放弃");
     }
 
     @Operation(
@@ -98,17 +100,16 @@ public class TaskInstanceController {
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/submit")
-    public Result<Void> submitTask(
-            @PathVariable Long instanceId,
-            @RequestBody @Valid TaskSubmitDTO taskSubmitDTO) {
-        Long userId = sessionService.getCurrentUserId();
+    @ResponseMessage("提交成功")
+    public void submitTask(@UserSession SessionContext sessionContext,
+                            @PathVariable Long instanceId,
+                            @RequestBody @Valid TaskSubmitDTO taskSubmitDTO) {
         taskInstanceService.submitTask(
                 TaskInstanceSubmitParamsBO.builder()
                         .instanceId(instanceId)
-                        .userId(userId)
+                        .userId(sessionContext.userId())
                         .metadata(taskSubmitDTO.getMetadata())
                         .build());
-        return Result.success("提交成功");
     }
 
     @Operation(
@@ -117,14 +118,14 @@ public class TaskInstanceController {
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/reset")
-    public Result<Void> resetTask(@PathVariable Long instanceId) {
-        Long userId = sessionService.getCurrentUserId();
+    @ResponseMessage("已重置")
+    public void resetTask(@UserSession SessionContext sessionContext,
+                           @PathVariable Long instanceId) {
         taskInstanceService.resetTask(
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
-                        .userId(userId)
+                        .userId(sessionContext.userId())
                         .build());
-        return Result.success("已重置");
     }
 
     @Operation(
@@ -134,17 +135,16 @@ public class TaskInstanceController {
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/reject")
-    public Result<Void> rejectTask(
-            @PathVariable Long instanceId,
-            @RequestBody @Valid TaskRejectDTO taskRejectDTO) {
-        Long userId = sessionService.getCurrentUserId();
+    @ResponseMessage("已打回")
+    public void rejectTask(@UserSession SessionContext sessionContext,
+                            @PathVariable Long instanceId,
+                            @RequestBody @Valid TaskRejectDTO taskRejectDTO) {
         taskInstanceService.rejectTask(
                 TaskInstanceRejectParamsBO.builder()
                         .instanceId(instanceId)
-                        .userId(userId)
+                        .userId(sessionContext.userId())
                         .reviewComment(taskRejectDTO.getReviewComment())
                         .build());
-        return Result.success("已打回");
     }
 
 }
