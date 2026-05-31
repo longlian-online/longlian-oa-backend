@@ -5,6 +5,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -15,9 +18,7 @@ import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectAdminListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ProjectAdminInfoVO;
-import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.orgadmin.ProjectService;
-import online.longlian.app.service.app.SessionService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -33,19 +34,16 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
-    private final SessionService sessionService;
-    private final CurrentOrganizationService currentOrganizationService;
 
     @Operation(summary = "管理端分页查询企划列表", description = "支持标题模糊搜索、类型精确筛选、创建时间区间，默认创建时间倒序")
     @PostMapping("")
-    public Result<PageResultVO<ProjectAdminInfoVO>> getAdminProjectList(
+    @ResponseMessage("查询成功")
+    public PageResultVO<ProjectAdminInfoVO> getAdminProjectList(
+            @UserSession(required = true) SessionContext sessionContext,
             @RequestBody @Valid ProjectAdminListDTO projectAdminListDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
-
         PageResultBO<ProjectAdminListResultBO> resultBO = projectService.getAdminProjectList(
                 ProjectAdminListParamsBO.builder()
-                        .orgId(orgId)
+                        .orgId(sessionContext.orgId())
                         .keyword(projectAdminListDTO.getKeyword())
                         .typeId(projectAdminListDTO.getTypeId())
                         .startCreatedTime(projectAdminListDTO.getStartCreatedTime())
@@ -61,19 +59,18 @@ public class ProjectController {
             return projectAdminInfoVO;
         }).toList();
 
-        return Result.success("查询成功", new PageResultVO<>(projectAdminInfoVOList, resultBO.getTotal()));
+        return new PageResultVO<>(projectAdminInfoVOList, resultBO.getTotal());
     }
 
     @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{projectId}/status")
-    public Result<Void> changeProjectStatus(@PathVariable Long projectId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
-
+    public Result<Void> changeProjectStatus(@UserSession(required = true) SessionContext sessionContext,
+                                             @PathVariable Long projectId,
+                                             @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         projectService.changeProjectStatus(
                 ProjectChangeStatusParamsBO.builder()
                         .projectId(projectId)
-                        .orgId(orgId)
+                        .orgId(sessionContext.orgId())
                         .status(changeStatusDTO.getStatus())
                         .build()
         );

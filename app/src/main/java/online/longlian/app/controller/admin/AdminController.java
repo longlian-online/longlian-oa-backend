@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.pojo.bo.admin.AdminCreateParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminListParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminListResultBO;
@@ -33,7 +33,8 @@ public class AdminController {
 
     @Operation(summary = "创建管理员")
     @PostMapping("/")
-    public Result<String> create(@RequestBody @Valid AdminCreateDTO dto) {
+    @ResponseMessage("创建成功")
+    public String create(@RequestBody @Valid AdminCreateDTO dto) {
         Long adminId = adminManagementService.create(
                 AdminCreateParamsBO.builder()
                         .username(dto.getUsername())
@@ -41,19 +42,20 @@ public class AdminController {
                         .build(),
                 adminSessionService.getCurrentAdminId()
         );
-        return Result.success("创建成功", String.valueOf(adminId));
+        return String.valueOf(adminId);
     }
 
     @Operation(summary = "删除管理员")
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    @ResponseMessage("删除成功")
+    public void delete(@PathVariable Long id) {
         adminManagementService.delete(id, adminSessionService.getCurrentAdminId());
-        return Result.success("删除成功");
     }
 
     @Operation(summary = "分页查询管理员列表")
     @GetMapping("/")
-    public Result<PageResultVO<AdminVO>> list(@Valid AdminListDTO dto) {
+    @ResponseMessage("ok")
+    public PageResultVO<AdminVO> list(@Valid AdminListDTO dto) {
         AdminListParamsBO bo = AdminListParamsBO.builder()
                 .page(new PageParamsBO(dto.getPageNum(), dto.getPageSize()))
                 .build();
@@ -72,8 +74,6 @@ public class AdminController {
                 )
                 .toList();
 
-        PageResultVO<AdminVO> pageResultVO = new PageResultVO<>(list, adminPage.getTotal());
-
-        return Result.success("ok", pageResultVO);
+        return new PageResultVO<>(list, adminPage.getTotal());
     }
 }
