@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.vo.common.ResourcCreateVO;
 import online.longlian.app.service.resource.ResourceService;
@@ -25,8 +25,8 @@ public class FileStorageController {
         description = "获取预签名上传地址，前端拿到 uploadUrl 后直接向存储服务上传文件，上传完成后将 fileId 传给业务接口"
     )
     @PostMapping("/upload")
-    public Result<ResourcCreateVO> createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO) {
-//        return Result.success("获取成功", resourceService.create(createFileReqDTO));
+    @ResponseMessage("获取成功")
+    public ResourcCreateVO createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO) {
         return null;
     }
 }

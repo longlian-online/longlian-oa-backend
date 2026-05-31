@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 import online.longlian.app.pojo.dto.admin.ScheduleTriggerDTO;
 import online.longlian.app.pojo.vo.admin.ScheduledTaskVO;
@@ -29,7 +29,8 @@ public class ScheduledTaskController {
 
     @Operation(summary = "列出所有已注册的定时任务")
     @GetMapping("/")
-    public Result<List<ScheduledTaskVO>> listTasks() {
+    @ResponseMessage("ok")
+    public List<ScheduledTaskVO> listTasks() {
         Map<String, ScheduledTask> tasks = engine.getRegisteredTasks();
         List<ScheduledTaskVO> vos = new ArrayList<>();
         for (Map.Entry<String, ScheduledTask> entry : tasks.entrySet()) {
@@ -43,14 +44,14 @@ public class ScheduledTaskController {
                     .enabled(def.isEnabled())
                     .build());
         }
-        return Result.success("ok", vos);
+        return vos;
     }
 
     @Operation(summary = "手动触发定时任务",
             description = "传入 executeTime 可模拟任意时间点触发，不传则为当前时间。")
     @PostMapping("/{taskName}/trigger")
-    public Result<Void> trigger(@PathVariable String taskName, @RequestBody ScheduleTriggerDTO dto) {
+    @ResponseMessage("触发成功")
+    public void trigger(@PathVariable String taskName, @RequestBody ScheduleTriggerDTO dto) {
         engine.trigger(taskName, dto.getExecuteTime());
-        return Result.success("触发成功");
     }
 }

@@ -6,7 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.pojo.bo.admin.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminLoginResultBO;
 import online.longlian.app.pojo.bo.admin.AdminLogoutParamsBO;
@@ -27,7 +27,8 @@ public class AdminSessionController {
 
     @Operation(summary = "管理员登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("")
-    public Result<AdminLoginVO> login(@RequestBody @Valid AdminLoginDTO dto) {
+    @ResponseMessage("登录成功")
+    public AdminLoginVO login(@RequestBody @Valid AdminLoginDTO dto) {
         AdminLoginResultBO resultBO = adminSessionService.login(
                 AdminLoginParamsBO.builder()
                         .username(dto.getUsername())
@@ -36,19 +37,20 @@ public class AdminSessionController {
         );
         AdminLoginVO loginVO = new AdminLoginVO();
         BeanUtils.copyProperties(resultBO, loginVO);
-        return Result.success("登录成功", loginVO);
+        return loginVO;
     }
 
     @Operation(summary = "管理员登出")
     @DeleteMapping("")
-    public Result<Void> logout(HttpServletRequest request) {
+    @ResponseMessage("登出成功")
+    public void logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return Result.success("登出成功");
+            return;
         }
         Long adminId = adminSessionService.getCurrentAdminId();
         if (adminId == null) {
-            return Result.success("登出成功");
+            return;
         }
         String token = authHeader.substring(7);
         adminSessionService.logout(
@@ -57,6 +59,5 @@ public class AdminSessionController {
                         .token(token)
                         .build()
         );
-        return Result.success("登出成功");
     }
 }
