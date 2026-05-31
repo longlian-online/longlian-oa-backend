@@ -39,12 +39,12 @@ public class ProjectAssembler {
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
         List<Long> coverFileIds = projects.stream()
-                .map(Project::getCoverFileId).filter(Objects::nonNull).distinct().toList();
+                .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> coverUrlMap = coverFileIds.stream()
                 .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
 
         List<Long> avatarFileIds = userMap.values().stream()
-                .map(User::getAvatarFileId).filter(Objects::nonNull).distinct().toList();
+                .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> avatarUrlMap = avatarFileIds.stream()
                 .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
 
