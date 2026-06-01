@@ -373,10 +373,10 @@ public class ItemApiTest extends BaseApiTest {
     }
 
     /**
-     * 查询不存在的企划项目列表应返回空结果
+     * 查询不存在的企划项目列表应返回数据不存在
      */
     @Test
-    void shouldListItemsForNonExistentProject() {
+    void shouldFailListItemsForNonExistentProject() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -388,8 +388,7 @@ public class ItemApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0))
-                .body("data.list", hasSize(0));
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     /**

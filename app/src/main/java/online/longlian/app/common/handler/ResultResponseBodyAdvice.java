@@ -1,5 +1,6 @@
 package online.longlian.app.common.handler;
 
+import com.alibaba.fastjson2.JSON;
 import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.result.Result;
@@ -51,9 +52,21 @@ public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
             }
         }
 
+        Result<?> result;
         if (body == null) {
-            return Result.success(msg);
+            result = Result.success(msg);
+        } else {
+            result = Result.success(msg, body);
         }
-        return Result.success(msg, body);
+
+        // 控制器返回 String 时，Spring 会提前选择 StringHttpMessageConverter
+        // beforeBodyWrite 返回 Result 后该转换器无法处理，导致 ClassCastException
+        // 此处将 Result 序列化为 JSON 字符串，兼容 StringHttpMessageConverter
+        if (body instanceof String) {
+            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            return JSON.toJSONString(result);
+        }
+
+        return result;
     }
 }
