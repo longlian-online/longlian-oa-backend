@@ -9,7 +9,7 @@ services:
       MYSQL_DATABASE: longlian_oa_dev
     command: --default-authentication-plugin=mysql_native_password
     ports:
-      - "3307:3306"
+      - "10001:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 3s
@@ -22,12 +22,26 @@ services:
     image: redis:7-alpine
     container_name: longlian-oa-redis-dev
     ports:
-      - "6379:6379"
+      - "10002:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
       timeout: 3s
       retries: 10
       start_period: 5s
+  longlian-oa-dev:
+    build:
+      context: ../
+      dockerfile: devops/Dockerfile
+    container_name: longlian-oa-dev
+    env_file:
+      - ../.env.dev
+    ports:
+      - "10003:8080"
+    depends_on:
+      mysql-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_healthy
 volumes:
   mysql_data:

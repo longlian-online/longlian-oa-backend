@@ -22,10 +22,19 @@ tasks:
     silent: true
 
   dev-prepare:
-    desc: "准备开发环境（安装依赖、构建项目等）"
+    desc: "准备开发环境（启动数据库 + 执行迁移）"
     cmds:
-      - echo "准备开发环境..."
-      - echo "mysql 默认监听端口 3307，redis 默认监听端口 6379，请确保这些端口未被占用"
-      - docker compose -f devops/docker-compose.dev.yml up -d
+      - echo "启动 MySQL 和 Redis..."
+      - echo "mysql 监听端口 10001，redis 监听端口 10002"
+      - docker compose -f devops/docker-compose.dev.yml up -d mysql-dev redis-dev
+      - echo "等待数据库就绪..."
+      - docker compose -f devops/docker-compose.dev.yml run --rm mysql-dev sh -c "while ! mysqladmin ping -h mysql-dev -u root -pdev --silent; do sleep 1; done"
       - task: db:update
-      - echo "开发环境已准备就绪！"
+      - echo "数据库已就绪！"
+
+  dev-run:
+    desc: "运行开发环境（构建并启动 API 服务）"
+    cmds:
+      - task: dev-prepare
+      - echo "正在构建并启动 API 服务..."
+      - docker compose -f devops/docker-compose.dev.yml up -d --build longlian-oa-dev
