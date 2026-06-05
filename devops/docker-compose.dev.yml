@@ -1,0 +1,33 @@
+# 开发环境
+
+services:
+  mysql-dev:
+    image: mysql:8.0
+    container_name: longlian-oa-mysql-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: dev 
+      MYSQL_DATABASE: longlian_oa_dev
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    volumes:
+      - mysql_data:/var/lib/mysql
+  redis-dev:
+    image: redis:7-alpine
+    container_name: longlian-oa-redis-dev
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+volumes:
+  mysql_data:
