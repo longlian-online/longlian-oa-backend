@@ -45,7 +45,7 @@ Liquibase 以 Docker 方式运行，无需本地安装 CLI。确保已安装 Doc
 task dev-prepare
 ```
 
-这会启动 MySQL（:3307）和 Redis（:6379）容器，并执行 `db:update` 同步数据库。
+这会启动 MySQL 和 Redis 容器，并执行 `db:update` 同步数据库。
 
 或手动启动：
 
@@ -66,8 +66,8 @@ docker compose -f devops/docker-compose.dev.yml up -d
 # 2. 生成差异变更集
 task db:diff:版本号:描述
 # 例如：task db:diff:v1.1.0:add_invite_code_column
-# 生成文件：changelog/v1.1.0/20260529__add_invite_code_column.json
-# 3. 检查生成的 JSON 文件，确认变更正确
+# 生成文件：changelog/v1.1.0/20260529__add_invite_code_column.mysql.sql
+# 3. 检查生成的 sql 文件，确认变更正确
 # 4. 提交到 Git
 ```
 

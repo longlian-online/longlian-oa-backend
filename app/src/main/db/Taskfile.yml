@@ -17,7 +17,7 @@ tasks:
     vars:
       DATE:
         sh: date +%Y%m%d
-      CHANGELOG: ./changelog/{{index .MATCH 0}}/{{.DATE}}__{{index .MATCH 1}}.json
+      CHANGELOG: ./changelog/{{index .MATCH 0}}/{{.DATE}}__{{index .MATCH 1}}.mysql.sql
     desc: "生成数据库差异报告"
     dir: '{{.TASKFILE_DIR}}'
     cmds:
