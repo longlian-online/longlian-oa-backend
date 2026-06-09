@@ -16,7 +16,7 @@ tasks:
     silent: true
     vars:
       DATE:
-        sh: date +%Y%m%d
+        sh: date +%Y%m%d%H%M
       CHANGELOG: ./changelog/{{index .MATCH 0}}/{{.DATE}}__{{index .MATCH 1}}.mysql.sql
     desc: "生成数据库差异报告"
     dir: '{{.TASKFILE_DIR}}'
