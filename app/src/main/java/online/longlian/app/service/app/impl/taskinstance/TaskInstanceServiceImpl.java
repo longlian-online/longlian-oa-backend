@@ -90,12 +90,16 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可接取");
         }
 
-        taskInstanceMapper.update(null,
+        int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
                         .set(TaskInstance::getAssigneeId, params.getUserId())
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
     }
 
     @Override
@@ -112,12 +116,16 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人可放弃任务");
         }
 
-        taskInstanceMapper.update(null,
+        int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getAssigneeId, null)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
                         .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
     }
 
     @Override
@@ -136,13 +144,17 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
         LocalDateTime now = LocalDateTime.now(clock);
 
-        taskInstanceMapper.update(null,
+        int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
                         .set(TaskInstance::getSubmittedAt, now)
                         .set(TaskInstance::getCompletedAt, now)
                         .set(TaskInstance::getUpdatedAt, now));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
 
         TaskSubmission submission = TaskSubmission.builder()
                 .projectId(instance.getProjectId())
@@ -176,13 +188,17 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
         LocalDateTime now = LocalDateTime.now(clock);
 
-        taskInstanceMapper.update(null,
+        int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getSubmittedAt, null)
                         .set(TaskInstance::getCompletedAt, null)
                         .set(TaskInstance::getUpdatedAt, now));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
 
         taskSubmissionMapper.update(null,
                 new LambdaUpdateWrapper<TaskSubmission>()
@@ -207,13 +223,17 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
         LocalDateTime now = LocalDateTime.now(clock);
 
-        taskInstanceMapper.update(null,
+        int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getSubmittedAt, null)
                         .set(TaskInstance::getCompletedAt, null)
                         .set(TaskInstance::getUpdatedAt, now));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
 
         taskSubmissionMapper.update(null,
                 new LambdaUpdateWrapper<TaskSubmission>()

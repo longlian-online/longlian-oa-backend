@@ -26,6 +26,7 @@ import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
 import online.longlian.app.service.app.ProjectWorkshopService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +48,7 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
     private final WorkshopQueryBuilder workshopQueryBuilder;
     private final WorkshopAssembler workshopAssembler;
     private final WorkshopProjectHandler workshopProjectHandler;
+    private final DistributedLockService lockService;
 
     @Override
     public PageResultBO<WorkshopProjectInfoVO> getMyWorkshopList(WorkshopListParamsBO params) {
@@ -119,34 +122,40 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO params) {
-        TaskTemplate template = taskTemplateMapper.selectById(params.getTemplateId());
-        if (template == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务模板不存在");
-        }
-        if (template.getScope() != TaskTemplateScope.PERSONAL) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅可编辑个人模板");
-        }
-        if (!template.getCreatorId().equals(params.getUserId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑该模板");
-        }
+        String lockKey = "template:edit:" + params.getTemplateId();
+        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
+            if (lock == null) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
+            }
+            TaskTemplate template = taskTemplateMapper.selectById(params.getTemplateId());
+            if (template == null) {
+                throw new AppException(ResultCode.DATA_NOT_EXIT, "任务模板不存在");
+            }
+            if (template.getScope() != TaskTemplateScope.PERSONAL) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅可编辑个人模板");
+            }
+            if (!template.getCreatorId().equals(params.getUserId())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑该模板");
+            }
 
-        LocalDateTime now = LocalDateTime.now(clock);
-        taskTemplateMapper.update(null,
-                new LambdaUpdateWrapper<TaskTemplate>()
-                        .eq(TaskTemplate::getId, params.getTemplateId())
-                        .set(TaskTemplate::getName, params.getName())
-                        .set(TaskTemplate::getDescription, params.getDescription())
-                        .set(TaskTemplate::getUpdatedAt, now));
+            LocalDateTime now = LocalDateTime.now(clock);
+            taskTemplateMapper.update(null,
+                    new LambdaUpdateWrapper<TaskTemplate>()
+                            .eq(TaskTemplate::getId, params.getTemplateId())
+                            .set(TaskTemplate::getName, params.getName())
+                            .set(TaskTemplate::getDescription, params.getDescription())
+                            .set(TaskTemplate::getUpdatedAt, now));
 
-        taskTemplateNodeMapper.update(null,
-                new LambdaUpdateWrapper<TaskTemplateNode>()
-                        .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
-                        .set(TaskTemplateNode::getDeletedAt, now));
+            taskTemplateNodeMapper.update(null,
+                    new LambdaUpdateWrapper<TaskTemplateNode>()
+                            .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
+                            .isNull(TaskTemplateNode::getDeletedAt)
+                            .set(TaskTemplateNode::getDeletedAt, now));
 
-        for (WorkshopTaskTemplateNodeCreateParamsBO node : params.getNodes()) {
-            TaskTemplateNode taskTemplateNode = buildNode(params.getTemplateId(), node, now);
-            taskTemplateNodeMapper.insert(taskTemplateNode);
+            for (WorkshopTaskTemplateNodeCreateParamsBO node : params.getNodes()) {
+                TaskTemplateNode taskTemplateNode = buildNode(params.getTemplateId(), node, now);
+                taskTemplateNodeMapper.insert(taskTemplateNode);
+            }
         }
     }
 

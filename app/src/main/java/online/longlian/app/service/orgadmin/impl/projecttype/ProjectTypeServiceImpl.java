@@ -72,6 +72,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
         projectTypeMapper.update(null,
                 new LambdaUpdateWrapper<ProjectType>()
                         .eq(ProjectType::getId, params.getTypeId())
+                        .ne(ProjectType::getStatus, params.getStatus())
                         .set(ProjectType::getStatus, params.getStatus())
                         .set(ProjectType::getUpdatedAt, LocalDateTime.now(clock))
         );

@@ -29,6 +29,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.OTPType;
+import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 @Service
@@ -60,6 +62,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final ApplicationReviewHandler applicationReviewHandler;
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
+    private final DistributedLockService lockService;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -79,22 +82,28 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void reviewApplication(@NonNull OrgAdminReviewApplicationParamsBO params) {
-        GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
-        applicationReviewHandler.validatePendingApplication(application, params.getOrgId());
+        String lockKey = "org:application:review:" + params.getApplicationId();
+        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
+            if (lock == null) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
+            }
+            GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
+            applicationReviewHandler.validatePendingApplication(application, params.getOrgId());
 
-        LocalDateTime now = LocalDateTime.now(clock);
-        Long approvedUserId = null;
-        if (params.getApplicationStatus() == ApplicationStatus.APPROVED) {
-            OrganizationMember newMember = applicationReviewHandler.approveApplication(application);
-            approvedUserId = newMember.getUserId();
-            backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
-        } else if (params.getApplicationStatus() == ApplicationStatus.REJECTED) {
-            applicationReviewHandler.rejectApplication(application);
+            LocalDateTime now = LocalDateTime.now(clock);
+            Long approvedUserId = null;
+            if (params.getApplicationStatus() == ApplicationStatus.APPROVED) {
+                OrganizationMember newMember = applicationReviewHandler.approveApplication(application);
+                approvedUserId = newMember.getUserId();
+                backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+            } else if (params.getApplicationStatus() == ApplicationStatus.REJECTED) {
+                applicationReviewHandler.rejectApplication(application);
+            }
+
+            applicationReviewHandler.updateApplicationStatus(
+                    application, params.getApplicationStatus(), params.getReviewerId(),
+                    params.getReviewRemark(), approvedUserId, now);
         }
-
-        applicationReviewHandler.updateApplicationStatus(
-                application, params.getApplicationStatus(), params.getReviewerId(),
-                params.getReviewRemark(), approvedUserId, now);
     }
 
     private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {

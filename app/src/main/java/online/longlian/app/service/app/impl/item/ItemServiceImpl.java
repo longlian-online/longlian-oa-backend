@@ -178,10 +178,14 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
         }
 
-        itemMapper.update(null,
+        int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
+                        .ne(Item::getStatus, ItemStatus.PUBLISHED)
                         .set(Item::getStatus, ItemStatus.PUBLISHED)
                         .set(Item::getUpdatedAt, LocalDateTime.now(clock)));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
+        }
     }
 }

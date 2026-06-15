@@ -26,6 +26,7 @@ import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,6 +35,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service("appProjectService")
 @RequiredArgsConstructor
@@ -46,6 +48,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectQueryBuilder projectQueryBuilder;
     private final ProjectAssembler projectAssembler;
     private final ProjectProgressHandler projectProgressHandler;
+    private final DistributedLockService lockService;
     private final Clock clock;
 
     @Override
@@ -186,23 +189,29 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
         }
 
-        boolean exists = projectWorkshopMapper.selectCount(
-                new LambdaQueryWrapper<ProjectWorkshop>()
-                        .eq(ProjectWorkshop::getProjectId, params.getProjectId())
-                        .eq(ProjectWorkshop::getUserId, params.getUserId())
-        ) > 0;
-        if (exists) {
-            return;
-        }
+        String lockKey = "workshop:add:" + params.getProjectId() + ":" + params.getUserId();
+        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
+            if (lock == null) {
+                return;
+            }
+            boolean exists = projectWorkshopMapper.selectCount(
+                    new LambdaQueryWrapper<ProjectWorkshop>()
+                            .eq(ProjectWorkshop::getProjectId, params.getProjectId())
+                            .eq(ProjectWorkshop::getUserId, params.getUserId())
+            ) > 0;
+            if (exists) {
+                return;
+            }
 
-        LocalDateTime now = LocalDateTime.now(clock);
-        ProjectWorkshop workshop = ProjectWorkshop.builder()
-                .projectId(params.getProjectId())
-                .userId(params.getUserId())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        projectWorkshopMapper.insert(workshop);
+            LocalDateTime now = LocalDateTime.now(clock);
+            ProjectWorkshop workshop = ProjectWorkshop.builder()
+                    .projectId(params.getProjectId())
+                    .userId(params.getUserId())
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            projectWorkshopMapper.insert(workshop);
+        }
     }
 
     @Override
