@@ -23,8 +23,10 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.TaskInstanceService;
+import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
+import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +49,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceAssembler taskInstanceAssembler;
     private final MemberSubmitCountHandler memberSubmitCountHandler;
+    private final UserOperationLogService operationLogService;
     private final Clock clock;
 
     @Override
@@ -100,6 +103,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
         }
+        operationLogService.log(params.getUserId(), instance.getProjectId(),
+                instance.getItemId(), UserOperationType.TASK_CLAIM, params);
     }
 
     @Override
@@ -126,6 +131,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
         }
+        operationLogService.log(params.getUserId(), instance.getProjectId(),
+                instance.getItemId(), UserOperationType.TASK_ABANDON, params);
     }
 
     @Override
@@ -170,6 +177,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         taskSubmissionMapper.insert(submission);
 
         memberSubmitCountHandler.incrementSubmitCount(params.getUserId(), instance.getProjectId());
+        operationLogService.log(params.getUserId(), instance.getProjectId(),
+                instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
     }
 
     @Override
@@ -208,6 +217,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                         .set(TaskSubmission::getUpdatedAt, now));
 
         memberSubmitCountHandler.revertSubmitCount(params.getUserId(), instance.getProjectId());
+        operationLogService.log(params.getUserId(), instance.getProjectId(),
+                instance.getItemId(), UserOperationType.TASK_RESET, params);
     }
 
     @Override
@@ -249,6 +260,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (submitterId != null) {
             memberSubmitCountHandler.revertSubmitCount(submitterId, instance.getProjectId());
         }
+        operationLogService.log(params.getUserId(), instance.getProjectId(),
+                instance.getItemId(), UserOperationType.TASK_REJECT, params);
     }
 
     @Override

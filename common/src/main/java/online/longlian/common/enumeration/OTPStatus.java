@@ -7,7 +7,7 @@ import online.longlian.common.annotation.ModelEnum;
 @Getter
 @AllArgsConstructor
 @ModelEnum(model = "one_time_password", field = "status")
-public enum OPTStatus implements CodeEnum {
+public enum OTPStatus implements CodeEnum {
 
     PENDING(0, "待使用"),
     USED(1, "已使用");
