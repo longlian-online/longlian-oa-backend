@@ -209,12 +209,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
         }
 
-        taskSubmissionMapper.update(null,
+        int submissionUpdated = taskSubmissionMapper.update(null,
                 new LambdaUpdateWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
                         .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
                         .set(TaskSubmission::getStatus, TaskSubmissionStatus.RESET)
                         .set(TaskSubmission::getUpdatedAt, now));
+        if (submissionUpdated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
 
         memberSubmitCountHandler.revertSubmitCount(params.getUserId(), instance.getProjectId());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
@@ -231,6 +234,14 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
         }
+        if (params.getUserId().equals(instance.getAssigneeId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能打回自己的任务");
+        }
+
+        Project project = projectMapper.selectById(instance.getProjectId());
+        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
+        }
 
         LocalDateTime now = LocalDateTime.now(clock);
 
@@ -246,7 +257,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
         }
 
-        taskSubmissionMapper.update(null,
+        int submissionUpdated = taskSubmissionMapper.update(null,
                 new LambdaUpdateWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
                         .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
@@ -255,6 +266,9 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                         .set(TaskSubmission::getReviewedAt, now)
                         .set(TaskSubmission::getReviewComment, params.getReviewComment())
                         .set(TaskSubmission::getUpdatedAt, now));
+        if (submissionUpdated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
 
         Long submitterId = instance.getAssigneeId();
         if (submitterId != null) {

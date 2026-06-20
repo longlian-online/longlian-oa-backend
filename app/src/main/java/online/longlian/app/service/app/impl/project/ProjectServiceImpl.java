@@ -198,6 +198,7 @@ public class ProjectServiceImpl implements ProjectService {
                     new LambdaQueryWrapper<ProjectWorkshop>()
                             .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                             .eq(ProjectWorkshop::getUserId, params.getUserId())
+                            .isNull(ProjectWorkshop::getDeletedAt)
             ) > 0;
             if (exists) {
                 return;

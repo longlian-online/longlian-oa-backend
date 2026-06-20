@@ -159,12 +159,20 @@ public class ItemServiceImpl implements ItemService {
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
+        if (item.getDeletedAt() != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可重复操作");
+        }
 
         LocalDateTime now = LocalDateTime.now(clock);
-        itemMapper.update(null,
+        int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
-                        .set(Item::getDeletedAt, now));
+                        .isNull(Item::getDeletedAt)
+                        .set(Item::getDeletedAt, now)
+                        .set(Item::getUpdatedAt, now));
+        if (updated == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可重复操作");
+        }
     }
 
     @Override
