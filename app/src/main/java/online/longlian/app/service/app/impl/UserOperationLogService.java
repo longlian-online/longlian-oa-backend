@@ -18,7 +18,7 @@ public class UserOperationLogService {
 
     private final UserOperationLogMapper userOperationLogMapper;
 
-    @Async("verifyCodeExecutor")
+    @Async("operationLogExecutor")
     public void log(Long userId, Long projectId, Long itemId,
                     UserOperationType operationType, Object requestBody) {
         try {
@@ -29,6 +29,7 @@ public class UserOperationLogService {
                     .operationType(operationType)
                     .requestBody(requestBody != null ? JSON.toJSONString(requestBody) : null)
                     .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
                     .build();
             userOperationLogMapper.insert(operationLog);
         } catch (Exception e) {

@@ -17,4 +17,9 @@ public class AsyncConfig {
     public Executor verifyCodeExecutor() {
         return new VirtualThreadTaskExecutor(CommonConstants.THREAD_NAME_PREFIX);
     }
+
+    @Bean("operationLogExecutor")
+    public Executor operationLogExecutor() {
+        return new VirtualThreadTaskExecutor(CommonConstants.OPERATION_LOG_THREAD_PREFIX);
+    }
 }

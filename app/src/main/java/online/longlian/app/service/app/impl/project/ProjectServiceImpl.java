@@ -192,7 +192,7 @@ public class ProjectServiceImpl implements ProjectService {
         String lockKey = "workshop:add:" + params.getProjectId() + ":" + params.getUserId();
         try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
             if (lock == null) {
-                return;
+                throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
             }
             boolean exists = projectWorkshopMapper.selectCount(
                     new LambdaQueryWrapper<ProjectWorkshop>()
