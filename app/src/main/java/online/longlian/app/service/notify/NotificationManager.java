@@ -3,6 +3,7 @@ package online.longlian.app.service.notify;
 import online.longlian.app.common.enumeration.NotificationType;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class NotificationManager {
 
 
@@ -32,6 +34,7 @@ public class NotificationManager {
         for (NotificationService service : notificationServices) {
             serviceMap.put(service.getType(), service);
         }
+        log.info("通知服务初始化完成, 当前使用的通知类型: {}", notificationType);
     }
 
     public void send(String receiver,String code) {

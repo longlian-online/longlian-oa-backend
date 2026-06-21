@@ -6,20 +6,24 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.ProjectMapper;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
-import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.orgadmin.ProjectService;
-import online.longlian.app.service.user.SessionService;
+import online.longlian.app.service.app.ItemService;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @Tag(name = "项目相关接口", description = "项目列表、创建编辑、发布")
@@ -28,9 +32,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ItemController {
 
-    private final ProjectService projectService;
-    private final SessionService sessionService;
-    // private final ItemService itemService;
+    private final ProjectMapper projectMapper;
+    private final ItemService itemService;
 
     @Operation(
         summary = "分页查询项目列表",
@@ -38,68 +41,75 @@ public class ItemController {
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("")
-    public Result<PageResultVO<ProjectItemListVO>> listProjectItems(
+    @ResponseMessage("查询成功")
+    public PageResultVO<ProjectItemListVO> listProjectItems(
+            @UserSession SessionContext sessionContext,
             @PathVariable Long projectId,
             @ModelAttribute @Valid ProjectItemListDTO projectItemListDTO) {
-        // TODO
-        // return itemService.listProjectItems(projectId, projectItemListDTO);
-        return Result.success("查询成功", null);
+        PageResultBO<ProjectItemListVO> resultBO = itemService.listProjectItems(
+                ItemListParamsBO.builder()
+                        .projectId(projectId)
+                        .orgId(sessionContext.orgId())
+                        .keyword(projectItemListDTO.getKeyword())
+                        .status(projectItemListDTO.getStatus())
+                        .sortByTime(projectItemListDTO.getSortByTime())
+                        .orderDir(projectItemListDTO.getOrderDir())
+                        .page(new PageParamsBO(projectItemListDTO.getPageNum(), projectItemListDTO.getPageSize()))
+                        .build());
+
+        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
     }
 
-    @Operation(summary = "创建项目", description = "创建项目并关联流程模板")
+    @Operation(summary = "创建项目", description = "创建项目并关联流程模板，自动生成任务流和所有任务实例")
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("")
-    public Result<Void> createProjectItem(
-            @PathVariable Long projectId,
-            @RequestBody @Valid ProjectItemCreateDTO projectItemCreateDTO) {
-        checkProjectCreator(projectId);
-        // TODO
-        // return itemService.createProjectItem(projectId, projectItemCreateDTO);
-        return Result.success("创建成功");
+    @ResponseMessage("创建成功")
+    public void createProjectItem(@UserSession SessionContext sessionContext,
+                                   @PathVariable Long projectId,
+                                   @RequestBody @Valid ProjectItemCreateDTO projectItemCreateDTO) {
+        checkProjectCreator(projectId, sessionContext.userId(), sessionContext.orgId());
+
+        itemService.createProjectItem(
+                ItemCreateParamsBO.builder()
+                        .projectId(projectId)
+                        .title(projectItemCreateDTO.getTitle())
+                        .taskTemplateId(projectItemCreateDTO.getTaskTemplateId())
+                        .creatorId(sessionContext.userId())
+                        .build());
     }
 
     @Operation(summary = "删除项目")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
     @DeleteMapping("/{itemId}")
-    public Result<Void> deleteProjectItem(
-            @PathVariable Long projectId,
-            @PathVariable Long itemId) {
-        checkProjectCreator(projectId);
-        // TODO
-        // return itemService.deleteProjectItem(projectId, itemId);
-        return Result.success("删除成功");
+    @ResponseMessage("删除成功")
+    public void deleteProjectItem(@UserSession SessionContext sessionContext,
+                                   @PathVariable Long projectId,
+                                   @PathVariable Long itemId) {
+        checkProjectCreator(projectId, sessionContext.userId(), sessionContext.orgId());
+        itemService.deleteProjectItem(
+                ItemOperationParamsBO.builder().projectId(projectId).itemId(itemId).build());
     }
 
     @Operation(summary = "公布项目")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
     @PatchMapping("/{itemId}/publish")
-    public Result<Void> publishProjectItem(
-            @PathVariable Long projectId,
-            @PathVariable Long itemId) {
-        checkProjectCreator(projectId);
-        // TODO
-        // return itemService.publishProjectItem(projectId, itemId);
-        return Result.success("公布成功");
+    @ResponseMessage("公布成功")
+    public void publishProjectItem(@UserSession SessionContext sessionContext,
+                                    @PathVariable Long projectId,
+                                    @PathVariable Long itemId) {
+        checkProjectCreator(projectId, sessionContext.userId(), sessionContext.orgId());
+        itemService.publishProjectItem(
+                ItemOperationParamsBO.builder().projectId(projectId).itemId(itemId).build());
     }
 
-    // TODO 应放在 “流程模板”相关控制类中
-    @Operation(summary = "获取用户可选流程模板", description = "创建项目弹窗使用的流程模板下拉选项")
-    @GetMapping("/template-options")
-    public Result<List<TaskTemplateOptionVO>> listTaskTemplateOptions() {
-        // TODO
-        // return itemService.listTaskTemplateOptions();
-        return Result.success("查询成功", null);
-    }
-
-    private void checkProjectCreator(Long projectId) {
-        Project project = projectService.getById(projectId);
-        if (project == null) {
+    private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null || !project.getOrgId().equals(orgId)) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
-        Long currentUserId = sessionService.getCurrentUserId();
-        if (!project.getCreatorId().equals(currentUserId)) {
+        if (!project.getCreatorId().equals(userId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
     }

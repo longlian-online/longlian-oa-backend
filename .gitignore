@@ -42,3 +42,4 @@ data/
 **/.env
 *.jar
 *.DS_Store
+.worktrees/

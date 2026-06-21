@@ -6,24 +6,41 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
+import online.longlian.app.pojo.vo.orgadmin.TaskTemplateNodeVO;
+import online.longlian.app.service.orgadmin.TaskTemplateService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @Tag(name = "任务模板管理", description = "任务流模板的增删改查与状态管理，仅管理员可操作")
 @RequestMapping("/orgadmin/task/template")
-@RestController
+@RestController("orgAdminTaskTemplateController")
 @RequiredArgsConstructor
 public class TaskTemplateController {
 
-    // private final TaskTemplateService taskTemplateService;
+    private final TaskTemplateService taskTemplateService;
 
     @Operation(
         summary = "分页查询任务模板列表",
@@ -31,11 +48,30 @@ public class TaskTemplateController {
     )
     @PostMapping("/list")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<PageResultVO<TaskTemplateListVO>> listTaskTemplates(
+    @ResponseMessage("查询成功")
+    public PageResultVO<TaskTemplateListVO> listTaskTemplates(
+            @UserSession(required = true) SessionContext sessionContext,
             @RequestBody @Valid TaskTemplateListDTO taskTemplateListDTO) {
-        // TODO
-        // return taskTemplateService.listTaskTemplates(taskTemplateListDTO);
-        return Result.success("查询成功", null);
+        PageResultBO<TaskTemplateListResultBO> resultBO = taskTemplateService.listTaskTemplates(
+                TaskTemplateListParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .keyword(taskTemplateListDTO.getKeyword())
+                        .status(taskTemplateListDTO.getStatus())
+                        .startCreatedTime(taskTemplateListDTO.getStartCreatedTime())
+                        .endCreatedTime(taskTemplateListDTO.getEndCreatedTime())
+                        .sortBy(taskTemplateListDTO.getSortBy())
+                        .orderDir(taskTemplateListDTO.getOrderDir())
+                        .page(new PageParamsBO(taskTemplateListDTO.getPageNum(), taskTemplateListDTO.getPageSize()))
+                        .build()
+        );
+
+        List<TaskTemplateListVO> taskTemplateListVOList = resultBO.getList().stream().map(bo -> {
+            TaskTemplateListVO taskTemplateListVO = new TaskTemplateListVO();
+            BeanUtils.copyProperties(bo, taskTemplateListVO);
+            return taskTemplateListVO;
+        }).toList();
+
+        return new PageResultVO<>(taskTemplateListVOList, resultBO.getTotal());
     }
 
     @Operation(
@@ -45,20 +81,50 @@ public class TaskTemplateController {
     @Parameter(name = "templateId", description = "任务模板ID")
     @GetMapping("/{templateId}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<TaskTemplateDetailVO> getTaskTemplateDetail(@PathVariable Long templateId) {
-        // TODO
-        // return taskTemplateService.getTaskTemplateDetail(templateId);
-        return Result.success("查询成功", null);
+    @ResponseMessage("查询成功")
+    public TaskTemplateDetailVO getTaskTemplateDetail(
+            @UserSession(required = true) SessionContext sessionContext,
+            @PathVariable Long templateId) {
+        TaskTemplateDetailResultBO resultBO = taskTemplateService.getTaskTemplateDetail(
+                templateId, sessionContext.orgId());
+
+        TaskTemplateDetailVO taskTemplateDetailVO = new TaskTemplateDetailVO();
+        BeanUtils.copyProperties(resultBO, taskTemplateDetailVO, "nodes");
+        List<TaskTemplateNodeVO> taskTemplateNodeVOList = resultBO.getNodes().stream()
+                .map(nodeBO -> {
+                    TaskTemplateNodeVO taskTemplateNodeVO = new TaskTemplateNodeVO();
+                    BeanUtils.copyProperties(nodeBO, taskTemplateNodeVO);
+                    return taskTemplateNodeVO;
+                })
+                .toList();
+        taskTemplateDetailVO.setNodes(taskTemplateNodeVOList);
+
+        return taskTemplateDetailVO;
     }
 
     @Operation(summary = "创建任务模板", description = "同时创建模板基本信息与节点列表")
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> createTaskTemplate(
-            @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
-        // TODO
-        // return taskTemplateService.createTaskTemplate(taskTemplateCreateDTO);
-        return Result.success("创建成功");
+    @ResponseMessage("创建成功")
+    public void createTaskTemplate(@UserSession(required = true) SessionContext sessionContext,
+                                    @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
+        List<TaskTemplateNodeCreateParamsBO> nodeBOs = taskTemplateCreateDTO.getNodes().stream()
+                .map(nodeDTO -> TaskTemplateNodeCreateParamsBO.builder()
+                        .baseTaskId(nodeDTO.getBaseTaskId())
+                        .sort(nodeDTO.getSort())
+                        .parallelSort(nodeDTO.getParallelSort())
+                        .build())
+                .toList();
+
+        taskTemplateService.createTaskTemplate(
+                TaskTemplateCreateParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .creatorId(sessionContext.userId())
+                        .name(taskTemplateCreateDTO.getName())
+                        .description(taskTemplateCreateDTO.getDescription())
+                        .nodes(nodeBOs)
+                        .build()
+        );
     }
 
     @Operation(
@@ -68,12 +134,27 @@ public class TaskTemplateController {
     @Parameter(name = "templateId", description = "任务模板ID")
     @PutMapping("/{templateId}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> updateTaskTemplate(
-            @PathVariable Long templateId,
-            @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
-        // TODO
-        // return taskTemplateService.updateTaskTemplate(templateId, taskTemplateCreateDTO);
-        return Result.success("更新成功");
+    @ResponseMessage("更新成功")
+    public void updateTaskTemplate(@UserSession(required = true) SessionContext sessionContext,
+                                    @PathVariable Long templateId,
+                                    @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
+        List<TaskTemplateNodeCreateParamsBO> nodeBOs = taskTemplateCreateDTO.getNodes().stream()
+                .map(nodeDTO -> TaskTemplateNodeCreateParamsBO.builder()
+                        .baseTaskId(nodeDTO.getBaseTaskId())
+                        .sort(nodeDTO.getSort())
+                        .parallelSort(nodeDTO.getParallelSort())
+                        .build())
+                .toList();
+
+        taskTemplateService.updateTaskTemplate(
+                TaskTemplateUpdateParamsBO.builder()
+                        .templateId(templateId)
+                        .orgId(sessionContext.orgId())
+                        .name(taskTemplateCreateDTO.getName())
+                        .description(taskTemplateCreateDTO.getDescription())
+                        .nodes(nodeBOs)
+                        .build()
+        );
     }
 
     @Operation(
@@ -82,9 +163,16 @@ public class TaskTemplateController {
     )
     @PatchMapping("/{templateId}/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeTaskTemplateStatus(@PathVariable Long templateId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        // TODO
-        // taskTemplateService.changeTaskTemplateStatus(changeStatusDTO.getStatus());
+    public Result<Void> changeTaskTemplateStatus(@UserSession(required = true) SessionContext sessionContext,
+                                                  @PathVariable Long templateId,
+                                                  @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+        taskTemplateService.changeTaskTemplateStatus(
+                TaskTemplateChangeStatusParamsBO.builder()
+                        .templateId(templateId)
+                        .orgId(sessionContext.orgId())
+                        .status(changeStatusDTO.getStatus())
+                        .build()
+        );
         return Result.success(null);
     }
 }

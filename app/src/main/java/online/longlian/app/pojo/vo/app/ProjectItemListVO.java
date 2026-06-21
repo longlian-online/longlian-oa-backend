@@ -1,5 +1,8 @@
 package online.longlian.app.pojo.vo.app;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -10,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "项目列表信息")
 public class ProjectItemListVO {
 

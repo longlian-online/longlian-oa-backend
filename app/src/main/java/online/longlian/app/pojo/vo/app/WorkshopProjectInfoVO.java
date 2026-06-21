@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 @Data
 @Schema(description = "工坊中的企划信息")
 public class WorkshopProjectInfoVO {
+    @Schema(description = "企划ID")
+    private Long id;
     @Schema(description = "企划名称")
     private String title;
     @Schema(description = "封面图片URL")

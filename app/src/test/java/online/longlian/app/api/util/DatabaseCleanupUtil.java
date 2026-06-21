@@ -26,6 +26,8 @@ public class DatabaseCleanupUtil {
     private final ResourcePatternResolver resourcePatternResolver;
 
     public void initSchema() {
+        verifyDatabaseConnection();
+
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'user'",
                 Integer.class
@@ -54,6 +56,30 @@ public class DatabaseCleanupUtil {
         } catch (SQLException e) {
             throw new RuntimeException("测试数据库建表失败", e);
         }
+    }
+
+    private void verifyDatabaseConnection() {
+        int maxRetries = 10;
+        for (int i = 0; i < maxRetries; i++) {
+            try (Connection conn = dataSource.getConnection()) {
+                if (conn != null && !conn.isClosed()) {
+                    log.info("数据库连接验证成功");
+                    return;
+                }
+            } catch (SQLException e) {
+                log.warn("数据库连接验证失败（第{}次尝试）: {} - {}",
+                        i + 1, e.getClass().getSimpleName(), e.getMessage());
+                if (i < maxRetries - 1) {
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("数据库连接验证被中断", ie);
+                    }
+                }
+            }
+        }
+        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 MySQL 和 Redis 服务是否正常运行");
     }
 
     public void truncateAllTables() {

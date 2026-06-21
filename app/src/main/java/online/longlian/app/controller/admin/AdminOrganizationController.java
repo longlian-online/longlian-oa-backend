@@ -5,8 +5,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.bo.*;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.pojo.bo.admin.*;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.dto.admin.OrgListDTO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
@@ -14,8 +16,6 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.service.admin.AdminSessionService;
 import online.longlian.app.service.admin.OrganizationService;
-import online.longlian.app.service.user.SessionService;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,7 +32,8 @@ public class AdminOrganizationController {
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
-    public Result<PageResultVO<OrgDetailInfoVO>> getOrgListInfo(@Valid OrgListDTO dto) {
+    @ResponseMessage("ok")
+    public PageResultVO<OrgDetailInfoVO> getOrgListInfo(@Valid OrgListDTO dto) {
         AdminOrganizationListParamsBO bo = new AdminOrganizationListParamsBO(
                 dto.getOrgName(),
                 dto.getStartCreateTime(),
@@ -54,9 +55,7 @@ public class AdminOrganizationController {
                 )
                 .toList();
 
-        PageResultVO<OrgDetailInfoVO> pageResultVO = new PageResultVO<>(list, organizationPage.getTotal());
-
-        return Result.success("ok", pageResultVO);
+        return new PageResultVO<>(list, organizationPage.getTotal());
     }
 
     @Operation(
@@ -64,22 +63,22 @@ public class AdminOrganizationController {
             description = "生成一次性邀请码，有效期30分钟；供超管邀请新用户注册并创建组织使用"
     )
     @PostMapping("/invite-codes/create-org")
-    public Result<InviteCodeVO> generateCreateOrgInviteCode() {
+    @ResponseMessage("生成成功")
+    public InviteCodeVO generateCreateOrgInviteCode() {
         AdminGenerateInviteCodeResultBO resultBO = organizationService.generateCreateOrgInviteCode(
                 new AdminGenerateCreateOrgInviteCodeParamsBO(sessionService.getCurrentAdminId())
         );
-        InviteCodeVO inviteCodeVO = InviteCodeVO.builder()
+        return InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())
                 .expireAt(resultBO.getExpireAt())
                 .build();
-        return Result.success("生成成功", inviteCodeVO);
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{orgId}/status")
-    public Result<Void> changeOrgStatus(@PathVariable Long orgId, @RequestBody @Valid ChangeStatusDTO dto) {
+    @ResponseMessage("ok")
+    public void changeOrgStatus(@PathVariable Long orgId, @RequestBody @Valid ChangeStatusDTO dto) {
         AdminOrganizationUpdateStatusParamsBO bo = new AdminOrganizationUpdateStatusParamsBO(orgId, dto.getStatus());
         organizationService.updateOrgStatus(bo);
-        return Result.success("ok");
     }
 }

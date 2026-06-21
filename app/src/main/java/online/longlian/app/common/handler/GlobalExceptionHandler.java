@@ -1,15 +1,19 @@
 package online.longlian.app.common.handler;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -56,6 +60,16 @@ public class GlobalExceptionHandler {
         return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
     }
 
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    @ResponseBody
+    public <T> Result<T> handleMethodArgumentTypeMismatchException(Exception e, HttpServletRequest request) {
+        log.warn("请求参数类型不匹配 | msg={} | uri={} | method={}",
+                e.getMessage(),
+                request.getRequestURI(),
+                request.getMethod());
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), "请求参数无效");
+    }
+
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     @ResponseBody
     public <T> Result<T> handleNotFoundException(Exception e, HttpServletRequest request) {
@@ -63,6 +77,25 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 request.getMethod());
         return Result.fail(ResultCode.NOT_FOUND);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseBody
+    public <T> Result<T> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
+        String errorMsg = "参数解析失败";
+        Throwable cause = e.getCause();
+        if (cause instanceof InvalidFormatException ife && ife.getTargetType().isEnum()) {
+            errorMsg = "无效的枚举值: " + ife.getValue();
+        } else if (e.getMessage() != null && e.getMessage().contains("enum")) {
+            errorMsg = "无效的枚举值";
+        }
+
+        log.warn("参数解析失败 | msg={} | uri={} | method={}",
+                errorMsg,
+                request.getRequestURI(),
+                request.getMethod());
+
+        return Result.fail(ResultCode.PARAM_ERROR.getCode(), errorMsg);
     }
 
     /**

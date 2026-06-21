@@ -1,12 +1,18 @@
 package online.longlian.app.pojo.vo.app;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
-
-import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "任务流节点信息（含执行状态，用于流程图可视化）")
 public class ItemTaskNodeVO {
 
@@ -21,6 +27,9 @@ public class ItemTaskNodeVO {
     @Schema(description = "任务名称")
     private String name;
 
+    @Schema(description = "原子任务图标URL")
+    private String baseTaskIconUrl;
+
     @Schema(description = "节点元数据字段定义快照(JSON数组)")
     private String metaSchema;
 
@@ -30,18 +39,10 @@ public class ItemTaskNodeVO {
     @Schema(description = "并行组内排序")
     private Integer parallelSort;
 
-    @Schema(
-            description = "任务实例状态：1-PENDING(待接取) 2-CLAIMED(已接取) 3-COMPLETED(已完成)，null 表示该节点尚未生成实例（前序节点未完成）"
-    )
-    private TaskInstanceStatus taskStatus;
-
     @JsonLongIdString
-    @Schema(type = "string", description = "接取人ID（已接取时有值）")
-    private Long assigneeId;
+    @Schema(type = "string", description = "任务实例ID，null 表示该节点尚未生成实例（前序未完成）")
+    private Long taskInstanceId;
 
-    @Schema(description = "接取人昵称")
-    private String assigneeNickname;
-
-    @Schema(description = "接取人头像URL")
-    private String assigneeAvatarUrl;
+    @Schema(description = "任务实例状态：PENDING(待接取)/CLAIMED(待提交)/COMPLETED(已完成)，null 表示节点未解锁")
+    private TaskInstanceStatus taskStatus;
 }

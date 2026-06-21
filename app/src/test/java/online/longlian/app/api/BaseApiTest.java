@@ -4,6 +4,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.api.util.DatabaseCleanupUtil;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
@@ -27,6 +29,7 @@ import static org.hamcrest.Matchers.equalTo;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Slf4j
 public abstract class BaseApiTest {
 
     @LocalServerPort
@@ -39,18 +42,43 @@ public abstract class BaseApiTest {
     protected JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    protected PasswordEncoder passwordEncoder;
 
     @BeforeAll
     void baseBeforeAll() {
-        databaseCleanupUtil.initSchema();
+        log.info("=== 开始测试数据库初始化 ===");
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                databaseCleanupUtil.initSchema();
+                log.info("=== 数据库初始化成功 ===");
+                return;
+            } catch (Exception e) {
+                log.error("=== 数据库初始化失败（第{}次尝试） ===", i + 1, e);
+                if (i < maxRetries - 1) {
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("数据库初始化被中断", ie);
+                    }
+                } else {
+                    throw new RuntimeException("数据库初始化失败，已重试" + maxRetries + "次", e);
+                }
+            }
+        }
     }
 
     @BeforeEach
     void baseSetUp() {
-        RestAssured.port = port;
-        RestAssured.baseURI = "http://localhost";
-        databaseCleanupUtil.truncateAllTables();
+        try {
+            RestAssured.port = port;
+            RestAssured.baseURI = "http://localhost";
+            databaseCleanupUtil.truncateAllTables();
+        } catch (Exception e) {
+            log.error("测试数据清理失败", e);
+            throw new RuntimeException("测试数据清理失败: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -61,6 +89,10 @@ public abstract class BaseApiTest {
                 .contentType(ContentType.JSON)
                 .body(Map.of("username", username, "password", password))
                 .post("/app/session/pwd");
+
+        if (response.statusCode() != 200 || response.jsonPath().getInt("code") != 0) {
+            throw new RuntimeException("用户端登录失败: " + response.jsonPath().getString("msg"));
+        }
 
         return response.jsonPath().getString("data.token");
     }
@@ -158,6 +190,68 @@ public abstract class BaseApiTest {
         long id = System.currentTimeMillis();
         createAdmin(id, "admin_" + id, "123456", "ADMIN");
         return adminLoginAs("admin_" + id, "123456");
+    }
+
+    /**
+     * 创建一次性密码（OTP）记录
+     */
+    protected void createOTP(String code, Integer bizType, Long creatorId, LocalDateTime expiredAt) {
+        jdbcTemplate.update(
+                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                System.nanoTime(), code, expiredAt, bizType, creatorId
+        );
+    }
+
+    /**
+     * 生成较短的用户 ID（避免超出 DTO 长度限制）
+     */
+    protected long uniqueId() {
+        return System.currentTimeMillis() % 100000;
+    }
+
+    /**
+     * 创建邮箱验证码 OTP（默认 30 分钟后过期）
+     */
+    protected void createEmailVerifyOTP(String code, Long creatorId, String receiver) {
+        long otpId = System.nanoTime();
+        jdbcTemplate.update(
+                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                otpId, code, LocalDateTime.now().plusMinutes(30), 3, creatorId
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
+                otpId, otpId, receiver, 1, 1
+        );
+    }
+
+    /**
+     * 创建邀请加入组织 OTP（默认 30 分钟后过期）
+     */
+    protected void createOrganizationUserInviteOTP(String code, Long orgId) {
+        long otpId = System.nanoTime();
+        jdbcTemplate.update(
+                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
+                otpId, code, LocalDateTime.now().plusMinutes(30), 2
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `organization_join_otp` (id, otp_id, org_id) VALUES (?, ?, ?)",
+                otpId, otpId, orgId
+        );
+    }
+
+    /**
+     * 创建邀请创建组织 OTP（默认 30 分钟后过期）
+     */
+    protected void createOrganizationCreateInviteOTP(String code) {
+        long otpId = System.nanoTime();
+        jdbcTemplate.update(
+                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
+                otpId, code, LocalDateTime.now().plusMinutes(30), 1
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)",
+                otpId, otpId
+        );
     }
 
     protected void assertErrorCode(Response response, int expectedCode) {

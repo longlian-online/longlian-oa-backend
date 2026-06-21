@@ -9,6 +9,9 @@ import static org.hamcrest.Matchers.*;
 
 public class ScheduledTaskApiTest extends BaseApiTest {
 
+    /**
+     * 分页查询所有定时任务成功
+     */
     @Test
     void shouldListAllScheduledTasks() {
         createAdmin(1L, "superadmin", "123456", "SUPER_ADMIN");
@@ -25,6 +28,9 @@ public class ScheduledTaskApiTest extends BaseApiTest {
                 .body("data.size()", greaterThanOrEqualTo(0));
     }
 
+    /**
+     * 无认证查询定时任务列表失败
+     */
     @Test
     void shouldFailListTasksWithoutAuth() {
         Response response = request()
@@ -32,10 +38,13 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401)
-                .body("code", not(equalTo(0)));
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
+    /**
+     * 手动触发定时任务成功
+     */
     @Test
     void shouldTriggerScheduledTask() {
         createAdmin(2L, "superadmin2", "123456", "SUPER_ADMIN");
@@ -46,7 +55,8 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         listResponse
                 .then()
-                .statusCode(200);
+                .statusCode(200)
+                .body("code", equalTo(0));
 
         if (!listResponse.jsonPath().getList("data").isEmpty()) {
             String taskName = listResponse.jsonPath().getString("data[0].taskName");
@@ -63,6 +73,9 @@ public class ScheduledTaskApiTest extends BaseApiTest {
         }
     }
 
+    /**
+     * 触发不存在的定时任务失败
+     */
     @Test
     void shouldFailTriggerNonexistentTask() {
         createAdmin(3L, "superadmin3", "123456", "SUPER_ADMIN");
@@ -78,6 +91,9 @@ public class ScheduledTaskApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
+    /**
+     * 无认证触发定时任务失败
+     */
     @Test
     void shouldFailTriggerTaskWithoutAuth() {
         Response response = request()
@@ -86,7 +102,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401)
-                .body("code", not(equalTo(0)));
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 }
