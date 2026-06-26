@@ -20,6 +20,7 @@ import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +40,8 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
     private final Clock clock;
     private final TaskTemplateQueryBuilder taskTemplateQueryBuilder;
     private final TaskTemplateAssembler taskTemplateAssembler;
-    private final DistributedLockService lockService;
+    private final TaskTemplateHandler taskTemplateHandler;
+    private final LockService lockService;
 
     @Override
     public PageResultBO<TaskTemplateListResultBO> listTaskTemplates(TaskTemplateListParamsBO params) {
@@ -84,36 +86,10 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void updateTaskTemplate(TaskTemplateUpdateParamsBO params) {
         String lockKey = "org:template:edit:" + params.getTemplateId();
-        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
-            if (lock == null) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
-            }
-            validateAndGetTemplate(params.getTemplateId(), params.getOrgId());
-            LocalDateTime now = LocalDateTime.now(clock);
-            taskTemplateMapper.update(null,
-                    new LambdaUpdateWrapper<TaskTemplate>()
-                            .eq(TaskTemplate::getId, params.getTemplateId())
-                            .set(TaskTemplate::getName, params.getName())
-                            .set(TaskTemplate::getDescription, params.getDescription())
-                            .set(TaskTemplate::getUpdatedAt, now)
-            );
-
-            taskTemplateNodeMapper.update(null,
-                    new LambdaUpdateWrapper<TaskTemplateNode>()
-                            .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
-                            .isNull(TaskTemplateNode::getDeletedAt)
-                            .set(TaskTemplateNode::getDeletedAt, now)
-            );
-
-            List<TaskTemplateNode> newNodes = params.getNodes().stream()
-                    .map(node -> buildNode(params.getTemplateId(), node, now))
-                    .toList();
-            for (TaskTemplateNode node : newNodes) {
-                taskTemplateNodeMapper.insert(node);
-            }
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
+            taskTemplateHandler.updateTaskTemplate(params);
         }
     }
 

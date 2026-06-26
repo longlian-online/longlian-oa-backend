@@ -39,8 +39,10 @@ public class WorkshopAssembler {
 
         List<Long> coverFileIds = projects.stream()
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> coverUrlMap = coverFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> coverUrlMap = coverFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(coverFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         List<Long> creatorIds = projects.stream().map(Project::getCreatorId).distinct().toList();
         Map<Long, User> userMap = userMapper.selectBatchIds(creatorIds).stream()
@@ -48,8 +50,10 @@ public class WorkshopAssembler {
 
         List<Long> avatarFileIds = userMap.values().stream()
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> avatarUrlMap = avatarFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         return projects.stream()
                 .map(project -> {
@@ -93,8 +97,10 @@ public class WorkshopAssembler {
 
         List<Long> iconFileIds = baseTaskMap.values().stream()
                 .map(BaseTask::getIconFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> iconUrlMap = iconFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> iconUrlMap = iconFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(iconFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         return templates.stream()
                 .map(template -> {

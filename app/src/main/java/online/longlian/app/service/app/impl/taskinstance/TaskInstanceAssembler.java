@@ -41,8 +41,10 @@ public class TaskInstanceAssembler {
 
         List<Long> avatarFileIds = userMap.values().stream()
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> avatarUrlMap = avatarFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         return instances.stream()
                 .map(instance -> {

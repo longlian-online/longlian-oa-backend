@@ -26,6 +26,7 @@ import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
+import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +49,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectQueryBuilder projectQueryBuilder;
     private final ProjectAssembler projectAssembler;
     private final ProjectProgressHandler projectProgressHandler;
-    private final DistributedLockService lockService;
+    private final LockService lockService;
     private final Clock clock;
 
     @Override
@@ -182,7 +183,6 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void addToWorkshop(ProjectWorkshopAddParamsBO params) {
         Project project = projectMapper.selectById(params.getProjectId());
         if (project == null || !project.getOrgId().equals(params.getOrgId())) {
@@ -190,28 +190,8 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         String lockKey = "workshop:add:" + params.getProjectId() + ":" + params.getUserId();
-        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
-            if (lock == null) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
-            }
-            boolean exists = projectWorkshopMapper.selectCount(
-                    new LambdaQueryWrapper<ProjectWorkshop>()
-                            .eq(ProjectWorkshop::getProjectId, params.getProjectId())
-                            .eq(ProjectWorkshop::getUserId, params.getUserId())
-                            .isNull(ProjectWorkshop::getDeletedAt)
-            ) > 0;
-            if (exists) {
-                return;
-            }
-
-            LocalDateTime now = LocalDateTime.now(clock);
-            ProjectWorkshop workshop = ProjectWorkshop.builder()
-                    .projectId(params.getProjectId())
-                    .userId(params.getUserId())
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            projectWorkshopMapper.insert(workshop);
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
+            projectProgressHandler.addToWorkshop(params);
         }
     }
 

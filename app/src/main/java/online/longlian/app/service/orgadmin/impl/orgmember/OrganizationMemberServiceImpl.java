@@ -29,6 +29,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.OTPType;
+import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,7 +63,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final ApplicationReviewHandler applicationReviewHandler;
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
-    private final DistributedLockService lockService;
+    private final LockService lockService;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -80,57 +81,13 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
      * 先校验申请有效性，再根据审批结果执行通过/拒绝操作，
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void reviewApplication(@NonNull OrgAdminReviewApplicationParamsBO params) {
         String lockKey = "org:application:review:" + params.getApplicationId();
-        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
-            if (lock == null) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
-            }
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
             GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
-            applicationReviewHandler.validatePendingApplication(application, params.getOrgId());
-
-            LocalDateTime now = LocalDateTime.now(clock);
-            Long approvedUserId = null;
-            if (params.getApplicationStatus() == ApplicationStatus.APPROVED) {
-                OrganizationMember newMember = applicationReviewHandler.approveApplication(application);
-                approvedUserId = newMember.getUserId();
-                backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
-            } else if (params.getApplicationStatus() == ApplicationStatus.REJECTED) {
-                applicationReviewHandler.rejectApplication(application);
-            }
-
-            applicationReviewHandler.updateApplicationStatus(
-                    application, params.getApplicationStatus(), params.getReviewerId(),
-                    params.getReviewRemark(), approvedUserId, now);
+            applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
+                    params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
         }
-    }
-
-    private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
-        LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
-                .eq(OrganizationJoinOtp::getOrgId, application.getOrgId())
-                .orderByDesc(OrganizationJoinOtp::getId);
-
-        if (application.getApplicationType() == ApplicationType.EXISTING_USER) {
-            queryWrapper.eq(OrganizationJoinOtp::getInvitedUserId, application.getUserId());
-        } else {
-            queryWrapper.isNull(OrganizationJoinOtp::getInvitedUserId);
-        }
-
-        Page<OrganizationJoinOtp> page = new Page<>(1, 1);
-        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectPage(page, queryWrapper)
-                .getRecords().stream().findFirst().orElse(null);
-        if (joinOtp == null) {
-            return;
-        }
-
-        LambdaUpdateWrapper<OrganizationJoinOtp> updateWrapper = new LambdaUpdateWrapper<OrganizationJoinOtp>()
-                .eq(OrganizationJoinOtp::getId, joinOtp.getId())
-                .set(OrganizationJoinOtp::getOrgMemberId, orgMemberId);
-        if (application.getApplicationType() == ApplicationType.REGISTER) {
-            updateWrapper.set(OrganizationJoinOtp::getInvitedUserId, userId);
-        }
-        organizationJoinOtpMapper.update(null, updateWrapper);
     }
 
     @Override
