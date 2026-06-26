@@ -218,13 +218,13 @@ public class ScheduledTaskEngine implements SmartLifecycle {
                 log.warn("定时任务跳过（锁未获取）: {} | executeTime={} | source={}", taskName, executeTime, source);
                 return;
             }
-        }
-        Thread currentThread = Thread.currentThread();
-        runningTasks.put(taskName, currentThread);
-        try {
-            doExecuteAndLog(task, taskName, executeTime, source, triggeredBy);
-        } finally {
-            runningTasks.remove(taskName);
+            Thread currentThread = Thread.currentThread();
+            runningTasks.put(taskName, currentThread);
+            try {
+                doExecuteAndLog(task, taskName, executeTime, source, triggeredBy);
+            } finally {
+                runningTasks.remove(taskName);
+            }
         }
     }
 
