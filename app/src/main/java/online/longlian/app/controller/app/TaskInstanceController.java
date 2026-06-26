@@ -146,6 +146,7 @@ public class TaskInstanceController {
                 TaskInstanceRejectParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .reviewComment(taskRejectDTO.getReviewComment())
                         .build());
     }

@@ -37,8 +37,10 @@ public class ItemTaskFlowAssembler {
 
         List<Long> iconFileIds = baseTaskMap.values().stream()
                 .map(BaseTask::getIconFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> iconUrlMap = iconFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> iconUrlMap = iconFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(iconFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         return nodes.stream()
                 .map(node -> {

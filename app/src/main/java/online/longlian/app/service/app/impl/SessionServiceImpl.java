@@ -70,7 +70,7 @@ public class SessionServiceImpl implements SessionService {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
         long remainingSeconds = jwtUtil.getRemainingTimeSeconds(params.getToken());
-        tokenBlacklistService.addToBlacklist(params.getToken(), null, params.getUserId(), "用户登出", remainingSeconds);
+        tokenBlacklistService.addToBlacklist(params.getToken(), TokenType.User, params.getUserId(), "用户登出", remainingSeconds);
 
         redisTemplate.delete(RedisConstants.LOGIN_USER + params.getUserId());
         currentOrganizationService.clearCurrentOrg(params.getUserId());

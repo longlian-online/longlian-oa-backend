@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.common.enumeration.OPTStatus;
+import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 
 import java.io.Serializable;
@@ -69,7 +69,7 @@ public class OneTimePassword implements Serializable {
      */
     @TableField("status")
     @ApiModelProperty("状态 0-待使用 1-已使用")
-    private OPTStatus status;
+    private OTPStatus status;
 
     /**
      * 创建者 ID

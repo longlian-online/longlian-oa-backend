@@ -40,13 +40,17 @@ public class ProjectAssembler {
 
         List<Long> coverFileIds = projects.stream()
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> coverUrlMap = coverFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> coverUrlMap = coverFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(coverFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         List<Long> avatarFileIds = userMap.values().stream()
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> avatarUrlMap = avatarFileIds.stream()
-                .collect(Collectors.toMap(Function.identity(), resourceService::getResourceReadUrl));
+        Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
         return projects.stream()
                 .map(project -> {
