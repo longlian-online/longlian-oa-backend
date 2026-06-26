@@ -243,10 +243,10 @@ public class SessionApiTest extends BaseApiTest {
     // ========== 退出登录 ==========
 
     /**
-     * 登出接口调用（token_blacklist 表 token_type 无默认值，登出插入 DB 报错返回 FAIL）
+     * 登出成功
      */
     @Test
-    void shouldAttemptLogout() {
+    void shouldLogoutSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("testuser", "123456");
 
@@ -256,7 +256,23 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.FAIL.getCode()));
+                .body("code", equalTo(0));
+    }
+
+    /**
+     * 使用黑名单 Token 访问接口失败（已登出）
+     */
+    @Test
+    void shouldFailWithBlacklistedToken() {
+        long uid = uniqueId();
+        long oid = uniqueId();
+        createUserWithOrganization(uid, "blacklistuser", "123456", "blacklist@example.com", uid, oid, "ORG_ADMIN");
+        String token = loginAs("blacklistuser", "123456");
+
+        authRequest(token).delete("/app/session/");
+
+        Response response = authRequest(token).get("/app/user/");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /**
