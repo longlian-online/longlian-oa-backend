@@ -19,7 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
  * 兼容策略：若 body 已是 Result 实例（如 GlobalExceptionHandler 返回的失败结果或尚未迁移的旧代码），
  * 直接返回不做二次包装，确保现有代码平滑过渡
  */
-@ControllerAdvice
+@ControllerAdvice(basePackages = "online.longlian.app.controller")
 public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
 
     /** 未标注 @ResponseMessage 时的兜底消息 */
