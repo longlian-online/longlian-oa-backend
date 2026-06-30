@@ -2,9 +2,9 @@ name: API Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, release/v1.0.0 ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, release/v1.0.0 ]
 
 jobs:
   api-test:
@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+              ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Task
         uses: go-task/setup-task@v2
@@ -19,13 +21,20 @@ jobs:
       - name: Run API Tests
         run: task api-test-docker
 
+      - name: Dump test logs on failure
+        if: failure()
+        run: |
+          echo "=== Surefire test reports ==="
+          find app/target/surefire-reports -name "*.txt" -exec echo "--- {} ---" \; -exec cat {} \;
+        continue-on-error: true
+
       - name: Report results to DeepSource
         run: |
+          echo $DEEPSOURCE_COMMIT_SHA
           # 安装CLI
           curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
 
           # 上报数据
           ./bin/deepsource report --analyzer test-coverage --key java --value-file app/target/site/jacoco/jacoco.xml
-
         env:
           DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}

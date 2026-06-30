@@ -5,9 +5,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.Result;
-import online.longlian.app.pojo.bo.PageParamsBO;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
@@ -17,9 +20,7 @@ import online.longlian.app.pojo.dto.orgadmin.BaseTaskCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.BaseTaskListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.BaseTaskVO;
-import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.orgadmin.BaseTaskService;
-import online.longlian.app.service.user.SessionService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -35,22 +36,19 @@ import java.util.List;
 public class BaseTaskController {
 
     private final BaseTaskService baseTaskService;
-    private final SessionService sessionService;
-    private final CurrentOrganizationService currentOrganizationService;
 
     @Operation(
         summary = "分页查询原子任务列表",
         description = "支持名称模糊搜索、状态筛选、创建时间区间；支持按创建时间或引用次数排序，默认按引用次数倒序"
     )
     @PostMapping("/list")
-    public Result<PageResultVO<BaseTaskVO>> listBaseTasks(
+    @ResponseMessage("查询成功")
+    public PageResultVO<BaseTaskVO> listBaseTasks(
+            @UserSession(required = true) SessionContext sessionContext,
             @RequestBody @Valid BaseTaskListDTO baseTaskListDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
-
         PageResultBO<BaseTaskListResultBO> resultBO = baseTaskService.listBaseTasks(
                 BaseTaskListParamsBO.builder()
-                        .orgId(orgId)
+                        .orgId(sessionContext.orgId())
                         .keyword(baseTaskListDTO.getKeyword())
                         .status(baseTaskListDTO.getStatus())
                         .startCreatedTime(baseTaskListDTO.getStartCreatedTime())
@@ -67,7 +65,7 @@ public class BaseTaskController {
             return baseTaskVO;
         }).toList();
 
-        return Result.success("查询成功", new PageResultVO<>(baseTaskVOList, resultBO.getTotal()));
+        return new PageResultVO<>(baseTaskVOList, resultBO.getTotal());
     }
 
     @Operation(
@@ -75,22 +73,19 @@ public class BaseTaskController {
         description = "任务创建后不可编辑，请确认标题、图标、简介和元数据字段定义后提交"
     )
     @PostMapping
-    public Result<Void> createBaseTask(
-            @RequestBody @Valid BaseTaskCreateDTO baseTaskCreateDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
-
+    @ResponseMessage("创建成功")
+    public void createBaseTask(@UserSession(required = true) SessionContext sessionContext,
+                                @RequestBody @Valid BaseTaskCreateDTO baseTaskCreateDTO) {
         baseTaskService.createBaseTask(
                 BaseTaskCreateParamsBO.builder()
-                        .orgId(orgId)
-                        .creatorId(userId)
+                        .orgId(sessionContext.orgId())
+                        .creatorId(sessionContext.userId())
                         .name(baseTaskCreateDTO.getName())
                         .description(baseTaskCreateDTO.getDescription())
                         .iconFileId(baseTaskCreateDTO.getIconFileId())
                         .metaSchema(baseTaskCreateDTO.getMetaSchema())
                         .build()
         );
-        return Result.success("创建成功");
     }
 
     @Operation(
@@ -98,14 +93,13 @@ public class BaseTaskController {
             description = "禁用后该任务无法被添加到新模板节点中，已引用的节点不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{taskId}/status")
-    public Result<Void> changeBaseTaskStatus(@PathVariable Long taskId, @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        Long userId = sessionService.getCurrentUserId();
-        Long orgId = currentOrganizationService.requireCurrentOrgId(userId);
-
+    public Result<Void> changeBaseTaskStatus(@UserSession(required = true) SessionContext sessionContext,
+                                              @PathVariable Long taskId,
+                                              @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         baseTaskService.changeBaseTaskStatus(
                 BaseTaskChangeStatusParamsBO.builder()
                         .taskId(taskId)
-                        .orgId(orgId)
+                        .orgId(sessionContext.orgId())
                         .status(changeStatusDTO.getStatus())
                         .build()
         );

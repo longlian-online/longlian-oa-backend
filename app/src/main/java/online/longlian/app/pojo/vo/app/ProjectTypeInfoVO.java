@@ -4,12 +4,14 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 @Data
 @AllArgsConstructor
+@Builder
 @Schema(description = "企划类型信息")
 public class ProjectTypeInfoVO {
 

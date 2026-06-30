@@ -6,15 +6,29 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.dto.app.WorkshopListDTO;
+import online.longlian.app.pojo.dto.app.WorkshopTaskTemplateCreateDTO;
+import online.longlian.app.pojo.dto.app.WorkshopTaskTemplateDTO;
 import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
+import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.user.ProjectWorkshopService;
+import online.longlian.app.service.app.ProjectWorkshopService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
-@Tag(name = "工坊接口", description = "用户个人工坊：企划列表展示")
+@Tag(name = "工坊接口", description = "用户个人工坊：企划列表、任务流模板列表与创建")
 @RequestMapping("/app/workshop")
 @RestController
 @RequiredArgsConstructor
@@ -27,10 +41,98 @@ public class ProjectWorkshopController {
         description = "查询当前用户工坊中的企划列表，支持标题模糊搜索、类型筛选、仅看我创建，默认按添加时间倒序。"
     )
     @PostMapping("/list")
-    public Result<PageResultVO<WorkshopProjectInfoVO>> getMyWorkshopList(
+    @ResponseMessage("查询成功")
+    public PageResultVO<WorkshopProjectInfoVO> getMyWorkshopList(
+            @UserSession SessionContext sessionContext,
             @RequestBody @Valid WorkshopListDTO workshopListDTO) {
-        // TODO
-        // return projectWorkshopService.getMyWorkshopList(workshopListDTO);
-        return Result.success("查询成功", null);
+        PageResultBO<WorkshopProjectInfoVO> resultBO = projectWorkshopService.getMyWorkshopList(
+                WorkshopListParamsBO.builder()
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
+                        .keyword(workshopListDTO.getKeyword())
+                        .projectType(workshopListDTO.getProjectType())
+                        .isMyCreated(workshopListDTO.getIsMyCreated())
+                        .page(new PageParamsBO(workshopListDTO.getPageNum(), workshopListDTO.getPageSize()))
+                        .build());
+        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
+    }
+
+    @Operation(
+            summary = "分页查询工坊任务流模板列表",
+            description = "查询当前用户工坊中的任务流模板（组织通用模板+我的个人模板），支持模板名称模糊搜索、仅看我创建，默认按创建时间倒序。"
+    )
+    @PostMapping("/task-template/list")
+    @ResponseMessage("查询成功")
+    public PageResultVO<WorkshopTaskTemplateVO> getWorkshopTaskTemplateList(
+            @UserSession SessionContext sessionContext,
+            @RequestBody @Valid WorkshopTaskTemplateDTO workshopTaskTemplateDTO) {
+        PageResultBO<WorkshopTaskTemplateVO> resultBO = projectWorkshopService.getWorkshopTaskTemplateList(
+                WorkshopTaskTemplateListParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
+                        .keyword(workshopTaskTemplateDTO.getKeyword())
+                        .isMyCreated(workshopTaskTemplateDTO.getIsMyCreated())
+                        .page(new PageParamsBO(workshopTaskTemplateDTO.getPageNum(), workshopTaskTemplateDTO.getPageSize()))
+                        .build());
+        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
+    }
+
+    @Operation(
+            summary = "创建工坊个人任务流模板",
+            description = "用户在可视化编辑器中搭建节点结构后保存为个人任务流模板，scope 固定为 PERSONAL。"
+    )
+    @PostMapping("/task-template")
+    @ResponseMessage("创建成功")
+    public void createWorkshopTaskTemplate(
+            @UserSession SessionContext sessionContext,
+            @RequestBody @Valid WorkshopTaskTemplateCreateDTO workshopTaskTemplateCreateDTO) {
+        List<WorkshopTaskTemplateNodeCreateParamsBO> nodeBOs = workshopTaskTemplateCreateDTO.getNodes().stream()
+                .map(nodeDTO -> WorkshopTaskTemplateNodeCreateParamsBO.builder()
+                        .baseTaskId(nodeDTO.getBaseTaskId())
+                        .customName(nodeDTO.getCustomName())
+                        .sort(nodeDTO.getSort())
+                        .parallelSort(nodeDTO.getParallelSort())
+                        .build())
+                .toList();
+
+        projectWorkshopService.createWorkshopTaskTemplate(
+                WorkshopTaskTemplateCreateParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .creatorId(sessionContext.userId())
+                        .name(workshopTaskTemplateCreateDTO.getName())
+                        .description(workshopTaskTemplateCreateDTO.getDescription())
+                        .nodes(nodeBOs)
+                        .build());
+    }
+
+    @Operation(
+            summary = "更新工坊个人任务流模板",
+            description = "仅模板创建者可更新自己的个人模板（isMine=true 时前端展示更新按钮）。组织通用模板不可在此更新。"
+    )
+    @Parameter(name = "templateId", description = "任务流模板ID")
+    @PutMapping("/task-template/{templateId}")
+    @ResponseMessage("更新成功")
+    public void updateWorkshopTaskTemplate(
+            @UserSession SessionContext sessionContext,
+            @PathVariable Long templateId,
+            @RequestBody @Valid WorkshopTaskTemplateCreateDTO workshopTaskTemplateCreateDTO) {
+        List<WorkshopTaskTemplateNodeCreateParamsBO> nodeBOs = workshopTaskTemplateCreateDTO.getNodes().stream()
+                .map(nodeDTO -> WorkshopTaskTemplateNodeCreateParamsBO.builder()
+                        .baseTaskId(nodeDTO.getBaseTaskId())
+                        .customName(nodeDTO.getCustomName())
+                        .sort(nodeDTO.getSort())
+                        .parallelSort(nodeDTO.getParallelSort())
+                        .build())
+                .toList();
+
+        projectWorkshopService.updateWorkshopTaskTemplate(
+                WorkshopTaskTemplateUpdateParamsBO.builder()
+                        .templateId(templateId)
+                        .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
+                        .name(workshopTaskTemplateCreateDTO.getName())
+                        .description(workshopTaskTemplateCreateDTO.getDescription())
+                        .nodes(nodeBOs)
+                        .build());
     }
 }

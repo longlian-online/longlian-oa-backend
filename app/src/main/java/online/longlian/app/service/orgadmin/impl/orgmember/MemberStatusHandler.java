@@ -41,6 +41,7 @@ public class MemberStatusHandler {
         organizationMemberMapper.update(null,
                 new LambdaUpdateWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getId, member.getId())
+                        .ne(OrganizationMember::getStatus, status)
                         .set(OrganizationMember::getStatus, status)
                         .set(OrganizationMember::getUpdatedAt, LocalDateTime.now(clock)));
     }

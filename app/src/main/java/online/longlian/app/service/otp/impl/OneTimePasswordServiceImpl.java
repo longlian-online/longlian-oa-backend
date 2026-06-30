@@ -7,10 +7,10 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OneTimePasswordMapper;
-import online.longlian.app.pojo.bo.OneTimePasswordCreateParamsBO;
+import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OneTimePasswordService;
-import online.longlian.common.enumeration.OPTStatus;
+import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +28,7 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                 .code(params.getCode())
                 .expiredAt(params.getExpiredAt())
                 .bizType(params.getBizType())
-                .status(OPTStatus.PENDING)
+                .status(OTPStatus.PENDING)
                 .creatorId(params.getCreatorId())
                 .build();
         oneTimePasswordMapper.insert(oneTimePassword);
@@ -59,11 +59,11 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                 null,
                 new LambdaUpdateWrapper<OneTimePassword>()
                         .eq(OneTimePassword::getId, otpId)
-                        .eq(OneTimePassword::getStatus, OPTStatus.PENDING)
+                        .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
                         .isNull(OneTimePassword::getUsedAt)
                         .gt(OneTimePassword::getExpiredAt, LocalDateTime.now())
                         .set(OneTimePassword::getUsedAt, LocalDateTime.now())
-                        .set(OneTimePassword::getStatus, OPTStatus.USED)
+                        .set(OneTimePassword::getStatus, OTPStatus.USED)
         );
         if (rows == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, oneTimePassword.getBizType().getDesc() + "已被使用");

@@ -2,19 +2,24 @@ package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
+import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.GroupApplication;
+import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -29,6 +34,7 @@ public class ApplicationReviewHandler {
     private final UserMapper userMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
     private final GroupApplicationMapper groupApplicationMapper;
+    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final Clock clock;
 
     public void validatePendingApplication(GroupApplication application, Long orgId) {
@@ -123,5 +129,50 @@ public class ApplicationReviewHandler {
             updateWrapper.set(GroupApplication::getUserId, approvedUserId);
         }
         groupApplicationMapper.update(null, updateWrapper);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void review(GroupApplication application, Long orgId, ApplicationStatus applicationStatus,
+                       Long reviewerId, String reviewRemark, LocalDateTime now) {
+        validatePendingApplication(application, orgId);
+
+        Long approvedUserId = null;
+        if (applicationStatus == ApplicationStatus.APPROVED) {
+            OrganizationMember newMember = approveApplication(application);
+            approvedUserId = newMember.getUserId();
+            backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+        } else if (applicationStatus == ApplicationStatus.REJECTED) {
+            rejectApplication(application);
+        }
+
+        updateApplicationStatus(application, applicationStatus, reviewerId,
+                reviewRemark, approvedUserId, now);
+    }
+
+    private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
+        LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
+                .eq(OrganizationJoinOtp::getOrgId, application.getOrgId())
+                .orderByDesc(OrganizationJoinOtp::getId);
+
+        if (application.getApplicationType() == ApplicationType.EXISTING_USER) {
+            queryWrapper.eq(OrganizationJoinOtp::getInvitedUserId, application.getUserId());
+        } else {
+            queryWrapper.isNull(OrganizationJoinOtp::getInvitedUserId);
+        }
+
+        Page<OrganizationJoinOtp> page = new Page<>(1, 1);
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectPage(page, queryWrapper)
+                .getRecords().stream().findFirst().orElse(null);
+        if (joinOtp == null) {
+            return;
+        }
+
+        LambdaUpdateWrapper<OrganizationJoinOtp> updateWrapper = new LambdaUpdateWrapper<OrganizationJoinOtp>()
+                .eq(OrganizationJoinOtp::getId, joinOtp.getId())
+                .set(OrganizationJoinOtp::getOrgMemberId, orgMemberId);
+        if (application.getApplicationType() == ApplicationType.REGISTER) {
+            updateWrapper.set(OrganizationJoinOtp::getInvitedUserId, userId);
+        }
+        organizationJoinOtpMapper.update(null, updateWrapper);
     }
 }

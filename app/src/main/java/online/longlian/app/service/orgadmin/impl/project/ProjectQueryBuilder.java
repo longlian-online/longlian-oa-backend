@@ -8,7 +8,7 @@ import online.longlian.app.pojo.entity.Project;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-@Component
+@Component("orgAdminProjectQueryBuilder")
 @RequiredArgsConstructor
 public class ProjectQueryBuilder {
 

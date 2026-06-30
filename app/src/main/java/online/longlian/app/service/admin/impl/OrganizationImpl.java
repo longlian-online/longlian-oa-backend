@@ -10,7 +10,10 @@ import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
-import online.longlian.app.pojo.bo.*;
+import online.longlian.app.pojo.bo.admin.*;
+import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.admin.OrganizationService;
@@ -49,7 +52,10 @@ public class OrganizationImpl implements OrganizationService {
         List<Organization> organizations = organizationPage.getRecords();
         long total = organizationPage.getTotal();
 
-        List<Long> avatarIds = organizations.stream().map(Organization::getAvatarFileId).toList();
+        List<Long> avatarIds = organizations.stream()
+                .map(Organization::getAvatarFileId)
+                .filter(id -> id != null && id > 0)
+                .toList();
         Map<Long, ResourceReadUrlGetResultBO> resourceMap = resourceService.getResourceReadUrls(avatarIds);
 
         ResourceReadUrlGetResultBO defaultResource = new ResourceReadUrlGetResultBO("", 0L, "");

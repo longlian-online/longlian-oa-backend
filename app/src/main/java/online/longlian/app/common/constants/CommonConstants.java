@@ -12,4 +12,5 @@ public class CommonConstants {
     public static final String NOTIFY_TITLE = "这个是通知标题";
 
     public static final String THREAD_NAME_PREFIX = "verify-code-";
+    public static final String OPERATION_LOG_THREAD_PREFIX = "operation-log-";
 }

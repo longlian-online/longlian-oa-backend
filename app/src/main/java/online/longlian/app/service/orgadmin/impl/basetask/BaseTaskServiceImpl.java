@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.BaseTaskMapper;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
@@ -75,6 +75,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
         baseTaskMapper.update(null,
                 new LambdaUpdateWrapper<BaseTask>()
                         .eq(BaseTask::getId, params.getTaskId())
+                        .ne(BaseTask::getStatus, params.getStatus())
                         .set(BaseTask::getStatus, params.getStatus())
                         .set(BaseTask::getUpdatedAt, LocalDateTime.now(clock))
         );

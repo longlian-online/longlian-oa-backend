@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.mapper.OrganizationMapper;
-import online.longlian.app.pojo.bo.OrgAdminGetOrganizationInfoResultBO;
-import online.longlian.app.pojo.bo.OrgAdminUpdateOrganizationInfoParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.orgadmin.OrgAdminOrganizationService;
 import online.longlian.app.service.resource.ResourceService;
@@ -28,7 +28,7 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
                 .avatarFileId(organization.getAvatarFileId())
                 .name(organization.getName())
                 .description(organization.getDescription())
-                .avatarUrl(organization.getAvatarFileId() != null
+                .avatarUrl(organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0
                         ? resourceService.getResourceReadUrl(organization.getAvatarFileId())
                         : null)
                 .build();

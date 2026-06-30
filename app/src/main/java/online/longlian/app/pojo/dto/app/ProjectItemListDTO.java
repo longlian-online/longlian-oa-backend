@@ -18,7 +18,7 @@ public class ProjectItemListDTO extends PageRequestDTO {
     @Schema(description = "项目标题关键词（模糊匹配）")
     private String keyword;
 
-    @Schema(description = "项目状态筛选：IN_PROGRESS-进行中，COMPLETED-已完成，PUBLISHED-已公布；默认进行中")
+    @Schema(description = "项目状态筛选：IN_PROGRESS-进行中，COMPLETED-已完成；默认进行中")
     private ItemStatus status = ItemStatus.IN_PROGRESS;
 
     @Schema(description = "排序字段：CREATE-创建时间，UPDATE-更新时间")

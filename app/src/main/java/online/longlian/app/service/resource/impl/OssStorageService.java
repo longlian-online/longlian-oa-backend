@@ -9,12 +9,10 @@ import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.properties.StorageProperties;
-import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
-import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.common.enumeration.StorageType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 

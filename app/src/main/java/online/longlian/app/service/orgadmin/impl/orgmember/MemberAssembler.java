@@ -2,8 +2,8 @@ package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.OrgAdminApplicationInfoResultBO;
-import online.longlian.app.pojo.bo.OrgMemberInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;

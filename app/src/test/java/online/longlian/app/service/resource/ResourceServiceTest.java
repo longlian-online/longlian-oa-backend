@@ -2,8 +2,8 @@ package online.longlian.app.service.resource;
 
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
-import online.longlian.app.pojo.bo.ResourceCreateParamsBO;
+import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.service.resource.impl.OssStorageService;
 import online.longlian.common.enumeration.StorageType;

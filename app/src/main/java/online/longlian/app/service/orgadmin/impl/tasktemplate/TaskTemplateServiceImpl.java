@@ -7,7 +7,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
-import online.longlian.app.pojo.bo.PageResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
@@ -20,6 +20,8 @@ import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.common.LockService;
+import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +29,9 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-@Service
+@Service("orgAdminTaskTemplateServiceImpl")
 @RequiredArgsConstructor
 public class TaskTemplateServiceImpl implements TaskTemplateService {
 
@@ -37,6 +40,8 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
     private final Clock clock;
     private final TaskTemplateQueryBuilder taskTemplateQueryBuilder;
     private final TaskTemplateAssembler taskTemplateAssembler;
+    private final TaskTemplateHandler taskTemplateHandler;
+    private final LockService lockService;
 
     @Override
     public PageResultBO<TaskTemplateListResultBO> listTaskTemplates(TaskTemplateListParamsBO params) {
@@ -81,30 +86,10 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void updateTaskTemplate(TaskTemplateUpdateParamsBO params) {
-        validateAndGetTemplate(params.getTemplateId(), params.getOrgId());
-        LocalDateTime now = LocalDateTime.now(clock);
-        taskTemplateMapper.update(null,
-                new LambdaUpdateWrapper<TaskTemplate>()
-                        .eq(TaskTemplate::getId, params.getTemplateId())
-                        .set(TaskTemplate::getName, params.getName())
-                        .set(TaskTemplate::getDescription, params.getDescription())
-                        .set(TaskTemplate::getUpdatedAt, now)
-        );
-
-        taskTemplateNodeMapper.update(null,
-                new LambdaUpdateWrapper<TaskTemplateNode>()
-                        .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
-                        .set(TaskTemplateNode::getDeletedAt, now)
-        );
-
-        List<TaskTemplateNode> newNodes = params.getNodes().stream()
-                .map(node -> buildNode(params.getTemplateId(), node, now))
-                .toList();
-        for (TaskTemplateNode node : newNodes) {
-            taskTemplateNodeMapper.insert(node);
+        String lockKey = "org:template:edit:" + params.getTemplateId();
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
+            taskTemplateHandler.updateTaskTemplate(params);
         }
     }
 
@@ -121,6 +106,7 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
         taskTemplateMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplate>()
                         .eq(TaskTemplate::getId, template.getId())
+                        .ne(TaskTemplate::getStatus, params.getStatus())
                         .set(TaskTemplate::getStatus, params.getStatus())
         );
     }
