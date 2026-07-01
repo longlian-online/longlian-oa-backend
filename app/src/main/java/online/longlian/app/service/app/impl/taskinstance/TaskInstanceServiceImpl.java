@@ -85,10 +85,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void claimTask(TaskInstanceOperateParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+        TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
         if (instance.getStatus() != TaskInstanceStatus.PENDING) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可接取");
         }
@@ -110,10 +107,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void abandonTask(TaskInstanceOperateParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+        TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
         }
@@ -125,6 +119,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                        .eq(TaskInstance::getAssigneeId, params.getUserId())
                         .set(TaskInstance::getAssigneeId, null)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
                         .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
@@ -138,10 +133,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void submitTask(TaskInstanceSubmitParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+        TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
         }
@@ -155,6 +147,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                        .eq(TaskInstance::getAssigneeId, params.getUserId())
                         .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
                         .set(TaskInstance::getSubmittedAt, now)
                         .set(TaskInstance::getCompletedAt, now)
@@ -184,10 +177,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void resetTask(TaskInstanceOperateParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+        TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可重置");
         }
@@ -201,21 +191,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, params.getInstanceId())
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
+                        .eq(TaskInstance::getAssigneeId, params.getUserId())
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getSubmittedAt, null)
                         .set(TaskInstance::getCompletedAt, null)
                         .set(TaskInstance::getUpdatedAt, now));
         if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
-
-        int submissionUpdated = taskSubmissionMapper.update(null,
-                new LambdaUpdateWrapper<TaskSubmission>()
-                        .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
-                        .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
-                        .set(TaskSubmission::getStatus, TaskSubmissionStatus.RESET)
-                        .set(TaskSubmission::getUpdatedAt, now));
-        if (submissionUpdated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
         }
 
@@ -227,20 +208,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rejectTask(TaskInstanceRejectParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+        TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
         }
         if (params.getUserId().equals(instance.getAssigneeId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能打回自己的任务");
-        }
-
-        Project project = projectMapper.selectById(instance.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
@@ -302,6 +275,18 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             taskInstanceDetailVO.setMetadata(submission.getMetadata());
         }
         return taskInstanceDetailVO;
+    }
+
+    private TaskInstance getAndValidateInstance(Long instanceId, Long orgId) {
+        TaskInstance instance = taskInstanceMapper.selectById(instanceId);
+        if (instance == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+        Project project = projectMapper.selectById(instance.getProjectId());
+        if (project == null || !project.getOrgId().equals(orgId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
+        }
+        return instance;
     }
 
 }
