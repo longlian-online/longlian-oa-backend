@@ -438,7 +438,10 @@ public class TaskApiTest extends BaseApiTest {
     @Test
     void shouldRejectTaskSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
+        createTestUser(2L, "reviewer", "123456", "reviewer@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
+        String token = loginAs("reviewer", "123456");
 
         jdbcTemplate.update(
                 "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
@@ -480,6 +483,12 @@ public class TaskApiTest extends BaseApiTest {
                 "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
         Response response = authRequest(token)
@@ -621,6 +630,12 @@ public class TaskApiTest extends BaseApiTest {
                 "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
         Response response = authRequest(token)
