@@ -4,8 +4,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
-import java.util.List;
-
 public class SecurityConstants {
     private static final RequestMatcher[] PERMIT_ALL_MATCHERS = {
             new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),

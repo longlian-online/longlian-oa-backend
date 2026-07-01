@@ -1,11 +1,9 @@
 package online.longlian.app.service.scheduled;
 
-import online.longlian.app.pojo.entity.ScheduledTaskLog;
 import online.longlian.common.enumeration.ScheduledTaskStatus;
 import online.longlian.common.enumeration.TriggerSource;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public interface ScheduledTaskLogService {
 
