@@ -12,7 +12,7 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.common.ResourcCreateVO;
+import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
@@ -36,7 +36,7 @@ public class ResourceService {
 
     private final StorageProperties storageProperties;
 
-    public ResourcCreateVO create(ResourceCreateParamsBO params) {
+    public ResourceCreateVO create(ResourceCreateParamsBO params) {
         // 1. 生成文件ID
         long fileId = IdWorker.getId();
 
@@ -67,7 +67,7 @@ public class ResourceService {
 
         resourceMapper.insert(file);
 
-        return new ResourcCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
+        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
     }
 
     public String getResourceReadUrl(Long fileId) {

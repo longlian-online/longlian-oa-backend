@@ -78,6 +78,7 @@ public class TaskInstanceController {
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .build());
     }
 
@@ -94,6 +95,7 @@ public class TaskInstanceController {
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .build());
     }
 
@@ -111,6 +113,7 @@ public class TaskInstanceController {
                 TaskInstanceSubmitParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .metadata(taskSubmitDTO.getMetadata())
                         .build());
     }
@@ -128,6 +131,7 @@ public class TaskInstanceController {
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
                         .build());
     }
 

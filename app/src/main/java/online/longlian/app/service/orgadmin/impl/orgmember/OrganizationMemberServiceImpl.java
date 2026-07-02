@@ -1,7 +1,6 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +25,6 @@ import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.common.enumeration.ApplicationStatus;
-import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
