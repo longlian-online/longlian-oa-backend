@@ -1,6 +1,7 @@
 package online.longlian.app.service.app;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
@@ -8,6 +9,8 @@ import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.entity.User;
+
+import java.util.List;
 
 /**
  * 用户端用户服务接口。
@@ -20,6 +23,7 @@ import online.longlian.app.pojo.entity.User;
  *   <li><b>已有用户加入组织</b>：已注册用户通过邀请码提交加入申请</li>
  *   <li><b>组织切换</b>：在多组织间切换当前活跃组织，切换结果通过
  *       {@link online.longlian.app.service.common.CurrentOrganizationService} 持久化</li>
+ *   <li><b>我的组织列表</b>：查询用户已加入的所有启用状态组织，含组织头像 URL</li>
  * </ol>
  * <p>
  * 用户注册和加入流程依赖 {@link online.longlian.app.service.otp.OTPServiceFactory OTP 策略工厂}
@@ -34,6 +38,18 @@ public interface UserService extends IService<User> {
      * @return 包含用户名、邮箱、昵称、头像及默认组织 ID 的个人信息
      */
     UserGetMyInfoResultBO getMyInfo(Long userId);
+
+    /**
+     * 获取当前用户加入的组织列表。
+     * <p>
+     * 查询用户在 {@code organization_member} 表中状态为启用（ENABLED）的所有成员记录，
+     * 批量关联对应组织的名称、头像等基本信息，头像 URL 通过
+     * {@link online.longlian.app.service.resource.ResourceService} 批量解析。
+     *
+     * @param userId 用户 ID
+     * @return 用户已加入的启用组织简要信息列表（含组织 ID、名称、头像 URL）
+     */
+    List<OrgSimpleInfoBO> getMyOrganizations(Long userId);
 
     /**
      * 切换当前用户的活跃组织。
