@@ -7,7 +7,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;

@@ -1,12 +1,9 @@
 package online.longlian.app.service.app.impl.projectworkshop;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;

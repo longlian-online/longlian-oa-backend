@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
@@ -11,6 +12,7 @@ import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
@@ -19,6 +21,7 @@ import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
@@ -38,7 +41,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -70,6 +76,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
         }
         return builder.build();
+    }
+
+    @Override
+    public List<OrgSimpleInfoBO> getMyOrganizations(Long userId) {
+        List<OrganizationMember> members = organizationMemberMapper.selectList(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getUserId, userId)
+                        .eq(OrganizationMember::getStatus, Status.ENABLED));
+        if (members.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> orgIds = members.stream().map(OrganizationMember::getOrgId).distinct().toList();
+        List<Organization> orgs = organizationMapper.selectBatchIds(orgIds).stream()
+                .filter(org -> org.getStatus() == Status.ENABLED)
+                .toList();
+
+        List<Long> avatarFileIds = orgs.stream()
+                .map(Organization::getAvatarFileId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+
+        return orgs.stream()
+                .map(org -> OrgSimpleInfoBO.builder()
+                        .id(org.getId())
+                        .name(org.getName())
+                        .avatarUrl(avatarUrlMap.get(org.getAvatarFileId()))
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateMyInfo(UserUpdateMyInfoParamsBO params) {
+        userMapper.update(null,
+                new LambdaUpdateWrapper<User>()
+                        .eq(User::getId, params.getUserId())
+                        .set(User::getNickname, params.getNickname())
+                        .set(User::getAvatarFileId, params.getAvatarFileId())
+        );
+        resourceService.bindBizId(params.getAvatarFileId(), params.getUserId());
     }
 
     @Override

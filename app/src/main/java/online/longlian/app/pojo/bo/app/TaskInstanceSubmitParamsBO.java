@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 public class TaskInstanceSubmitParamsBO {
     private Long instanceId;
     private Long userId;
+    private Long orgId;
     private String metadata;
 }

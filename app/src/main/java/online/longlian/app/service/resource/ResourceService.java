@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
@@ -12,7 +13,7 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.common.ResourcCreateVO;
+import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class ResourceService {
 
     private final StorageProperties storageProperties;
 
-    public ResourcCreateVO create(ResourceCreateParamsBO params) {
+    public ResourceCreateVO create(ResourceCreateParamsBO params) {
         // 1. 生成文件ID
         long fileId = IdWorker.getId();
 
@@ -67,7 +68,7 @@ public class ResourceService {
 
         resourceMapper.insert(file);
 
-        return new ResourcCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
+        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
     }
 
     public String getResourceReadUrl(Long fileId) {
@@ -112,6 +113,25 @@ public class ResourceService {
         });
 
         return resourceReadUrlResultStream.collect(Collectors.toMap((org) -> resourceIdKeyMap.get(org.getKey()), org -> org));
+    }
+
+    /**
+     * 回填资源的业务对象 ID。
+     * <p>
+     * 用于先上传文件、后创建业务对象的场景（如创建企划时先上传封面图），
+     * 在业务对象创建完成后将业务 ID 回填到已关联的资源记录上，以便后续按业务对象做资源清理。
+     *
+     * @param resourceId 资源 ID
+     * @param bizId      业务对象 ID
+     */
+    public void bindBizId(Long resourceId, Long bizId) {
+        if (resourceId == null || bizId == null) {
+            return;
+        }
+        resourceMapper.update(null,
+                new LambdaUpdateWrapper<Resource>()
+                        .eq(Resource::getId, resourceId)
+                        .set(Resource::getBizId, bizId));
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {

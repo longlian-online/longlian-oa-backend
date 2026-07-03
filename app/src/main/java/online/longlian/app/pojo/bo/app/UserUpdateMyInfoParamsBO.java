@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.bo.admin;
+package online.longlian.app.pojo.bo.app;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminSessionCacheBO {
-    private Long adminId;
-    private String username;
-    private String role;
+public class UserUpdateMyInfoParamsBO {
+    private Long userId;
+    private String nickname;
+    private Long avatarFileId;
 }

@@ -8,7 +8,6 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;

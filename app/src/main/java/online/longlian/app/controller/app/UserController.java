@@ -8,15 +8,17 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.Result;
+import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
+import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
@@ -94,10 +96,31 @@ public class UserController {
         return userInfoVO;
     }
 
+    @Operation(summary = "更新当前用户信息")
+    @PutMapping("/")
+    @ResponseMessage("更新成功")
+    public void updateMyInfo(@UserSession SessionContext sessionContext,
+                              @RequestBody @Valid UpdateMyInfoDTO updateMyInfoDTO) {
+        userService.updateMyInfo(
+                UserUpdateMyInfoParamsBO.builder()
+                        .userId(sessionContext.userId())
+                        .nickname(updateMyInfoDTO.getNickname())
+                        .avatarFileId(updateMyInfoDTO.getAvatarFileId())
+                        .build());
+    }
+
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")
     @GetMapping("/organizations")
-    public Result<List<OrgSimpleInfoVO>> getOrgSimpleInfo(@UserSession SessionContext sessionContext) {
-        return Result.success(null);
+    @ResponseMessage("查询成功")
+    public List<OrgSimpleInfoVO> getOrgSimpleInfo(@UserSession SessionContext sessionContext) {
+        List<OrgSimpleInfoBO> orgList = userService.getMyOrganizations(sessionContext.userId());
+        return orgList.stream()
+                .map(orgSimpleInfoBO -> {
+                    OrgSimpleInfoVO orgSimpleInfoVO = new OrgSimpleInfoVO();
+                    BeanUtils.copyProperties(orgSimpleInfoBO, orgSimpleInfoVO);
+                    return orgSimpleInfoVO;
+                })
+                .toList();
     }
 
     @Operation(

@@ -10,7 +10,7 @@ import online.longlian.common.enumeration.StorageType;
 @Data
 @AllArgsConstructor
 @Schema(description = "创建文件上传响应")
-public class ResourcCreateVO {
+public class ResourceCreateVO {
 
     @JsonLongIdString
     @Schema(type = "string", description = "文件ID")

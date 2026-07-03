@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskInstanceOperateParamsBO {
-    private Long instanceId;
-    private Long userId;
-    private Long orgId;
+public class OrgSimpleInfoBO {
+    private Long id;
+    private String name;
+    private String avatarUrl;
 }

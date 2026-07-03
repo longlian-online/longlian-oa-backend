@@ -6,8 +6,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.resolver.SessionContext;
+import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
-import online.longlian.app.pojo.vo.common.ResourcCreateVO;
+import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +29,18 @@ public class FileStorageController {
     )
     @PostMapping("/upload")
     @ResponseMessage("获取成功")
-    public ResourcCreateVO createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO) {
-        return null;
+    public ResourceCreateVO createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO,
+                                             @UserSession SessionContext sessionContext) {
+        ResourceCreateParamsBO params = new ResourceCreateParamsBO(
+                sessionContext.userId(),
+                sessionContext.orgId(),
+                createFileReqDTO.getFileName(),
+                createFileReqDTO.getFileExt(),
+                createFileReqDTO.getFileSize(),
+                createFileReqDTO.getFileMime(),
+                createFileReqDTO.getBizType(),
+                createFileReqDTO.getBizId()
+        );
+        return resourceService.create(params);
     }
 }

@@ -1,6 +1,5 @@
 package online.longlian.app.api.orgadmin;
 
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;

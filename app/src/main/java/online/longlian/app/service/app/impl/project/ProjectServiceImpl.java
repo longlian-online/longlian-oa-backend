@@ -157,6 +157,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .updatedAt(now)
                 .build();
         projectMapper.insert(project);
+        resourceService.bindBizId(params.getCoverFileId(), project.getId());
     }
 
     @Override
@@ -180,6 +181,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getCoverFileId, params.getCoverFileId())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
+        resourceService.bindBizId(params.getCoverFileId(), params.getProjectId());
     }
 
     @Override
