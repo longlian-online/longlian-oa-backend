@@ -15,8 +15,10 @@ import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
+import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
@@ -92,6 +94,19 @@ public class UserController {
         UserInfoVO userInfoVO = new UserInfoVO();
         BeanUtils.copyProperties(resultBO, userInfoVO);
         return userInfoVO;
+    }
+
+    @Operation(summary = "更新当前用户信息")
+    @PutMapping("/")
+    @ResponseMessage("更新成功")
+    public void updateMyInfo(@UserSession SessionContext sessionContext,
+                              @RequestBody @Valid UpdateMyInfoDTO updateMyInfoDTO) {
+        userService.updateMyInfo(
+                UserUpdateMyInfoParamsBO.builder()
+                        .userId(sessionContext.userId())
+                        .nickname(updateMyInfoDTO.getNickname())
+                        .avatarFileId(updateMyInfoDTO.getAvatarFileId())
+                        .build());
     }
 
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")

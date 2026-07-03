@@ -8,6 +8,7 @@ import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.entity.User;
 
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.List;
  *   <li><b>组织切换</b>：在多组织间切换当前活跃组织，切换结果通过
  *       {@link online.longlian.app.service.common.CurrentOrganizationService} 持久化</li>
  *   <li><b>我的组织列表</b>：查询用户已加入的所有启用状态组织，含组织头像 URL</li>
+ *   <li><b>个人信息更新</b>：更新昵称、头像等个人资料</li>
  * </ol>
  * <p>
  * 用户注册和加入流程依赖 {@link online.longlian.app.service.otp.OTPServiceFactory OTP 策略工厂}
@@ -100,4 +102,12 @@ public interface UserService extends IService<User> {
      * @return 包含组织 ID 和名称的预览信息
      */
     UserGetJoinOrgInviteInfoResultBO getJoinOrgInviteInfo(UserGetJoinOrgInviteInfoParamsBO params);
+
+    /**
+     * 更新当前用户的个人信息（昵称、头像）。
+     * <p>
+     * 更新用户表的昵称和头像文件 ID。
+     * @param params 包含用户 ID、昵称和头像文件 ID 的更新参数
+     */
+    void updateMyInfo(UserUpdateMyInfoParamsBO params);
 }
