@@ -14,6 +14,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ import java.util.List;
 public class BaseTaskServiceImpl implements BaseTaskService {
 
     private final BaseTaskMapper baseTaskMapper;
+    private final ResourceService resourceService;
     private final Clock clock;
     private final BaseTaskQueryBuilder baseTaskQueryBuilder;
     private final BaseTaskAssembler baseTaskAssembler;
@@ -60,6 +62,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .updatedAt(now)
                 .build();
         baseTaskMapper.insert(task);
+        resourceService.bindBizId(params.getIconFileId(), task.getId());
     }
 
     @Override

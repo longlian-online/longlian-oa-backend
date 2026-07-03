@@ -44,5 +44,6 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
                         .set(Organization::getAvatarFileId, params.getAvatarFileId())
                         .set(Organization::getDescription, params.getDescription())
         );
+        resourceService.bindBizId(params.getAvatarFileId(), params.getOrgId());
     }
 }
