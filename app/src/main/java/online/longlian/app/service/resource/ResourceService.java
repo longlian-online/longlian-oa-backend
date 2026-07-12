@@ -73,11 +73,11 @@ public class ResourceService {
 
     public String getResourceReadUrl(Long fileId) {
         Map<Long, ResourceReadUrlGetResultBO> resourceMap = this.getResourceReadUrls(List.of(fileId));
-        if (resourceMap.size() != 1 && resourceMap.get(fileId) == null) {
+        ResourceReadUrlGetResultBO resource = resourceMap.get(fileId);
+        if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
-
-        return resourceMap.get(fileId).getUrl();
+        return resource.getUrl();
     }
 
     /**
