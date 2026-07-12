@@ -479,10 +479,23 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
+        // 打回权限要求操作人是「下一阶段执行人」：创建第二阶段节点并由 reviewer(用户2) 接取其任务实例
+        jdbcTemplate.update(
+                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, 1L, 1L, 1L, "节点2", "[]", 2, 1
+        );
+
         jdbcTemplate.update(
                 "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, 1L, 2L, 1L, 2L, 2
         );
 
         jdbcTemplate.update(
