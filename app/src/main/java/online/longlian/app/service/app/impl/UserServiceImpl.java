@@ -40,6 +40,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -59,6 +60,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserMapper userMapper;
     private final CurrentOrganizationService currentOrganizationService;
     private final OTPServiceFactory otpServiceFactory;
+    private final Clock clock;
 
     @Override
     public UserGetMyInfoResultBO getMyInfo(Long userId) {
@@ -161,7 +163,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.PARAM_ERROR, "组织名称不能为空");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         User user = createUser(params, now);
 
         Organization organization = Organization.builder()
@@ -217,7 +219,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .userId(0L)
@@ -271,7 +273,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         User user = userMapper.selectById(userId);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .userId(userId)

@@ -11,6 +11,7 @@ import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.common.enumeration.TokenType;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -20,6 +21,7 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
 
     private final TokenBlacklistMapper tokenBlacklistMapper;
     private final JwtUtil jwtUtil;
+    private final Clock clock;
 
     @Override
     public void addToBlacklist(String token, TokenType tokenType, Long userId, String reason, long expireSeconds) {
@@ -28,7 +30,8 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
             return;
         }
 
-        LocalDateTime expiredAt = LocalDateTime.now().plusSeconds(expireSeconds);
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime expiredAt = now.plusSeconds(expireSeconds);
 
         TokenBlacklist entity = TokenBlacklist.builder()
                 .token(token)
@@ -36,8 +39,8 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
                 .userId(userId)
                 .reason(reason)
                 .expiredAt(expiredAt)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
         tokenBlacklistMapper.insert(entity);
@@ -46,7 +49,7 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
 
     @Override
     public boolean isBlacklisted(String token) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         // 1. 检查该 token 是否单独被加入黑名单
         Long count = tokenBlacklistMapper.selectCount(
                 new LambdaQueryWrapper<TokenBlacklist>()
@@ -95,7 +98,8 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
         // 对于"踢掉所有token"的场景，无法获取每个token的具体过期时间，
         // 使用JWT默认过期时间作为黑名单记录的过期时间
         long expireSeconds = jwtUtil.getExpirationSeconds();
-        LocalDateTime expiredAt = LocalDateTime.now().plusSeconds(expireSeconds);
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime expiredAt = now.plusSeconds(expireSeconds);
 
         TokenBlacklist entity = TokenBlacklist.builder()
                 .token(tokenType.getCode() + ":user:" + userId + ":all")
@@ -103,8 +107,8 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
                 .userId(userId)
                 .reason(reason)
                 .expiredAt(expiredAt)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
         tokenBlacklistMapper.insert(entity);

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -37,6 +38,7 @@ public class EmailVerifyService implements OTPStrategyService {
     private final OneTimePasswordService oneTimePasswordService;
     private final EmailVerifyOtpMapper emailVerifyOtpMapper;
     private final EmailVerifyCodeAsyncSender emailVerifyCodeAsyncSender;
+    private final Clock clock;
 
     @Override
     public OTPType getOtpType() {
@@ -53,7 +55,7 @@ public class EmailVerifyService implements OTPStrategyService {
         }
 
         // 限制60s内发送验证码
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         Long recentCount = emailVerifyOtpMapper.selectCount(
                 new LambdaQueryWrapper<EmailVerifyOtp>()
                         .eq(EmailVerifyOtp::getReceiver, receiver)
