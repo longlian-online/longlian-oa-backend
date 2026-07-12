@@ -1,6 +1,5 @@
 package online.longlian.app.service.app.impl;
 
-import com.alibaba.fastjson2.JSON;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.RedisConstants;
@@ -132,7 +131,7 @@ public class SessionServiceImpl implements SessionService {
 
             redisTemplate.opsForValue().set(
                     RedisConstants.LOGIN_USER + userDetail.getId(),
-                    JSON.toJSONString(sessionCacheBO),
+                    sessionCacheBO,
                     ttlSeconds,
                     TimeUnit.SECONDS
             );
