@@ -206,6 +206,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 OTPValidateContextBO.builder().code(params.getInviteCode()).build());
         Organization organization = getJoinTargetOrganization(inviteOtp);
 
+        boolean hasPendingApplication = groupApplicationMapper.selectCount(
+                new LambdaQueryWrapper<GroupApplication>()
+                        .eq(GroupApplication::getOrgId, organization.getId())
+                        .eq(GroupApplication::getEmail, params.getEmail())
+                        .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
+                        .last("LIMIT 1")
+        ) > 0;
+        if (hasPendingApplication) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
+        }
+
         LocalDateTime now = LocalDateTime.now();
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
@@ -245,6 +256,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 throw new AppException(ResultCode.OPERATION_FAIL, "您已加入该组织");
             }
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
+        }
+
+        boolean hasPendingApplication = groupApplicationMapper.selectCount(
+                new LambdaQueryWrapper<GroupApplication>()
+                        .eq(GroupApplication::getOrgId, organization.getId())
+                        .eq(GroupApplication::getUserId, userId)
+                        .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
+                        .last("LIMIT 1")
+        ) > 0;
+        if (hasPendingApplication) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
         }
 
         User user = userMapper.selectById(userId);
