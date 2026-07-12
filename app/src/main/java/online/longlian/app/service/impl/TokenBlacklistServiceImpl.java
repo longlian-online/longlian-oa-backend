@@ -1,6 +1,7 @@
 package online.longlian.app.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import io.jsonwebtoken.Claims;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.util.JwtUtil;
@@ -58,9 +59,8 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
 
         // 2. 检查该 token 所属用户是否被全局踢掉（blacklistAllUserTokens）
         //    从 token 中解析 userId
-        Long userId = jwtUtil.parseTokenIfValid(token) != null
-                ? Long.parseLong(jwtUtil.parseTokenIfValid(token).getSubject())
-                : null;
+        Claims claims = jwtUtil.parseTokenIfValid(token);
+        Long userId = claims != null ? Long.parseLong(claims.getSubject()) : null;
         if (userId == null) {
             return false;
         }
