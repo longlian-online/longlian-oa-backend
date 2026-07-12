@@ -78,6 +78,17 @@ public class ApplicationReviewHandler {
     }
 
     public User createUserByApplication(GroupApplication application, LocalDateTime now) {
+        // 审批通过时再次校验用户名/邮箱唯一性：申请创建到审批之间可能已有同名账号注册成功，
+        if (userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, application.getUsername())
+                .last("LIMIT 1")) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在，无法通过该申请");
+        }
+        if (userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, application.getEmail())
+                .last("LIMIT 1")) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在，无法通过该申请");
+        }
         User user = User.builder()
                 .username(application.getUsername())
                 .password(application.getPassword())
