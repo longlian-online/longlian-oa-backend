@@ -77,6 +77,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createProjectItem(ItemCreateParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getCreatorId(), params.getOrgId());
+
         TaskTemplate template = taskTemplateMapper.selectById(params.getTaskTemplateId());
         if (template == null || template.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.PARAM_ERROR, "任务模板不存在或已禁用");
@@ -162,6 +164,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectItem(ItemOperationParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+
         Item item = itemMapper.selectById(params.getItemId());
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
@@ -189,6 +193,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void publishProjectItem(ItemOperationParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+
         Item item = itemMapper.selectById(params.getItemId());
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
@@ -205,6 +211,16 @@ public class ItemServiceImpl implements ItemService {
                         .set(Item::getUpdatedAt, LocalDateTime.now(clock)));
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
+        }
+    }
+
+    private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null || !project.getOrgId().equals(orgId)) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
+        }
+        if (!project.getCreatorId().equals(userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
     }
 }
