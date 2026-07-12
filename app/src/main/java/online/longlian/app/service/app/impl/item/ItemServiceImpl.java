@@ -109,6 +109,13 @@ public class ItemServiceImpl implements ItemService {
                 .build();
         itemMapper.insert(item);
 
+        // 项目引用了该任务模板，引用计数 +1
+        taskTemplateMapper.update(null,
+                new LambdaUpdateWrapper<TaskTemplate>()
+                        .eq(TaskTemplate::getId, params.getTaskTemplateId())
+                        .setSql("ref_count = ref_count + 1")
+                        .set(TaskTemplate::getUpdatedAt, now));
+
         ItemTaskFlow flow = ItemTaskFlow.builder()
                 .itemId(item.getId())
                 .projectId(params.getProjectId())
@@ -169,6 +176,14 @@ public class ItemServiceImpl implements ItemService {
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可重复操作");
         }
+
+        // 项目删除后释放对任务模板的引用，引用计数 -1
+        taskTemplateMapper.update(null,
+                new LambdaUpdateWrapper<TaskTemplate>()
+                        .eq(TaskTemplate::getId, item.getTaskTemplateId())
+                        .gt(TaskTemplate::getRefCount, 0)
+                        .setSql("ref_count = ref_count - 1")
+                        .set(TaskTemplate::getUpdatedAt, now));
     }
 
     @Override
