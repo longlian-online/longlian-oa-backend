@@ -135,6 +135,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, params.getUserId())
                         .eq(OrganizationMember::getOrgId, params.getOrgId())
+                        .eq(OrganizationMember::getStatus, Status.ENABLED)
                         .last("LIMIT 1")
         );
 
