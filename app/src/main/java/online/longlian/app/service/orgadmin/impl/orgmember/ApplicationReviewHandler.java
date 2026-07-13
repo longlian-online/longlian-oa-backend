@@ -18,6 +18,7 @@ import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,17 +79,6 @@ public class ApplicationReviewHandler {
     }
 
     public User createUserByApplication(GroupApplication application, LocalDateTime now) {
-        // 审批通过时再次校验用户名/邮箱唯一性：申请创建到审批之间可能已有同名账号注册成功，
-        if (userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getUsername, application.getUsername())
-                .last("LIMIT 1")) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在，无法通过该申请");
-        }
-        if (userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getEmail, application.getEmail())
-                .last("LIMIT 1")) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在，无法通过该申请");
-        }
         User user = User.builder()
                 .username(application.getUsername())
                 .password(application.getPassword())
@@ -149,9 +139,18 @@ public class ApplicationReviewHandler {
 
         Long approvedUserId = null;
         if (applicationStatus == ApplicationStatus.APPROVED) {
-            OrganizationMember newMember = approveApplication(application);
-            approvedUserId = newMember.getUserId();
-            backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+            try {
+                OrganizationMember newMember = approveApplication(application);
+                approvedUserId = newMember.getUserId();
+                backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+            } catch (DataIntegrityViolationException e) {
+                updateApplicationStatus(application, ApplicationStatus.REJECTED, reviewerId,
+                        e.getMostSpecificCause().getMessage() != null
+                                && e.getMostSpecificCause().getMessage().contains("uk_email")
+                                ? "邮箱已存在，无法通过该申请"
+                                : "用户名已存在，无法通过该申请", null, now);
+                return;
+            }
         } else if (applicationStatus == ApplicationStatus.REJECTED) {
             rejectApplication(application);
         }
