@@ -23,8 +23,6 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.service.otp.OneTimePasswordService;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
@@ -45,15 +43,10 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
-    private final UserMapper userMapper;
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
-    private final OrganizationMapper organizationMapper;
-    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final ResourceService resourceService;
     private final OTPServiceFactory otpServiceFactory;
-    private final OneTimePasswordService oneTimePasswordService;
 
     private final MemberQueryBuilder memberQueryBuilder;
     private final MemberAssembler memberAssembler;

@@ -40,6 +40,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -59,6 +60,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserMapper userMapper;
     private final CurrentOrganizationService currentOrganizationService;
     private final OTPServiceFactory otpServiceFactory;
+    private final Clock clock;
 
     @Override
     public UserGetMyInfoResultBO getMyInfo(Long userId) {
@@ -133,6 +135,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, params.getUserId())
                         .eq(OrganizationMember::getOrgId, params.getOrgId())
+                        .eq(OrganizationMember::getStatus, Status.ENABLED)
                         .last("LIMIT 1")
         );
 
@@ -161,7 +164,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.PARAM_ERROR, "组织名称不能为空");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         User user = createUser(params, now);
 
         Organization organization = Organization.builder()
@@ -206,7 +209,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 OTPValidateContextBO.builder().code(params.getInviteCode()).build());
         Organization organization = getJoinTargetOrganization(inviteOtp);
 
-        LocalDateTime now = LocalDateTime.now();
+        boolean hasPendingApplication = groupApplicationMapper.selectCount(
+                new LambdaQueryWrapper<GroupApplication>()
+                        .eq(GroupApplication::getOrgId, organization.getId())
+                        .eq(GroupApplication::getEmail, params.getEmail())
+                        .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
+                        .last("LIMIT 1")
+        ) > 0;
+        if (hasPendingApplication) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .userId(0L)
@@ -247,9 +261,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
         }
 
+        boolean hasPendingApplication = groupApplicationMapper.selectCount(
+                new LambdaQueryWrapper<GroupApplication>()
+                        .eq(GroupApplication::getOrgId, organization.getId())
+                        .eq(GroupApplication::getUserId, userId)
+                        .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
+                        .last("LIMIT 1")
+        ) > 0;
+        if (hasPendingApplication) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
+        }
+
         User user = userMapper.selectById(userId);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .userId(userId)

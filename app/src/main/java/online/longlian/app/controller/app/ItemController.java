@@ -8,10 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
-import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
@@ -19,7 +16,6 @@ import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
-import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.ItemService;
@@ -32,7 +28,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ItemController {
 
-    private final ProjectMapper projectMapper;
     private final ItemService itemService;
 
     @Operation(
@@ -67,11 +62,10 @@ public class ItemController {
     public void createProjectItem(@UserSession SessionContext sessionContext,
                                    @PathVariable Long projectId,
                                    @RequestBody @Valid ProjectItemCreateDTO projectItemCreateDTO) {
-        checkProjectCreator(projectId, sessionContext.userId(), sessionContext.orgId());
-
         itemService.createProjectItem(
                 ItemCreateParamsBO.builder()
                         .projectId(projectId)
+                        .orgId(sessionContext.orgId())
                         .title(projectItemCreateDTO.getTitle())
                         .taskTemplateId(projectItemCreateDTO.getTaskTemplateId())
                         .creatorId(sessionContext.userId())
@@ -86,9 +80,13 @@ public class ItemController {
     public void deleteProjectItem(@UserSession SessionContext sessionContext,
                                    @PathVariable Long projectId,
                                    @PathVariable Long itemId) {
-        checkProjectCreator(projectId, sessionContext.userId(), sessionContext.orgId());
         itemService.deleteProjectItem(
-                ItemOperationParamsBO.builder().projectId(projectId).itemId(itemId).build());
+                ItemOperationParamsBO.builder()
+                        .projectId(projectId)
+                        .itemId(itemId)
+                        .orgId(sessionContext.orgId())
+                        .operatorId(sessionContext.userId())
+                        .build());
     }
 
     @Operation(summary = "公布项目")
@@ -99,18 +97,12 @@ public class ItemController {
     public void publishProjectItem(@UserSession SessionContext sessionContext,
                                     @PathVariable Long projectId,
                                     @PathVariable Long itemId) {
-        checkProjectCreator(projectId, sessionContext.userId(), sessionContext.orgId());
         itemService.publishProjectItem(
-                ItemOperationParamsBO.builder().projectId(projectId).itemId(itemId).build());
-    }
-
-    private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
-        Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT);
-        }
-        if (!project.getCreatorId().equals(userId)) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
-        }
+                ItemOperationParamsBO.builder()
+                        .projectId(projectId)
+                        .itemId(itemId)
+                        .orgId(sessionContext.orgId())
+                        .operatorId(sessionContext.userId())
+                        .build());
     }
 }

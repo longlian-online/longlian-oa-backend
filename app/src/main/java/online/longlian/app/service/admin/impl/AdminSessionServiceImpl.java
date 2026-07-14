@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -32,6 +33,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final TokenBlacklistService tokenBlacklistService;
+    private final Clock clock;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -54,7 +56,7 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         }
 
         // 更新最后登录时间
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         adminMapper.update(
                 null,

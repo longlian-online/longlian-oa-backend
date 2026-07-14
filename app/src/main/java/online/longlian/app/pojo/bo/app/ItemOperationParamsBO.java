@@ -12,4 +12,6 @@ import lombok.NoArgsConstructor;
 public class ItemOperationParamsBO {
     private Long projectId;
     private Long itemId;
+    private Long orgId;
+    private Long operatorId;
 }

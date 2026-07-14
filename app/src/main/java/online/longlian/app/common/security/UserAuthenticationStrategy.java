@@ -1,6 +1,5 @@
 package online.longlian.app.common.security;
 
-import com.alibaba.fastjson2.JSON;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.RedisConstants;
@@ -41,11 +40,7 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
     private UserDetailImpl getCachedUserDetail(Long userId) {
         try {
             Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId);
-            if (cached == null) {
-                return null;
-            }
-            LoginSessionCacheBO sessionCacheBO = JSON.parseObject(cached.toString(), LoginSessionCacheBO.class);
-            if (sessionCacheBO == null) {
+            if (!(cached instanceof LoginSessionCacheBO sessionCacheBO)) {
                 return null;
             }
             return buildUserDetail(sessionCacheBO);

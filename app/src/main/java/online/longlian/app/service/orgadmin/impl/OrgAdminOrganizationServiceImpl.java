@@ -3,6 +3,8 @@ package online.longlian.app.service.orgadmin.impl;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
@@ -23,6 +25,9 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
     @Override
     public OrgAdminGetOrganizationInfoResultBO getOrganizationInfo(Long orgId) {
         Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在");
+        }
         return OrgAdminGetOrganizationInfoResultBO.builder()
                 .id(organization.getId())
                 .avatarFileId(organization.getAvatarFileId())

@@ -18,6 +18,7 @@ import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -138,9 +139,18 @@ public class ApplicationReviewHandler {
 
         Long approvedUserId = null;
         if (applicationStatus == ApplicationStatus.APPROVED) {
-            OrganizationMember newMember = approveApplication(application);
-            approvedUserId = newMember.getUserId();
-            backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+            try {
+                OrganizationMember newMember = approveApplication(application);
+                approvedUserId = newMember.getUserId();
+                backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+            } catch (DataIntegrityViolationException e) {
+                updateApplicationStatus(application, ApplicationStatus.REJECTED, reviewerId,
+                        e.getMostSpecificCause().getMessage() != null
+                                && e.getMostSpecificCause().getMessage().contains("uk_email")
+                                ? "邮箱已存在，无法通过该申请"
+                                : "用户名已存在，无法通过该申请", null, now);
+                return;
+            }
         } else if (applicationStatus == ApplicationStatus.REJECTED) {
             rejectApplication(application);
         }
