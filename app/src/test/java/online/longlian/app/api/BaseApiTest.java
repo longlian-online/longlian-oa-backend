@@ -15,6 +15,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -152,6 +153,14 @@ public abstract class BaseApiTest {
         );
     }
 
+    protected void createResource(long resourceId, long orgId, long creatorId) {
+        jdbcTemplate.update(
+                "INSERT INTO `resource` (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, file_mime, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, 1, ?, 'test.png', 'png', 1, 'image/png', 'avatar', 0, 1, ?, NOW(), NOW())",
+                resourceId, orgId, "avatar/" + resourceId + ".png", creatorId
+        );
+    }
+
     /**
      * 一次性创建用户及其组织（包含：组织 + 用户（设置默认组织）+ 组织成员）
      */
@@ -213,6 +222,11 @@ public abstract class BaseApiTest {
      * 创建邮箱验证码 OTP（默认 30 分钟后过期）
      */
     protected void createEmailVerifyOTP(String code, Long creatorId, String receiver) {
+        createEmailVerifyOTP(code, creatorId, receiver, EmailVerifyBusinessType.REGISTER);
+    }
+
+    protected void createEmailVerifyOTP(String code, Long creatorId, String receiver,
+                                        EmailVerifyBusinessType businessType) {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
@@ -220,7 +234,7 @@ public abstract class BaseApiTest {
         );
         jdbcTemplate.update(
                 "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
-                otpId, otpId, receiver, 1, 1
+                otpId, otpId, receiver, businessType.getCode(), 1
         );
     }
 

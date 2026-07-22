@@ -2,7 +2,6 @@ package online.longlian.app.service.admin.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
@@ -21,6 +20,7 @@ import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -40,14 +40,18 @@ public class OrganizationImpl implements OrganizationService {
 
     public PageResultBO<AdminOrganizationListResultBO> getOrgListInfo(@NonNull AdminOrganizationListParamsBO params) {
         Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
-        Page<Organization> organizationPage = new LambdaQueryChainWrapper<>(organizationMapper)
+        LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
                 .select(
                         Organization::getId,
                         Organization::getName,
                         Organization::getAvatarFileId,
                         Organization::getStatus,
                         Organization::getCreatedAt
-                ).page(page);
+                )
+                .like(StringUtils.hasText(params.getOrgName()), Organization::getName, params.getOrgName())
+                .ge(params.getStartCreateTime() != null, Organization::getCreatedAt, params.getStartCreateTime())
+                .le(params.getEndCreateTime() != null, Organization::getCreatedAt, params.getEndCreateTime());
+        Page<Organization> organizationPage = organizationMapper.selectPage(page, queryWrapper);
 
         List<Organization> organizations = organizationPage.getRecords();
         long total = organizationPage.getTotal();

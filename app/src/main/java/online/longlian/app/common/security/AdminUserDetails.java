@@ -18,6 +18,8 @@ import java.util.List;
 @Builder
 public class AdminUserDetails implements UserDetails {
 
+    public static final String SYSTEM_ADMIN_AUTHORITY = "SYSTEM_ADMIN";
+
     private Long id;
     private String username;
     private String password;
@@ -28,6 +30,7 @@ public class AdminUserDetails implements UserDetails {
 
     public static AdminUserDetails from(Long id, String username, String password, String role) {
         List<GrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority(SYSTEM_ADMIN_AUTHORITY));
         authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
         return AdminUserDetails.builder()
                 .id(id)

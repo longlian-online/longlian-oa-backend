@@ -124,14 +124,19 @@ public class ResourceService {
      * @param resourceId 资源 ID
      * @param bizId      业务对象 ID
      */
-    public void bindBizId(Long resourceId, Long bizId) {
-        if (resourceId == null || bizId == null) {
+    public void bindBizId(Long resourceId, Long bizId, Long creatorId, Long orgId) {
+        if (resourceId == null || resourceId <= 0 || bizId == null) {
             return;
         }
-        resourceMapper.update(null,
+        int updated = resourceMapper.update(null,
                 new LambdaUpdateWrapper<Resource>()
                         .eq(Resource::getId, resourceId)
+                        .eq(Resource::getCreatorId, creatorId)
+                        .eq(orgId != null, Resource::getOrgId, orgId)
                         .set(Resource::getBizId, bizId));
+        if (updated == 0) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {

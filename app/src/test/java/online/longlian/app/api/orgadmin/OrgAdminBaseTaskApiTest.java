@@ -38,6 +38,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
     @Test
     void shouldCreateBaseTaskSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)

@@ -166,7 +166,9 @@ public class ItemServiceImpl implements ItemService {
     public void deleteProjectItem(ItemOperationParamsBO params) {
         checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
 
-        Item item = itemMapper.selectById(params.getItemId());
+        Item item = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
+                .eq(Item::getId, params.getItemId())
+                .isNull(Item::getDeletedAt));
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
@@ -195,7 +197,9 @@ public class ItemServiceImpl implements ItemService {
     public void publishProjectItem(ItemOperationParamsBO params) {
         checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
 
-        Item item = itemMapper.selectById(params.getItemId());
+        Item item = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
+                .eq(Item::getId, params.getItemId())
+                .isNull(Item::getDeletedAt));
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
@@ -206,6 +210,7 @@ public class ItemServiceImpl implements ItemService {
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
+                        .isNull(Item::getDeletedAt)
                         .ne(Item::getStatus, ItemStatus.PUBLISHED)
                         .set(Item::getStatus, ItemStatus.PUBLISHED)
                         .set(Item::getUpdatedAt, LocalDateTime.now(clock)));

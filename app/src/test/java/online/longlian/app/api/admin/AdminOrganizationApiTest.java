@@ -59,6 +59,26 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("data.list", notNullValue());
     }
 
+    @Test
+    void shouldReturnNoOrganizationsForNonmatchingNameFilter() {
+        createAdmin(25L, "superadmin25", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin25", "123456");
+        createOrganization(25L, "存在的组织");
+
+        Response response = authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .queryParam("orgName", "不存在的名称")
+                .get("/admin/organizations/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list", hasSize(0))
+                .body("data.total", equalTo(0));
+    }
+
     /**
      * 生成创建组织邀请码成功
      */
@@ -152,6 +172,23 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldFailChangeOrgStatusWithUserToken() {
+        createUserWithOrganization(30L, "regularuser", "123456", "regular@example.com",
+                30L, 30L, "MEMBER");
+        String userToken = loginAs("regularuser", "123456");
+        createOrganization(31L, "目标组织");
+
+        Response response = authRequest(userToken)
+                .body(Map.of("status", "DISABLED"))
+                .patch("/admin/organizations/31/status");
+
+        response
+                .then()
+                .statusCode(403)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
     /**
