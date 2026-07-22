@@ -143,18 +143,4 @@ public class ResourceService {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
 
-    private String buildFileAccessUrl(Resource resource) {
-        if (resource == null || resource.getStorageType() == null || resource.getStorageKey() == null) {
-            return null;
-        }
-        StorageType type = resource.getStorageType();
-        String key = resource.getStorageKey();
-        String baseUrl = "";
-
-        switch (type) {
-            case LOCAL -> baseUrl = storageProperties.getLocal().getBaseUrl();
-            case OSS -> baseUrl = storageProperties.getOss().getBaseUrl();
-        }
-        return Paths.get(baseUrl, key).toString();
-    }
 }
