@@ -53,6 +53,22 @@ public class DistributedLockService {
     }
 
     /**
+     * 尝试获取由 Redisson watchdog 自动续约的分布式锁。
+     * 适用于执行时间无法预估的任务，调用方关闭锁后立即释放。
+     */
+    public Lock tryAcquire(String key, long waitTime, TimeUnit unit) {
+        RLock rlock = redissonClient.getLock(LOCK_PREFIX + key);
+        try {
+            if (rlock.tryLock(waitTime, unit)) {
+                return new Lock(rlock);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return null;
+    }
+
+    /**
      * 分布式锁的封装类，实现了 AutoCloseable 接口，便于在 try-with-resources 语句中使用。
      */
     public class Lock implements AutoCloseable {

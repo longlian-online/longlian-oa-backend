@@ -213,7 +213,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     private void executeAndLog(ScheduledTask task, String taskName, LocalDateTime executeTime,
             TriggerSource source, Long triggeredBy) {
         String lockKey = "scheduled-task:" + taskName;
-        try (var lock = lockService.tryAcquire(lockKey, 0, 30, TimeUnit.SECONDS)) {
+        try (var lock = lockService.tryAcquire(lockKey, 0, TimeUnit.SECONDS)) {
             if (lock == null) {
                 log.warn("定时任务跳过（锁未获取）: {} | executeTime={} | source={}", taskName, executeTime, source);
                 return;
