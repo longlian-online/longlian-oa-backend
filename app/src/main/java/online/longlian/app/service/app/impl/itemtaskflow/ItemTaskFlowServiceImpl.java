@@ -35,7 +35,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
     @Override
     public ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId) {
         Item item = itemMapper.selectById(itemId);
-        if (item == null) {
+        if (item == null || item.getDeletedAt() != null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 

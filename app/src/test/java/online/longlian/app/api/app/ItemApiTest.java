@@ -213,6 +213,14 @@ public class ItemApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data", notNullValue());
+
+        jdbcTemplate.update("UPDATE `item` SET deleted_at = NOW() WHERE id = ?", 1L);
+
+        authRequest(token)
+                .get("/app/item/1/flow")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     /**

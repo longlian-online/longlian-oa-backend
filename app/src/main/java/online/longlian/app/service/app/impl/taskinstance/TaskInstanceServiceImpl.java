@@ -49,7 +49,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
         Item item = itemMapper.selectById(params.getItemId());
-        if (item == null) {
+        if (item == null || item.getDeletedAt() != null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 
