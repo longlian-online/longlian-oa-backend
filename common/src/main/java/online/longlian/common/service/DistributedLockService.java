@@ -71,7 +71,7 @@ public class DistributedLockService {
     /**
      * 分布式锁的封装类，实现了 AutoCloseable 接口，便于在 try-with-resources 语句中使用。
      */
-    public class Lock implements AutoCloseable {
+    public static class Lock implements AutoCloseable {
 
         private final RLock rlock;
 
