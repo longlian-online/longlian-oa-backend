@@ -152,6 +152,14 @@ public abstract class BaseApiTest {
         );
     }
 
+    protected void createResource(long resourceId, long orgId, long creatorId) {
+        jdbcTemplate.update(
+                "INSERT INTO `resource` (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, file_mime, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, 1, ?, 'test.png', 'png', 1, 'image/png', 'avatar', 0, 1, ?, NOW(), NOW())",
+                resourceId, orgId, "avatar/" + resourceId + ".png", creatorId
+        );
+    }
+
     /**
      * 一次性创建用户及其组织（包含：组织 + 用户（设置默认组织）+ 组织成员）
      */

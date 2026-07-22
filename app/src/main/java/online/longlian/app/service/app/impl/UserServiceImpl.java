@@ -123,7 +123,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .set(User::getNickname, params.getNickname())
                         .set(User::getAvatarFileId, params.getAvatarFileId())
         );
-        resourceService.bindBizId(params.getAvatarFileId(), params.getUserId());
+        resourceService.bindBizId(params.getAvatarFileId(), params.getUserId(), params.getUserId(), null);
     }
 
     @Override

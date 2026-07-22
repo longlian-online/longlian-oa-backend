@@ -39,6 +39,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldUpdateOrganizationInfoSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -52,6 +53,30 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @Test
+    void shouldFailUpdateOrganizationInfoWithAnotherOrganizationResource() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(2L, "otheradmin", "123456", "otheradmin@example.com", 2L, 2L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `resource` (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                99L, 2L, 1, "avatar/99.png", "avatar.png", "png", 1L, "avatar", 2L, 1, 2L
+        );
+
+        Response response = authRequest(token)
+                .body(Map.of(
+                        "name", "组织一",
+                        "description", "组织描述",
+                        "avatarFileId", 99L
+                ))
+                .put("/orgadmin/organizations");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
     // ========== 认证失败 ==========
