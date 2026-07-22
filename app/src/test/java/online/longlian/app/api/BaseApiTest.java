@@ -15,6 +15,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -213,6 +214,11 @@ public abstract class BaseApiTest {
      * 创建邮箱验证码 OTP（默认 30 分钟后过期）
      */
     protected void createEmailVerifyOTP(String code, Long creatorId, String receiver) {
+        createEmailVerifyOTP(code, creatorId, receiver, EmailVerifyBusinessType.REGISTER);
+    }
+
+    protected void createEmailVerifyOTP(String code, Long creatorId, String receiver,
+                                        EmailVerifyBusinessType businessType) {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
@@ -220,7 +226,7 @@ public abstract class BaseApiTest {
         );
         jdbcTemplate.update(
                 "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
-                otpId, otpId, receiver, 1, 1
+                otpId, otpId, receiver, businessType.getCode(), 1
         );
     }
 
