@@ -154,6 +154,23 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
+    @Test
+    void shouldFailChangeOrgStatusWithUserToken() {
+        createUserWithOrganization(30L, "regularuser", "123456", "regular@example.com",
+                30L, 30L, "MEMBER");
+        String userToken = loginAs("regularuser", "123456");
+        createOrganization(31L, "目标组织");
+
+        Response response = authRequest(userToken)
+                .body(Map.of("status", "DISABLED"))
+                .patch("/admin/organizations/31/status");
+
+        response
+                .then()
+                .statusCode(403)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
     /**
      * 修改不存在的组织状态失败
      */
