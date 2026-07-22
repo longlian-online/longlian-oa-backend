@@ -16,6 +16,7 @@ public class ItemQueryBuilder {
     public LambdaQueryWrapper<Item> buildListQuery(ItemListParamsBO params) {
         LambdaQueryWrapper<Item> queryWrapper = new LambdaQueryWrapper<Item>()
                 .eq(Item::getProjectId, params.getProjectId())
+                .isNull(Item::getDeletedAt)
                 .eq(params.getStatus() != null, Item::getStatus, params.getStatus());
 
         if (StringUtils.hasText(params.getKeyword())) {
