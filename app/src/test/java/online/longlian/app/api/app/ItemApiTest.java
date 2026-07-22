@@ -155,6 +155,35 @@ public class ItemApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
     }
 
+    @Test
+    void shouldFailPublishDeletedItem() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at, deleted_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())",
+                1L, 1L, "已删除项目", 0L, 1, 1L
+        );
+
+        Response response = authRequest(token)
+                .patch("/app/projects/1/items/1/publish");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
     /**
      * 获取项目任务流成功
      */
