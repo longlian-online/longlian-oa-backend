@@ -134,6 +134,37 @@ public class ResourceService {
                         .set(Resource::getBizId, bizId));
     }
 
+    public void uploadLocalResource(String storageKey, byte[] content, Long userId, Long orgId) {
+        Resource resource = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
+                .eq(Resource::getStorageKey, storageKey)
+                .eq(Resource::getStorageType, StorageType.LOCAL)
+                .eq(Resource::getCreatorId, userId)
+                .eq(Resource::getOrgId, orgId)
+                .last("LIMIT 1"));
+        if (resource == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传该文件");
+        }
+        if (!resource.getFileSize().equals((long) content.length)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
+        }
+
+        storageFactory.get(StorageType.LOCAL).upload(storageKey, content);
+        resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resource.getId())
+                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+    }
+
+    public org.springframework.core.io.Resource getLocalResource(String storageKey) {
+        Long count = resourceMapper.selectCount(new LambdaQueryWrapper<Resource>()
+                .eq(Resource::getStorageKey, storageKey)
+                .eq(Resource::getStorageType, StorageType.LOCAL));
+        if (count == 0) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
+        }
+        return storageFactory.get(StorageType.LOCAL).getResource(storageKey);
+    }
+
     private String buildStorageKey(String bizType, Long fileId, String ext) {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
