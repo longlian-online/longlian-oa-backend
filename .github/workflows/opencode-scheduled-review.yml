@@ -1,0 +1,48 @@
+name: opencode-scheduled-review
+
+on:
+  schedule:
+    - cron: "0 2 * * 1,4" # 每周一、周四 UTC 2:00 (北京时间 10:00)
+  workflow_dispatch:       # 支持手动触发
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run opencode review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode-go/deepseek-v4-pro
+          prompt: |
+            你是一个代码审查助手。请对当前仓库进行定期审查，重点检查近一周的代码变更：
+
+            ## 审查范围
+            1. 查看最近 7 天内的所有 commit 和 PR 合并记录
+            2. 重点关注新增或修改的代码
+
+            ## 审查要点
+            1. **安全漏洞**: SQL 注入、XSS、敏感信息泄漏、权限绕过、未授权访问
+            2. **代码质量**: 空指针风险、资源未释放、异常处理不当、线程安全问题
+            3. **架构合规**: 是否遵循项目分层架构 (Controller→Service→Mapper)，请求体是否使用 DTO，响应是否使用 VO
+            4. **性能隐患**: N+1 查询、大事务、缓存穿透、无索引查询
+            5. **业务逻辑**: 边界条件处理、数据一致性、状态机完整性
+
+            ## 输出要求
+            - 按严重程度排序 (严重 > 高 > 中 > 低)
+            - 每个问题标注所在文件路径和行号
+            - 严重和高优先级问题自动创建 Issue 跟踪
+            - 如果发现可修复的问题，创建一个 PR 包含修复代码
+            - 如果没有发现任何问题，无需创建 Issue 或 PR，仅输出审查通过信息
