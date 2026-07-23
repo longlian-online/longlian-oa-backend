@@ -59,6 +59,26 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .body("data.list", notNullValue());
     }
 
+    @Test
+    void shouldReturnNoOrganizationsForNonmatchingNameFilter() {
+        createAdmin(25L, "superadmin25", "123456", "SUPER_ADMIN");
+        String token = adminLoginAs("superadmin25", "123456");
+        createOrganization(25L, "存在的组织");
+
+        Response response = authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .queryParam("orgName", "不存在的名称")
+                .get("/admin/organizations/");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list", hasSize(0))
+                .body("data.total", equalTo(0));
+    }
+
     /**
      * 生成创建组织邀请码成功
      */
