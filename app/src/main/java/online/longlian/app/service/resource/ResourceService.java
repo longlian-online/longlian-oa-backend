@@ -124,32 +124,23 @@ public class ResourceService {
      * @param resourceId 资源 ID
      * @param bizId      业务对象 ID
      */
-    public void bindBizId(Long resourceId, Long bizId) {
-        if (resourceId == null || bizId == null) {
+    public void bindBizId(Long resourceId, Long bizId, Long creatorId, Long orgId) {
+        if (resourceId == null || resourceId <= 0 || bizId == null) {
             return;
         }
-        resourceMapper.update(null,
+        int updated = resourceMapper.update(null,
                 new LambdaUpdateWrapper<Resource>()
                         .eq(Resource::getId, resourceId)
+                        .eq(Resource::getCreatorId, creatorId)
+                        .eq(orgId != null, Resource::getOrgId, orgId)
                         .set(Resource::getBizId, bizId));
+        if (updated == 0) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
 
-    private String buildFileAccessUrl(Resource resource) {
-        if (resource == null || resource.getStorageType() == null || resource.getStorageKey() == null) {
-            return null;
-        }
-        StorageType type = resource.getStorageType();
-        String key = resource.getStorageKey();
-        String baseUrl = "";
-
-        switch (type) {
-            case LOCAL -> baseUrl = storageProperties.getLocal().getBaseUrl();
-            case OSS -> baseUrl = storageProperties.getOss().getBaseUrl();
-        }
-        return Paths.get(baseUrl, key).toString();
-    }
 }

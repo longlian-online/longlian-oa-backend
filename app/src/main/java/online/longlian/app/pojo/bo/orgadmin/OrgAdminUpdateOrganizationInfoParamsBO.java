@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OrgAdminUpdateOrganizationInfoParamsBO {
     private Long orgId;
+    private Long userId;
     private String name;
     private Long avatarFileId;
     private String description;

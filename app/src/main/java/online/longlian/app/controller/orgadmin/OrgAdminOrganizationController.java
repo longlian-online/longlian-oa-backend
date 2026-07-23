@@ -53,6 +53,7 @@ public class OrgAdminOrganizationController {
         orgAdminOrganizationService.updateOrganizationInfo(
                 OrgAdminUpdateOrganizationInfoParamsBO.builder()
                         .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
                         .name(updateOrganizationInfoDTO.getName())
                         .avatarFileId(updateOrganizationInfoDTO.getAvatarFileId())
                         .description(updateOrganizationInfoDTO.getDescription())
