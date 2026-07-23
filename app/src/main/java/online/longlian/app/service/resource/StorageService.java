@@ -3,6 +3,7 @@ package online.longlian.app.service.resource;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.common.enumeration.StorageType;
+import org.springframework.core.io.Resource;
 
 import java.util.List;
 import java.util.Map;
@@ -47,4 +48,12 @@ public interface StorageService {
      * @return key 到 URL 的映射
      */
     Map<String, String> getResourceReadUrls(List<String> keys);
+
+    default void upload(String key, byte[] content) {
+        throw new UnsupportedOperationException("当前存储不支持服务端上传");
+    }
+
+    default Resource getResource(String key) {
+        throw new UnsupportedOperationException("当前存储不支持本地文件读取");
+    }
 }

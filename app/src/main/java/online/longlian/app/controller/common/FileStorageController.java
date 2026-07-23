@@ -12,6 +12,8 @@ import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.ResourceService;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -42,5 +44,18 @@ public class FileStorageController {
                 createFileReqDTO.getBizId()
         );
         return resourceService.create(params);
+    }
+
+    @PutMapping("/local")
+    @ResponseMessage("上传成功")
+    public void uploadLocalFile(@RequestParam String key,
+                                @RequestBody byte[] content,
+                                @UserSession SessionContext sessionContext) {
+        resourceService.uploadLocalResource(key, content, sessionContext.userId(), sessionContext.orgId());
+    }
+
+    @GetMapping("/local")
+    public ResponseEntity<Resource> readLocalFile(@RequestParam String key) {
+        return ResponseEntity.ok(resourceService.getLocalResource(key));
     }
 }
