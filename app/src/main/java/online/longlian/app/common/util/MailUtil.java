@@ -1,13 +1,11 @@
 package online.longlian.app.common.util;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Objects;
 
 /**
@@ -53,8 +51,8 @@ public class MailUtil {
 
             helper.setText(param.content(), true);
             mailSender.send(mimeMessage);
-        } catch (UnsupportedEncodingException | MessagingException e) {
-            throw new RuntimeException("发送邮件失败, 入参:" + param, e);
+        } catch (Exception e) {
+            throw new RuntimeException("发送邮件失败: " + e.getClass().getSimpleName());
         }
     }
 }
