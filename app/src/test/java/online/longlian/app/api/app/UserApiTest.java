@@ -233,4 +233,19 @@ public class UserApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
+
+    @Test
+    void shouldFailGetMyInfoAfterUserIsDisabled() {
+        createUserWithOrganization(31L, "disableduser", "123456", "disabled@example.com",
+                31L, 31L, "MEMBER");
+        String token = loginAs("disableduser", "123456");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 31L);
+
+        Response response = authRequest(token)
+                .get("/app/user/");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
 }
