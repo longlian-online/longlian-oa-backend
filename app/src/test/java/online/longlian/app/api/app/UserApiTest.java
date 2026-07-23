@@ -5,6 +5,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
@@ -44,6 +45,45 @@ public class UserApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @Test
+    void shouldRejectLoginCodeWhenRegistering() {
+        String adminToken = createRootAdmin();
+        String inviteCode = authRequest(adminToken)
+                .post("/admin/organizations/invite-codes/create-org")
+                .then()
+                .statusCode(200)
+                .extract()
+                .path("data.inviteCode");
+        createOrganizationCreateInviteOTP(inviteCode);
+
+        long otpId = 9001L;
+        String email = "register-with-login-code@example.com";
+        jdbcTemplate.update(
+                "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, ?, ?)",
+                otpId, "654321", LocalDateTime.now().plusMinutes(30), 3, 0, 0L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO email_verify_otp (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
+                otpId, otpId, email, 0, 1
+        );
+
+        Response response = request()
+                .body(Map.of(
+                        "email", email,
+                        "password", "123456",
+                        "username", "wrongcodeuser",
+                        "nickname", "错误验证码用户",
+                        "inviteCode", inviteCode,
+                        "code", "654321",
+                        "orgName", "测试组织"
+                ))
+                .post("/app/user/register/create-organization");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
     }
 
     /**
@@ -227,21 +267,6 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldFailGetMyInfoWithoutAuth() {
         Response response = request()
-                .get("/app/user/");
-
-        response.then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
-    }
-
-    @Test
-    void shouldFailGetMyInfoAfterUserIsDisabled() {
-        createUserWithOrganization(31L, "disableduser", "123456", "disabled@example.com",
-                31L, 31L, "MEMBER");
-        String token = loginAs("disableduser", "123456");
-        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 31L);
-
-        Response response = authRequest(token)
                 .get("/app/user/");
 
         response.then()

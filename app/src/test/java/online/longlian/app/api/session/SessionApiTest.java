@@ -3,6 +3,7 @@ package online.longlian.app.api.session;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -73,7 +74,7 @@ public class SessionApiTest extends BaseApiTest {
     void shouldLoginByCodeSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
 
-        createEmailVerifyOTP("123456", 1L, "test@example.com");
+        createEmailVerifyOTP("123456", 1L, "test@example.com", EmailVerifyBusinessType.LOGIN);
 
         Response response = request()
                 .body(Map.of("email", "test@example.com", "code", "123456"))

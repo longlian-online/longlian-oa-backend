@@ -8,6 +8,7 @@ import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
@@ -28,7 +29,11 @@ public class EmailCodeAuthenticationProvider implements AuthenticationProvider {
 
         OTPStrategyService otpStrategyService = otpServiceFactory.get(OTPType.EmailVerify);
         OneTimePassword oneTimePassword = otpStrategyService.getValid(
-                OTPValidateContextBO.builder().code(code).target(email).build());
+                OTPValidateContextBO.builder()
+                        .code(code)
+                        .target(email)
+                        .businessType(EmailVerifyBusinessType.LOGIN)
+                        .build());
 
         UserDetails userDetails = userDetailsServiceImpl.loadUserByEmailOnly(email);
         if (!userDetails.isEnabled()) {
