@@ -126,6 +126,7 @@ public class ProjectApiTest extends BaseApiTest {
     @Test
     void shouldCreateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -157,6 +158,7 @@ public class ProjectApiTest extends BaseApiTest {
     @Test
     void shouldUpdateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(2L, 1L, 1L);
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(

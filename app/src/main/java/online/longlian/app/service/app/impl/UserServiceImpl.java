@@ -34,6 +34,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.app.UserService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -123,7 +124,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .set(User::getNickname, params.getNickname())
                         .set(User::getAvatarFileId, params.getAvatarFileId())
         );
-        resourceService.bindBizId(params.getAvatarFileId(), params.getUserId());
+        resourceService.bindBizId(params.getAvatarFileId(), params.getUserId(), params.getUserId(), null);
     }
 
     @Override
@@ -309,7 +310,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private OneTimePassword validateRegisterRequest(UserRegisterByInviteParamsBO params) {
         OneTimePassword emailOtp = otpServiceFactory.get(OTPType.EmailVerify).getValid(
-                OTPValidateContextBO.builder().code(params.getCode()).target(params.getEmail()).build());
+                OTPValidateContextBO.builder()
+                        .code(params.getCode())
+                        .target(params.getEmail())
+                        .businessType(EmailVerifyBusinessType.REGISTER)
+                        .build());
         if (userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, params.getUsername())) != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
         }

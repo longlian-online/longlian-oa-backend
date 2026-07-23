@@ -42,6 +42,7 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateOrganizationInfo(OrgAdminUpdateOrganizationInfoParamsBO params) {
+        resourceService.bindBizId(params.getAvatarFileId(), params.getOrgId(), params.getUserId(), params.getOrgId());
         organizationMapper.update(null,
                 new LambdaUpdateWrapper<Organization>()
                         .eq(Organization::getId, params.getOrgId())
@@ -49,6 +50,5 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
                         .set(Organization::getAvatarFileId, params.getAvatarFileId())
                         .set(Organization::getDescription, params.getDescription())
         );
-        resourceService.bindBizId(params.getAvatarFileId(), params.getOrgId());
     }
 }

@@ -62,7 +62,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .updatedAt(now)
                 .build();
         baseTaskMapper.insert(task);
-        resourceService.bindBizId(params.getIconFileId(), task.getId());
+        resourceService.bindBizId(params.getIconFileId(), task.getId(), params.getCreatorId(), params.getOrgId());
     }
 
     @Override

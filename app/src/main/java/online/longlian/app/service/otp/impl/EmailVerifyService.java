@@ -101,6 +101,7 @@ public class EmailVerifyService implements OTPStrategyService {
                 new LambdaQueryWrapper<EmailVerifyOtp>()
                         .eq(EmailVerifyOtp::getOtpId, oneTimePassword.getId())
                         .eq(EmailVerifyOtp::getReceiver, otpValidateContextBO.getTarget())
+                        .eq(EmailVerifyOtp::getBusinessType, otpValidateContextBO.getBusinessType())
                         .eq(EmailVerifyOtp::getSendStatus, EmailVerifySendStatus.SENT)
                         .last("LIMIT 1")
         );
