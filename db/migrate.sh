@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# CI 数据库同步脚本（声明式）
+# 生产环境数据库同步脚本（声明式）
 # 用法: ./migrate.sh [apply|diff|inspect]
 #
 # 环境变量:
@@ -40,17 +40,17 @@ case "$ACTION" in
   apply)
     check_env
     echo "==> 同步数据库到 schema.sql 声明状态..."
-    $ATLAS schema apply --env ci --url "$DB_URL" --dev-url "$DEV_DB_URL" --auto-approve
+    $ATLAS schema apply --env prod --url "$DB_URL" --dev-url "$DEV_DB_URL" --auto-approve
     echo "==> 同步完成"
     ;;
   diff)
     check_env
     echo "==> 计算差异..."
-    $ATLAS schema diff --env ci --url "$DB_URL" --dev-url "$DEV_DB_URL"
+    $ATLAS schema diff --env prod --url "$DB_URL" --dev-url "$DEV_DB_URL"
     ;;
   inspect)
     check_env
-    $ATLAS schema inspect --env ci --url "$DB_URL"
+    $ATLAS schema inspect --env prod --url "$DB_URL"
     ;;
   *)
     echo "用法: $0 [apply|diff|inspect]" >&2

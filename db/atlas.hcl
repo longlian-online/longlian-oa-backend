@@ -29,8 +29,8 @@ env "local" {
   }
 }
 
-// CI 环境：通过环境变量注入数据库地址
-env "ci" {
+// 生产环境：通过环境变量注入数据库地址
+env "prod" {
   src = "file://schema.sql"
   dev = "mysql://root:${MYSQL_ROOT_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/dev"
   url = "mysql://root:${MYSQL_ROOT_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
