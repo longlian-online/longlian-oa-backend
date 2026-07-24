@@ -5,9 +5,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
+import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
@@ -46,14 +48,29 @@ public class FileStorageController {
         return resourceService.create(params);
     }
 
+    @Operation(
+        summary = "本地上传文件",
+        description = "客户端使用预签名 URL 直传文件内容到本地存储，需校验上传者身份与文件大小"
+    )
     @PutMapping("/local")
     @ResponseMessage("上传成功")
     public void uploadLocalFile(@RequestParam String key,
                                 @RequestBody byte[] content,
                                 @UserSession SessionContext sessionContext) {
-        resourceService.uploadLocalResource(key, content, sessionContext.userId(), sessionContext.orgId());
+        resourceService.uploadLocalResource(
+                LocalFileUploadParamsBO.builder()
+                        .storageKey(key)
+                        .content(content)
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
+                        .build());
     }
 
+    @Operation(
+        summary = "读取本地文件",
+        description = "通过预签名 key 读取本地存储的文件内容，返回原始文件流"
+    )
+    @NotWrap
     @GetMapping("/local")
     public ResponseEntity<Resource> readLocalFile(@RequestParam String key) {
         return ResponseEntity.ok(resourceService.getLocalResource(key));

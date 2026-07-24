@@ -8,6 +8,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
@@ -139,21 +140,21 @@ public class ResourceService {
         }
     }
 
-    public void uploadLocalResource(String storageKey, byte[] content, Long userId, Long orgId) {
+    public void uploadLocalResource(LocalFileUploadParamsBO params) {
         Resource resource = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
-                .eq(Resource::getStorageKey, storageKey)
+                .eq(Resource::getStorageKey, params.getStorageKey())
                 .eq(Resource::getStorageType, StorageType.LOCAL)
-                .eq(Resource::getCreatorId, userId)
-                .eq(Resource::getOrgId, orgId)
+                .eq(Resource::getCreatorId, params.getUserId())
+                .eq(Resource::getOrgId, params.getOrgId())
                 .last("LIMIT 1"));
         if (resource == null) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传该文件");
         }
-        if (!resource.getFileSize().equals((long) content.length)) {
+        if (!resource.getFileSize().equals((long) params.getContent().length)) {
             throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
         }
 
-        storageFactory.get(StorageType.LOCAL).upload(storageKey, content);
+        storageFactory.get(StorageType.LOCAL).upload(params.getStorageKey(), params.getContent());
         resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
                 .eq(Resource::getId, resource.getId())
                 .set(Resource::getProcessStatus, FileProcessStatus.Activated)
