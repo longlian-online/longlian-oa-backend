@@ -84,7 +84,7 @@ sit:
 
 $:
   tag_push:
-    - name: build-and-push-main-tag-image
+    - name: build-and-push-multi-arch-image
       services:
         - docker
       stages:
@@ -93,8 +93,5 @@ $:
           exports:
             info: IMAGE_TAG
 
-        - name: build docker image
-          script: docker build -f devops/Dockerfile -t "$IMAGE_TAG" .
-
-        - name: push docker image
-          script: docker push "$IMAGE_TAG"
+        - name: build and push multi-arch docker image
+          script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile -t "$IMAGE_TAG" --push .
