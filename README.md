@@ -100,8 +100,8 @@ longlian-oa-backend/
 
 ## 数据库
 
-数据库迁移使用 [Atlas](https://atlasgo.io/) 管理，文件位于 `app/src/main/db/`
+数据库使用 [Atlas](https://atlasgo.io/) 声明式管理，文件位于根目录 `db/`
 
-- 迁移文件：`migrations/` 目录
-- 期望状态：`schema.sql`
-- 开发文档：`app/src/main/db/DEVELOPMENT.md`
+- 期望状态：`db/schema.sql`（唯一真实来源）
+- CI 脚本：`db/migrate.sh`
+- 开发文档：`db/DEVELOPMENT.md`

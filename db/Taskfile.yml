@@ -1,0 +1,57 @@
+# https://taskfile.dev
+# Atlas 声明式数据库管理任务
+
+version: '3'
+
+vars:
+  ATLAS_DOCKER: docker run --rm -v {{.TASKFILE_DIR}}:/work -w /work --network="host" arigaio/atlas:latest
+  DB_URL: mysql://root:dev@localhost:10001/longlian_oa_dev
+
+tasks:
+  apply:
+    desc: "将 schema.sql 声明的状态同步到数据库（自动计算差异）"
+    silent: true
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - echo "正在同步数据库..."
+      - '{{.ATLAS_DOCKER}} schema apply --env local --url "{{.DB_URL}}" --auto-approve'
+      - echo "数据库同步完成！"
+
+  # 兼容旧命令名
+  update:
+    desc: "同步数据库（等同于 apply）"
+    cmds:
+      - task: apply
+
+  seed:
+    desc: "导入开发环境种子数据"
+    silent: true
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - echo "正在导入种子数据..."
+      - docker run --rm -v {{.TASKFILE_DIR}}:/work -w /work --network="host" mysql:8.0 mysql -h 127.0.0.1 -P 10001 -u root -pdev longlian_oa_dev < seed/dev_data.sql
+      - echo "种子数据导入完成！"
+
+  diff:
+    desc: "预览 schema.sql 与数据库的差异（不执行变更）"
+    silent: true
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - echo "正在计算差异..."
+      - '{{.ATLAS_DOCKER}} schema diff --env local --url "{{.DB_URL}}"'
+
+  inspect:
+    desc: "查看数据库当前 schema 状态"
+    silent: true
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - '{{.ATLAS_DOCKER}} schema inspect --env local --url "{{.DB_URL}}"'
+
+  clean:
+    desc: "清空数据库（危险操作，仅用于开发环境重置）"
+    silent: true
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - echo "⚠️  即将清空数据库..."
+      - '{{.ATLAS_DOCKER}} schema clean --env local --url "{{.DB_URL}}" --auto-approve'
+      - echo "数据库已清空"

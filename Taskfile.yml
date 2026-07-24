@@ -3,7 +3,7 @@
 version: '3'
 
 includes:
-  db: app/src/main/db/Taskfile.yml
+  db: db/Taskfile.yml
 
 tasks:
   api-test-docker:

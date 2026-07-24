@@ -1,5 +1,8 @@
-// Atlas 配置 — 数据库迁移管理
+// Atlas 配置 — 声明式数据库管理
 // 文档: https://atlasgo.io/concepts/config
+//
+// 声明式模式：schema.sql 为唯一真实来源，
+// atlas schema apply 自动计算差异并同步数据库。
 
 variable "db_url" {
   type        = string
@@ -18,10 +21,6 @@ env "local" {
   dev = var.dev_db_url
   url = var.db_url
 
-  migration {
-    dir = "file://migrations"
-  }
-
   diff {
     skip {
       drop_schema = true
@@ -35,10 +34,6 @@ env "ci" {
   src = "file://schema.sql"
   dev = "mysql://root:${MYSQL_ROOT_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/dev"
   url = "mysql://root:${MYSQL_ROOT_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
-
-  migration {
-    dir = "file://migrations"
-  }
 
   diff {
     skip {
