@@ -144,12 +144,11 @@ public class ApplicationReviewHandler {
                 approvedUserId = newMember.getUserId();
                 backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
             } catch (DataIntegrityViolationException e) {
-                updateApplicationStatus(application, ApplicationStatus.REJECTED, reviewerId,
-                        e.getMostSpecificCause().getMessage() != null
-                                && e.getMostSpecificCause().getMessage().contains("uk_email")
-                                ? "邮箱已存在，无法通过该申请"
-                                : "用户名已存在，无法通过该申请", null, now);
-                return;
+                String message = e.getMostSpecificCause().getMessage() != null
+                        && e.getMostSpecificCause().getMessage().contains("uk_email")
+                        ? "邮箱已存在，无法通过该申请"
+                        : "用户名已存在，无法通过该申请";
+                throw new AppException(ResultCode.OPERATION_FAIL, message);
             }
         } else if (applicationStatus == ApplicationStatus.REJECTED) {
             rejectApplication(application);
