@@ -61,7 +61,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         List<TaskInstance> instances = taskInstanceMapper.selectList(
                 new LambdaQueryWrapper<TaskInstance>()
                         .eq(TaskInstance::getItemId, params.getItemId())
-                        .isNull(TaskInstance::getDeletedAt)
                         .orderByAsc(TaskInstance::getCreatedAt));
 
         if (instances.isEmpty()) {

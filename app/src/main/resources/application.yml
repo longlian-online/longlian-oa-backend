@@ -64,7 +64,7 @@ sqlite:
 mybatis-plus:
   global-config:
     db-config:
-      logic-delete-field: deleted_at
+      logic-delete-field: deletedAt
       logic-delete-value: now()
       logic-not-delete-value: 'null'
   configuration:
