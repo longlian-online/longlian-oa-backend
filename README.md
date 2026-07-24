@@ -100,6 +100,8 @@ longlian-oa-backend/
 
 ## 数据库
 
-数据库迁移文件位于 `app/src/main/resources/manifest/migrate/`
+数据库迁移使用 [Atlas](https://atlasgo.io/) 管理，文件位于 `app/src/main/db/`
 
-命名规范：`v{主版本}-{次版本}-{修订版本}.sql`
+- 迁移文件：`migrations/` 目录
+- 期望状态：`schema.sql`
+- 开发文档：`app/src/main/db/DEVELOPMENT.md`

@@ -1,1 +1,3 @@
+# Atlas 本地配置（如需覆盖默认连接信息）
+atlas.local.hcl
 liquibase.properties

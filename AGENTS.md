@@ -69,9 +69,10 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 
 ## 数据库变更规范
 
-1. 所有表结构变更通过 `app/src/main/resources/manifest/migrate/` 下的 SQL 迁移文件执行，命名格式 `v{主版本}-{次版本}-{修订版本}.sql`
-2. **禁止直接修改 entity 类**，变更流程：编写新版本迁移 SQL → 执行迁移 → 使用 `generator` 模块重新生成 entity/mapper/XML
+1. 所有表结构变更通过 `app/src/main/db/` 下的 Atlas 迁移管理，迁移文件位于 `migrations/` 目录，期望状态定义在 `schema.sql`
+2. **禁止直接修改 entity 类**，变更流程：修改 `schema.sql` → `task db:diff:描述` 生成迁移 → `task db:update` 执行迁移 → 使用 `generator` 模块重新生成 entity/mapper/XML
 3. generator 模块通过注解驱动代码生成（如 `@ModelEnum` / `@ModelEnums` 生成枚举类）
+4. CI 通过 `app/src/main/db/migrate.sh apply` 执行迁移
 
 ## 代码规范
 

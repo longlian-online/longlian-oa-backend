@@ -23,7 +23,7 @@ tasks:
     silent: true
 
   dev-prepare:
-    desc: "准备开发环境（启动数据库 + 执行迁移）"
+    desc: "准备开发环境（启动数据库 + 执行迁移 + 导入种子数据）"
     cmds:
       - echo "启动 MySQL 和 Redis..."
       - echo "mysql 监听端口 10001，redis 监听端口 10002"
@@ -31,6 +31,7 @@ tasks:
       - echo "等待数据库就绪..."
       - docker compose -f devops/docker-compose.dev.yml run --rm mysql-dev sh -c "while ! mysqladmin ping -h mysql-dev -u root -pdev --silent; do sleep 1; done"
       - task: db:update
+      - task: db:seed
       - echo "数据库已就绪！"
 
   dev-run:
