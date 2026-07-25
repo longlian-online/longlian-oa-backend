@@ -24,6 +24,8 @@ import online.longlian.app.pojo.entity.*;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.common.enumeration.OTPType;
+import online.longlian.common.enumeration.Status;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
@@ -54,6 +56,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
     private final LockService lockService;
+    private final SessionService sessionService;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -98,6 +101,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
         memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
         memberStatusHandler.updateMemberStatus(member, params.getStatus());
+        if (params.getStatus() == Status.DISABLED) {
+            sessionService.clearUserSessionCache(member.getUserId());
+        }
     }
 
     @Override
