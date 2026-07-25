@@ -33,15 +33,11 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
     @Override
     public Authentication authenticate(long subjectId) {
         UserDetailImpl userDetail = getCachedUserDetail(subjectId);
-        if (userDetail != null) {
-            if (!userDetail.isEnabled()) {
-                throw new AppException(ResultCode.UNAUTHORIZED);
-            }
-        } else {
+        if (userDetail == null) {
             userDetail = (UserDetailImpl) userDetailsService.loadUserById(subjectId);
-            if (!userDetail.isEnabled()) {
-                throw new AppException(ResultCode.UNAUTHORIZED);
-            }
+        }
+        if (userDetail == null || !userDetail.isEnabled()) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
         }
         return new UsernamePasswordAuthenticationToken(userDetail, null, userDetail.getAuthorities());
     }
