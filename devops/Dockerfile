@@ -1,8 +1,11 @@
 ARG INCLUDE_OTEL=false
 
 # 1. 构建阶段：容器内 Maven 打包
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM ghcr.io/graalvm/graalvm-community:25 AS build
 WORKDIR /app
+
+# 安装 Maven
+RUN microdnf install -y maven gzip tar && microdnf clean all
 
 # 复制各级 pom.xml，下载依赖
 COPY pom.xml .
@@ -30,11 +33,11 @@ COPY app/src app/src
 RUN mvn package -Dmaven.test.skip=true -B -pl app -am
 
 # 2. 运行阶段
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM ghcr.io/graalvm/graalvm-community:25 AS runtime
 WORKDIR /app
 
 # 创建非 root 用户
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN useradd -r -s /bin/false appuser
 
 # 从构建阶段复制打好的 jar 包
 COPY --from=build /app/app/target/*.jar app.jar
@@ -43,8 +46,8 @@ COPY --from=build /app/app/target/*.jar app.jar
 COPY --from=build /app/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 RUN if [ ! -s /app/opentelemetry-javaagent.jar ]; then rm /app/opentelemetry-javaagent.jar; fi
 
-# JVM 运行参数
-ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
+# JVM 运行参数（GraalVM 优化）
+ENV JAVA_OPTS="-Xms192m -Xmx384m -XX:+UseCompactObjectHeaders -XX:+UseZGC -XX:+ZGenerational -Djava.security.egd=file:/dev/./urandom"
 # 生产环境需设为 -javaagent:/app/opentelemetry-javaagent.jar
 ENV OTEL_OPTS=""
 

@@ -3,7 +3,6 @@ package online.longlian.app.common.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,21 +34,21 @@ public class JwtUtil {
 
     public String generateToken(Long id, String type) {
         var builder = Jwts.builder()
-                .setSubject(id.toString())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000L));
+                .subject(id.toString())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expiration * 1000L));
         if (type != null && !type.isEmpty()) {
             builder.claim("type", type);
         }
-        return builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
+        return builder.signWith(signingKey, Jwts.SIG.HS256).compact();
     }
 
     public Claims parseToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(signingKey)
+        return Jwts.parser()
+                .verifyWith(signingKey)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public boolean validateToken(String token) {

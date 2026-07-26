@@ -1,7 +1,7 @@
 package online.longlian.app.service.impl;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.impl.DefaultClaims;
+import io.jsonwebtoken.Jwts;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.mapper.TokenBlacklistMapper;
 import online.longlian.app.pojo.entity.TokenBlacklist;
@@ -77,8 +77,7 @@ class TokenBlacklistServiceImplTest {
         // First call: direct token check = 0
         // Then for each TokenType, check user-level key
         when(tokenBlacklistMapper.selectCount(any())).thenReturn(0L).thenReturn(1L);
-        Claims claims = new DefaultClaims();
-        claims.setSubject("42");
+        Claims claims = Jwts.claims().subject("42").build();
         when(jwtUtil.parseTokenIfValid("user-token")).thenReturn(claims);
 
         assertThat(service.isBlacklisted("user-token")).isTrue();
@@ -87,8 +86,7 @@ class TokenBlacklistServiceImplTest {
     @Test
     void isBlacklisted_noBlacklistAtAll_returnsFalse() {
         when(tokenBlacklistMapper.selectCount(any())).thenReturn(0L);
-        Claims claims = new DefaultClaims();
-        claims.setSubject("42");
+        Claims claims = Jwts.claims().subject("42").build();
         when(jwtUtil.parseTokenIfValid("clean-token")).thenReturn(claims);
 
         assertThat(service.isBlacklisted("clean-token")).isFalse();
