@@ -38,6 +38,7 @@ build/
 !.vscode/launch.json
 
 data/
+.ci-cache/
 
 **/.env
 *.jar

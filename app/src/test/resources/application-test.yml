@@ -15,5 +15,9 @@ spring:
       timeout: 5s
       connect-timeout: 5s
 
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
 notify:
   type: NOOP
