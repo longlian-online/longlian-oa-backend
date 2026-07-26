@@ -17,11 +17,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -47,8 +47,7 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(SecurityConstants.getPermitAllMatchers()).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/common/file/local").permitAll()
+                        .requestMatchers(SecurityConstants.getPermitAllMatchers().toArray(new RequestMatcher[0])).permitAll()
                         .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()
                 )

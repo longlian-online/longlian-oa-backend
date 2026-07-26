@@ -420,6 +420,75 @@ public class ItemApiTest extends BaseApiTest {
                 .body("code", not(equalTo(0)));
     }
 
+    // ========== 业务规则：发布与模板 ==========
+
+    /**
+     * 重复公布已公布的项目应失败（覆盖 publishProjectItem PUBLISHED 分支）
+     */
+    @Test
+    void shouldFailPublishAlreadyPublishedItem() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
+        );
+        // status=3 → ItemStatus.PUBLISHED，已公布
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 3, 1L
+        );
+
+        Response response = authRequest(token)
+                .patch("/app/projects/1/items/1/publish");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(0)));
+    }
+
+    /**
+     * 使用已禁用的任务模板创建项目应失败（覆盖 createProjectItem template disabled 分支）
+     */
+    @Test
+    void shouldFailCreateItemWithDisabledTemplate() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
+        );
+        // status=0 → DISABLED
+        jdbcTemplate.update(
+                "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "禁用模板", "描述", 0, 1, 1L
+        );
+
+        Response response = authRequest(token)
+                .body(Map.of("title", "测试项目", "taskTemplateId", "1"))
+                .post("/app/projects/1/items");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(0)));
+    }
+
     // ========== 边界条件 ==========
 
     /**

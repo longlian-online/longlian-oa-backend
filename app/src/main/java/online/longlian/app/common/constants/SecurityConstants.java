@@ -4,8 +4,10 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import java.util.List;
+
 public class SecurityConstants {
-    private static final RequestMatcher[] PERMIT_ALL_MATCHERS = {
+    private static final List<RequestMatcher> PERMIT_ALL_MATCHERS = List.of(
             new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/admin/session", HttpMethod.POST.name()),
@@ -19,9 +21,12 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/swagger-resources/**"),
             new AntPathRequestMatcher("/common/file/local", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/error")
-    };
+    );
 
-    public static  RequestMatcher[] getPermitAllMatchers() {
+    /**
+     * 免鉴权路径白名单。返回不可变列表，防止调用方篡改鉴权规则。
+     */
+    public static List<RequestMatcher> getPermitAllMatchers() {
         return PERMIT_ALL_MATCHERS;
     }
 

@@ -57,6 +57,94 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
+    /**
+     * 审核入组申请成功（REJECTED 路径，覆盖 rejectApplication 分支）
+     */
+    @Test
+    void shouldRejectApplicationSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 0L, 0, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+        );
+
+        Response response = authRequest(token)
+                .body(Map.of(
+                        "applicationStatus", "REJECTED",
+                        "reviewRemark", "暂不通过"
+                ))
+                .put("/orgadmin/members/applications/1/review");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /**
+     * 审核已处理申请应失败（覆盖 validatePendingApplication status!=PENDING 分支）
+     */
+    @Test
+    void shouldFailReviewAlreadyReviewedApplication() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        // status=1 → APPROVED，非 PENDING
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 0L, 1, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+        );
+
+        Response response = authRequest(token)
+                .body(Map.of(
+                        "applicationStatus", "APPROVED",
+                        "reviewRemark", "审核通过"
+                ))
+                .put("/orgadmin/members/applications/1/review");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
+    /**
+     * 审核通过 EXISTING_USER 类型申请时申请人已是组织成员应失败
+     * （覆盖 getExistingApplicationUser existedMember!=null 分支）
+     */
+    @Test
+    void shouldFailApproveApplicationWhenUserAlreadyMember() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        // user2 已是 org1 的成员
+        createTestUser(2L, "user2", "123456", "user2@example.com");
+        jdbcTemplate.update(
+                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
+                2L, 1L, 2L, "MEMBER"
+        );
+
+        // PENDING 申请，application_type=1 EXISTING_USER，user_id=2（已是成员）
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, 0, 1, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
+        );
+
+        Response response = authRequest(token)
+                .body(Map.of(
+                        "applicationStatus", "APPROVED",
+                        "reviewRemark", "审核通过"
+                ))
+                .put("/orgadmin/members/applications/1/review");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
     // ========== 组员列表 ==========
 
     /**
