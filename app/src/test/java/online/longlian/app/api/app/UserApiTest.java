@@ -259,6 +259,105 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
     }
 
+    // ========== 加入组织失败场景 ==========
+
+    /**
+     * 已是 ENABLED 成员时通过邀请码加入应失败（覆盖 joinOrganizationByInvite ENABLED 分支）
+     */
+    @Test
+    void shouldFailJoinOrganizationWhenAlreadyEnabledMember() {
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        String token1 = loginAs("user1", "123456");
+        String inviteCode = authRequest(token1)
+                .post("/orgadmin/members/invite-codes/join-org")
+                .then().statusCode(200)
+                .extract().path("data.inviteCode");
+
+        // user2 在独立组织2 中登录，同时已是 org1 的 ENABLED 成员
+        createTestUser(2L, "user2", "123456", "user2@example.com");
+        createOrganization(2L, "组织2");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
+        createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
+        jdbcTemplate.update(
+                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
+                3L, 1L, 2L, "MEMBER"
+        );
+        String token2 = loginAs("user2", "123456");
+
+        Response response = authRequest(token2)
+                .body(Map.of("inviteCode", inviteCode))
+                .post("/app/user/organizations/join-by-invite");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
+    /**
+     * 成员状态已被禁用时通过邀请码加入应失败（覆盖 joinOrganizationByInvite DISABLED 分支）
+     */
+    @Test
+    void shouldFailJoinOrganizationWhenMemberDisabled() {
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        String token1 = loginAs("user1", "123456");
+        String inviteCode = authRequest(token1)
+                .post("/orgadmin/members/invite-codes/join-org")
+                .then().statusCode(200)
+                .extract().path("data.inviteCode");
+
+        // user2 在 org1 中的成员记录状态为 DISABLED（status=0）
+        createTestUser(2L, "user2", "123456", "user2@example.com");
+        createOrganization(2L, "组织2");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
+        createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
+        jdbcTemplate.update(
+                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 0)",
+                3L, 1L, 2L, "MEMBER"
+        );
+        String token2 = loginAs("user2", "123456");
+
+        Response response = authRequest(token2)
+                .body(Map.of("inviteCode", inviteCode))
+                .post("/app/user/organizations/join-by-invite");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
+    /**
+     * 已有待审核入组申请时再次通过邀请码加入应失败（覆盖 joinOrganizationByInvite hasPendingApplication 分支）
+     */
+    @Test
+    void shouldFailJoinOrganizationWhenHasPendingApplication() {
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        String token1 = loginAs("user1", "123456");
+        String inviteCode = authRequest(token1)
+                .post("/orgadmin/members/invite-codes/join-org")
+                .then().statusCode(200)
+                .extract().path("data.inviteCode");
+
+        // user2 未加入 org1，但已有 PENDING 申请（status=0, application_type=1 EXISTING_USER）
+        createTestUser(2L, "user2", "123456", "user2@example.com");
+        createOrganization(2L, "组织2");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
+        createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, 0, 1, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
+        );
+        String token2 = loginAs("user2", "123456");
+
+        Response response = authRequest(token2)
+                .body(Map.of("inviteCode", inviteCode))
+                .post("/app/user/organizations/join-by-invite");
+
+        response.then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
     // ========== 认证失败 ==========
 
     /**

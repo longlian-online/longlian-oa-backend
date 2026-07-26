@@ -41,8 +41,9 @@ jobs:
         continue-on-error: true
 
       - name: Report results to DeepSource
+        # 测试失败时也要上报，否则 DeepSource 上的覆盖率会停留在上一次成功的值
+        if: always()
         run: |
-          echo $DEEPSOURCE_COMMIT_SHA
           # 安装CLI
           curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
 
