@@ -57,6 +57,10 @@ case "$ACTION" in
     check_env
     $ATLAS schema inspect --env prod
     ;;
+  update_schema)
+    check_env
+    $ATLAS schema inspect --env prod --format "{{ sql .}}" > schema.sql
+    ;;
   *)
     echo "用法: $0 [apply|plan|inspect]" >&2
     exit 1
