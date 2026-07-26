@@ -25,7 +25,7 @@
         <url/>
     </scm>
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
     </properties>
     <dependencies>
         <dependency>
@@ -51,8 +51,8 @@
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-            <version>3.5.15</version>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+            <version>3.5.16</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -66,16 +66,16 @@
         <dependency>
             <groupId>com.qcloud</groupId>
             <artifactId>cos_api</artifactId>
-            <version>5.6.227</version>
+            <version>5.6.273</version>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
-            <version>3.5.15</version>
+            <version>3.5.16</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
+            <artifactId>druid-spring-boot-4-starter</artifactId>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>
@@ -145,11 +145,17 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Jackson 2 兼容模块（Spring Boot 4 默认使用 Jackson 3） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson2</artifactId>
+        </dependency>
+
         <!-- Source: https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-api -->
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
-            <version>1.60.1</version>
+            <version>1.64.0</version>
             <scope>compile</scope>
         </dependency>
 

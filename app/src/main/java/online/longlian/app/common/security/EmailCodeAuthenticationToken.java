@@ -4,6 +4,7 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * 邮箱验证码认证令牌
@@ -14,7 +15,7 @@ public class EmailCodeAuthenticationToken extends AbstractAuthenticationToken {
 
     // 1. 认证前构造器：未认证状态
     public EmailCodeAuthenticationToken(String email, String code) {
-        super(null);
+        super(List.of());
         this.principal = email;
         this.credentials = code;
         setAuthenticated(false);

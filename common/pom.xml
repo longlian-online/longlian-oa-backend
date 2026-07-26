@@ -13,7 +13,7 @@
     <description>公共模块：枚举、注解、工具类</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
     </properties>
 
     <dependencies>
