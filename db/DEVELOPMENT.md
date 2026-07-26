@@ -66,14 +66,6 @@ curl -sSf https://atlasgo.sh | sh
 # 4. 提交 schema.sql 到 Git
 ```
 
-### 一键准备开发环境
-
-```bash
-task dev-prepare
-```
-
-这会启动 MySQL 和 Redis 容器、创建暂存库、同步表结构、导入种子数据。连接信息由该任务内部注入（`localhost:10001` / `longlian_oa_dev`），无需手动 export。
-
 ## 命令说明
 
 | 命令 | 说明 |
@@ -82,7 +74,7 @@ task dev-prepare
 | `./db/migrate.sh apply` | 将 schema.sql 声明的状态同步到数据库 |
 | `./db/migrate.sh inspect` | 查看数据库当前 schema 状态 |
 
-底层等价命令（需自行 export 环境变量，且 `--env` 必须传，值任意）：
+底层等价命令（需自行 export 环境变量，且 `--env` 必须传，local/prod）：
 
 ```bash
 cd db
