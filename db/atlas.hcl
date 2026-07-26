@@ -7,33 +7,26 @@
 variable "db_url" {
   type        = string
   description = "目标数据库连接地址"
-  default     = "mysql://root:dev@localhost:10001/longlian_oa_dev"
+  default     = getenv("DB_URL")
 }
 
 variable "dev_db_url" {
   type        = string
   description = "开发数据库地址（用于 diff 计算，需要可创建临时 schema）"
-  default     = "mysql://root:dev@localhost:10001/dev"
+  default     = getenv("DEV_DB_URL")
 }
 
 env "local" {
   src = "file://schema.sql"
   dev = var.dev_db_url
   url = var.db_url
-
-  diff {
-    skip {
-      drop_schema = true
-      drop_table  = true
-    }
-  }
 }
 
 // 生产环境：通过环境变量注入数据库地址
 env "prod" {
   src = "file://schema.sql"
-  dev = "mysql://root:${MYSQL_ROOT_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/dev"
-  url = "mysql://root:${MYSQL_ROOT_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
+  dev = var.dev_db_url
+  url = var.db_url
 
   diff {
     skip {
