@@ -42,7 +42,6 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         Admin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>()
                         .eq(Admin::getUsername, params.getUsername())
-                        .isNull(Admin::getDeletedAt)
                         .last("LIMIT 1")
         );
 

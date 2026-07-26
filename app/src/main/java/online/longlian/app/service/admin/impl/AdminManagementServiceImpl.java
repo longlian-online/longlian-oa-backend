@@ -124,7 +124,6 @@ public class AdminManagementServiceImpl implements AdminManagementService {
 
         Page<Admin> adminPage = new LambdaQueryChainWrapper<>(this.adminMapper)
                 .select(Admin::getId, Admin::getUsername, Admin::getRole, Admin::getLastLoginAt, Admin::getCreatedAt)
-                .isNull(Admin::getDeletedAt)
                 .orderByDesc(Admin::getCreatedAt)
                 .page(page);
 

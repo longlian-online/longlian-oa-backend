@@ -87,7 +87,6 @@ public class ItemServiceImpl implements ItemService {
         List<TaskTemplateNode> templateNodes = taskTemplateNodeMapper.selectList(
                 new LambdaQueryWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTaskTemplateId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
                         .orderByAsc(TaskTemplateNode::getSort)
                         .orderByAsc(TaskTemplateNode::getParallelSort));
 
@@ -174,7 +173,6 @@ public class ItemServiceImpl implements ItemService {
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
-                        .isNull(Item::getDeletedAt)
                         .set(Item::getDeletedAt, now)
                         .set(Item::getUpdatedAt, now));
         if (updated == 0) {

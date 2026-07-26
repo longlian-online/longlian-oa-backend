@@ -78,7 +78,6 @@ public class WorkshopAssembler {
         Map<Long, List<TaskTemplateNode>> nodeMap = taskTemplateNodeMapper.selectList(
                         new LambdaQueryWrapper<TaskTemplateNode>()
                                 .in(TaskTemplateNode::getTaskTemplateId, templateIds)
-                                .isNull(TaskTemplateNode::getDeletedAt)
                                 .orderByAsc(TaskTemplateNode::getSort)
                                 .orderByAsc(TaskTemplateNode::getParallelSort))
                 .stream()

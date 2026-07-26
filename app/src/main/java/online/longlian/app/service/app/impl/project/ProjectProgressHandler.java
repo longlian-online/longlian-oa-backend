@@ -32,8 +32,7 @@ public class ProjectProgressHandler {
         List<Object> itemIdObjs = itemMapper.selectObjs(
                 new LambdaQueryWrapper<Item>()
                         .select(Item::getId)
-                        .eq(Item::getProjectId, projectId)
-                        .isNull(Item::getDeletedAt));
+                        .eq(Item::getProjectId, projectId));
 
         if (itemIdObjs.isEmpty()) {
             return ProjectProgressBO.builder()
@@ -55,13 +54,11 @@ public class ProjectProgressHandler {
         long claimedCount = taskInstanceMapper.selectCount(
                 new LambdaQueryWrapper<TaskInstance>()
                         .in(TaskInstance::getItemId, itemIds)
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .isNull(TaskInstance::getDeletedAt));
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED));
         long pendingCount = taskInstanceMapper.selectCount(
                 new LambdaQueryWrapper<TaskInstance>()
                         .in(TaskInstance::getItemId, itemIds)
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
-                        .isNull(TaskInstance::getDeletedAt));
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING));
 
         return ProjectProgressBO.builder()
                 .progressPercent(progressPercent)
@@ -76,7 +73,6 @@ public class ProjectProgressHandler {
                 new LambdaQueryWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
-                        .isNull(ProjectWorkshop::getDeletedAt)
         ) > 0;
         if (exists) {
             return;

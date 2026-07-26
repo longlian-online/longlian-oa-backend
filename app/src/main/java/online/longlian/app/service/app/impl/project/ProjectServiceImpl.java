@@ -209,7 +209,6 @@ public class ProjectServiceImpl implements ProjectService {
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
-                        .isNull(ProjectWorkshop::getDeletedAt)
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
     }

@@ -55,7 +55,6 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
         List<ItemTaskNode> nodes = itemTaskNodeMapper.selectList(
                 new LambdaQueryWrapper<ItemTaskNode>()
                         .eq(ItemTaskNode::getItemTaskFlowId, flow.getId())
-                        .isNull(ItemTaskNode::getDeletedAt)
                         .orderByAsc(ItemTaskNode::getSort)
                         .orderByAsc(ItemTaskNode::getParallelSort));
 
@@ -64,8 +63,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
                 ? Collections.emptyList()
                 : taskInstanceMapper.selectList(
                         new LambdaQueryWrapper<TaskInstance>()
-                                .in(TaskInstance::getItemTaskNodeId, nodeIds)
-                                .isNull(TaskInstance::getDeletedAt));
+                                .in(TaskInstance::getItemTaskNodeId, nodeIds));
 
         return ItemTaskFlowVO.builder()
                 .name(flow.getName())

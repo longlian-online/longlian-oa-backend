@@ -43,7 +43,6 @@ public class BaseTaskAssembler {
         List<TaskTemplateNode> nodes = taskTemplateNodeMapper.selectList(
                 new LambdaQueryWrapper<TaskTemplateNode>()
                         .in(TaskTemplateNode::getBaseTaskId, baseTaskIds)
-                        .isNull(TaskTemplateNode::getDeletedAt)
         );
         Map<Long, Long> refCountMap = nodes.stream()
                 .collect(Collectors.groupingBy(TaskTemplateNode::getBaseTaskId, Collectors.counting()));

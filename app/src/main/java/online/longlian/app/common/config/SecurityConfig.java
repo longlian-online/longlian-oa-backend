@@ -48,6 +48,7 @@ public class SecurityConfig {
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SecurityConstants.getPermitAllMatchers()).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/common/file/local").permitAll()
                         .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()
                 )

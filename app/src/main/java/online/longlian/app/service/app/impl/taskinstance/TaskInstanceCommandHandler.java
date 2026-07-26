@@ -210,7 +210,6 @@ public class TaskInstanceCommandHandler {
                 new LambdaQueryWrapper<ItemTaskNode>()
                         .eq(ItemTaskNode::getItemTaskFlowId, instance.getTaskFlowId())
                         .gt(ItemTaskNode::getSort, currentNode.getSort())
-                        .isNull(ItemTaskNode::getDeletedAt)
                         .orderByAsc(ItemTaskNode::getSort));
         if (laterNodes.isEmpty()) {
             return false;
@@ -225,8 +224,7 @@ public class TaskInstanceCommandHandler {
         Long claimedCount = taskInstanceMapper.selectCount(
                 new LambdaQueryWrapper<TaskInstance>()
                         .in(TaskInstance::getItemTaskNodeId, nextStageNodeIds)
-                        .eq(TaskInstance::getAssigneeId, userId)
-                        .isNull(TaskInstance::getDeletedAt));
+                        .eq(TaskInstance::getAssigneeId, userId));
         return claimedCount != null && claimedCount > 0;
     }
 }

@@ -5,11 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
-import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.TokenType;
-import online.longlian.common.enumeration.Status;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,7 +24,6 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final UserDetailsServiceImpl userDetailsService;
-    private final UserMapper userMapper;
 
     @Override
     public String supportedType() {
@@ -36,19 +32,14 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
 
     @Override
     public Authentication authenticate(long subjectId) {
-        ensureUserEnabled(subjectId);
         UserDetailImpl userDetail = getCachedUserDetail(subjectId);
         if (userDetail == null) {
             userDetail = (UserDetailImpl) userDetailsService.loadUserById(subjectId);
         }
-        return new UsernamePasswordAuthenticationToken(userDetail, null, userDetail.getAuthorities());
-    }
-
-    private void ensureUserEnabled(long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null || user.getStatus() != Status.ENABLED) {
+        if (userDetail == null || !userDetail.isEnabled()) {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
+        return new UsernamePasswordAuthenticationToken(userDetail, null, userDetail.getAuthorities());
     }
 
     private UserDetailImpl getCachedUserDetail(Long userId) {

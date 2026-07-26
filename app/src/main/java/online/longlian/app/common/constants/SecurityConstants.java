@@ -17,6 +17,7 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/swagger-ui/**"),
             new AntPathRequestMatcher("/v3/api-docs/**"),
             new AntPathRequestMatcher("/swagger-resources/**"),
+            new AntPathRequestMatcher("/common/file/local", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/error")
     };
 

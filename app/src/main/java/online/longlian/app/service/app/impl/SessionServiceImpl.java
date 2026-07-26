@@ -105,6 +105,12 @@ public class SessionServiceImpl implements SessionService {
         return getCurrentUser().getId();
     }
 
+    @Override
+    public void clearUserSessionCache(Long userId) {
+        redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
+        currentOrganizationService.clearCurrentOrg(userId);
+    }
+
     private SessionLoginResultBO doLogin(Authentication authentication) {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();

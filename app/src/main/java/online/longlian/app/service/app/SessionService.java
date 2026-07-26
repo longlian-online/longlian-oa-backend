@@ -68,4 +68,15 @@ public interface SessionService {
      * @return 当前登录用户的 ID
      */
     Long getCurrentUserId();
+
+    /**
+     * 清除用户会话缓存。
+     * <p>
+     * 当用户被禁用时调用，确保下一次请求该用户的 Token 将因缓存未命中而触发
+     * {@link online.longlian.app.common.security.UserDetailsServiceImpl#loadUserById} 重新从 DB 加载，
+     * 从而校验到最新的禁用状态。
+     *
+     * @param userId 用户 ID
+     */
+    void clearUserSessionCache(Long userId);
 }
