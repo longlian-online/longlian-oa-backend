@@ -2,18 +2,18 @@ package online.longlian.app.api.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.support.EncodedResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -23,7 +23,6 @@ public class DatabaseCleanupUtil {
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
-    private final ResourcePatternResolver resourcePatternResolver;
 
     public void initSchema() {
         verifyDatabaseConnection();
@@ -37,25 +36,29 @@ public class DatabaseCleanupUtil {
             return;
         }
 
-        log.info("开始执行测试数据库建表脚本...");
-        try {
-            Resource[] resources = resourcePatternResolver.getResources("classpath*:manifest/migrate/*.sql");
-            List<Resource> sortedResources = Arrays.stream(resources)
-                    .sorted(Comparator.comparing(Resource::getFilename))
-                    .toList();
-
-            for (Resource resource : sortedResources) {
-                log.info("执行迁移文件: {}", resource.getFilename());
-                try (Connection conn = dataSource.getConnection()) {
-                    ScriptUtils.executeSqlScript(conn, resource);
-                }
-            }
+        Path schemaFile = findSchemaFile();
+        log.info("开始执行测试数据库建表脚本: {}", schemaFile);
+        try (Connection conn = dataSource.getConnection()) {
+            ScriptUtils.executeSqlScript(
+                    conn,
+                    new EncodedResource(new FileSystemResource(schemaFile), StandardCharsets.UTF_8)
+            );
             log.info("建表脚本执行完毕");
-        } catch (IOException e) {
-            throw new RuntimeException("扫描迁移文件失败", e);
         } catch (SQLException e) {
             throw new RuntimeException("测试数据库建表失败", e);
         }
+    }
+
+    private Path findSchemaFile() {
+        Path currentDirectory = Path.of("").toAbsolutePath();
+        while (currentDirectory != null) {
+            Path schemaFile = currentDirectory.resolve("db/schema.sql");
+            if (Files.isRegularFile(schemaFile)) {
+                return schemaFile;
+            }
+            currentDirectory = currentDirectory.getParent();
+        }
+        throw new IllegalStateException("未找到 db/schema.sql，当前测试工作目录: " + Path.of("").toAbsolutePath());
     }
 
     private void verifyDatabaseConnection() {

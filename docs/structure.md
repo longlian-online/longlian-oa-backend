@@ -44,9 +44,11 @@ longlian-oa-backend/
 
 ## 数据库
 
-数据库迁移文件位于 `app/src/main/resources/manifest/migrate/`
+数据库使用 Atlas 声明式管理，文件位于根目录 `db/`
 
-命名规范：`v{主版本}-{次版本}-{修订版本}.sql`
+- 期望状态：`db/schema.sql`（唯一真实来源）
+- CI 脚本：`db/migrate.sh`
+- 开发文档：`db/DEVELOPMENT.md`
 
 主要表结构：
 - **RBAC**: permission, role, role_permission, user, user_role

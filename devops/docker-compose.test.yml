@@ -52,8 +52,8 @@ services:
       - ..:/app
       # 挂载 settings.xml（阿里云镜像）
       - ../settings.xml:/usr/share/maven/conf/settings.xml
-      # 持久化 Maven 依赖缓存
-      - maven-repo:/root/.m2
+      # 本地默认使用 named volume；CI 可通过 MAVEN_REPOSITORY 挂载可缓存的宿主机目录
+      - ${MAVEN_REPOSITORY:-maven-repo}:/root/.m2
     working_dir: /app
     entrypoint:
       - sh

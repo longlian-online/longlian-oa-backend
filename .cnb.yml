@@ -16,8 +16,21 @@ sit:
           exports:
             info: CURRENT_VERSION_TAG
 
+        - name: get latest migration version tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:migration-latest"
+          exports:
+            info: LATEST_MIGRATION_VERSION_TAG
+
+        - name: get current migration version tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_COMMIT_SHORT}-migration"
+          exports:
+            info: CURRENT_MIGRATION_VERSION_TAG
+
         - name: build and push multi-arch docker image
           script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile -t "$LATEST_VERSION_TAG" -t "$CURRENT_VERSION_TAG" --push .
+
+        - name: build and push multi-arch migration docker image
+          script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile.migration -t "$LATEST_MIGRATION_VERSION_TAG" -t "$CURRENT_MIGRATION_VERSION_TAG" --push .
 
 $:
   tag_push:
@@ -30,5 +43,13 @@ $:
           exports:
             info: IMAGE_TAG
 
+        - name: get migration image tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH}-migration"
+          exports:
+            info: MIGRATION_IMAGE_TAG
+
         - name: build and push multi-arch docker image
           script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile -t "$IMAGE_TAG" --push .
+
+        - name: build and push multi-arch migration docker image
+          script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile.migration -t "$MIGRATION_IMAGE_TAG" --push .
