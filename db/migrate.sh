@@ -22,7 +22,7 @@ if command -v atlas >/dev/null 2>&1; then
   ATLAS="atlas"
 elif command -v docker >/dev/null 2>&1; then
   ATLAS="docker run --rm -v ${SCRIPT_DIR}:/work -w /work --network=host \
-    -e DB_URL -e DEV_DB_URL arigaio/atlas:latest"
+    -e DB_URL -e DEV_DB_URL arigaio/atlas:1.2.3"
 else
   echo "错误: 需要安装 atlas CLI 或 docker" >&2
   exit 1
