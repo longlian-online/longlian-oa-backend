@@ -9,7 +9,7 @@
 ### 为什么选择声明式
 
 - 只维护一份 `schema.sql`，无需管理版本化迁移文件
-- 修改表结构 = 编辑 `schema.sql` + 执行 `./db/migrate.sh apply`
+- 修改表结构 = 编辑 `schema.sql` + 在开发环境执行 `./db/migrate.sh dev apply`
 - Atlas 自动计算差异，避免手写 ALTER 语句
 - 多环境始终收敛到同一期望状态，无漂移
 - 轻量级：单二进制 / 小体积 Docker 镜像，无需 JVM
@@ -20,7 +20,7 @@
 db/
 ├── DEVELOPMENT.md          # 本文件
 ├── .gitignore              # 忽略本地配置
-├── atlas.hcl               # Atlas 配置（单环境，连接从环境变量读取）
+├── atlas.hcl               # Atlas 配置（dev/prod 环境，连接从环境变量读取）
 ├── schema.sql              # 期望 schema 状态（唯一真实来源）
 ├── migrate.sh              # 同步脚本（本地 / CI 共用）
 └── seed/                   # 开发环境种子数据
@@ -29,7 +29,7 @@ db/
 
 ## 配置连接
 
-`atlas.hcl` 只有一个环境，连接信息全部从环境变量读取，**不内置任何默认值**。使用前必须 export：
+`atlas.hcl` 定义 `dev`、`prod` 两个环境，连接信息全部从环境变量读取，**不内置任何默认值**。使用前必须 export：
 
 ```bash
 export DB_URL="mysql://root:pass@localhost:3306/longlian_oa"
@@ -60,27 +60,42 @@ curl -sSf https://atlasgo.sh | sh
 ```bash
 # 1. 编辑 schema.sql，改成期望的表结构
 # 2. 预览将执行的 SQL（不改库）
-./db/migrate.sh plan
-# 3. 应用到数据库
-./db/migrate.sh apply
+./db/migrate.sh dev plan
+# 3. 应用到开发数据库
+./db/migrate.sh dev apply
 # 4. 提交 schema.sql 到 Git
 ```
+
+开发环境允许删除已从 `schema.sql` 移除的 Schema、表、字段、索引和外键，因此只能指向可安全重建的开发数据库。
+
+### 生产变更
+
+```bash
+# 1. 必须先审核生产环境将执行的 SQL
+./db/migrate.sh prod plan
+# 2. 确认后再同步生产数据库
+./db/migrate.sh prod apply
+```
+
+生产环境会跳过删除 Schema、表、字段、索引和外键的操作。即使对象已从 `schema.sql` 移除，它们也会继续保留在生产数据库中；需要删除时应走单独、经审核的人工变更流程。
 
 ## 命令说明
 
 | 命令 | 说明 |
 |---|---|
-| `./db/migrate.sh plan` | 预览将执行的 SQL，不改动数据库 |
-| `./db/migrate.sh apply` | 将 schema.sql 声明的状态同步到数据库 |
-| `./db/migrate.sh inspect` | 查看数据库当前 schema 状态 |
+| `./db/migrate.sh dev plan` | 预览开发环境变更，不改动数据库 |
+| `./db/migrate.sh dev apply` | 将开发数据库完整同步到 `schema.sql`，允许删除废弃对象 |
+| `./db/migrate.sh prod plan` | 预览生产环境变更，不改动数据库 |
+| `./db/migrate.sh prod apply` | 同步生产数据库，但不自动删除 Schema、表、字段、索引和外键 |
+| `./db/migrate.sh <dev\|prod> inspect` | 查看指定环境的当前结构 |
 
-底层等价命令（需自行 export 环境变量，且 `--env` 必须传，local/prod）：
+底层等价命令（需自行 export 环境变量，且 `--env` 必须传）：
 
 ```bash
 cd db
-atlas schema apply --env local --dry-run   # 对应 plan
-atlas schema apply --env local             # 交互确认后执行
-atlas schema inspect --env local           # 对应 inspect
+atlas schema apply --env dev --dry-run   # 对应开发环境 plan
+atlas schema apply --env dev             # 对应开发环境 apply
+atlas schema inspect --env prod           # 查看生产环境结构
 ```
 
 ### 为什么用 `apply --dry-run` 而不是 `schema diff`
@@ -94,15 +109,20 @@ atlas schema inspect --env local           # 对应 inspect
 ```bash
 export DB_URL="mysql://user:pass@host:3306/dbname"
 export DEV_DB_URL="mysql://user:pass@host:3306/dev"
-./db/migrate.sh apply
+./db/migrate.sh prod apply
 ```
 
 `apply` 在脚本中使用 `--auto-approve`，不会交互提示。
 
+## API 测试建表
+
+API 测试在测试数据库为空时会直接执行根目录的 `db/schema.sql` 建表。Atlas 声明式模式不再维护独立的 `manifest/migrate/*.sql` 版本化迁移文件，因此不要新增第二份测试建表脚本。
+
 ## 注意事项
 
 - `schema.sql` 是唯一真实来源，所有表结构变更必须通过修改此文件完成
-- `diff.skip` 配置了 `drop_schema = true` 和 `drop_table  = true`，从 `schema.sql` 删掉表**不会**触发 DROP。这是防误删的唯一屏障，且没有命令行等价 flag —— 不要绕过 `atlas.hcl` 直接用裸 flag 跑 apply
-- 字段级删除不受 `diff.skip` 保护，删列前先 `plan` 确认
+- `dev` 没有删除保护，执行前确认 `DB_URL` 指向可安全重建的开发数据库
+- `prod` 的 `diff.skip` 会阻止删除 Schema、表、字段、索引和外键；不要绕过 `atlas.hcl` 直接执行裸 Atlas 命令
+- 字段类型等非删除变更仍可能影响数据，生产环境始终先执行 `prod plan`
 - 种子数据（`seed/`）不纳入 schema 管理，仅用于开发环境初始化
 - 每次变更前建议先 `git pull` 获取最新的 `schema.sql`

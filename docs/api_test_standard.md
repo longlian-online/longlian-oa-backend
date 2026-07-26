@@ -8,7 +8,7 @@
 src/test/java/online/longlian/app/api/
 ├── BaseApiTest.java                    # 测试基类（不允许直接修改）
 ├── util/                               # 测试工具类
-│   └── DatabaseCleanupUtil.java
+│   └── DatabaseCleanupUtil.java        # 执行根目录 db/schema.sql 建表并清理测试数据
 └── {模块名}/
     └── {功能名}ApiTest.java           # 按模块/功能分组
 ```
@@ -417,7 +417,7 @@ void shouldDeleteXxx() { createXxx(); /* 再创建一个用于删除 */ }
 
 ### 9.1 测试失败时
 
-1. 检查 `BaseApiTest` 是否正确初始化（`@BeforeAll` initSchema）
+1. 检查 `BaseApiTest` 是否正确初始化（`@BeforeAll` 调用 `initSchema` 执行 `db/schema.sql`）
 2. 确认测试数据库配置（`@ActiveProfiles("test")`）
 3. 查看 `DatabaseCleanupUtil` 是否正确清空表
 4. 检查 ID 分配是否冲突

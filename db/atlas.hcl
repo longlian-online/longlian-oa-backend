@@ -1,8 +1,5 @@
-// Atlas 配置 — 声明式数据库管理
-// 文档: https://atlasgo.io/concepts/config
-//
-// 声明式模式：schema.sql 为唯一真实来源，
-// atlas schema apply 自动计算差异并同步数据库。
+// Atlas 配置 — 声明式数据库管理。
+// schema.sql 是唯一真实来源；dev 可完整收敛，prod 不自动删除已有对象。
 
 variable "db_url" {
   type        = string
@@ -12,17 +9,18 @@ variable "db_url" {
 
 variable "dev_db_url" {
   type        = string
-  description = "开发数据库地址（用于 diff 计算，需要可创建临时 schema）"
+  description = "Atlas 暂存数据库地址（用于 diff 计算，必须是可丢弃的专用空库）"
   default     = getenv("DEV_DB_URL")
 }
 
-env "local" {
+// 开发环境允许删除废弃对象，使数据库完整收敛到 schema.sql。
+env "dev" {
   src = "file://schema.sql"
   dev = var.dev_db_url
   url = var.db_url
 }
 
-// 生产环境：通过环境变量注入数据库地址
+// 生产环境不自动删除对象，避免 schema.sql 的误删直接造成数据丢失。
 env "prod" {
   src = "file://schema.sql"
   dev = var.dev_db_url
@@ -30,8 +28,11 @@ env "prod" {
 
   diff {
     skip {
-      drop_schema = true
-      drop_table  = true
+      drop_schema      = true
+      drop_table       = true
+      drop_column      = true
+      drop_index       = true
+      drop_foreign_key = true
     }
   }
 }
