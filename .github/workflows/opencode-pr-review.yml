@@ -18,6 +18,34 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Minimize previous bot review comments
+        if: github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "Cleaning up old review comments on PR #$PR_NUMBER..."
+
+          gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments?per_page=100" \
+            --jq '.[] | select(.user.login | test("bot\]$|opencode")) | .node_id' \
+            > /tmp/bot_comment_ids.txt
+
+          COUNT=$(wc -l < /tmp/bot_comment_ids.txt)
+          echo "Found $COUNT bot comments to minimize"
+
+          while read -r node_id; do
+            [ -z "$node_id" ] && continue
+            gh api graphql -f query='
+              mutation($id: ID!) {
+                minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
+                  minimizedComment { isMinimized }
+                }
+              }
+            ' -f id="$node_id" --silent || true
+          done < /tmp/bot_comment_ids.txt
+
+          echo "Done. $COUNT comments minimized."
+
       - name: Run opencode review
         uses: anomalyco/opencode/github@latest
         env:
