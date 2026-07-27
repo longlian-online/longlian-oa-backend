@@ -27,7 +27,7 @@ jobs:
           echo "Cleaning up old review comments on PR #$PR_NUMBER..."
 
           gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments?per_page=100" \
-            --jq '.[] | select(.user.login | test("bot\]$|opencode")) | .node_id' \
+            --jq '.[] | select(.user.login | contains("[bot]") or contains("opencode")) | .node_id' \
             > /tmp/bot_comment_ids.txt
 
           COUNT=$(wc -l < /tmp/bot_comment_ids.txt)
