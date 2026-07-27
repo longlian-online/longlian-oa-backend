@@ -3,8 +3,6 @@ server:
 
 longlian:
   display-name: "longlian-oa" # 用于展示的系统名称
-  datasource:
-    type: ${DATASOURCE_TYPE:postgresql}  # mysql / sqlite / postgresql
   cache:
     type: ${CACHE_TYPE:redis}       # redis 或 local
 
@@ -18,10 +16,10 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
-  # MySQL 配置
+  # PostgreSQL 配置
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?stringtype=unspecified
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     druid:
@@ -54,12 +52,6 @@ spring:
             enable: ${MAIL_STARTTLS}
           ssl:
             enable: ${MAIL_SSL}
-
-# SQLite 配置
-sqlite:
-  datasource:
-    driver-class-name: org.sqlite.JDBC
-    url: ${SQLITE_URL}
 
 mybatis-plus:
   global-config:
