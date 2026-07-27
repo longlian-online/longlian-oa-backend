@@ -1,8 +1,6 @@
 package online.longlian.app.common.config;
 
 import com.alibaba.druid.pool.DruidDataSource;
-import com.alibaba.druid.wall.WallConfig;
-import com.alibaba.druid.wall.WallFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -10,8 +8,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
-import java.sql.SQLException;
-import java.util.List;
 
 @Configuration
 public class DataSourceConfig {
@@ -43,13 +39,12 @@ public class DataSourceConfig {
             @Value("${DB_DATABASE}") String database,
             @Value("${DB_USERNAME}") String username,
             @Value("${DB_PASSWORD}") String password
-    ) throws SQLException {
+    ) {
         DruidDataSource ds = new DruidDataSource();
         ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
         ds.setUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false");
         ds.setUsername(username);
         ds.setPassword(password);
-        ds.setProxyFilters(List.of(wallFilter("mysql")));
         return ds;
     }
 
@@ -66,22 +61,12 @@ public class DataSourceConfig {
             @Value("${DB_DATABASE}") String database,
             @Value("${DB_USERNAME}") String username,
             @Value("${DB_PASSWORD}") String password
-    ) throws SQLException {
+    ) {
         DruidDataSource ds = new DruidDataSource();
         ds.setDriverClassName("org.postgresql.Driver");
         ds.setUrl("jdbc:postgresql://" + host + ":" + port + "/" + database);
         ds.setUsername(username);
         ds.setPassword(password);
-        ds.setProxyFilters(List.of(wallFilter("postgresql")));
         return ds;
-    }
-
-    private WallFilter wallFilter(String dbType) {
-        WallFilter wallFilter = new WallFilter();
-        WallConfig config = new WallConfig();
-        config.setMultiStatementAllow(true);
-        wallFilter.setConfig(config);
-        wallFilter.setDbType(dbType);
-        return wallFilter;
     }
 }
