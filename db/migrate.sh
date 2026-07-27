@@ -7,8 +7,8 @@
 #   DEV_DB_URL   - Atlas 暂存库地址 (必须，会被反复清空，须为专用空库)
 #
 # 示例:
-#   export DB_URL="mysql://root:pass@db:3306/longlian_oa"
-#   export DEV_DB_URL="mysql://root:pass@db:3306/longlian_oa_diff"
+#   export DB_URL="postgresql://postgres:pass@localhost:5432/longlian_oa"
+#   export DEV_DB_URL="postgresql://postgres:pass@localhost:5432/longlian_oa_diff"
 #   ./db/migrate.sh dev plan    # 预览开发环境变更
 #   ./db/migrate.sh dev apply   # 开发环境完整同步，允许删除废弃对象
 #   ./db/migrate.sh prod plan   # 生产环境变更预览

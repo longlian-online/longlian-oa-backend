@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class MybatisPlusConfig {
 
-    @Value("${longlian.datasource.type:mysql}")
+    @Value("${longlian.datasource.type:postgresql}")
     private String datasourceType;
 
     @Bean
@@ -24,6 +24,7 @@ public class MybatisPlusConfig {
     private DbType resolveDbType(String type) {
         return switch (type.toLowerCase()) {
             case "mysql" -> DbType.MYSQL;
+            case "postgresql" -> DbType.POSTGRE_SQL;
             case "sqlite" -> DbType.SQLITE;
             default -> throw new IllegalArgumentException("不支持的数据库类型: " + type);
         };

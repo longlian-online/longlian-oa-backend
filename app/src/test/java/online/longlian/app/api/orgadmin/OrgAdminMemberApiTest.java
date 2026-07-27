@@ -40,7 +40,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         // 插入待审核的入组申请
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                "INSERT INTO group_application (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 0L, 0, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
         );
@@ -66,7 +66,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                "INSERT INTO group_application (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 0L, 0, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
         );
@@ -93,7 +93,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         // status=1 → APPROVED，非 PENDING
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                "INSERT INTO group_application (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 0L, 1, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
         );
@@ -122,13 +122,13 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         // user2 已是 org1 的成员
         createTestUser(2L, "user2", "123456", "user2@example.com");
         jdbcTemplate.update(
-                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
+                "INSERT INTO organization_member (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
                 2L, 1L, 2L, "MEMBER"
         );
 
         // PENDING 申请，application_type=1 EXISTING_USER，user_id=2（已是成员）
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                "INSERT INTO group_application (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 2L, 0, 1, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
         );

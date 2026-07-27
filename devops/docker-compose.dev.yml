@@ -1,23 +1,22 @@
 # 开发环境
 
 services:
-  mysql-dev:
-    image: mysql:8.0
-    container_name: longlian-oa-mysql-dev
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: longlian-oa-postgres-dev
     environment:
-      MYSQL_ROOT_PASSWORD: dev 
-      MYSQL_DATABASE: longlian_oa_dev
-    command: --default-authentication-plugin=mysql_native_password
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: longlian_oa_dev
     ports:
-      - "10001:3306"
+      - "10001:5432"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 3s
       timeout: 5s
       retries: 10
-      start_period: 15s
+      start_period: 10s
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
   redis-dev:
     image: redis:7-alpine
     container_name: longlian-oa-redis-dev
@@ -39,9 +38,9 @@ services:
     ports:
       - "10003:8080"
     depends_on:
-      mysql-dev:
+      postgres-dev:
         condition: service_healthy
       redis-dev:
         condition: service_healthy
 volumes:
-  mysql_data:
+  postgres_data:

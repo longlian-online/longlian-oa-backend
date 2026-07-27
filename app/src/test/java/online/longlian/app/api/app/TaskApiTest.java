@@ -22,7 +22,7 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
+                "INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "模板1", "描述", 1, 1, 1L
         );
@@ -62,43 +62,43 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, null, 1
         );
@@ -138,43 +138,43 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, null, 1
         );
@@ -214,43 +214,43 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, null, 1
         );
@@ -289,43 +289,43 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 2
         );
@@ -366,43 +366,43 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 2
         );
@@ -439,67 +439,67 @@ public class TaskApiTest extends BaseApiTest {
     void shouldRejectTaskSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "reviewer", "123456", "reviewer@example.com");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        jdbcTemplate.update("UPDATE app_user SET default_org_id = ? WHERE id = ?", 1L, 2L);
         createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
         String token = loginAs("reviewer", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         // 打回权限要求操作人是「下一阶段执行人」：创建第二阶段节点并由 reviewer(用户2) 接取其任务实例
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 2L, 1L, 1L, 1L, 1L, "节点2", "[]", 2, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 2L, 1L, 1L, 2L, 1L, 2L, 2
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
@@ -523,43 +523,43 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3
         );
@@ -604,49 +604,49 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
@@ -757,7 +757,7 @@ public class TaskApiTest extends BaseApiTest {
 
         insertBaseTaskData();
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 2 // status=2 CLAIMED
         );
@@ -780,7 +780,7 @@ public class TaskApiTest extends BaseApiTest {
 
         insertBaseTaskData();
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, null, 1 // status=1 PENDING
         );
@@ -803,7 +803,7 @@ public class TaskApiTest extends BaseApiTest {
 
         insertBaseTaskData();
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 999L, 2 // status=2 CLAIMED，接取人为 999，非当前用户1
         );
@@ -826,7 +826,7 @@ public class TaskApiTest extends BaseApiTest {
 
         insertBaseTaskData();
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 2 // status=2 CLAIMED，非 COMPLETED
         );
@@ -850,12 +850,12 @@ public class TaskApiTest extends BaseApiTest {
         insertBaseTaskData();
         // 当前用户(id=1)既是接取人，也是打回发起人 → 不能打回自己的任务
         jdbcTemplate.update(
-                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, 3 // status=3 COMPLETED，接取人=1
         );
         jdbcTemplate.update(
-                "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
@@ -893,32 +893,32 @@ public class TaskApiTest extends BaseApiTest {
      */
     private void insertBaseTaskData() {
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                "INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, "任务流", "描述"
         );
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );

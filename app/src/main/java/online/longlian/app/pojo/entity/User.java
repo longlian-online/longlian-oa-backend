@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 @NoArgsConstructor
-@TableName("user")
+@TableName("app_user")
 @AllArgsConstructor
 @ApiModel(value = "User对象", description = "系统用户表")
 public class User implements Serializable {

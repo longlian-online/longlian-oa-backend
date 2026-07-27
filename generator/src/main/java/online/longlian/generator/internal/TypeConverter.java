@@ -13,7 +13,9 @@ public class TypeConverter implements ITypeConvertHandler {
     @Override
     public IColumnType convert(GlobalConfig globalConfig, TypeRegistry typeRegistry, TableField.MetaInfo metaInfo) {
 
-        if (metaInfo.getTypeName().equals("TINYINT")) {
+        String typeName = metaInfo.getTypeName().toUpperCase();
+        // MySQL: TINYINT, PostgreSQL: int2 (smallint)
+        if (typeName.equals("TINYINT") || typeName.equals("INT2") || typeName.equals("SMALLINT")) {
             var key = new EnumFieldMeta(metaInfo.getTableName(), metaInfo.getColumnName());
             var enumTypeConvertMap = getEnumTypeConvertMap();
 
@@ -21,7 +23,7 @@ public class TypeConverter implements ITypeConvertHandler {
                 var value = enumTypeConvertMap.get(key);
                 return new ModelEnumMeta(value.getType(), value.getPkg());
             } else {
-                System.out.printf("表{%s}字段{%s}为TINYINT类型，但是不存在对应的枚举类型，请核对是否无误!\n", metaInfo.getTableName(), metaInfo.getColumnName());
+                System.out.printf("表{%s}字段{%s}为TINYINT/SMALLINT类型，但是不存在对应的枚举类型，请核对是否无误!\n", metaInfo.getTableName(), metaInfo.getColumnName());
             }
         }
 

@@ -43,19 +43,19 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `project_workshop` (id, project_id, user_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+                "INSERT INTO project_workshop (id, project_id, user_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L
         );
 
@@ -103,7 +103,7 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );
@@ -133,13 +133,13 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
+                "INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "模板", "描述", 1, 1, 1L
         );
@@ -308,7 +308,7 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO base_task (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );

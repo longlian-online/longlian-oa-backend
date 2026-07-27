@@ -28,7 +28,7 @@ public class DatabaseCleanupUtil {
         verifyDatabaseConnection();
 
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'user'",
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'app_user'",
                 Integer.class
         );
         if (count != null && count > 0) {
@@ -82,7 +82,7 @@ public class DatabaseCleanupUtil {
                 }
             }
         }
-        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 MySQL 和 Redis 服务是否正常运行");
+        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 PostgreSQL 和 Redis 服务是否正常运行");
     }
 
     public void truncateAllTables() {
@@ -92,21 +92,19 @@ public class DatabaseCleanupUtil {
             return;
         }
 
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String table : tableNames) {
             try {
-                jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
+                jdbcTemplate.execute("TRUNCATE TABLE \"" + table + "\" CASCADE");
             } catch (Exception e) {
                 log.warn("TRUNCATE 表 {} 失败: {}", table, e.getMessage());
             }
         }
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
         log.debug("已清空 {} 张表", tableNames.size());
     }
 
     private List<String> getAllTableNames() {
         return jdbcTemplate.query(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'",
                 (rs, rowNum) -> rs.getString("table_name")
         );
     }

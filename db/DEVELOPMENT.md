@@ -32,15 +32,15 @@ db/
 `atlas.hcl` 定义 `dev`、`prod` 两个环境，连接信息全部从环境变量读取，**不内置任何默认值**。使用前必须 export：
 
 ```bash
-export DB_URL="mysql://root:pass@localhost:3306/longlian_oa"
-export DEV_DB_URL="mysql://root:pass@localhost:3306/longlian_oa_diff"
+export DB_URL="postgresql://postgres:pass@localhost:5432/longlian_oa"
+export DEV_DB_URL="postgresql://postgres:pass@localhost:5432/longlian_oa_diff"
 ```
 
 未设置时 Atlas 会直接报错并提示缺哪个变量。
 
 ### 关于 DEV_DB_URL
 
-Atlas 声明式模式需要一个「暂存库」来推导期望状态：它把 `schema.sql` 真的在 MySQL 上执行一遍，再 inspect 结果，从而让数据库自己解析类型归一化、默认 collation、索引顺序等细节，同时顺带校验生成的 DDL 合法。
+Atlas 声明式模式需要一个「暂存库」来推导期望状态：它把 `schema.sql` 真的在 PostgreSQL 上执行一遍，再 inspect 结果，从而让数据库自己解析类型归一化、默认 collation、索引顺序等细节，同时顺带校验生成的 DDL 合法。
 
 这个库会被**反复清空重建**，必须是专用空库。绝不能指向有真实数据的库 —— Atlas 检测到非空会拒绝工作并报 `connected database is not clean`。
 
@@ -107,8 +107,8 @@ atlas schema inspect --env prod           # 查看生产环境结构
 ## CI 集成
 
 ```bash
-export DB_URL="mysql://user:pass@host:3306/dbname"
-export DEV_DB_URL="mysql://user:pass@host:3306/dev"
+export DB_URL="postgresql://user:pass@host:5432/dbname"
+export DEV_DB_URL="postgresql://user:pass@host:5432/dev"
 ./db/migrate.sh prod apply
 ```
 

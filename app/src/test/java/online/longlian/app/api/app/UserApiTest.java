@@ -276,10 +276,10 @@ public class UserApiTest extends BaseApiTest {
         // user2 在独立组织2 中登录，同时已是 org1 的 ENABLED 成员
         createTestUser(2L, "user2", "123456", "user2@example.com");
         createOrganization(2L, "组织2");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
+        jdbcTemplate.update("UPDATE app_user SET default_org_id = ? WHERE id = ?", 2L, 2L);
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
-                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
+                "INSERT INTO organization_member (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
                 3L, 1L, 2L, "MEMBER"
         );
         String token2 = loginAs("user2", "123456");
@@ -308,10 +308,10 @@ public class UserApiTest extends BaseApiTest {
         // user2 在 org1 中的成员记录状态为 DISABLED（status=0）
         createTestUser(2L, "user2", "123456", "user2@example.com");
         createOrganization(2L, "组织2");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
+        jdbcTemplate.update("UPDATE app_user SET default_org_id = ? WHERE id = ?", 2L, 2L);
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
-                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 0)",
+                "INSERT INTO organization_member (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 0)",
                 3L, 1L, 2L, "MEMBER"
         );
         String token2 = loginAs("user2", "123456");
@@ -340,10 +340,10 @@ public class UserApiTest extends BaseApiTest {
         // user2 未加入 org1，但已有 PENDING 申请（status=0, application_type=1 EXISTING_USER）
         createTestUser(2L, "user2", "123456", "user2@example.com");
         createOrganization(2L, "组织2");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
+        jdbcTemplate.update("UPDATE app_user SET default_org_id = ? WHERE id = ?", 2L, 2L);
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
+                "INSERT INTO group_application (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
                         "VALUES (?, ?, ?, 0, 1, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 2L, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
         );
