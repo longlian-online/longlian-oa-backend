@@ -4,7 +4,8 @@ ARG INCLUDE_OTEL=false
 FROM ghcr.io/graalvm/graalvm-community:25 AS build
 WORKDIR /app
 
-# 安装 Maven
+# 安装 Maven（构建阶段工具，不锁版本）
+# skipcq: DOK-W1005
 RUN microdnf install -y maven gzip tar && microdnf clean all
 
 # 复制各级 pom.xml，下载依赖
