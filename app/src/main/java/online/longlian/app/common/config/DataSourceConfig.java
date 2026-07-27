@@ -64,7 +64,7 @@ public class DataSourceConfig {
     ) {
         DruidDataSource ds = new DruidDataSource();
         ds.setDriverClassName("org.postgresql.Driver");
-        ds.setUrl("jdbc:postgresql://" + host + ":" + port + "/" + database);
+        ds.setUrl("jdbc:postgresql://" + host + ":" + port + "/" + database + "?stringtype=unspecified");
         ds.setUsername(username);
         ds.setPassword(password);
         return ds;
