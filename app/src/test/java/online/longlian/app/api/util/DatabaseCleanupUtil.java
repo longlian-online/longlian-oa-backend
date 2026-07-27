@@ -2,18 +2,16 @@ package online.longlian.app.api.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.support.EncodedResource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 
 @Slf4j
@@ -38,13 +36,14 @@ public class DatabaseCleanupUtil {
 
         Path schemaFile = findSchemaFile();
         log.info("开始执行测试数据库建表脚本: {}", schemaFile);
-        try (Connection conn = dataSource.getConnection()) {
-            ScriptUtils.executeSqlScript(
-                    conn,
-                    new EncodedResource(new FileSystemResource(schemaFile), StandardCharsets.UTF_8)
-            );
+        try {
+            String sql = Files.readString(schemaFile);
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+            }
             log.info("建表脚本执行完毕");
-        } catch (SQLException e) {
+        } catch (SQLException | IOException e) {
             throw new RuntimeException("测试数据库建表失败", e);
         }
     }
