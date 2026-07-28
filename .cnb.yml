@@ -27,7 +27,7 @@ sit:
             info: CURRENT_MIGRATION_VERSION_TAG
 
         - name: build and push multi-arch docker image
-          script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile -t "$LATEST_VERSION_TAG" -t "$CURRENT_VERSION_TAG" --push .
+          script: docker buildx build --platform linux/amd64,linux/arm64 --build-arg INCLUDE_OTEL=true -f devops/Dockerfile -t "$LATEST_VERSION_TAG" -t "$CURRENT_VERSION_TAG" --push .
 
         - name: build and push multi-arch migration docker image
           script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile.migration -t "$LATEST_MIGRATION_VERSION_TAG" -t "$CURRENT_MIGRATION_VERSION_TAG" --push .
@@ -49,7 +49,7 @@ $:
             info: MIGRATION_IMAGE_TAG
 
         - name: build and push multi-arch docker image
-          script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile -t "$IMAGE_TAG" --push .
+          script: docker buildx build --platform linux/amd64,linux/arm64 --build-arg INCLUDE_OTEL=true -f devops/Dockerfile -t "$IMAGE_TAG" --push .
 
         - name: build and push multi-arch migration docker image
           script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile.migration -t "$MIGRATION_IMAGE_TAG" --push .
