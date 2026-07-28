@@ -11,11 +11,9 @@ COPY app/pom.xml app/pom.xml
 COPY generator/pom.xml generator/pom.xml
 COPY settings.xml /root/.m2/settings.xml
 
-# 下载 app 模块及其父模块的所有依赖
-RUN mvn dependency:go-offline -B -pl app -am
-
-# 下载 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
-RUN if [ "$INCLUDE_OTEL" = "true" ]; then \
+# 下载依赖及 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
+RUN mvn dependency:go-offline -B -pl app -am && \
+    if [ "$INCLUDE_OTEL" = "true" ]; then \
       curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar; \
     fi
 
