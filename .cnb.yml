@@ -53,3 +53,26 @@ $:
 
         - name: build and push multi-arch migration docker image
           script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile.migration -t "$MIGRATION_IMAGE_TAG" --push .
+
+  web_trigger_build_and_push:
+    - name: manual-build-and-push
+      services:
+        - docker
+      imports: https://cnb.cool/longlian.online/env/-/blob/main/longlian-backend-sit.yml
+
+      stages:
+        - name: get image tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH}-${CNB_COMMIT_SHORT}"
+          exports:
+            info: IMAGE_TAG
+
+        - name: get migration image tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH}-${CNB_COMMIT_SHORT}-migration"
+          exports:
+            info: MIGRATION_IMAGE_TAG
+
+        - name: build and push multi-arch docker image
+          script: docker buildx build --platform linux/amd64,linux/arm64 --build-arg INCLUDE_OTEL=true -f devops/Dockerfile -t "$IMAGE_TAG" --push .
+
+        - name: build and push multi-arch migration docker image
+          script: docker buildx build --platform linux/amd64,linux/arm64 -f devops/Dockerfile.migration -t "$MIGRATION_IMAGE_TAG" --push .
