@@ -62,12 +62,12 @@ $:
 
       stages:
         - name: get image tag
-          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH}-${CNB_COMMIT_SHORT}"
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:$(echo "${CNB_BRANCH}" | tr '/' '-')-${CNB_COMMIT_SHORT}"
           exports:
             info: IMAGE_TAG
 
         - name: get migration image tag
-          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH}-${CNB_COMMIT_SHORT}-migration"
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:$(echo "${CNB_BRANCH}" | tr '/' '-')-${CNB_COMMIT_SHORT}-migration"
           exports:
             info: MIGRATION_IMAGE_TAG
 
