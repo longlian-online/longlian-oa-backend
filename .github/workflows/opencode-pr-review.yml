@@ -14,9 +14,46 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Minimize previous bot review comments
+        if: github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "Cleaning up old review comments on PR #$PR_NUMBER..."
+
+          gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments?per_page=100" \
+            --jq '.[] | select(.user.login | contains("[bot]") or contains("opencode")) | .node_id' \
+            > /tmp/bot_comment_ids.txt
+
+          COUNT=$(wc -l < /tmp/bot_comment_ids.txt)
+          echo "Found $COUNT bot comments to minimize"
+
+          MINIMIZED=0
+          FAILED=0
+          while read -r node_id; do
+            [ -z "$node_id" ] && continue
+            if gh api graphql -f query='
+              mutation($id: ID!) {
+                minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
+                  minimizedComment { isMinimized }
+                }
+              }
+            ' -f id="$node_id" --silent 2>/dev/null; then
+              MINIMIZED=$((MINIMIZED + 1))
+            else
+              FAILED=$((FAILED + 1))
+            fi
+          done < /tmp/bot_comment_ids.txt
+
+          echo "Done. Minimized: $MINIMIZED, Failed: $FAILED"
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::warning::$FAILED comments failed to minimize (check permissions or API changes)"
+          fi
 
       - name: Run opencode review
         uses: anomalyco/opencode/github@latest
@@ -26,6 +63,8 @@ jobs:
           model: opencode-go/deepseek-v4-pro
           prompt: |
             你是 Spring Boot 项目的代码审查专家。审查这个 PR，只报告可验证的、可操作的问题。
+
+            **所有评论、建议和输出必须使用中文。**
 
             ## 审查策略（确定性优先）
 
