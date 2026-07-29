@@ -15,8 +15,8 @@ COPY settings.xml /root/.m2/settings.xml
 # 下载依赖及 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
 RUN mvn dependency:go-offline -B -pl app -am && \
     if [ "$INCLUDE_OTEL" = "true" ]; then \
-      curl -fL https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar && \
-      jar tf /app/opentelemetry-javaagent.jar > /dev/null 2>&1 || { echo 'OTel agent download failed or invalid jar'; exit 1; }; \
+      curl -fL https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar; \
+      if ! jar tf /app/opentelemetry-javaagent.jar > /dev/null 2>&1; then echo 'OTel agent download failed or invalid jar'; exit 1; fi; \
     fi
 
 # 复制所有模块源码
