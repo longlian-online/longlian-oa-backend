@@ -2,6 +2,7 @@ ARG INCLUDE_OTEL=false
 
 # 1. 构建阶段：容器内 Maven 打包
 FROM maven:3.9-eclipse-temurin-21 AS build
+ARG INCLUDE_OTEL
 WORKDIR /app
 
 # 复制各级 pom.xml，下载依赖
@@ -14,7 +15,8 @@ COPY settings.xml /root/.m2/settings.xml
 # 下载依赖及 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
 RUN mvn dependency:go-offline -B -pl app -am && \
     if [ "$INCLUDE_OTEL" = "true" ]; then \
-      curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar; \
+      curl -fL https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar && \
+      jar tf /app/opentelemetry-javaagent.jar > /dev/null 2>&1 || { echo 'OTel agent download failed or invalid jar'; exit 1; }; \
     fi
 
 # 复制所有模块源码
@@ -46,5 +48,5 @@ EXPOSE 8080
 # 切换到非 root 用户
 USER appuser
 
-# 启动命令（exec 形式确保信号正确转发）
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+# 启动命令（agent 文件不存在时自动剔除 -javaagent 参数，避免 JVM 启动失败）
+ENTRYPOINT ["sh", "-c", "if [ ! -f /app/opentelemetry-javaagent.jar ] && [ -n \"$JAVA_TOOL_OPTIONS\" ]; then export JAVA_TOOL_OPTIONS=$(echo \"$JAVA_TOOL_OPTIONS\" | sed 's/-javaagent:[^ ]*//g'); fi; exec java $JAVA_OPTS -jar /app/app.jar"]
