@@ -5,7 +5,7 @@ import online.longlian.common.enumeration.TokenType;
 /**
  * Token 黑名单服务接口。
  * <p>
- * 负责 JWT Token 的吊销管理，以 MySQL 数据库表作为黑名单存储，
+ * 负责 JWT Token 的吊销管理，以数据库表作为黑名单存储，
  * 通过 {@code expiredAt} 时间戳字段实现 TTL 过期：
  * <ol>
  *   <li><b>单 Token 黑名单</b>：登出时将当前 Token 加入黑名单，有效期对齐 Token 剩余有效时间</li>

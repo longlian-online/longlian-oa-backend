@@ -2,18 +2,16 @@ package online.longlian.app.api.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.support.EncodedResource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 
 @Slf4j
@@ -28,7 +26,7 @@ public class DatabaseCleanupUtil {
         verifyDatabaseConnection();
 
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'user'",
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'app_user'",
                 Integer.class
         );
         if (count != null && count > 0) {
@@ -38,13 +36,14 @@ public class DatabaseCleanupUtil {
 
         Path schemaFile = findSchemaFile();
         log.info("开始执行测试数据库建表脚本: {}", schemaFile);
-        try (Connection conn = dataSource.getConnection()) {
-            ScriptUtils.executeSqlScript(
-                    conn,
-                    new EncodedResource(new FileSystemResource(schemaFile), StandardCharsets.UTF_8)
-            );
+        try {
+            String sql = Files.readString(schemaFile);
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+            }
             log.info("建表脚本执行完毕");
-        } catch (SQLException e) {
+        } catch (SQLException | IOException e) {
             throw new RuntimeException("测试数据库建表失败", e);
         }
     }
@@ -82,7 +81,7 @@ public class DatabaseCleanupUtil {
                 }
             }
         }
-        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 MySQL 和 Redis 服务是否正常运行");
+        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 PostgreSQL 和 Redis 服务是否正常运行");
     }
 
     public void truncateAllTables() {
@@ -92,21 +91,19 @@ public class DatabaseCleanupUtil {
             return;
         }
 
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String table : tableNames) {
             try {
-                jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
+                jdbcTemplate.execute("TRUNCATE TABLE \"" + table + "\" CASCADE");
             } catch (Exception e) {
                 log.warn("TRUNCATE 表 {} 失败: {}", table, e.getMessage());
             }
         }
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
         log.debug("已清空 {} 张表", tableNames.size());
     }
 
     private List<String> getAllTableNames() {
         return jdbcTemplate.query(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'",
                 (rs, rowNum) -> rs.getString("table_name")
         );
     }

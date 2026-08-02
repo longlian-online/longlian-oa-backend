@@ -118,7 +118,7 @@ public abstract class BaseApiTest {
      */
     protected void createTestUser(long userId, String username, String password, String email) {
         jdbcTemplate.update(
-                "INSERT INTO `user` (id, username, password, nickname, email) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO app_user (id, username, password, nickname, email) VALUES (?, ?, ?, ?, ?)",
                 userId, username, passwordEncoder.encode(password), username, email
         );
     }
@@ -128,7 +128,7 @@ public abstract class BaseApiTest {
      */
     protected void createAdmin(long id, String username, String password, String role) {
         jdbcTemplate.update(
-                "INSERT INTO `admin` (id, username, password, role) VALUES (?, ?, ?, ?)",
+                "INSERT INTO admin (id, username, password, role) VALUES (?, ?, ?, ?)",
                 id, username, passwordEncoder.encode(password), role
         );
     }
@@ -138,7 +138,7 @@ public abstract class BaseApiTest {
      */
     protected void createOrganization(long orgId, String name) {
         jdbcTemplate.update(
-                "INSERT INTO `organization` (id, name, creator_id, status) VALUES (?, ?, 0, 1)",
+                "INSERT INTO organization (id, name, creator_id, status) VALUES (?, ?, 0, 1)",
                 orgId, name
         );
     }
@@ -148,14 +148,14 @@ public abstract class BaseApiTest {
      */
     protected void createOrganizationMember(long id, long orgId, long userId, String orgRole) {
         jdbcTemplate.update(
-                "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
+                "INSERT INTO organization_member (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
                 id, orgId, userId, orgRole
         );
     }
 
     protected void createResource(long resourceId, long orgId, long creatorId) {
         jdbcTemplate.update(
-                "INSERT INTO `resource` (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, file_mime, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
+                "INSERT INTO resource (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, file_mime, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, 1, ?, 'test.png', 'png', 1, 'image/png', 'avatar', 0, 1, ?, NOW(), NOW())",
                 resourceId, orgId, "avatar/" + resourceId + ".png", creatorId
         );
@@ -169,7 +169,7 @@ public abstract class BaseApiTest {
                                                long orgMemberId, long orgId, String orgRole) {
         createOrganization(orgId, "组织" + orgId);
         createTestUser(userId, username, password, email);
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", orgId, userId);
+        jdbcTemplate.update("UPDATE app_user SET default_org_id = ? WHERE id = ?", orgId, userId);
         createOrganizationMember(orgMemberId, orgId, userId, orgRole);
     }
 
@@ -206,7 +206,7 @@ public abstract class BaseApiTest {
      */
     protected void createOTP(String code, Integer bizType, Long creatorId, LocalDateTime expiredAt) {
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
                 System.nanoTime(), code, expiredAt, bizType, creatorId
         );
     }
@@ -229,11 +229,11 @@ public abstract class BaseApiTest {
                                         EmailVerifyBusinessType businessType) {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
                 otpId, code, LocalDateTime.now().plusMinutes(30), 3, creatorId
         );
         jdbcTemplate.update(
-                "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO email_verify_otp (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
                 otpId, otpId, receiver, businessType.getCode(), 1
         );
     }
@@ -244,11 +244,11 @@ public abstract class BaseApiTest {
     protected void createOrganizationUserInviteOTP(String code, Long orgId) {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
+                "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
                 otpId, code, LocalDateTime.now().plusMinutes(30), 2
         );
         jdbcTemplate.update(
-                "INSERT INTO `organization_join_otp` (id, otp_id, org_id) VALUES (?, ?, ?)",
+                "INSERT INTO organization_join_otp (id, otp_id, org_id) VALUES (?, ?, ?)",
                 otpId, otpId, orgId
         );
     }
@@ -259,11 +259,11 @@ public abstract class BaseApiTest {
     protected void createOrganizationCreateInviteOTP(String code) {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
+                "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
                 otpId, code, LocalDateTime.now().plusMinutes(30), 1
         );
         jdbcTemplate.update(
-                "INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)",
+                "INSERT INTO organization_create_otp (id, otp_id) VALUES (?, ?)",
                 otpId, otpId
         );
     }

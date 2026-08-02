@@ -4,7 +4,7 @@ version: '3'
 
 tasks:
   api-test-docker:
-    desc: "在 Docker 中运行 API 测试（自动启动 MySQL + Redis）"
+    desc: "在 Docker 中运行 API 测试（自动启动 PostgreSQL + Redis）"
     cmd: |
       docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
 

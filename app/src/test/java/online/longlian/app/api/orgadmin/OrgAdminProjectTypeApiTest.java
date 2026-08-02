@@ -57,7 +57,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试企划类型", 0, 1L
         );
@@ -80,7 +80,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO project_type (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试企划类型", 1, 1L
         );
