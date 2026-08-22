@@ -50,10 +50,10 @@ services:
     volumes:
       # 挂载项目源码
       - ..:/app
+      # 同时缓存 Maven 依赖与 Wrapper 发行包；CI 可通过 MAVEN_REPOSITORY 指定宿主机缓存目录
+      - ${MAVEN_REPOSITORY:-maven-repo}:/root/.m2
       # 挂载 settings.xml（阿里云镜像）
       - ../settings.xml:/root/.m2/settings.xml
-      # 本地默认使用 named volume；CI 可通过 MAVEN_REPOSITORY 挂载可缓存的宿主机目录
-      - ${MAVEN_REPOSITORY:-maven-repo}:/root/.m2/repository
     working_dir: /app
     entrypoint:
       - sh
