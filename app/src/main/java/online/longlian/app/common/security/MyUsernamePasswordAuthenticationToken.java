@@ -4,6 +4,7 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * 邮箱密码认证令牌
@@ -16,7 +17,7 @@ public class MyUsernamePasswordAuthenticationToken extends AbstractAuthenticatio
 
     // 1. 认证前构造器：未认证状态
     public MyUsernamePasswordAuthenticationToken(String username, String password) {
-        super(null);
+        super(List.of());
         this.principal = username;
         this.credentials = password;
         setAuthenticated(false); // 必须手动设置为未认证

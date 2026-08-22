@@ -38,7 +38,7 @@ services:
       start_period: 5s
 
   test-runner:
-    image: maven:3.9-eclipse-temurin-21
+    image: ghcr.io/graalvm/graalvm-community:25
     container_name: longlian-oa-test-runner
     depends_on:
       mysql-test:
@@ -50,10 +50,10 @@ services:
     volumes:
       # 挂载项目源码
       - ..:/app
-      # 挂载 settings.xml（阿里云镜像）
-      - ../settings.xml:/usr/share/maven/conf/settings.xml
-      # 本地默认使用 named volume；CI 可通过 MAVEN_REPOSITORY 挂载可缓存的宿主机目录
+      # 同时缓存 Maven 依赖与 Wrapper 发行包；CI 可通过 MAVEN_REPOSITORY 指定宿主机缓存目录
       - ${MAVEN_REPOSITORY:-maven-repo}:/root/.m2
+      # 挂载 settings.xml（阿里云镜像）
+      - ../settings.xml:/root/.m2/settings.xml
     working_dir: /app
     entrypoint:
       - sh
@@ -61,8 +61,8 @@ services:
       - >
         echo "等待服务完全就绪..."
         && sleep 15
-        && mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
-        && mvn -pl app test jacoco:report -e
+        && ./mvnw -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
+        && ./mvnw -pl app test jacoco:report -e
 
 volumes:
   maven-repo:

@@ -10,7 +10,7 @@ import online.longlian.generator.internal.EnumProcessor;
 import online.longlian.generator.internal.ModelEnumMeta;
 import online.longlian.generator.internal.TypeConverter;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
-import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.AnnotationConfigServletWebServerApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.io.FileSystemResource;
