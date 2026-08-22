@@ -15,14 +15,10 @@ COPY app/pom.xml app/pom.xml
 COPY generator/pom.xml generator/pom.xml
 COPY settings.xml /root/.m2/settings.xml
 
-# 下载 app 模块及其父模块的所有依赖
-RUN mvn dependency:go-offline -B -pl app -am
-
-# 下载 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
-RUN if [ "$INCLUDE_OTEL" = "true" ]; then \
+# 下载依赖及 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
+RUN mvn dependency:go-offline -B -pl app -am && \
+    if [ "$INCLUDE_OTEL" = "true" ]; then \
       curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/opentelemetry-javaagent.jar; \
-    else \
-      touch /app/opentelemetry-javaagent.jar; \
     fi
 
 # 复制所有模块源码
@@ -42,10 +38,8 @@ RUN useradd -r -s /bin/false appuser
 
 # 从构建阶段复制打好的 jar 包
 COPY --from=build /app/app/target/*.jar app.jar
-
-# 按需复制 OpenTelemetry agent，为空文件则删除
-COPY --from=build /app/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
-RUN if [ ! -s /app/opentelemetry-javaagent.jar ]; then rm /app/opentelemetry-javaagent.jar; fi
+# 按需复制 OTel agent（glob 匹配，文件不存在时静默跳过）
+COPY --from=build /app/opentelemetry-javaagent.ja[r] /app/
 
 # JVM 运行参数（GraalVM 优化）
 ENV JAVA_OPTS="-Xms192m -Xmx384m -XX:+UseCompactObjectHeaders -XX:+UseZGC -XX:+ZGenerational -Djava.security.egd=file:/dev/./urandom"
@@ -59,4 +53,4 @@ EXPOSE 8080
 USER appuser
 
 # 启动命令（exec 形式确保信号正确转发）
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS $OTEL_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
