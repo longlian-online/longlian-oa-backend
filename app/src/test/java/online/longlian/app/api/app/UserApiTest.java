@@ -365,7 +365,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldResetPasswordSuccessfully() {
-        createTestUser(1L, "testuser", "123456", "test@example.com");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
         Response response = request()
