@@ -11,13 +11,18 @@ import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.entity.GroupApplication;
+import online.longlian.app.pojo.entity.Organization;
+import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
+import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +61,8 @@ class UserServiceImplTest {
     private OTPServiceFactory otpServiceFactory;
     @Mock
     private OTPStrategyService emailVerifyService;
+    @Mock
+    private OTPStrategyService joinInviteService;
 
     private UserServiceImpl service;
 
@@ -111,6 +118,39 @@ class UserServiceImplTest {
 
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
+    }
+
+    @Test
+    void registerAndJoinOrganizationStoresInviteIdOnApplication() {
+        UserRegisterByInviteParamsBO params = UserRegisterByInviteParamsBO.builder()
+                .inviteCode("JOIN01").username("newuser").password("password")
+                .nickname("New User").email("new@example.com").code("EMAIL1")
+                .build();
+        OneTimePassword emailOtp = OneTimePassword.builder().id(10L).build();
+        OneTimePassword inviteOtp = OneTimePassword.builder().id(20L).build();
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(otpServiceFactory.get(OTPType.OrganizationUserInvite)).thenReturn(joinInviteService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class))).thenReturn(emailOtp);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(inviteOtp);
+        when(userMapper.selectOne(any())).thenReturn(null);
+        when(groupApplicationMapper.selectCount(any())).thenReturn(0L);
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectById(30L)).thenReturn(
+                Organization.builder().id(30L).status(Status.ENABLED).build());
+        doAnswer(invocation -> {
+            invocation.getArgument(0, online.longlian.app.pojo.entity.GroupApplication.class).setId(123L);
+            return 1;
+        }).when(groupApplicationMapper).insert(any(GroupApplication.class));
+
+        service.registerAndJoinOrganizationByInvite(params);
+
+        ArgumentCaptor<GroupApplication> applicationCaptor = ArgumentCaptor.forClass(GroupApplication.class);
+        verify(groupApplicationMapper).insert(applicationCaptor.capture());
+        assertThat(applicationCaptor.getValue().getOtpId()).isEqualTo(20L);
+        verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
+                && context.getUserId() == null));
+        verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
 
     private UserResetPasswordParamsBO resetPasswordParams() {

@@ -164,14 +164,8 @@ public class ApplicationReviewHandler {
 
     private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
         LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
-                .eq(OrganizationJoinOtp::getOrgId, application.getOrgId())
+                .eq(OrganizationJoinOtp::getOtpId, application.getOtpId())
                 .orderByDesc(OrganizationJoinOtp::getId);
-
-        if (application.getApplicationType() == ApplicationType.EXISTING_USER) {
-            queryWrapper.eq(OrganizationJoinOtp::getInvitedUserId, application.getUserId());
-        } else {
-            queryWrapper.isNull(OrganizationJoinOtp::getInvitedUserId);
-        }
 
         Page<OrganizationJoinOtp> page = new Page<>(1, 1);
         OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectPage(page, queryWrapper)

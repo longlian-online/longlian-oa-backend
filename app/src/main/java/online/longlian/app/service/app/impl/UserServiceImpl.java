@@ -251,6 +251,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         LocalDateTime now = LocalDateTime.now(clock);
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
+                .otpId(inviteOtp.getId())
                 .userId(0L)
                 .status(ApplicationStatus.PENDING)
                 .applicationType(ApplicationType.REGISTER)
@@ -305,6 +306,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         LocalDateTime now = LocalDateTime.now(clock);
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
+                .otpId(inviteOtp.getId())
                 .userId(userId)
                 .status(ApplicationStatus.PENDING)
                 .applicationType(ApplicationType.EXISTING_USER)

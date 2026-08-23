@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
+ * @since 
  */
 @Data
 @Builder
@@ -41,6 +42,13 @@ public class GroupApplication implements Serializable {
     @TableField("org_id")
     @ApiModelProperty("目标组织ID")
     private Long orgId;
+
+    /**
+     * 提交申请时使用的邀请码ID
+     */
+    @TableField("otp_id")
+    @ApiModelProperty("提交申请时使用的邀请码ID")
+    private Long otpId;
 
     /**
      * 申请人ID
