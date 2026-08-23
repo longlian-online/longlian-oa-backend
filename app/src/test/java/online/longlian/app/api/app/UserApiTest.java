@@ -3,6 +3,7 @@ package online.longlian.app.api.app;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -357,6 +358,77 @@ public class UserApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
     }
+
+
+    /**
+     * 使用邮箱验证码重置密码成功
+     */
+    @Test
+    void shouldResetPasswordSuccessfully() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
+
+        Response response = request()
+                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "new-password"))
+                .put("/app/user/password");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        request()
+                .body(Map.of("username", "testuser", "password", "123456"))
+                .post("/app/session/pwd")
+                .then()
+                .statusCode(200)
+                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+
+        request()
+                .body(Map.of("username", "testuser", "password", "new-password"))
+                .post("/app/session/pwd")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.token", notNullValue());
+
+        request()
+                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "another-password"))
+                .put("/app/user/password")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    /**
+     * 验证码错误时重置密码失败
+     */
+    @Test
+    void shouldFailResetPasswordWithWrongCode() {
+        createTestUser(1L, "testuser", "123456", "test@example.com");
+
+        request()
+                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "new-password"))
+                .put("/app/user/password")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    /**
+     * 邮箱不存在时重置密码失败
+     */
+    @Test
+    void shouldFailResetPasswordWithNonexistentEmail() {
+        createEmailVerifyOTP("A1B2C3", 1L, "missing@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
+
+        request()
+                .body(Map.of("email", "missing@example.com", "code", "A1B2C3", "password", "new-password"))
+                .put("/app/user/password")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
 
     // ========== 认证失败 ==========
 

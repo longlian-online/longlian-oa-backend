@@ -12,6 +12,7 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/admin/session", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email/code", HttpMethod.POST.name()),
+            new AntPathRequestMatcher("/app/user/password", HttpMethod.PUT.name()),
             new AntPathRequestMatcher("/app/user/register/create-organization", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/user/register/join-organization", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/user/register/join-organization/invite-info", HttpMethod.GET.name()),

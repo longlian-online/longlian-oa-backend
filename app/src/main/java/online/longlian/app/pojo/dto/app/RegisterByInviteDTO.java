@@ -36,7 +36,8 @@ public class RegisterByInviteDTO {
     private String email;
 
     @NotBlank(message = "邮箱验证码不能为空")
-    @Schema(description = "邮箱验证码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Pattern(regexp = PatternConstants.EMAIL_CODE_PATTERN, message = "邮箱验证码必须是6位字母或数字")
+    @Schema(description = "6位字母或数字邮箱验证码", example = "A1B2C3", requiredMode = Schema.RequiredMode.REQUIRED)
     private String code;
 
     @Schema(description = "组织名称。仅当邀请码类型为 SUPER_ADMIN_CREATE_ORG 时必填")

@@ -20,6 +20,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -248,6 +249,36 @@ class ApplicationReviewHandlerTest {
 
         handler.review(app, 10L, ApplicationStatus.APPROVED, 2L, null, LocalDateTime.now(clock));
 
+        verify(organizationJoinOtpMapper).update(isNull(), any());
+    }
+
+    @Test
+    void review_approved_backfillsTheInviteUsedByRegisterApplication() {
+        GroupApplication app = GroupApplication.builder()
+                .id(42L).orgId(10L).otpId(88L)
+                .applicationType(ApplicationType.REGISTER)
+                .status(ApplicationStatus.PENDING)
+                .email("new@example.com").username("newuser")
+                .password("hashed").nickname("New")
+                .build();
+        when(lockService.tryAcquireOrThrow(anyString(), eq(0L), eq(5L), eq(TimeUnit.SECONDS))).thenReturn(lock);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.insert(any(User.class))).thenReturn(1);
+        when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
+
+        OrganizationJoinOtp matchedOtp = OrganizationJoinOtp.builder().id(7L).build();
+        Page<OrganizationJoinOtp> page = new Page<>(1, 1);
+        page.setRecords(List.of(matchedOtp));
+        when(organizationJoinOtpMapper.selectPage(any(), any())).thenReturn(page);
+
+        handler.review(app, 10L, ApplicationStatus.APPROVED, 2L, null, LocalDateTime.now(clock));
+
+        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OrganizationJoinOtp>> queryCaptor =
+                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
+        verify(organizationJoinOtpMapper).selectPage(any(), queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment())
+                .contains("otp_id")
+                .doesNotContain("IS NULL");
         verify(organizationJoinOtpMapper).update(isNull(), any());
     }
 }

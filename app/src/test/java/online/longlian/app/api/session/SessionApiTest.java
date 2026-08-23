@@ -197,7 +197,7 @@ public class SessionApiTest extends BaseApiTest {
     }
 
     /**
-     * 邮箱为空时发送验证码（业务层校验）
+     * 邮箱为空时发送验证码失败
      */
     @Test
     void shouldFailSendCodeWithEmptyEmail() {
@@ -208,11 +208,11 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
-     * 邮箱格式不正确时发送验证码（业务层校验）
+     * 邮箱格式不正确时发送验证码失败
      */
     @Test
     void shouldFailSendCodeWithInvalidEmail() {
@@ -223,11 +223,11 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
-     * 缺少业务类型时发送验证码（接口无 @Valid 注解，不拦截）
+     * 缺少业务类型时发送验证码失败
      */
     @Test
     void shouldFailSendCodeWithNullBusinessType() {
@@ -238,7 +238,7 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     // ========== 退出登录 ==========
