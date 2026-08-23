@@ -22,6 +22,7 @@ import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -31,6 +32,7 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
     private final OneTimePasswordService oneTimePasswordService;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final OrganizationMapper organizationMapper;
+    private final Clock clock;
 
     @Override
     public OTPType getOtpType() {
@@ -42,7 +44,7 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
     public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
         // 生成前校验目标组织存在且未禁用
         Organization organization = getEnabledOrganization(otpGenerateContextBO.getOrgId());
-        LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
+        LocalDateTime expiredAt = LocalDateTime.now(clock).plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
         String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
 
         OneTimePassword otp = oneTimePasswordService.generateOTP(

@@ -1,0 +1,144 @@
+name: opencode-pr-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Minimize previous bot review comments
+        if: github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "Cleaning up old review comments on PR #$PR_NUMBER..."
+
+          gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments?per_page=100" \
+            --jq '.[] | select(.user.login | contains("[bot]") or contains("opencode")) | .node_id' \
+            > /tmp/bot_comment_ids.txt
+
+          COUNT=$(wc -l < /tmp/bot_comment_ids.txt)
+          echo "Found $COUNT bot comments to minimize"
+
+          MINIMIZED=0
+          FAILED=0
+          while read -r node_id; do
+            [ -z "$node_id" ] && continue
+            if gh api graphql -f query='
+              mutation($id: ID!) {
+                minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
+                  minimizedComment { isMinimized }
+                }
+              }
+            ' -f id="$node_id" --silent 2>/dev/null; then
+              MINIMIZED=$((MINIMIZED + 1))
+            else
+              FAILED=$((FAILED + 1))
+            fi
+          done < /tmp/bot_comment_ids.txt
+
+          echo "Done. Minimized: $MINIMIZED, Failed: $FAILED"
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::warning::$FAILED comments failed to minimize (check permissions or API changes)"
+          fi
+
+      - name: Run opencode review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode-go/deepseek-v4-pro
+          prompt: |
+            你是 Spring Boot 项目的代码审查专家。审查这个 PR，只报告可验证的、可操作的问题。
+
+            **所有评论、建议和输出必须使用中文。**
+
+            ## 审查策略（确定性优先）
+
+            ### 阶段一：文件筛选 & 分组
+            1. 获取 diff 文件列表，排除：`pom.xml` 版本号变更、import 重排、`application.yml` 缩进调整
+            2. 按风险分组，优先审查：
+               - 🔴 高优先级：`controller/`、`filter/`、`security/`、`mapper/xml/`
+               - 🟠 中优先级：`service/impl/`、`common/config/`
+               - 🟡 低优先级：`pojo/entity/`、`pojo/dto/`、`pojo/vo/`、`constants/`
+            3. 关联文件打包审查（如 DTO+VO+ServiceImpl+Mapper.xml 一起看）
+
+            ### 阶段二：逐文件审查（按文件类型匹配规则集）
+
+            #### Controller 层 (`controller/`)
+            - 是否直接返回 Entity？（必须转 VO）
+            - 是否用 DTO 接参？（禁止直接用 Entity 接参）
+            - 是否有业务逻辑泄漏到 Controller？（只做参数提取+调用 Service）
+            - `@PreAuthorize` 权限注解是否正确且粒度足够？
+            - 异常是否被 GlobalExceptionHandler 统一捕获？（禁止 try-catch 吞异常）
+            - 文件上传接口是否校验文件类型和大小？
+
+            #### Service 层 (`service/impl/`)
+            - 空指针：方法返回值直接 `.getXxx()` 是否判空？链式调用是否有 NPE 风险？
+            - 线程安全：是否有 SimpleDateFormat/非线程安全集合作为类字段？虚拟线程下是否有 ThreadLocal 泄漏？
+            - 事务：`@Transactional` 范围是否合理？只读方法是否加 `readOnly=true`？跨 Service 调用是否传播正确？
+            - 资源：IO 流/JDBC 连接是否使用 try-with-resources？
+            - 循环依赖：是否存在 A→B→A 的隐式循环注入？
+            - 分页：是否遗漏分页导致全量查询？
+
+            #### Mapper XML (`mapper/xml/`)
+            - SQL 注入：是否使用 `${}` 而非 `#{}`？
+            - 标签闭合：`<select>`/`<update>`/`<if>` 是否正确闭合？
+            - 查询效率：`LIKE '%xxx%'` 全模糊、`SELECT *`、未利用索引的 WHERE 组合
+            - resultMap：column 名与数据库列名是否一致？关联查询是否触发 N+1？
+            - 动态 SQL：`<if test>` 条件是否覆盖 null 和空字符串？
+
+            #### Security / Filter (`filter/`、`security/`)
+            - JWT 校验：过期、签名、黑名单检查链是否完整？
+            - 认证 Provider：异常信息是否泄漏用户不存在/密码错误等细节？
+            - 路径白名单：是否有过度放行导致未授权访问？
+
+            #### Entity / DTO / VO (`pojo/`)
+            - DTO 是否有 `@NotNull`/`@NotBlank` 校验注解？
+            - VO 是否包含不应暴露的字段（密码、手机号、身份证）？
+            - Entity 是否误用 Lombok `@Data` 导致 `@EqualsAndHashCode` 在 JPA 场景下问题？
+
+            ### 阶段三：质量分级 & 去噪
+
+            | 等级 | 定义 | 处理方式 |
+            |------|------|----------|
+            | 🔴 严重 | 可验证的 bug、安全漏洞、数据丢失风险 | 行级评论 + 修复建议 |
+            | 🟠 高 | 明确的代码缺陷、架构违反、性能问题 | 行级评论 + 改进方向 |
+            | 🟡 中 | 合理的关注点，需上下文确认 | 有修复方案才评论，否则跳过 |
+            | ⚪ 低 | nitpick、风格偏好、无实际影响的建议 | 静默丢弃 |
+
+            ## 输出格式
+
+            ```markdown
+            ## Code Review Results
+
+            **Files reviewed**: {N}
+            **Issues found**: {X} critical / {Y} high / {Z} medium
+
+            ### 🔴 Critical
+            - **`path/to/file.java:{line}`** — 问题描述
+              > Fix: 具体修复代码
+
+            ### 🟠 High
+            - **`path/to/file.java:{line}`** — 问题描述
+              > Suggestion: 改进方向
+
+            ### 🟡 Medium (if any actionable)
+            - **`path/to/file.java:{line}`** — 问题描述
+              > Note: 说明和上下文
+            ```
+
+            如果审查后无可行动问题：`LGTM — review complete, no actionable issues found in {N} files.`

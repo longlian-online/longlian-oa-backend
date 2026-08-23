@@ -157,7 +157,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .updatedAt(now)
                 .build();
         projectMapper.insert(project);
-        resourceService.bindBizId(params.getCoverFileId(), project.getId());
+        resourceService.bindBizId(params.getCoverFileId(), project.getId(), params.getCreatorId(), params.getOrgId());
     }
 
     @Override
@@ -181,7 +181,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getCoverFileId, params.getCoverFileId())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
-        resourceService.bindBizId(params.getCoverFileId(), params.getProjectId());
+        resourceService.bindBizId(params.getCoverFileId(), params.getProjectId(), params.getUserId(), params.getOrgId());
     }
 
     @Override
@@ -209,7 +209,6 @@ public class ProjectServiceImpl implements ProjectService {
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
-                        .isNull(ProjectWorkshop::getDeletedAt)
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
     }

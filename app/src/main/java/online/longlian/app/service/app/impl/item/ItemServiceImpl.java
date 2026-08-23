@@ -77,6 +77,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createProjectItem(ItemCreateParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getCreatorId(), params.getOrgId());
+
         TaskTemplate template = taskTemplateMapper.selectById(params.getTaskTemplateId());
         if (template == null || template.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.PARAM_ERROR, "任务模板不存在或已禁用");
@@ -85,7 +87,6 @@ public class ItemServiceImpl implements ItemService {
         List<TaskTemplateNode> templateNodes = taskTemplateNodeMapper.selectList(
                 new LambdaQueryWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTaskTemplateId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
                         .orderByAsc(TaskTemplateNode::getSort)
                         .orderByAsc(TaskTemplateNode::getParallelSort));
 
@@ -108,6 +109,13 @@ public class ItemServiceImpl implements ItemService {
                 .updatedAt(now)
                 .build();
         itemMapper.insert(item);
+
+        // 项目引用了该任务模板，引用计数 +1
+        taskTemplateMapper.update(null,
+                new LambdaUpdateWrapper<TaskTemplate>()
+                        .eq(TaskTemplate::getId, params.getTaskTemplateId())
+                        .setSql("ref_count = ref_count + 1")
+                        .set(TaskTemplate::getUpdatedAt, now));
 
         ItemTaskFlow flow = ItemTaskFlow.builder()
                 .itemId(item.getId())
@@ -155,6 +163,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectItem(ItemOperationParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+
         Item item = itemMapper.selectById(params.getItemId());
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
@@ -163,17 +173,26 @@ public class ItemServiceImpl implements ItemService {
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
-                        .isNull(Item::getDeletedAt)
                         .set(Item::getDeletedAt, now)
                         .set(Item::getUpdatedAt, now));
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可重复操作");
         }
+
+        // 项目删除后释放对任务模板的引用，引用计数 -1
+        taskTemplateMapper.update(null,
+                new LambdaUpdateWrapper<TaskTemplate>()
+                        .eq(TaskTemplate::getId, item.getTaskTemplateId())
+                        .gt(TaskTemplate::getRefCount, 0)
+                        .setSql("ref_count = ref_count - 1")
+                        .set(TaskTemplate::getUpdatedAt, now));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void publishProjectItem(ItemOperationParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+
         Item item = itemMapper.selectById(params.getItemId());
         if (item == null || !item.getProjectId().equals(params.getProjectId())) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
@@ -190,6 +209,16 @@ public class ItemServiceImpl implements ItemService {
                         .set(Item::getUpdatedAt, LocalDateTime.now(clock)));
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
+        }
+    }
+
+    private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null || !project.getOrgId().equals(orgId)) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
+        }
+        if (!project.getCreatorId().equals(userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
     }
 }

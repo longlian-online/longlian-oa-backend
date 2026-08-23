@@ -41,6 +41,8 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                 new LambdaQueryWrapper<OneTimePassword>()
                         .eq(OneTimePassword::getCode, code)
                         .eq(OneTimePassword::getBizType, bizType)
+                        .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
+                        .orderByDesc(OneTimePassword::getCreatedAt)
                         .last("LIMIT 1")
         );
         validateOtpAvailability(oneTimePassword, bizType);

@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ItemCreateParamsBO {
     private Long projectId;
+    private Long orgId;
     private String title;
     private Long taskTemplateId;
     private Long creatorId;

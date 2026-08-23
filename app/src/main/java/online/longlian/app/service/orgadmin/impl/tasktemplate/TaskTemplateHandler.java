@@ -49,7 +49,6 @@ public class TaskTemplateHandler {
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
                         .set(TaskTemplateNode::getDeletedAt, now));
 
         for (TaskTemplateNodeCreateParamsBO node : params.getNodes()) {

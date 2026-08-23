@@ -6,6 +6,7 @@ import online.longlian.app.common.filter.JwtAuthenticationFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvider;
+import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +21,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -45,7 +47,8 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(SecurityConstants.getPermitAllMatchers()).permitAll()
+                        .requestMatchers(SecurityConstants.getPermitAllMatchers().toArray(new RequestMatcher[0])).permitAll()
+                        .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
@@ -71,4 +74,3 @@ public class SecurityConfig {
     }
 
 }
-

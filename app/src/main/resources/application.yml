@@ -64,7 +64,7 @@ sqlite:
 mybatis-plus:
   global-config:
     db-config:
-      logic-delete-field: deleted_at
+      logic-delete-field: deletedAt
       logic-delete-value: now()
       logic-not-delete-value: 'null'
   configuration:
@@ -83,6 +83,7 @@ storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 OSS
   local:
     base-url: ${STORAGE_LOCAL_BASE_URL:}
+    directory: ${STORAGE_LOCAL_DIRECTORY:${java.io.tmpdir}/longlian-oa}
   oss:
     bucket: ${STORAGE_OSS_BUCKET}
     region: ${STORAGE_OSS_REGION}

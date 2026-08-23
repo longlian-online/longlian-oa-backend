@@ -3,6 +3,7 @@ package online.longlian.app.api.session;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -73,7 +74,7 @@ public class SessionApiTest extends BaseApiTest {
     void shouldLoginByCodeSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
 
-        createEmailVerifyOTP("123456", 1L, "test@example.com");
+        createEmailVerifyOTP("123456", 1L, "test@example.com", EmailVerifyBusinessType.LOGIN);
 
         Response response = request()
                 .body(Map.of("email", "test@example.com", "code", "123456"))
@@ -196,7 +197,7 @@ public class SessionApiTest extends BaseApiTest {
     }
 
     /**
-     * 邮箱为空时发送验证码（业务层校验）
+     * 邮箱为空时发送验证码失败
      */
     @Test
     void shouldFailSendCodeWithEmptyEmail() {
@@ -207,11 +208,11 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
-     * 邮箱格式不正确时发送验证码（业务层校验）
+     * 邮箱格式不正确时发送验证码失败
      */
     @Test
     void shouldFailSendCodeWithInvalidEmail() {
@@ -222,11 +223,11 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
-     * 缺少业务类型时发送验证码（接口无 @Valid 注解，不拦截）
+     * 缺少业务类型时发送验证码失败
      */
     @Test
     void shouldFailSendCodeWithNullBusinessType() {
@@ -237,7 +238,7 @@ public class SessionApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     // ========== 退出登录 ==========

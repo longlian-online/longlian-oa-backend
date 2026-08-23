@@ -69,9 +69,10 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 
 ## 数据库变更规范
 
-1. 所有表结构变更通过 `app/src/main/resources/manifest/migrate/` 下的 SQL 迁移文件执行，命名格式 `v{主版本}-{次版本}-{修订版本}.sql`
-2. **禁止直接修改 entity 类**，变更流程：编写新版本迁移 SQL → 执行迁移 → 使用 `generator` 模块重新生成 entity/mapper/XML
+1. 数据库采用 Atlas 声明式管理，`db/schema.sql` 是唯一真实来源
+2. **禁止直接修改 entity 类**，变更流程：修改 `db/schema.sql` → 开发环境执行 `./db/migrate.sh dev apply` 同步数据库 → 使用 `generator` 模块重新生成 entity/mapper/XML
 3. generator 模块通过注解驱动代码生成（如 `@ModelEnum` / `@ModelEnums` 生成枚举类）
+4. CI 通过 `db/migrate.sh prod apply` 同步数据库
 
 ## 代码规范
 
@@ -95,7 +96,7 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 |---|---|
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`），如邮件发送 |
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT；支持邮箱验证码 + 用户名密码两种登录 |
-| JWT 黑名单 | 登出时 JWT 加入 Redis 黑名单 (`TokenBlacklistService`) |
+| JWT 黑名单 | 登出时 JWT 加入 MySQL 黑名单表 `token_blacklist` (`TokenBlacklistService`)，按 `expired_at` 实现 TTL 过期 |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
@@ -110,7 +111,42 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 
 生成 pull request 消息必须参考 docs/pull_request_template.md 的格式
 
+### PR 提交后 CI 检查流程（必须执行）
+
+提交 PR 后，**必须**执行以下闭环流程，直到 CI 全部通过且结果满意：
+
+1. **检查 CI 状态**：提交 PR 后，检查是否有 CI 流水线正在运行
+2. **等待 CI 完成**：等待所有 CI 任务执行完毕，获取最终结果
+3. **分析并修复**：根据 CI 结果进行迭代优化，直到结果满意
+
+CI 中包含以下检查项：
+
+| 检查项 | 说明 | 处理方式 |
+|---|---|---|
+| 测试 | 运行项目单元/API 测试 | 根据失败用例定位并修复代码 |
+| DeepSource | 静态代码质量分析 | 使用 `deepsource` skill 进行深入分析，根据报告修复问题 |
+| OpenCode Review | AI 代码审查 | 根据审查意见优化代码 |
+
+**迭代规则**：
+- 每次修复后重新推送代码，触发新一轮 CI
+- 重复「等待 → 分析 → 修复」循环，直到所有检查项通过
+- DeepSource 问题可使用 `/deepsource` 获取详细的 issues、漏洞和代码质量报告进行针对性修复
+- 对于误报或无需修复的问题，需在 PR 中说明原因
+
 ## 测试
+
+### 测试覆盖要求（强制）
+
+每个需求**必须**同时完成单元测试和 API 测试的覆盖，未通过测试覆盖的需求不得合并：
+
+1. **单元测试**：对新增/修改的 Service 层业务逻辑编写单元测试，覆盖正常路径和关键异常路径
+2. **API 测试**：对新增/修改的 Controller 接口编写 API 测试，验证请求参数校验、响应结构及核心业务场景
+3. 测试代码与业务代码在同一 PR 中提交，不接受「先合业务代码，后补测试」
+4. CI 中测试检查项必须全部通过，方可合并
+
+### 单元测试
+
+编写单元测试需要遵循 @docs/unit_test.md 文档
 
 ### API 测试
 

@@ -1,7 +1,6 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -24,14 +23,10 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.common.enumeration.TaskInstanceStatus;
-import online.longlian.common.enumeration.TaskSubmissionStatus;
 import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,9 +43,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final ProjectMapper projectMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceAssembler taskInstanceAssembler;
-    private final MemberSubmitCountHandler memberSubmitCountHandler;
+    private final TaskInstanceCommandHandler taskInstanceCommandHandler;
     private final UserOperationLogService operationLogService;
-    private final Clock clock;
 
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
@@ -67,7 +61,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         List<TaskInstance> instances = taskInstanceMapper.selectList(
                 new LambdaQueryWrapper<TaskInstance>()
                         .eq(TaskInstance::getItemId, params.getItemId())
-                        .isNull(TaskInstance::getDeletedAt)
                         .orderByAsc(TaskInstance::getCreatedAt));
 
         if (instances.isEmpty()) {
@@ -86,20 +79,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void claimTask(TaskInstanceOperateParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        if (instance.getStatus() != TaskInstanceStatus.PENDING) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可接取");
-        }
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, params.getInstanceId())
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
-                        .set(TaskInstance::getAssigneeId, params.getUserId())
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
-        if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
+        taskInstanceCommandHandler.claim(instance, params.getUserId());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_CLAIM, params);
     }
@@ -108,24 +88,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void abandonTask(TaskInstanceOperateParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
-        }
-        if (!params.getUserId().equals(instance.getAssigneeId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人可放弃任务");
-        }
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, params.getInstanceId())
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .eq(TaskInstance::getAssigneeId, params.getUserId())
-                        .set(TaskInstance::getAssigneeId, null)
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
-                        .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
-        if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
+        taskInstanceCommandHandler.abandon(instance, params.getUserId());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_ABANDON, params);
     }
@@ -134,42 +97,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void submitTask(TaskInstanceSubmitParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
-        }
-        if (!params.getUserId().equals(instance.getAssigneeId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人可提交任务");
-        }
-
-        LocalDateTime now = LocalDateTime.now(clock);
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, params.getInstanceId())
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .eq(TaskInstance::getAssigneeId, params.getUserId())
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
-                        .set(TaskInstance::getSubmittedAt, now)
-                        .set(TaskInstance::getCompletedAt, now)
-                        .set(TaskInstance::getUpdatedAt, now));
-        if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
-
-        TaskSubmission submission = TaskSubmission.builder()
-                .projectId(instance.getProjectId())
-                .itemId(instance.getItemId())
-                .taskInstanceId(params.getInstanceId())
-                .itemTaskNodeId(instance.getItemTaskNodeId())
-                .submitterId(params.getUserId())
-                .metadata(params.getMetadata())
-                .status(TaskSubmissionStatus.SUBMITTED)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        taskSubmissionMapper.insert(submission);
-
-        memberSubmitCountHandler.incrementSubmitCount(params.getUserId(), instance.getProjectId());
+        taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getMetadata());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
     }
@@ -178,29 +106,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void resetTask(TaskInstanceOperateParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可重置");
-        }
-        if (!params.getUserId().equals(instance.getAssigneeId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人可重置任务");
-        }
-
-        LocalDateTime now = LocalDateTime.now(clock);
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, params.getInstanceId())
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
-                        .eq(TaskInstance::getAssigneeId, params.getUserId())
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .set(TaskInstance::getSubmittedAt, null)
-                        .set(TaskInstance::getCompletedAt, null)
-                        .set(TaskInstance::getUpdatedAt, now));
-        if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
-
-        memberSubmitCountHandler.revertSubmitCount(params.getUserId(), instance.getProjectId());
+        taskInstanceCommandHandler.reset(instance, params.getUserId());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_RESET, params);
     }
@@ -209,44 +115,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void rejectTask(TaskInstanceRejectParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
-        }
-        if (params.getUserId().equals(instance.getAssigneeId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能打回自己的任务");
-        }
-
-        LocalDateTime now = LocalDateTime.now(clock);
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, params.getInstanceId())
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .set(TaskInstance::getSubmittedAt, null)
-                        .set(TaskInstance::getCompletedAt, null)
-                        .set(TaskInstance::getUpdatedAt, now));
-        if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
-
-        int submissionUpdated = taskSubmissionMapper.update(null,
-                new LambdaUpdateWrapper<TaskSubmission>()
-                        .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
-                        .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
-                        .set(TaskSubmission::getStatus, TaskSubmissionStatus.REJECTED)
-                        .set(TaskSubmission::getReviewerId, params.getUserId())
-                        .set(TaskSubmission::getReviewedAt, now)
-                        .set(TaskSubmission::getReviewComment, params.getReviewComment())
-                        .set(TaskSubmission::getUpdatedAt, now));
-        if (submissionUpdated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
-        }
-
-        Long submitterId = instance.getAssigneeId();
-        if (submitterId != null) {
-            memberSubmitCountHandler.revertSubmitCount(submitterId, instance.getProjectId());
-        }
+        taskInstanceCommandHandler.reject(instance, params.getUserId(), params.getReviewComment());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_REJECT, params);
     }
@@ -283,10 +152,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
         Project project = projectMapper.selectById(instance.getProjectId());
-        if (project == null || !project.getOrgId().equals(orgId)) {
+        if (project == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+        if (!project.getOrgId().equals(orgId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
         return instance;
     }
-
 }

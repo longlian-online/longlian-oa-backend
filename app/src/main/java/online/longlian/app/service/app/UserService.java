@@ -6,6 +6,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
@@ -32,6 +33,13 @@ import java.util.List;
  * 完成验证码校验和消费。
  */
 public interface UserService extends IService<User> {
+
+    /**
+     * 使用邮箱验证码重置密码。
+     *
+     * @param params 包含邮箱、验证码和新密码的重置参数
+     */
+    void resetPassword(UserResetPasswordParamsBO params);
 
     /**
      * 获取当前用户的个人信息（含头像 URL）。

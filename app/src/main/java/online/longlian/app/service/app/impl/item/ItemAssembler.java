@@ -33,7 +33,6 @@ public class ItemAssembler {
         Map<Long, List<ItemTaskNode>> nodesByItemId = itemTaskNodeMapper.selectList(
                         new LambdaQueryWrapper<ItemTaskNode>()
                                 .in(ItemTaskNode::getItemId, itemIds)
-                                .isNull(ItemTaskNode::getDeletedAt)
                                 .orderByAsc(ItemTaskNode::getSort)
                                 .orderByAsc(ItemTaskNode::getParallelSort))
                 .stream()
@@ -49,7 +48,7 @@ public class ItemAssembler {
             instancesByNodeId = taskInstanceMapper.selectList(
                             new LambdaQueryWrapper<TaskInstance>()
                                     .in(TaskInstance::getItemTaskNodeId, nodeIds)
-                                    .isNull(TaskInstance::getDeletedAt))
+                                    )
                     .stream()
                     .collect(Collectors.groupingBy(TaskInstance::getItemTaskNodeId));
         }

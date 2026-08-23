@@ -69,7 +69,6 @@ public class WorkshopProjectHandler {
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
                         .set(TaskTemplateNode::getDeletedAt, now));
 
         insertNewNodes(params.getTemplateId(), params.getNodes(), now);

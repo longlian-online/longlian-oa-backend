@@ -11,6 +11,8 @@ EXPOSE 8080
 COPY settings.xml /usr/share/maven/conf/settings.xml
 
 # 安装常用工具
+# 开发容器不锁包版本：锁死后 base image 更新会直接导致构建失败，维护成本大于收益
+# skipcq: DOK-DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \

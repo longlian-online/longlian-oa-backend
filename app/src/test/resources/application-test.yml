@@ -14,6 +14,15 @@ spring:
     redis:
       timeout: 5s
       connect-timeout: 5s
+  mail:
+    host: localhost
+    username: test
+    password: test
+    port: 25
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
 
 notify:
   type: NOOP

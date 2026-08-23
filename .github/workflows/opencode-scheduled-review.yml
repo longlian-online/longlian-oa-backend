@@ -1,0 +1,106 @@
+name: opencode-scheduled-review
+
+on:
+  schedule:
+    - cron: "0 2 * * 1,4" # 每周一、周四 UTC 2:00 (北京时间 10:00)
+  workflow_dispatch:       # 支持手动触发
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run opencode review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode-go/deepseek-v4-pro
+          prompt: |
+            你是 Spring Boot 项目的定期代码审查专家。审查近一周 `release/v1.0.0` 分支的代码变更，生成结构化报告。
+
+            **所有报告、Issue 和 PR 描述必须使用中文。**
+
+            ## 审查策略
+
+            ### 阶段一：变更发现
+            1. 获取最近 7 天的所有 commit 和 merge，提取变更文件清单
+            2. 过滤非代码文件：`pom.xml` 版本号、`README.md`、纯格式化 commit
+            3. 按影响面分组：
+               - 核心路径：`controller/`、`filter/`、`security/`、`service/impl/`、`mapper/xml/`
+               - 周边路径：`pojo/`、`config/`、`util/`
+               - 资源路径：`resources/migrate/`、`application*.yml`
+
+            ### 阶段二：按文件类型精准审查
+
+            #### Controller 层
+            - 是否直接返回 Entity？（必须转 VO）
+            - 是否用 DTO 接参？（禁止直接用 Entity 接参）
+            - 是否有业务逻辑泄漏到 Controller？
+            - `@PreAuthorize` 权限注解是否正确且粒度足够？
+            - 文件上传是否校验类型和大小？
+
+            #### Service 层
+            - 空指针：链式调用无保护、方法返回值直接 `.getXxx()`
+            - 线程安全：SimpleDateFormat/非线程安全集合作类字段、虚拟线程下 ThreadLocal 泄漏
+            - 事务：`@Transactional` 范围合理性、只读优化、传播行为正确性
+            - 资源泄漏：IO/JDBC 未用 try-with-resources
+            - 循环依赖：A→B→A 隐式循环注入
+
+            #### Mapper XML
+            - SQL 注入：`${}` 应改用 `#{}`
+            - 查询效率：`LIKE '%x%'` 全模糊、`SELECT *`、未利用索引
+            - N+1 查询：resultMap 关联查询
+            - 标签闭合与 column 名正确性
+
+            #### Security / Filter
+            - JWT 校验链完整性（过期→签名→黑名单）
+            - 认证异常信息不泄漏用户详情
+            - 路径白名单是否有过度放行
+
+            ### 阶段三：趋势分析
+
+            对一周变更进行宏观分析：
+            1. **架构健康度**：是否有分层被打破的迹象？
+            2. **重复模式**：相同类型的缺陷是否反复出现？如有，说明规范执行不到位
+            3. **技术债累积**：TODO/FIXME 数量变化，是否有堆积倾向
+            4. **复杂度变化**：是否有新的上帝类出现（单文件行数 > 800）
+
+            ## 输出要求
+
+            ### 生成结构化报告
+            ```markdown
+            ## Weekly Code Review Report ({date range})
+
+            **Commits reviewed**: {N}
+            **Files changed**: {M}
+
+            ### 🔴 Critical Issues
+            严重和高级别问题汇总，每个问题标注文件路径+行号
+
+            ### 🟠 Architecture Concerns
+            架构层面的关注点（分层破坏、循环依赖、上帝类等）
+
+            ### 📊 Trends
+            - 本周技术债变化
+            - 重复缺陷模式记录
+
+            ### 🏷️ Recommendations
+            改进建议清单
+            ```
+
+            ### 行动规则
+            - 🔴 Critical 问题：每个独立问题创建一个 Issue（label: `bug`/`security`），标题包含文件路径
+            - 🟠 Architecture 问题：合并创建一个 Issue（label: `architecture`）
+            - 可修复的问题：创建 PR，分支命名 `fix/review-{date}`，引用对应 Issue
+            - 无问题：仅输出 "No issues found this week"，不创建 Issue/PR

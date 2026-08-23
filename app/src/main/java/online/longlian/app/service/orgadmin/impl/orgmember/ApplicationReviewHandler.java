@@ -15,6 +15,7 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.common.LockService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 处理入组申请的审批流程：校验、通过、拒绝、状态更新。
@@ -35,6 +37,7 @@ public class ApplicationReviewHandler {
     private final OrganizationMemberMapper organizationMemberMapper;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    private final LockService lockService;
     private final Clock clock;
 
     public void validatePendingApplication(GroupApplication application, Long orgId) {
@@ -78,18 +81,28 @@ public class ApplicationReviewHandler {
     }
 
     public User createUserByApplication(GroupApplication application, LocalDateTime now) {
-        User user = User.builder()
-                .username(application.getUsername())
-                .password(application.getPassword())
-                .nickname(application.getNickname())
-                .email(application.getEmail())
-                .status(Status.ENABLED)
-                .defaultOrgId(application.getOrgId())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        userMapper.insert(user);
-        return user;
+        String lockKey = "user:create:email:" + application.getEmail();
+        try (var lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
+            if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getEmail, application.getEmail())) > 0) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在，无法通过该申请");
+            }
+            if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, application.getUsername())) > 0) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在，无法通过该申请");
+            }
+
+            User user = User.builder()
+                    .username(application.getUsername())
+                    .password(application.getPassword())
+                    .nickname(application.getNickname())
+                    .email(application.getEmail())
+                    .status(Status.ENABLED)
+                    .defaultOrgId(application.getOrgId())
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            userMapper.insert(user);
+            return user;
+        }
     }
 
     public User getExistingApplicationUser(GroupApplication application) {
@@ -151,14 +164,8 @@ public class ApplicationReviewHandler {
 
     private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
         LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
-                .eq(OrganizationJoinOtp::getOrgId, application.getOrgId())
+                .eq(OrganizationJoinOtp::getOtpId, application.getOtpId())
                 .orderByDesc(OrganizationJoinOtp::getId);
-
-        if (application.getApplicationType() == ApplicationType.EXISTING_USER) {
-            queryWrapper.eq(OrganizationJoinOtp::getInvitedUserId, application.getUserId());
-        } else {
-            queryWrapper.isNull(OrganizationJoinOtp::getInvitedUserId);
-        }
 
         Page<OrganizationJoinOtp> page = new Page<>(1, 1);
         OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectPage(page, queryWrapper)

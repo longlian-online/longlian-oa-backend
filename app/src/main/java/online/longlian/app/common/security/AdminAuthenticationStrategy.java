@@ -27,7 +27,6 @@ public class AdminAuthenticationStrategy implements AuthenticationStrategy {
         Admin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>()
                         .eq(Admin::getId, subjectId)
-                        .isNull(Admin::getDeletedAt)
                         .last("LIMIT 1")
         );
         if (admin == null) {

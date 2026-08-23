@@ -1,7 +1,6 @@
 branch:
-  - reg: sit
-    buttons:
-      - name: 部署
-        description: 部署到测试服
-        event: web_trigger_one
-        isDefault: false
+  - buttons:
+      - name: 构建并推送
+        description: 构建当前分支 Docker 镜像并推送到制品库
+        event: web_trigger_build_and_push
+        isDefault: true

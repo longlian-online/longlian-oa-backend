@@ -55,7 +55,6 @@ public class TaskTemplateAssembler {
         List<TaskTemplateNode> nodes = taskTemplateNodeMapper.selectList(
                 new LambdaQueryWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, template.getId())
-                        .isNull(TaskTemplateNode::getDeletedAt)
                         .orderByAsc(TaskTemplateNode::getSort)
         );
 

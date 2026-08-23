@@ -90,7 +90,7 @@ longlian-oa-backend/
 |------|----------|
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`）|
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT |
-| JWT 黑名单 | 登出时加入 Redis 黑名单（`TokenBlacklistService`）|
+| JWT 黑名单 | 登出时加入 MySQL 黑名单表 `token_blacklist`（`TokenBlacklistService`），按 `expired_at` 实现 TTL 过期 |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 自动选择 |
 | 通知 | `NotificationManager` + `EmailNotificationService` |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId |
@@ -100,6 +100,8 @@ longlian-oa-backend/
 
 ## 数据库
 
-数据库迁移文件位于 `app/src/main/resources/manifest/migrate/`
+数据库使用 [Atlas](https://atlasgo.io/) 声明式管理，文件位于根目录 `db/`
 
-命名规范：`v{主版本}-{次版本}-{修订版本}.sql`
+- 期望状态：`db/schema.sql`（唯一真实来源）
+- CI 脚本：`db/migrate.sh`
+- 开发文档：`db/DEVELOPMENT.md`

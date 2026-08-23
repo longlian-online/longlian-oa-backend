@@ -23,9 +23,9 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.service.otp.OneTimePasswordService;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OTPType;
+import online.longlian.common.enumeration.Status;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
@@ -45,15 +45,10 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
-    private final UserMapper userMapper;
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
-    private final OrganizationMapper organizationMapper;
-    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final ResourceService resourceService;
     private final OTPServiceFactory otpServiceFactory;
-    private final OneTimePasswordService oneTimePasswordService;
 
     private final MemberQueryBuilder memberQueryBuilder;
     private final MemberAssembler memberAssembler;
@@ -61,6 +56,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
     private final LockService lockService;
+    private final SessionService sessionService;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -105,6 +101,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
         memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
         memberStatusHandler.updateMemberStatus(member, params.getStatus());
+        if (params.getStatus() == Status.DISABLED) {
+            sessionService.clearUserSessionCache(member.getUserId());
+        }
     }
 
     @Override

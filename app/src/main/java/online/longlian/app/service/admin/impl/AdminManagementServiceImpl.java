@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -34,6 +35,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     private final AdminMapper adminMapper;
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService tokenBlacklistService;
+    private final Clock clock;
 
     @Transactional(rollbackFor = Exception.class)
     public Long createInternal(@NonNull AdminCreateParamsBO params, @NonNull String role) {
@@ -46,7 +48,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
             throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         Admin admin = Admin.builder()
                 .username(params.getUsername())
                 .password(passwordEncoder.encode(params.getPassword()))
@@ -109,7 +111,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
                 null,
                 new LambdaUpdateWrapper<Admin>()
                         .eq(Admin::getId, id)
-                        .set(Admin::getDeletedAt, LocalDateTime.now())
+                        .set(Admin::getDeletedAt, LocalDateTime.now(clock))
         );
     }
 
@@ -122,7 +124,6 @@ public class AdminManagementServiceImpl implements AdminManagementService {
 
         Page<Admin> adminPage = new LambdaQueryChainWrapper<>(this.adminMapper)
                 .select(Admin::getId, Admin::getUsername, Admin::getRole, Admin::getLastLoginAt, Admin::getCreatedAt)
-                .isNull(Admin::getDeletedAt)
                 .orderByDesc(Admin::getCreatedAt)
                 .page(page);
 

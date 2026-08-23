@@ -8,6 +8,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
@@ -73,11 +74,11 @@ public class ResourceService {
 
     public String getResourceReadUrl(Long fileId) {
         Map<Long, ResourceReadUrlGetResultBO> resourceMap = this.getResourceReadUrls(List.of(fileId));
-        if (resourceMap.size() != 1 && resourceMap.get(fileId) == null) {
+        ResourceReadUrlGetResultBO resource = resourceMap.get(fileId);
+        if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
-
-        return resourceMap.get(fileId).getUrl();
+        return resource.getUrl();
     }
 
     /**
@@ -124,32 +125,54 @@ public class ResourceService {
      * @param resourceId 资源 ID
      * @param bizId      业务对象 ID
      */
-    public void bindBizId(Long resourceId, Long bizId) {
-        if (resourceId == null || bizId == null) {
+    public void bindBizId(Long resourceId, Long bizId, Long creatorId, Long orgId) {
+        if (resourceId == null || resourceId <= 0 || bizId == null) {
             return;
         }
-        resourceMapper.update(null,
+        int updated = resourceMapper.update(null,
                 new LambdaUpdateWrapper<Resource>()
                         .eq(Resource::getId, resourceId)
+                        .eq(Resource::getCreatorId, creatorId)
+                        .eq(orgId != null, Resource::getOrgId, orgId)
                         .set(Resource::getBizId, bizId));
+        if (updated == 0) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
+    }
+
+    public void uploadLocalResource(LocalFileUploadParamsBO params) {
+        Resource resource = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
+                .eq(Resource::getStorageKey, params.getStorageKey())
+                .eq(Resource::getStorageType, StorageType.LOCAL)
+                .eq(Resource::getCreatorId, params.getUserId())
+                .eq(Resource::getOrgId, params.getOrgId())
+                .last("LIMIT 1"));
+        if (resource == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传该文件");
+        }
+        if (!resource.getFileSize().equals((long) params.getContent().length)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
+        }
+
+        storageFactory.get(StorageType.LOCAL).upload(params.getStorageKey(), params.getContent());
+        resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resource.getId())
+                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+    }
+
+    public org.springframework.core.io.Resource getLocalResource(String storageKey) {
+        Long count = resourceMapper.selectCount(new LambdaQueryWrapper<Resource>()
+                .eq(Resource::getStorageKey, storageKey)
+                .eq(Resource::getStorageType, StorageType.LOCAL));
+        if (count == 0) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
+        }
+        return storageFactory.get(StorageType.LOCAL).getResource(storageKey);
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
 
-    private String buildFileAccessUrl(Resource resource) {
-        if (resource == null || resource.getStorageType() == null || resource.getStorageKey() == null) {
-            return null;
-        }
-        StorageType type = resource.getStorageType();
-        String key = resource.getStorageKey();
-        String baseUrl = "";
-
-        switch (type) {
-            case LOCAL -> baseUrl = storageProperties.getLocal().getBaseUrl();
-            case OSS -> baseUrl = storageProperties.getOss().getBaseUrl();
-        }
-        return Paths.get(baseUrl, key).toString();
-    }
 }
