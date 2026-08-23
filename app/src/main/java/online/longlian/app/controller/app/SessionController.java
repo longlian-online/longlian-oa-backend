@@ -64,7 +64,7 @@ public class SessionController {
     @Operation(summary = "发送邮箱验证码", security = {})
     @PostMapping("/email/code")
     @ResponseMessage("验证码发送请求已提交，请注意查收邮箱")
-    public void sendCode(@RequestBody EmailCodeDTO emailCodeDTO) {
+    public void sendCode(@RequestBody @Valid EmailCodeDTO emailCodeDTO) {
         otpServiceFactory.get(OTPType.EmailVerify).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(0L)
