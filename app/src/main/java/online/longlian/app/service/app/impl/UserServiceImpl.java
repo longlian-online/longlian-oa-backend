@@ -19,6 +19,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
@@ -30,6 +31,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.app.UserService;
 import online.longlian.common.enumeration.ApplicationStatus;
@@ -62,6 +64,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final CurrentOrganizationService currentOrganizationService;
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resetPassword(UserResetPasswordParamsBO params) {
+        OTPStrategyService emailVerifyService = otpServiceFactory.get(OTPType.EmailVerify);
+        OneTimePassword emailOtp = emailVerifyService.getValid(
+                OTPValidateContextBO.builder()
+                        .code(params.getCode())
+                        .target(params.getEmail())
+                        .businessType(EmailVerifyBusinessType.FORGOT_PASSWORD)
+                        .build()
+        );
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getEmail, params.getEmail())
+                        .last("LIMIT 1")
+        );
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+
+        user.setPassword(passwordEncoder.encode(params.getPassword()));
+        userMapper.updateById(user);
+        emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+    }
 
     @Override
     public UserGetMyInfoResultBO getMyInfo(Long userId) {

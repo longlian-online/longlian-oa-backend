@@ -13,11 +13,13 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
+import online.longlian.app.pojo.dto.app.ResetPasswordDTO;
 import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
@@ -40,6 +42,19 @@ public class UserController {
 
     private final UserService userService;
     private final SessionService sessionService;
+
+    @Operation(summary = "找回密码", description = "使用邮箱验证码重置密码", security = {})
+    @PutMapping("/password")
+    @ResponseMessage("密码重置成功")
+    public void resetPassword(@RequestBody @Valid ResetPasswordDTO resetPasswordDTO) {
+        userService.resetPassword(
+                UserResetPasswordParamsBO.builder()
+                        .email(resetPasswordDTO.getEmail())
+                        .code(resetPasswordDTO.getCode())
+                        .password(resetPasswordDTO.getPassword())
+                        .build()
+        );
+    }
 
     @Operation(
         summary = "通过邀请码注册并创建组织",
