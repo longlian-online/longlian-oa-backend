@@ -10,11 +10,13 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.PatternConstants;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 @Schema(description = "创建文件上传请求参数")
 public class CreateFileReqDTO {
 
