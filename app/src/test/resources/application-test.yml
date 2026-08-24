@@ -26,3 +26,6 @@ mybatis-plus:
 
 notify:
   type: NOOP
+
+cors:
+  allowed-origins: http://localhost:3000
