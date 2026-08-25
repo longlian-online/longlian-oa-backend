@@ -10,7 +10,8 @@ import online.longlian.common.annotation.ModelEnum;
 public enum StorageType implements CodeEnum {
     NONE(0, "空实现"),
     LOCAL(1, "本地存储"),
-    OSS(2, "云对象存储");
+    OSS(2, "阿里云对象存储"),
+    COS(3, "腾讯云对象存储");
 
     private final Integer code;
     private final String desc;

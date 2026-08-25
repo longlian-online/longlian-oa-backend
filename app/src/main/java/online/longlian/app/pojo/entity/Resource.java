@@ -51,7 +51,7 @@ public class Resource implements Serializable {
      * 存储类型 1-本地存储 2-云对象存储
      */
     @TableField("storage_type")
-    @ApiModelProperty("存储类型 1-本地存储 2-云对象存储")
+    @ApiModelProperty("存储类型 1-本地存储 2-阿里云对象存储 3-腾讯云对象存储")
     private StorageType storageType;
 
     /**
