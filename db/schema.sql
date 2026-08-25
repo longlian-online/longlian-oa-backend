@@ -233,7 +233,7 @@ CREATE TABLE `project_workshop` (
 CREATE TABLE `resource` (
   `id` bigint NOT NULL COMMENT "文件ID",
   `org_id` bigint NOT NULL COMMENT "所属组织ID",
-  `storage_type` tinyint NOT NULL COMMENT "存储类型 1-本地存储 2-云对象存储",
+  `storage_type` tinyint NOT NULL COMMENT "存储类型 1-本地存储 2-阿里云对象存储 3-腾讯云对象存储",
   `storage_key` varchar(255) NOT NULL COMMENT "存储唯一标识（如OSS的objectKey/本地文件路径）",
   `file_name` varchar(255) NOT NULL COMMENT "原始文件名",
   `file_ext` varchar(20) NOT NULL COMMENT "文件扩展名",
