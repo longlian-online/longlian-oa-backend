@@ -75,7 +75,10 @@ public class ProjectServiceImpl implements ProjectService {
                             .eq(ProjectType::getStatus, Status.ENABLED)
                             .last("LIMIT 1")
             );
-            typeId = projectType != null ? projectType.getId() : null;
+            if (projectType == null) {
+                throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
+            }
+            typeId = projectType.getId();
         }
 
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());

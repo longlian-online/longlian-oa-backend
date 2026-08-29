@@ -3,8 +3,10 @@ package online.longlian.app.service.orgadmin;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeUpdateParamsBO;
 
 /**
  * 组织管理端企划类型服务接口。
@@ -28,6 +30,24 @@ public interface ProjectTypeService {
      * @param params 包含类型名称、所属组织 ID 及创建者 ID 的创建参数
      */
     void createProjectType(ProjectTypeCreateParamsBO params);
+
+    /**
+     * 修改企划类型名称。
+     * <p>
+     * 修改会作用于所有引用该类型的已有企划；名称在组织内必须唯一。
+     *
+     * @param params 包含类型 ID、所属组织 ID 及新名称的修改参数
+     */
+    void updateProjectType(ProjectTypeUpdateParamsBO params);
+
+    /**
+     * 删除企划类型。
+     * <p>
+     * 仅允许删除尚未被任何企划引用的类型，删除采用逻辑删除；已被引用的类型应改为禁用。
+     *
+     * @param params 包含企划类型 ID 和当前组织 ID 的删除参数
+     */
+    void deleteProjectType(ProjectTypeDeleteParamsBO params);
 
     /**
      * 变更企划类型状态（启用/禁用）。
