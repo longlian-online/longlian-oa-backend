@@ -13,11 +13,14 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeUpdateParamsBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectTypeCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectTypeListDTO;
+import online.longlian.app.pojo.dto.orgadmin.ProjectTypeUpdateDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ProjectTypeAdminVO;
 import online.longlian.app.service.orgadmin.ProjectTypeService;
@@ -70,9 +73,30 @@ public class ProjectTypeController {
                 ProjectTypeCreateParamsBO.builder()
                         .orgId(sessionContext.orgId())
                         .creatorId(sessionContext.userId())
-                        .name(projectTypeCreateDTO.getName())
+                        .name(projectTypeCreateDTO.getName().trim())
                         .build()
         );
+    }
+
+    @Operation(summary = "修改企划类型名称")
+    @PutMapping("/{typeId}")
+    @ResponseMessage("修改成功")
+    public void updateProjectType(@UserSession(required = true) SessionContext sessionContext,
+                                  @PathVariable Long typeId,
+                                  @RequestBody @Valid ProjectTypeUpdateDTO projectTypeUpdateDTO) {
+        projectTypeService.updateProjectType(ProjectTypeUpdateParamsBO.builder()
+                .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim()).build());
+    }
+
+    @Operation(summary = "删除企划类型", description = "仅允许删除未被企划引用的类型")
+    @DeleteMapping("/{typeId}")
+    @ResponseMessage("删除成功")
+    public void deleteProjectType(@UserSession(required = true) SessionContext sessionContext,
+                                  @PathVariable Long typeId) {
+        projectTypeService.deleteProjectType(ProjectTypeDeleteParamsBO.builder()
+                .typeId(typeId)
+                .orgId(sessionContext.orgId())
+                .build());
     }
 
     @Operation(summary = "启用/禁用企划类型", description = "禁用后用户端不展示该类型，但已有数据保留。status: ENABLED-启用，DISABLED-禁用")

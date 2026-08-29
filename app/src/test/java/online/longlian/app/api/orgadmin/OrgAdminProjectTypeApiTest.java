@@ -5,7 +5,10 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.hamcrest.Matchers.*;
 
@@ -46,6 +49,106 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /**
+     * 修改企划类型名称成功，并自动去除首尾空格
+     */
+    @Test
+    void shouldUpdateProjectTypeSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "旧名称", 1, 1L);
+
+        authRequest(token).body(Map.of("name", "  新名称  "))
+                .put("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT name FROM project_type WHERE id = 1", String.class))
+                .isEqualTo("新名称");
+    }
+
+    /**
+     * 修改企划类型为组织内重复名称失败
+     */
+    @Test
+    void shouldFailUpdateProjectTypeWithDuplicateName() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "类型一", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "类型二", 1, 1L);
+
+        authRequest(token).body(Map.of("name", "类型二"))
+                .put("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
+     * 删除未被引用的企划类型成功
+     */
+    @Test
+    void shouldDeleteUnusedProjectTypeSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "待删除", 1, 1L);
+
+        authRequest(token).delete("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT deleted_at FROM project_type WHERE id = 1", LocalDateTime.class))
+                .isNotNull();
+    }
+
+    /**
+     * 删除已被企划引用的类型失败
+     */
+    @Test
+    void shouldFailDeleteProjectTypeWhenReferenced() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "在用类型", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "企划", 1L);
+
+        authRequest(token).delete("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
+     * 未认证修改企划类型失败
+     */
+    @Test
+    void shouldFailUpdateProjectTypeWithoutAuth() {
+        request().body(Map.of("name", "新名称"))
+                .put("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    /**
+     * 未认证删除企划类型失败
+     */
+    @Test
+    void shouldFailDeleteProjectTypeWithoutAuth() {
+        request().delete("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    /**
+     * 修改企划类型名称为空时应失败
+     */
+    @Test
+    void shouldFailUpdateProjectTypeWithEmptyName() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token).body(Map.of("name", ""))
+                .put("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**

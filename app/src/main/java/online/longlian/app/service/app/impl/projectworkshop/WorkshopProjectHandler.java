@@ -42,7 +42,10 @@ public class WorkshopProjectHandler {
                         .eq(ProjectType::getName, projectTypeName.trim())
                         .eq(ProjectType::getStatus, Status.ENABLED)
                         .last("LIMIT 1"));
-        return projectType != null ? projectType.getId() : null;
+        if (projectType == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
+        }
+        return projectType.getId();
     }
 
     @Transactional(rollbackFor = Exception.class)

@@ -10,7 +10,9 @@ import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -39,6 +41,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                //CORS 跨域（预检 OPTIONS 由 CorsFilter 短路处理，返回正确的 CORS 头）
+                .cors(Customizer.withDefaults())
                 //禁用 CSRF
                 .csrf(AbstractHttpConfigurer::disable)
                 //无状态 Session
@@ -47,6 +51,8 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
+                        // 预检请求统一放行，避免被鉴权逻辑拦截，CORS 头仍由 CorsFilter 写入
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SecurityConstants.getPermitAllMatchers().toArray(new RequestMatcher[0])).permitAll()
                         .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()

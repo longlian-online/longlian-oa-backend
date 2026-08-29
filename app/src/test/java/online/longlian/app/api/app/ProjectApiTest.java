@@ -47,7 +47,6 @@ public class ProjectApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
-
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
@@ -63,6 +62,62 @@ public class ProjectApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.list", notNullValue());
+    }
+
+    /**
+     * 按启用的企划类型名称筛选企划列表成功
+     */
+    @Test
+    void shouldListProjectsWithProjectTypeFilter() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "漫画", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "漫画企划", 1L);
+
+        authRequest(token)
+                .queryParam("projectType", "  漫画  ")
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].projectType", equalTo("漫画"));
+    }
+
+    /**
+     * 按已禁用的企划类型名称筛选时应返回参数错误
+     */
+    @Test
+    void shouldFailListProjectsWithDisabledProjectType() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "已停用", 0, 1L);
+
+        authRequest(token)
+                .queryParam("projectType", "已停用")
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
+     * 使用不存在的企划类型名称筛选时应返回参数错误
+     */
+    @Test
+    void shouldFailListProjectsWithUnknownProjectType() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .queryParam("projectType", "不存在的类型")
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
@@ -109,6 +164,11 @@ public class ProjectApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "测试类型", 1, 1L
         );
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, "禁用类型", 0, 1L
+        );
 
         Response response = authRequest(token)
                 .get("/app/projects/types");
@@ -117,7 +177,8 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0))
-                .body("data", notNullValue());
+                .body("data", hasSize(1))
+                .body("data[0].name", equalTo("测试类型"));
     }
 
     /**
