@@ -75,6 +75,44 @@ public class WorkshopApiTest extends BaseApiTest {
     }
 
     /**
+     * 按有效企划类型筛选工坊企划列表成功，并自动去除首尾空格
+     */
+    @Test
+    void shouldListWorkshopProjectsWithProjectTypeFilter() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "漫画", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "视频", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "漫画企划", 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, 2L, "视频企划", 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_workshop` (id, project_id, user_id) VALUES (?, ?, ?)",
+                1L, 1L, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_workshop` (id, project_id, user_id) VALUES (?, ?, ?)",
+                2L, 2L, 1L);
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "projectType", "  漫画  "))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].title", equalTo("漫画企划"))
+                .body("data.total", equalTo(1));
+    }
+
+    /**
      * 使用不存在的企划类型筛选工坊时应返回参数错误
      */
     @Test
@@ -84,6 +122,25 @@ public class WorkshopApiTest extends BaseApiTest {
 
         authRequest(token)
                 .body(Map.of("pageNum", 1, "pageSize", 10, "projectType", "不存在的类型"))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
+     * 使用已禁用的企划类型筛选工坊时应返回参数错误
+     */
+    @Test
+    void shouldFailListWorkshopProjectsWithDisabledProjectType() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "已禁用类型", 0, 1L);
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "projectType", "已禁用类型"))
                 .post("/app/workshop/list")
                 .then()
                 .statusCode(200)

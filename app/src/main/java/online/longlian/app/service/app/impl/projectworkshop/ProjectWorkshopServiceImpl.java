@@ -50,6 +50,8 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
 
     @Override
     public PageResultBO<WorkshopProjectInfoVO> getMyWorkshopList(WorkshopListParamsBO params) {
+        Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
+
         List<ProjectWorkshop> workshops = projectWorkshopMapper.selectList(
                 workshopQueryBuilder.buildWorkshopListQuery(params.getUserId()));
         if (workshops.isEmpty()) {
@@ -60,8 +62,6 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
                 .map(ProjectWorkshop::getProjectId)
                 .distinct()
                 .toList();
-
-        Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
 
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
         LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildFilteredProjectQuery(
