@@ -75,6 +75,22 @@ public class WorkshopApiTest extends BaseApiTest {
     }
 
     /**
+     * 使用不存在的企划类型筛选工坊时应返回参数错误
+     */
+    @Test
+    void shouldFailListWorkshopProjectsWithUnknownProjectType() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "projectType", "不存在的类型"))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
      * 分页查询工坊任务流模板列表成功
      */
     @Test
