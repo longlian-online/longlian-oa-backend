@@ -15,5 +15,6 @@ public class BaseTaskCreateParamsBO {
     private String name;
     private String description;
     private Long iconFileId;
+    private String iconName;
     private String metaSchema;
 }

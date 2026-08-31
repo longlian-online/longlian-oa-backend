@@ -25,6 +25,9 @@ public class BaseTaskVO {
     @Schema(description = "图标URL")
     private String iconUrl;
 
+    @Schema(description = "Lucide 图标组件名")
+    private String iconName;
+
     @Schema(description = "元数据字段定义(JSON数组)")
     private String metaSchema;
 

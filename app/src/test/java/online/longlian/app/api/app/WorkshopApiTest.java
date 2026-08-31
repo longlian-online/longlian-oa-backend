@@ -168,6 +168,40 @@ public class WorkshopApiTest extends BaseApiTest {
     }
 
     /**
+     * 查询工坊任务流模板时返回原子任务Lucide图标组件名
+     */
+    @Test
+    void shouldListWorkshopTaskTemplatesWithBaseTaskIconName() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, icon_name, meta_schema, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "宣传", "描述", null, "Megaphone", "[]", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "宣传模板", "描述", 1, 2, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `task_template_node` (id, task_template_id, base_task_id, sort, parallel_sort, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1, 0
+        );
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/task-template/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].nodes[0].baseTaskIconName", equalTo("Megaphone"));
+    }
+
+    /**
      * 创建工坊个人任务流模板成功
      */
     @Test

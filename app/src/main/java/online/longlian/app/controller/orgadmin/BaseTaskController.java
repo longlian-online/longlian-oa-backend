@@ -83,6 +83,7 @@ public class BaseTaskController {
                         .name(baseTaskCreateDTO.getName())
                         .description(baseTaskCreateDTO.getDescription())
                         .iconFileId(baseTaskCreateDTO.getIconFileId())
+                        .iconName(baseTaskCreateDTO.getIconName())
                         .metaSchema(baseTaskCreateDTO.getMetaSchema())
                         .build()
         );

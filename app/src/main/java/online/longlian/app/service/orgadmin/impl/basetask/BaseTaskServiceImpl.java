@@ -55,6 +55,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .name(params.getName())
                 .description(params.getDescription())
                 .iconFileId(params.getIconFileId())
+                .iconName(params.getIconName())
                 .metaSchema(params.getMetaSchema())
                 .status(Status.ENABLED)
                 .creatorId(params.getCreatorId())

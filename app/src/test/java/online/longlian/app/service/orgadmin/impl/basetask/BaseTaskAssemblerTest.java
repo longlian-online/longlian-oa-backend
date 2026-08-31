@@ -47,7 +47,7 @@ class BaseTaskAssemblerTest {
     void assembleBaseTaskList_withTasks_returnsAssembled() {
         BaseTask task = BaseTask.builder()
                 .id(1L).name("Draw").description("Draw something")
-                .iconFileId(100L).metaSchema("{}").status(Status.ENABLED)
+                .iconFileId(100L).iconName("SquarePen").metaSchema("{}").status(Status.ENABLED)
                 .createdAt(LocalDateTime.now())
                 .build();
         when(resourceService.getResourceReadUrls(anyList()))
@@ -60,6 +60,7 @@ class BaseTaskAssemblerTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Draw");
         assertThat(result.get(0).getIconUrl()).isEqualTo("https://cdn/icon.png");
+        assertThat(result.get(0).getIconName()).isEqualTo("SquarePen");
         assertThat(result.get(0).getRefCount()).isEqualTo(2);
     }
 

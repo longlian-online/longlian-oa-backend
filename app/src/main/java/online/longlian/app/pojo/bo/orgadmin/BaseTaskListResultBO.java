@@ -17,6 +17,7 @@ public class BaseTaskListResultBO {
     private String name;
     private String description;
     private String iconUrl;
+    private String iconName;
     private String metaSchema;
     private Integer refCount;
     private Status status;

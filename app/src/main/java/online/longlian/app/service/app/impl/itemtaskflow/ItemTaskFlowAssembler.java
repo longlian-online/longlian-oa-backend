@@ -54,6 +54,7 @@ public class ItemTaskFlowAssembler {
                             .baseTaskId(node.getBaseTaskId())
                             .name(node.getName())
                             .baseTaskIconUrl(iconUrl)
+                            .baseTaskIconName(baseTask != null ? baseTask.getIconName() : null)
                             .metaSchema(node.getMetaSchema())
                             .sort(node.getSort())
                             .parallelSort(node.getParallelSort());

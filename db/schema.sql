@@ -17,6 +17,7 @@ CREATE TABLE `base_task` (
   `org_id` bigint NOT NULL COMMENT "所属组织ID",
   `name` varchar(100) NOT NULL COMMENT "任务名称（标题）（如：创建/翻译/校对）",
   `icon_file_id` bigint NULL COMMENT "图标标识",
+  `icon_name` varchar(100) NULL COMMENT "Lucide 图标组件名",
   `description` varchar(500) NULL DEFAULT "" COMMENT "任务说明（简介）",
   `meta_schema` json NULL COMMENT "元数据字段定义(JSON数组)",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",

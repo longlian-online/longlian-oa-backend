@@ -18,6 +18,9 @@ public class WorkshopTaskTemplateNodeVO {
     @Schema(description = "原子任务图标URL")
     private String baseTaskIconUrl;
 
+    @Schema(description = "原子任务 Lucide 图标组件名")
+    private String baseTaskIconName;
+
     @Schema(description = "自定义任务实例名（如\"文字校对1\"），未设置时为空，前端优先展示此名称")
     private String customName;
 

@@ -46,6 +46,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                         "name", "测试原子任务",
                         "description", "这是一个测试用的原子任务",
                         "iconFileId", 12345L,
+                        "iconName", "Languages",
                         "metaSchema", "[]"
                 ))
                 .post("/orgadmin/task/base");
@@ -53,6 +54,35 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/task/base/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].iconName", equalTo("Languages"));
+    }
+
+    /**
+     * 创建原子任务时Lucide图标组件名超长应失败
+     */
+    @Test
+    void shouldFailCreateBaseTaskWithIconNameTooLong() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        Response response = authRequest(token)
+                .body(Map.of(
+                        "name", "测试任务",
+                        "iconName", "a".repeat(101)
+                ))
+                .post("/orgadmin/task/base");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     /**
