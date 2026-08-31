@@ -85,7 +85,8 @@ class TaskTemplateAssemblerTest {
                 .build();
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
 
-        BaseTask baseTask = BaseTask.builder().id(100L).name("Draw").iconFileId(200L).metaSchema("{}").build();
+        BaseTask baseTask = BaseTask.builder().id(100L).name("Draw").iconFileId(200L)
+                .iconName("SquarePen").metaSchema("{}").build();
         when(baseTaskMapper.selectBatchIds(anyList())).thenReturn(List.of(baseTask));
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(200L, new ResourceReadUrlGetResultBO("https://cdn/icon.png", 1L, "icon/200")));
@@ -97,6 +98,7 @@ class TaskTemplateAssemblerTest {
         assertThat(result.getNodes()).hasSize(1);
         assertThat(result.getNodes().get(0).getBaseTaskName()).isEqualTo("Draw");
         assertThat(result.getNodes().get(0).getBaseTaskIconUrl()).isEqualTo("https://cdn/icon.png");
+        assertThat(result.getNodes().get(0).getBaseTaskIconName()).isEqualTo("SquarePen");
     }
 
     @Test

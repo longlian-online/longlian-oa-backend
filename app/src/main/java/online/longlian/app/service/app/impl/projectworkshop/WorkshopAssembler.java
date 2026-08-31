@@ -130,6 +130,7 @@ public class WorkshopAssembler {
         BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
         if (baseTask != null) {
             vo.setBaseTaskName(baseTask.getName());
+            vo.setBaseTaskIconName(baseTask.getIconName());
             if (baseTask.getIconFileId() != null) {
                 vo.setBaseTaskIconUrl(iconUrlMap.get(baseTask.getIconFileId()));
             }

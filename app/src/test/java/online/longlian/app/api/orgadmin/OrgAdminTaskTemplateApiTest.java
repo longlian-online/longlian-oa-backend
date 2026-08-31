@@ -468,9 +468,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "[]", 1, 1L
+                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, icon_name, meta_schema, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "原子任务", "描述", 0L, "BadgeCheck", "[]", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -485,7 +485,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.nodes", notNullValue());
+                .body("data.nodes", hasSize(1))
+                .body("data.nodes[0].baseTaskIconName", equalTo("BadgeCheck"));
     }
 
     // ========== 参数校验（进阶） ==========

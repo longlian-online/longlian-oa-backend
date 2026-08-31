@@ -54,6 +54,7 @@ public class BaseTaskAssembler {
                         .name(task.getName())
                         .description(task.getDescription())
                         .iconUrl(task.getIconFileId() != null ? iconUrlMap.get(task.getIconFileId()) : null)
+                        .iconName(task.getIconName())
                         .metaSchema(task.getMetaSchema())
                         .refCount(refCountMap.getOrDefault(task.getId(), 0L).intValue())
                         .status(task.getStatus())

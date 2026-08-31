@@ -30,6 +30,9 @@ public class ItemTaskNodeVO {
     @Schema(description = "原子任务图标URL")
     private String baseTaskIconUrl;
 
+    @Schema(description = "原子任务 Lucide 图标组件名")
+    private String baseTaskIconName;
+
     @Schema(description = "节点元数据字段定义快照(JSON数组)")
     private String metaSchema;
 

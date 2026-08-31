@@ -23,6 +23,9 @@ public class TaskTemplateNodeVO {
     @Schema(description = "原子任务图标URL")
     private String baseTaskIconUrl;
 
+    @Schema(description = "原子任务 Lucide 图标组件名")
+    private String baseTaskIconName;
+
     @Schema(description = "元数据字段定义(JSON数组)")
     private String metaSchema;
 

@@ -86,6 +86,7 @@ public class TaskTemplateAssembler {
                             .baseTaskIconUrl(baseTask != null && baseTask.getIconFileId() != null
                                     ? iconUrlMap.get(baseTask.getIconFileId())
                                     : null)
+                            .baseTaskIconName(baseTask != null ? baseTask.getIconName() : null)
                             .metaSchema(baseTask != null ? baseTask.getMetaSchema() : null)
                             .sort(node.getSort())
                             .parallelSort(node.getParallelSort())

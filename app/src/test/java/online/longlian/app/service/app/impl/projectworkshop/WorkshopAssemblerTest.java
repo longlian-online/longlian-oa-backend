@@ -162,6 +162,7 @@ class WorkshopAssemblerTest {
                 .id(200L)
                 .name("绘制")
                 .iconFileId(300L)
+                .iconName("SquarePen")
                 .build();
 
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
@@ -179,6 +180,7 @@ class WorkshopAssemblerTest {
         assertEquals(1, vo.getNodes().size());
         assertEquals("绘制", vo.getNodes().get(0).getBaseTaskName());
         assertEquals("https://cdn/icon.png", vo.getNodes().get(0).getBaseTaskIconUrl());
+        assertEquals("SquarePen", vo.getNodes().get(0).getBaseTaskIconName());
         // creatorId(50L) != currentUserId(99L)
         assertEquals(false, vo.getIsMine());
     }

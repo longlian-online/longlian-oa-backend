@@ -188,9 +188,9 @@ public class ItemApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
+                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, icon_name, meta_schema, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "原子任务", "描述", null, "Languages", "[]", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -212,7 +212,9 @@ public class ItemApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0))
-                .body("data", notNullValue());
+                .body("data", notNullValue())
+                .body("data.nodes", hasSize(1))
+                .body("data.nodes[0].baseTaskIconName", equalTo("Languages"));
     }
 
     /**

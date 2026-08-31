@@ -24,6 +24,10 @@ public class BaseTaskCreateDTO {
     @Schema(type = "string", description = "图标文件ID")
     private Long iconFileId;
 
+    @Size(max = 100, message = "Lucide 图标组件名不能超过 100 个字符")
+    @Schema(description = "Lucide 图标组件名")
+    private String iconName;
+
     @Schema(description = "元数据字段定义(JSON数组)，示例：[{\"name\":\"附件\",\"fieldType\":\"file\",\"required\":true},{\"name\":\"作者\",\"fieldType\":\"text\",\"required\":true},{\"name\":\"源链接\",\"fieldType\":\"text\",\"required\":true}]")
     private String metaSchema;
 }
