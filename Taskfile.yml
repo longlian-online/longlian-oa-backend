@@ -3,6 +3,20 @@
 version: '3'
 
 tasks:
+  dev:
+    desc: "一键启动开发环境（MySQL + Redis + 迁移 + 种子数据 + 应用）"
+    cmds:
+      - test -f .env.dev || cp .env.dev.example .env.dev
+      - docker compose -f devops/docker-compose.dev.yml up --build -d
+
+  dev-down:
+    desc: "停止开发环境（保留数据卷）"
+    cmd: docker compose -f devops/docker-compose.dev.yml down
+
+  dev-reset:
+    desc: "销毁开发环境含数据卷（下次 up 会重建库和种子）"
+    cmd: docker compose -f devops/docker-compose.dev.yml down -v
+
   api-test-docker:
     desc: "在 Docker 中运行 API 测试（自动启动 MySQL + Redis）"
     cmd: |

@@ -1,11 +1,17 @@
 # 开发环境
+#
+# 一键启动：
+#   task dev
+#   docker compose -f devops/docker-compose.dev.yml up --build -d
+#
+# 包含：MySQL 8.0 + Redis 7-Alpine + Atlas 迁移 + 种子数据 + 应用
 
 services:
   mysql-dev:
     image: mysql:8.0
     container_name: longlian-oa-mysql-dev
     environment:
-      MYSQL_ROOT_PASSWORD: dev 
+      MYSQL_ROOT_PASSWORD: dev
       MYSQL_DATABASE: longlian_oa_dev
     command: --default-authentication-plugin=mysql_native_password
     ports:
@@ -18,6 +24,7 @@ services:
       start_period: 15s
     volumes:
       - mysql_data:/var/lib/mysql
+
   redis-dev:
     image: redis:7-alpine
     container_name: longlian-oa-redis-dev
@@ -29,6 +36,47 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
+
+  db-prepare:
+    image: mysql:8.0
+    container_name: longlian-oa-db-prepare
+    restart: "no"
+    environment:
+      MYSQL_PWD: dev
+    depends_on:
+      mysql-dev:
+        condition: service_healthy
+    entrypoint: ["sh", "-c"]
+    command: ["mysql -h mysql-dev -uroot -e 'CREATE DATABASE IF NOT EXISTS longlian_oa_diff;'"]
+
+  migrate-dev:
+    build:
+      context: ../
+      dockerfile: devops/Dockerfile.migration
+    container_name: longlian-oa-migrate-dev
+    restart: "no"
+    command: ["dev", "apply"]
+    environment:
+      DB_URL: mysql://root:dev@mysql-dev:3306/longlian_oa_dev
+      DEV_DB_URL: mysql://root:dev@mysql-dev:3306/longlian_oa_diff
+    depends_on:
+      db-prepare:
+        condition: service_completed_successfully
+
+  seed-dev:
+    image: mysql:8.0
+    container_name: longlian-oa-seed-dev
+    restart: "no"
+    environment:
+      MYSQL_PWD: dev
+    volumes:
+      - ../db/seed/dev_data.sql:/seed.sql:ro
+    depends_on:
+      migrate-dev:
+        condition: service_completed_successfully
+    entrypoint: ["sh", "-c"]
+    command: ["mysql -h mysql-dev -uroot longlian_oa_dev < /seed.sql"]
+
   longlian-oa-dev:
     build:
       context: ../
@@ -36,12 +84,19 @@ services:
     container_name: longlian-oa-dev
     env_file:
       - ../.env.dev
+    environment:
+      DB_HOST: mysql-dev
+      DB_PORT: 3306
+      REDIS_HOST: redis-dev
+      REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: dev
     ports:
       - "10003:8080"
     depends_on:
-      mysql-dev:
-        condition: service_healthy
+      seed-dev:
+        condition: service_completed_successfully
       redis-dev:
         condition: service_healthy
+
 volumes:
   mysql_data:
