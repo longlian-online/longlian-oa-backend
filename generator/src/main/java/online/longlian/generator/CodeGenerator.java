@@ -2,27 +2,19 @@ package online.longlian.generator;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
-import com.baomidou.mybatisplus.generator.config.rules.DateType;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import online.longlian.generator.internal.EnumFieldMeta;
 import online.longlian.generator.internal.EnumProcessor;
 import online.longlian.generator.internal.ModelEnumMeta;
 import online.longlian.generator.internal.TypeConverter;
-import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
-import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
-import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.PropertiesPropertySource;
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.env.StandardEnvironment;
 
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Properties;
-
-
 
 public class CodeGenerator {
 
@@ -34,10 +26,14 @@ public class CodeGenerator {
     }
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
-        ConfigurableEnvironment env = loadSpringEnv();
-        String url = env.getProperty("spring.datasource.url");
-        String username = env.getProperty("spring.datasource.username");
-        String password = env.getProperty("spring.datasource.password");
+        StandardEnvironment env = new StandardEnvironment();
+        String host = env.getProperty("DB_HOST");
+        String port = env.getProperty("DB_PORT");
+        String database = env.getProperty("DB_DATABASE");
+        String username = env.getProperty("DB_USERNAME");
+        String password = env.getProperty("DB_PASSWORD");
+        String url = "jdbc:mysql://" + host + ":" + port + "/" + database
+                + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true";
 
         // 获取枚举映射 表名 + 字段名 -> 类型名 + 包名
         enumTypeConvertMap = EnumProcessor.scanAndPrintModelEnums();
@@ -69,19 +65,5 @@ public class CodeGenerator {
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
 
-    }
-
-    private static ConfigurableEnvironment loadSpringEnv() {
-        AnnotationConfigServletWebServerApplicationContext context = new AnnotationConfigServletWebServerApplicationContext();
-        ConfigurableEnvironment env = context.getEnvironment();
-        loadYaml(env, "app/src/main/resources/application.yml", "appYaml");
-        return env;
-    }
-
-    private static void loadYaml(ConfigurableEnvironment env, String path, String name) {
-        YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
-        yaml.setResources(new FileSystemResource(path));
-        Properties properties = yaml.getObject();
-        env.getPropertySources().addLast(new PropertiesPropertySource(name, properties));
     }
 }
