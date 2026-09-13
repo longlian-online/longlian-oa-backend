@@ -1,0 +1,43 @@
+# 生产环境
+#
+# 仅部署 Atlas 迁移 + 后端。MySQL、Redis、邮件等由外部提供，
+# 通过 .env.prod 注入，本文件不创建这些组件。
+#
+# 准备：
+#   cp .env.prod.example .env.prod   # 填写外部组件地址与密钥
+# 启动：
+#   task prod
+#   docker compose -f devops/docker-compose.prod.yml --env-file .env.prod up -d
+# 停止：
+#   task prod-down
+#
+# 镜像默认 GHCR；改用 CNB 制品库时在 .env.prod 设置：
+#   APP_IMAGE=docker.cnb.cool/longlian.online/longlian-oa-backend
+
+name: longlian-oa-prod
+
+services:
+  migrate:
+    image: ${APP_IMAGE:-ghcr.io/longlian-online/longlian-oa-backend}:${MIGRATION_TAG:-migration-latest}
+    container_name: longlian-oa-migrate-prod
+    restart: "no"
+    env_file:
+      - ../.env.prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  longlian-oa:
+    image: ${APP_IMAGE:-ghcr.io/longlian-online/longlian-oa-backend}:${APP_TAG:-latest}
+    container_name: longlian-oa-prod
+    restart: unless-stopped
+    env_file:
+      - ../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
