@@ -4,9 +4,32 @@
 
 项目配置有容器开发环境（.devcontainer）
 
+## 配置
+
+应用配置只走 YAML，不再读取 `.env`。
+
+1. 复制模板（`application.yml` 已被 gitignore，不要提交）：
+
+```
+cp app/src/main/resources/application.yml.example app/src/main/resources/application.yml
+```
+
+2. 按本机环境改数据库、Redis、JWT、邮件等。每个字段的含义和取值见模板内注释。
+
+Docker 一键开发环境（`task dev`）挂载 `devops/application-dev.yml.example`，连接 compose 网络内的 MySQL/Redis，不必再配 `.env`。
+
+生产（`task prod`）只部署迁移 + 后端，MySQL/Redis 用外部实例：
+
+```
+cp devops/application-prod.yml.example devops/application-prod.yml
+cp devops/docker-compose.prod.override.yml.example devops/docker-compose.prod.override.yml
+```
+
+YAML 挂到容器 `config/application.yml`。Atlas 仍要 `DB_URL` / `DEV_DB_URL`，写在 override 里，不要把密钥打进镜像或提交到 git。
+
 ## 运行
 
-`mvn spring-boot:run -pl app -Dspring.config.import=optional:file:.env`
+`mvn spring-boot:run -pl app`
 
 ## ORM 代码生成
 

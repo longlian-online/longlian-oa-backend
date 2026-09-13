@@ -1,0 +1,115 @@
+# =============================================================================
+# longlian-oa Docker 开发环境配置模板
+#
+# 由 devops/docker-compose.dev.yml 挂载为容器内：
+#   /app/config/application.yml
+# Spring Boot 会自动加载工作目录下 config/ 中的 YAML，优先级高于 jar 内配置。
+#
+# 与本地模板的差异（因为应用跑在 compose 网络里，不能用 localhost 连 sidecar）：
+#   MySQL = mysql-dev:3306
+#   Redis = redis-dev:6379
+# 账号密码与 compose 中 MYSQL_ROOT_PASSWORD/MYSQL_DATABASE 保持一致。
+#
+# 不要把改过密钥的副本提交到 git。需要覆盖时，复制本文件为
+# devops/application-dev.yml（已被 gitignore），并改 compose 的 volumes 指向它。
+# =============================================================================
+
+server:
+  shutdown: graceful
+
+longlian:
+  display-name: "longlian-oa"
+  datasource:
+    type: mysql
+  cache:
+    type: redis
+
+spring:
+  application:
+    name: longlian-oa
+  profiles:
+    active: dev
+  main:
+    allow-circular-references: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    # 主机名是 compose service 名，端口是容器内 3306（不是宿主机 10001）
+    url: jdbc:mysql://mysql-dev:3306/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dev
+
+  data:
+    redis:
+      host: redis-dev
+      port: 6379
+      password: ""
+      database: 1
+  mail:
+    host: localhost
+    username: ""
+    password: ""
+    port: 465
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: false
+          ssl:
+            enable: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deletedAt
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
+
+debug: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    enabled: true
+  api-docs:
+    enabled: true
+
+storage:
+  type: LOCAL
+  local:
+    base-url: ""
+    directory: ${java.io.tmpdir}/longlian-oa
+  oss:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    base-url: ""
+  cos:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    url-prefix: ""
+
+cors:
+  allowed-origins: http://localhost:3000
+
+notify:
+  type: EMAIL
+  email:
+    template:
+      path: classpath:templates/verify-code.html
+
+jwt:
+  secret: ChangeMe_DevOnly_JwtSecretKey_MustBeAtLeast32Bytes!
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer

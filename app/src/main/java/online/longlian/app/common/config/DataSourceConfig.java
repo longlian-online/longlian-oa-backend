@@ -34,15 +34,13 @@ public class DataSourceConfig {
             matchIfMissing = true
     )
     public DataSource mysqlDataSource(
-            @Value("${DB_HOST}") String host,
-            @Value("${DB_PORT}") int port,
-            @Value("${DB_DATABASE}") String database,
-            @Value("${DB_USERNAME}") String username,
-            @Value("${DB_PASSWORD}") String password
+            @Value("${spring.datasource.url}") String url,
+            @Value("${spring.datasource.username}") String username,
+            @Value("${spring.datasource.password:}") String password
     ) {
         DruidDataSource ds = new DruidDataSource();
         ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        ds.setUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true");
+        ds.setUrl(url);
         ds.setUsername(username);
         ds.setPassword(password);
         return ds;
