@@ -6,7 +6,7 @@ tasks:
   dev:
     desc: "一键启动开发环境（MySQL + Redis + 迁移 + 种子数据 + 应用）"
     cmds:
-      - test -f .env.dev || cp .env.dev.example .env.dev
+      - test -f app/src/main/resources/application.yml || cp app/src/main/resources/application.yml.example app/src/main/resources/application.yml
       - docker compose -f devops/docker-compose.dev.yml up --build -d
 
   dev-down:

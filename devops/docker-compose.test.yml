@@ -45,8 +45,7 @@ services:
         condition: service_healthy
       redis-test:
         condition: service_healthy
-    env_file:
-      - ../.env.test
+
     volumes:
       # 挂载项目源码
       - ..:/app

@@ -105,3 +105,21 @@ longlian-oa-backend/
 - 期望状态：`db/schema.sql`（唯一真实来源）
 - CI 脚本：`db/migrate.sh`
 - 开发文档：`db/DEVELOPMENT.md`
+
+---
+
+## 配置
+
+应用不再读取 `.env`，只使用 YAML。
+
+本地：
+
+```
+cp app/src/main/resources/application.yml.example app/src/main/resources/application.yml
+```
+
+`application.yml` 不要提交。字段说明写在模板注释里。
+
+Docker 开发环境使用 `devops/application-dev.yml.example`（compose 自动挂载）。测试使用已提交的 `app/src/test/resources/application-test.yml`。
+
+详见 [docs/dev.md](docs/dev.md)。

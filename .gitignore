@@ -20,8 +20,12 @@ target/
 *.ipr
 
 **/.env*
-!.env.test
-!.env.dev.example
+
+# 本地 Spring 配置（从 *.yml.example 复制，禁止提交）
+app/src/main/resources/application.yml
+app/src/main/resources/application-*.yml
+!app/src/main/resources/application.yml.example
+devops/application-dev.yml
 
 
 ### NetBeans ###
