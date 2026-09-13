@@ -1,0 +1,24 @@
+# 每次 push（含 tag）把本仓库完整同步到 CNB。
+# 需在仓库 Settings → Secrets and variables → Actions 配置:
+#   GIT_PASSWORD  CNB 访问令牌（用户名固定为 cnb；需仓库读写）
+# GIT_PASSWORD 只用于代码同步。CNB 制品库推送应另配独立 secret，不要与本令牌共用。
+name: Sync to CNB
+on: [push]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Sync to CNB Repository
+        uses: docker://tencentcom/git-sync@sha256:b7c4672616ddea5b89948dcd034610b29d37d8430e74b4bc83b421c963c25f77 # latest
+        env:
+          PLUGIN_TARGET_URL: "https://cnb.cool/longlian.online/longlian-oa-backend.git"
+          PLUGIN_AUTH_TYPE: "https"
+          PLUGIN_USERNAME: "cnb"
+          PLUGIN_PASSWORD: ${{ secrets.GIT_PASSWORD }}
+          PLUGIN_FORCE: "false"
+          PLUGIN_PUSH_TAGS: "true"
