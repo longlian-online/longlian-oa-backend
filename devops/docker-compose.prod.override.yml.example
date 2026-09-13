@@ -1,0 +1,24 @@
+# 生产覆盖（复制为 docker-compose.prod.override.yml，已 gitignore）
+#
+# cp devops/docker-compose.prod.override.yml.example \
+#    devops/docker-compose.prod.override.yml
+#
+# 用途：
+#   1. Atlas 的 DB_URL / DEV_DB_URL（migrate.sh 只认环境变量）
+#   2. 钉死镜像 tag、改端口、改用 CNB 制品库
+#
+# 账号须与 application-prod.yml 的 spring.datasource 一致。
+# DEV_DB_URL 必须是可反复清空的专用空库。
+
+services:
+  migrate:
+    environment:
+      DB_URL: mysql://user:pass@mysql.example.com:3306/longlian_oa
+      DEV_DB_URL: mysql://user:pass@mysql.example.com:3306/longlian_oa_atlas_dev
+    # image: ghcr.io/longlian-online/longlian-oa-backend:1.2.3-migration
+
+  longlian-oa:
+    # image: ghcr.io/longlian-online/longlian-oa-backend:1.2.3
+    # CNB：docker.cnb.cool/longlian.online/longlian-oa-backend
+    # ports:
+    #   - "8080:8080"

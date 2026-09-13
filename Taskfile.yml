@@ -17,6 +17,17 @@ tasks:
     desc: "销毁开发环境含数据卷（下次 up 会重建库和种子）"
     cmd: docker compose -f devops/docker-compose.dev.yml down -v
 
+  prod:
+    desc: "启动生产环境（仅迁移 + 后端，依赖外部 MySQL/Redis）"
+    cmds:
+      - test -f devops/application-prod.yml || (echo "缺少 devops/application-prod.yml，请复制 devops/application-prod.yml.example 并填写" && exit 1)
+      - test -f devops/docker-compose.prod.override.yml || (echo "缺少 devops/docker-compose.prod.override.yml，请复制 devops/docker-compose.prod.override.yml.example 并填写 Atlas DB_URL" && exit 1)
+      - docker compose -f devops/docker-compose.prod.yml -f devops/docker-compose.prod.override.yml up -d
+
+  prod-down:
+    desc: "停止生产环境"
+    cmd: docker compose -f devops/docker-compose.prod.yml -f devops/docker-compose.prod.override.yml down
+
   api-test-docker:
     desc: "在 Docker 中运行 API 测试（自动启动 MySQL + Redis）"
     cmd: |

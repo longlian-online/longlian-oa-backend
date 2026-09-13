@@ -18,7 +18,14 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 Docker 一键开发环境（`task dev`）挂载 `devops/application-dev.yml.example`，连接 compose 网络内的 MySQL/Redis，不必再配 `.env`。
 
-生产/预发把改好的 YAML 挂到容器工作目录 `config/application.yml`，不要把密钥打进镜像。
+生产（`task prod`）只部署迁移 + 后端，MySQL/Redis 用外部实例：
+
+```
+cp devops/application-prod.yml.example devops/application-prod.yml
+cp devops/docker-compose.prod.override.yml.example devops/docker-compose.prod.override.yml
+```
+
+YAML 挂到容器 `config/application.yml`。Atlas 仍要 `DB_URL` / `DEV_DB_URL`，写在 override 里，不要把密钥打进镜像或提交到 git。
 
 ## 运行
 
