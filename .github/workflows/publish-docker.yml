@@ -1,0 +1,117 @@
+# 推送 semver tag 时构建应用镜像与 migration 镜像，同时推送到
+# GitHub Container Registry 与 CNB Docker 制品库。
+# 镜像:
+#   ghcr.io/<owner>/<repo>
+#   docker.cnb.cool/longlian.online/longlian-oa-backend
+# （linux/amd64 + linux/arm64 清单）
+# 应用镜像:
+#   tag v1.2.3 → :1.2.3 :1.2，非预发布再打 :latest（metadata-action flavor latest=auto）
+# 迁移镜像:
+#   tag v1.2.3 → :1.2.3-migration :1.2-migration，非预发布再打 :migration-latest
+#
+# CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
+name: Publish Docker images
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  GHCR_REGISTRY: ghcr.io
+  CNB_REGISTRY: docker.cnb.cool
+  GHCR_IMAGE: ${{ github.repository }}
+  CNB_IMAGE: longlian.online/longlian-oa-backend
+
+jobs:
+  build-and-push:
+    name: Build and push
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: docker-publish-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to CNB
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.CNB_REGISTRY }}
+          username: cnb
+          password: ${{ secrets.GIT_PASSWORD }}
+
+      - name: Extract Docker metadata (app)
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
+            ${{ env.CNB_REGISTRY }}/${{ env.CNB_IMAGE }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push app image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./devops/Dockerfile
+          build-args: |
+            INCLUDE_OTEL=true
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      - name: Extract Docker metadata (migration)
+        id: meta-migration
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
+            ${{ env.CNB_REGISTRY }}/${{ env.CNB_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}}-migration
+            type=semver,pattern={{major}}.{{minor}}-migration
+            type=raw,value=migration-latest,enable={{is_default_tag}}
+
+      - name: Build and push migration image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./devops/Dockerfile.migration
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta-migration.outputs.tags }}
+          labels: ${{ steps.meta-migration.outputs.labels }}
+          annotations: ${{ steps.meta-migration.outputs.annotations }}
+          cache-from: type=gha,scope=migration
+          cache-to: type=gha,mode=max,scope=migration
