@@ -26,13 +26,14 @@ public class DataSourceConfig {
     }
 
     @Bean(destroyMethod = "close")
+    @Primary
     @ConditionalOnProperty(
             prefix = "longlian.datasource",
             name = "type",
             havingValue = "mysql",
             matchIfMissing = true
     )
-    public DruidDataSource mysqlDataSource(
+    public DataSource mysqlDataSource(
             @Value("${DB_HOST}") String host,
             @Value("${DB_PORT}") int port,
             @Value("${DB_DATABASE}") String database,
@@ -41,21 +42,9 @@ public class DataSourceConfig {
     ) {
         DruidDataSource ds = new DruidDataSource();
         ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        ds.setUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false");
+        ds.setUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true");
         ds.setUsername(username);
         ds.setPassword(password);
         return ds;
-    }
-
-    @Bean
-    @Primary
-    @ConditionalOnProperty(
-            prefix = "longlian.datasource",
-            name = "type",
-            havingValue = "mysql",
-            matchIfMissing = true
-    )
-    public DataSource dataSource(DruidDataSource mysqlDataSource) {
-        return mysqlDataSource;
     }
 }

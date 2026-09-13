@@ -21,6 +21,7 @@ target/
 
 **/.env*
 !.env.test
+!.env.dev.example
 
 
 ### NetBeans ###
