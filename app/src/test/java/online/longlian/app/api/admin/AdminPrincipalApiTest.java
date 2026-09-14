@@ -18,7 +18,7 @@ class AdminPrincipalApiTest extends BaseApiTest {
     @SpyBean
     private AdminAuthenticationStrategy strategy;
 
-    /** Login and authenticated administration must work without a password in the principal. */
+    /** 登录和已认证的管理操作不应在认证主体中携带密码。 */
     @Test
     void shouldAuthorizeAdminWithCredentialFreePrincipal() {
         createAdmin(1L, "admin", "123456", "root");

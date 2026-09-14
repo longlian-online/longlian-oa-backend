@@ -23,7 +23,7 @@ class AdminAuthenticationStrategyTest {
     private final AdminMapper mapper = mock(AdminMapper.class);
     private final AdminAuthenticationStrategy strategy = new AdminAuthenticationStrategy(mapper);
 
-    /** JWT authentication must not propagate stored password hashes. */
+    /** JWT 认证不应将已存储的密码哈希传入认证主体。 */
     @Test
     void shouldAuthenticateWithoutRetainingPassword() {
         when(mapper.selectOne(any())).thenReturn(Admin.builder()
@@ -36,7 +36,7 @@ class AdminAuthenticationStrategyTest {
         assertThat(authentication.isAuthenticated()).isTrue();
     }
 
-    /** Deleted administrators must remain unable to authenticate. */
+    /** 逻辑删除的管理员仍不得通过认证。 */
     @Test
     void shouldRejectMissingAdmin() {
         assertThatThrownBy(() -> strategy.authenticate(1L)).isInstanceOf(AppException.class);
