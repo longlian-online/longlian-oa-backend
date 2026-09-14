@@ -1,11 +1,9 @@
 package online.longlian.app.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.jsonwebtoken.Claims;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import io.jsonwebtoken.ExpiredJwtException;
+import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.mapper.TokenBlacklistMapper;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.common.enumeration.TokenType;
@@ -14,103 +12,68 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-@Slf4j
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class TokenBlacklistServiceImpl implements TokenBlacklistService {
-
-    private final TokenBlacklistMapper tokenBlacklistMapper;
+    private final TokenRevocationStore store;
     private final JwtUtil jwtUtil;
     private final Clock clock;
 
     @Override
     public void addToBlacklist(String token, TokenType tokenType, Long userId, String reason, long expireSeconds) {
         if (expireSeconds <= 0) {
-            log.warn("Token已过期，无需加入黑名单, tokenType={}, userId={}, reason={}", tokenType, userId, reason);
             return;
         }
-
-        LocalDateTime now = LocalDateTime.now(clock);
-        LocalDateTime expiredAt = now.plusSeconds(expireSeconds);
-
-        TokenBlacklist entity = TokenBlacklist.builder()
-                .token(token)
-                .tokenType(tokenType)
-                .userId(userId)
-                .reason(reason)
-                .expiredAt(expiredAt)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-
-        tokenBlacklistMapper.insert(entity);
-        log.info("Token已加入黑名单, tokenType={}, userId={}, reason={}", tokenType, userId, reason);
+        save(TokenRevocationStore.digest(token), tokenType, userId, reason, expireSeconds);
     }
 
     @Override
     public boolean isBlacklisted(String token) {
-        LocalDateTime now = LocalDateTime.now(clock);
-        // 1. 检查该 token 是否单独被加入黑名单
-        Long count = tokenBlacklistMapper.selectCount(
-                new LambdaQueryWrapper<TokenBlacklist>()
-                        .eq(TokenBlacklist::getToken, token)
-                        .gt(TokenBlacklist::getExpiredAt, now)
-        );
-        if (count != null && count > 0) {
-            return true;
-        }
-
-        // 2. 检查该 token 所属用户是否被全局踢掉（blacklistAllUserTokens）
-        //    从 token 中解析 userId
         Claims claims = jwtUtil.parseTokenIfValid(token);
-        Long userId = claims != null ? Long.parseLong(claims.getSubject()) : null;
-        if (userId == null) {
+        if (claims == null) {
             return false;
         }
-
-        // 查询是否有该用户的全局黑名单记录（token 格式为 "{tokenType.code}:user:{userId}:all"）
-        for (TokenType tokenType : TokenType.values()) {
-            String userLevelKey = tokenType.getCode() + ":user:" + userId + ":all";
-            Long userLevelCount = tokenBlacklistMapper.selectCount(
-                    new LambdaQueryWrapper<TokenBlacklist>()
-                            .eq(TokenBlacklist::getToken, userLevelKey)
-                            .gt(TokenBlacklist::getExpiredAt, now)
-            );
-            if (userLevelCount != null && userLevelCount > 0) {
-                return true;
-            }
-        }
-
-        return false;
+        TokenType type = tokenType(claims);
+        long userId = Long.parseLong(claims.getSubject());
+        Long issuedAtMillis = claims.get("issuedAtMillis", Long.class);
+        long issuedAt = issuedAtMillis != null ? issuedAtMillis
+                : claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : Long.MIN_VALUE;
+        String digest = TokenRevocationStore.digest(token);
+        long now = clock.millis();
+        return store.entries(type, userId).entrySet().stream().anyMatch(entry ->
+                entry.getValue() > now && (entry.getKey().equals(digest)
+                        || entry.getKey().startsWith("before:")
+                        && issuedAt <= Long.parseLong(entry.getKey().substring("before:".length()))));
     }
 
     @Override
     public void removeFromBlacklist(String token) {
-        tokenBlacklistMapper.delete(
-                new LambdaQueryWrapper<TokenBlacklist>()
-                        .eq(TokenBlacklist::getToken, token)
-        );
+        Claims claims;
+        try {
+            claims = jwtUtil.parseToken(token);
+        } catch (ExpiredJwtException e) {
+            claims = e.getClaims();
+        }
+        store.remove(tokenType(claims), Long.parseLong(claims.getSubject()), token);
     }
 
     @Override
     public void blacklistAllUserTokens(TokenType tokenType, Long userId, String reason) {
-        log.info("将用户所有Token加入黑名单, tokenType={}, userId={}, reason={}", tokenType, userId, reason);
-        // 对于"踢掉所有token"的场景，无法获取每个token的具体过期时间，
-        // 使用JWT默认过期时间作为黑名单记录的过期时间
-        long expireSeconds = jwtUtil.getExpirationSeconds();
+        String key = tokenType.getCode() + ":user:" + userId + ":before:" + clock.millis();
+        save(key, tokenType, userId, reason, jwtUtil.getExpirationSeconds());
+    }
+
+    private void save(String key, TokenType type, Long userId, String reason, long expireSeconds) {
         LocalDateTime now = LocalDateTime.now(clock);
-        LocalDateTime expiredAt = now.plusSeconds(expireSeconds);
+        store.save(TokenBlacklist.builder().token(key).tokenType(type).userId(userId).reason(reason)
+                .createdAt(now).updatedAt(now).expiredAt(now.plusSeconds(expireSeconds)).build());
+    }
 
-        TokenBlacklist entity = TokenBlacklist.builder()
-                .token(tokenType.getCode() + ":user:" + userId + ":all")
-                .tokenType(tokenType)
-                .userId(userId)
-                .reason(reason)
-                .expiredAt(expiredAt)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-
-        tokenBlacklistMapper.insert(entity);
+    private TokenType tokenType(Claims claims) {
+        return switch (claims.get("type", String.class)) {
+            case "user" -> TokenType.User;
+            case "admin" -> TokenType.Admin;
+            default -> throw new IllegalArgumentException("未知凭证类型");
+        };
     }
 }

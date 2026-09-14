@@ -1,0 +1,108 @@
+package online.longlian.app.api.session;
+
+import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.mapper.TokenBlacklistMapper;
+import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.impl.TokenRevocationStore;
+import online.longlian.common.enumeration.TokenType;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.support.EncodedResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+
+import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+class TokenRevocationApiTest extends BaseApiTest {
+    @Autowired private TokenBlacklistService blacklist;
+    @Autowired private JwtUtil jwt;
+    @Autowired private DataSource dataSource;
+    @SpyBean private TokenBlacklistMapper mapper;
+
+    /** Logout invalidates a previously warmed cache and persists only a digest. */
+    @Test
+    void shouldRevokeWarmTokenAndPermitNewLogin() {
+        createAdmin(1L, "admin", "123456", "root");
+        String token = adminLoginAs("admin", "123456");
+        authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).delete("/admin/session").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT token FROM token_blacklist", String.class))
+                .startsWith("sha256:").doesNotContain(token);
+        String fresh = adminLoginAs("admin", "123456");
+        assertThat(fresh).isNotEqualTo(token);
+        authRequest(fresh).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /** A warm identity snapshot removes blacklist SQL from subsequent requests. */
+    @Test
+    void shouldAvoidBlacklistSqlOnWarmRequests() {
+        createAdmin(1L, "admin", "123456", "root");
+        String token = adminLoginAs("admin", "123456");
+        authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        clearInvocations(mapper);
+        authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        verify(mapper, never()).selectList(any());
+        verify(mapper, never()).selectCount(any());
+    }
+
+    /** Global user revocation does not affect the administrator with the same numeric ID. */
+    @Test
+    void shouldIsolateUserAndAdminGlobalRevocations() {
+        createAdmin(1L, "admin", "123456", "root");
+        String adminToken = adminLoginAs("admin", "123456");
+        String userToken = jwt.generateToken(1L, "user");
+        blacklist.blacklistAllUserTokens(TokenType.User, 1L, "test kick");
+        assertThat(blacklist.isBlacklisted(userToken)).isTrue();
+        authRequest(adminToken).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        String fresh = jwt.generateToken(1L, "user");
+        assertThat(blacklist.isBlacklisted(fresh)).isFalse();
+    }
+
+    /** Concurrent cold reads and logout cannot restore a stale cached grant. */
+    @Test
+    void shouldRetainRevocationAcrossConcurrentReads() {
+        createAdmin(1L, "admin", "123456", "root");
+        String token = adminLoginAs("admin", "123456");
+        CompletableFuture<?> read = CompletableFuture.runAsync(() -> blacklist.isBlacklisted(token));
+        blacklist.addToBlacklist(token, TokenType.Admin, 1L, "logout", 60);
+        read.join();
+        assertThat(blacklist.isBlacklisted(token)).isTrue();
+        authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    /** Legacy data migration is repeatable and retains the revocation. */
+    @Test
+    void shouldMigrateLegacyTokensWithoutRestoringAccess() throws Exception {
+        createAdmin(1L, "admin", "123456", "root");
+        String token = adminLoginAs("admin", "123456");
+        jdbcTemplate.update("INSERT INTO token_blacklist (id,token,token_type,user_id,expired_at) VALUES (112,?,2,1,DATE_ADD(NOW(), INTERVAL 1 HOUR))", token);
+        jdbcTemplate.update("INSERT INTO token_blacklist (id,token,token_type,user_id,expired_at) VALUES (113,?,2,1,DATE_ADD(NOW(), INTERVAL 1 MINUTE))",
+                TokenRevocationStore.digest(token));
+        Path script = Path.of("db/data-migrations/112-hash-token-blacklist.sql");
+        if (!Files.isRegularFile(script)) {
+            script = Path.of("../db/data-migrations/112-hash-token-blacklist.sql");
+        }
+        try (var connection = dataSource.getConnection()) {
+            var resource = new EncodedResource(new FileSystemResource(script), StandardCharsets.UTF_8);
+            ScriptUtils.executeSqlScript(connection, resource);
+            ScriptUtils.executeSqlScript(connection, resource);
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM token_blacklist WHERE token LIKE '%.%.%'", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM token_blacklist", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT TIMESTAMPDIFF(SECOND,NOW(),expired_at) FROM token_blacklist", Integer.class)).isGreaterThan(3500);
+        authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+}

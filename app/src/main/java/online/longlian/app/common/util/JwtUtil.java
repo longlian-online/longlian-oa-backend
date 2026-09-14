@@ -6,15 +6,20 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
+import java.time.Clock;
 
 @Component
+@RequiredArgsConstructor
 public class JwtUtil {
+    private final Clock clock;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -34,10 +39,13 @@ public class JwtUtil {
     }
 
     public String generateToken(Long id, String type) {
+        long issuedAt = clock.millis();
         var builder = Jwts.builder()
                 .setSubject(id.toString())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000L));
+                .setId(UUID.randomUUID().toString())
+                .setIssuedAt(new Date(issuedAt))
+                .claim("issuedAtMillis", issuedAt)
+                .setExpiration(new Date(issuedAt + expiration * 1000L));
         if (type != null && !type.isEmpty()) {
             builder.claim("type", type);
         }
@@ -47,6 +55,7 @@ public class JwtUtil {
     public Claims parseToken(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(signingKey)
+                .setClock(() -> Date.from(clock.instant()))
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
@@ -75,7 +84,7 @@ public class JwtUtil {
         try {
             Claims claims = parseToken(token);
             Date expireDate = claims.getExpiration();
-            long remaining = (expireDate.getTime() - System.currentTimeMillis()) / 1000;
+            long remaining = (expireDate.getTime() - clock.millis() + 999) / 1000;
             return Math.max(remaining, 0);
         } catch (Exception e) {
             return 0;

@@ -1,115 +1,107 @@
 package online.longlian.app.service.impl;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.impl.DefaultClaims;
+import io.jsonwebtoken.Jwts;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.mapper.TokenBlacklistMapper;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.common.enumeration.TokenType;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.Date;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class TokenBlacklistServiceImplTest {
+    private final TokenRevocationStore store = mock(TokenRevocationStore.class);
+    private final JwtUtil jwt = mock(JwtUtil.class);
+    private final Clock clock = Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
+    private final TokenBlacklistServiceImpl service = new TokenBlacklistServiceImpl(store, jwt, clock);
 
-    @Mock
-    private TokenBlacklistMapper tokenBlacklistMapper;
-    @Mock
-    private JwtUtil jwtUtil;
-
-    private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("UTC"));
-    private TokenBlacklistServiceImpl service;
-
-    @BeforeEach
-    void setUp() {
-        service = new TokenBlacklistServiceImpl(tokenBlacklistMapper, jwtUtil, clock);
-    }
-
+    /** Expired tokens require no persistence. */
     @Test
-    void addToBlacklist_expiredToken_skipsInsert() {
+    void shouldSkipExpiredToken() {
         service.addToBlacklist("token", TokenType.User, 1L, "logout", 0);
-        verify(tokenBlacklistMapper, never()).insert(any(TokenBlacklist.class));
+        service.addToBlacklist("token", TokenType.User, 1L, "logout", -1);
+        verifyNoInteractions(store);
     }
 
+    /** Persisted revocations contain a digest, never the original JWT. */
     @Test
-    void addToBlacklist_negativeExpire_skipsInsert() {
-        service.addToBlacklist("token", TokenType.User, 1L, "logout", -5);
-        verify(tokenBlacklistMapper, never()).insert(any(TokenBlacklist.class));
+    void shouldStoreOnlyTokenDigest() {
+        service.addToBlacklist("private.jwt.token", TokenType.User, 1L, "logout", 60);
+        var captor = ArgumentCaptor.forClass(TokenBlacklist.class);
+        verify(store).save(captor.capture());
+        assertThat(captor.getValue().getToken()).isEqualTo(TokenRevocationStore.digest("private.jwt.token"))
+                .doesNotContain("private.jwt.token");
     }
 
+    /** Invalid tokens do not query the store. */
     @Test
-    void addToBlacklist_validToken_insertsRecord() {
-        when(tokenBlacklistMapper.insert(any(TokenBlacklist.class))).thenReturn(1);
-
-        service.addToBlacklist("token123", TokenType.User, 1L, "logout", 3600);
-
-        verify(tokenBlacklistMapper).insert(any(TokenBlacklist.class));
+    void shouldSkipLookupForInvalidToken() {
+        assertThat(service.isBlacklisted("invalid")).isFalse();
+        verifyNoInteractions(store);
     }
 
+    /** A direct revocation is applied only while it is active. */
     @Test
-    void isBlacklisted_directMatch_returnsTrue() {
-        when(tokenBlacklistMapper.selectCount(any())).thenReturn(1L);
-
-        assertThat(service.isBlacklisted("blacklisted-token")).isTrue();
+    void shouldRespectDirectRevocationExpiry() {
+        claims("token", "user", clock.millis());
+        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of(TokenRevocationStore.digest("token"), clock.millis() + 1));
+        assertThat(service.isBlacklisted("token")).isTrue();
+        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of(TokenRevocationStore.digest("token"), clock.millis()));
+        assertThat(service.isBlacklisted("token")).isFalse();
     }
 
+    /** Tokens issued after a global cutoff remain valid, including within the same second. */
     @Test
-    void isBlacklisted_noDirectMatch_noUserInToken_returnsFalse() {
-        when(tokenBlacklistMapper.selectCount(any())).thenReturn(0L);
-        when(jwtUtil.parseTokenIfValid("unknown-token")).thenReturn(null);
-
-        assertThat(service.isBlacklisted("unknown-token")).isFalse();
+    void shouldOnlyRevokeTokensIssuedAtOrBeforeCutoff() {
+        claims("old", "user", clock.millis());
+        claims("new", "user", clock.millis() + 1);
+        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of("before:" + clock.millis(), clock.millis() + 60_000));
+        assertThat(service.isBlacklisted("old")).isTrue();
+        assertThat(service.isBlacklisted("new")).isFalse();
     }
 
+    /** Identical numeric IDs in the two identity domains remain isolated. */
     @Test
-    void isBlacklisted_userLevelBlacklist_returnsTrue() {
-        // First call: direct token check = 0
-        // Then for each TokenType, check user-level key
-        when(tokenBlacklistMapper.selectCount(any())).thenReturn(0L).thenReturn(1L);
-        Claims claims = new DefaultClaims();
-        claims.setSubject("42");
-        when(jwtUtil.parseTokenIfValid("user-token")).thenReturn(claims);
-
-        assertThat(service.isBlacklisted("user-token")).isTrue();
+    void shouldScopeRevocationToTokenType() {
+        claims("admin", "admin", clock.millis());
+        when(store.entries(TokenType.Admin, 1L)).thenReturn(Map.of());
+        assertThat(service.isBlacklisted("admin")).isFalse();
+        verify(store).entries(TokenType.Admin, 1L);
+        verify(store, never()).entries(TokenType.User, 1L);
     }
 
+    /** Legacy JWTs use their standard issued-at claim. */
     @Test
-    void isBlacklisted_noBlacklistAtAll_returnsFalse() {
-        when(tokenBlacklistMapper.selectCount(any())).thenReturn(0L);
-        Claims claims = new DefaultClaims();
-        claims.setSubject("42");
-        when(jwtUtil.parseTokenIfValid("clean-token")).thenReturn(claims);
-
-        assertThat(service.isBlacklisted("clean-token")).isFalse();
+    void shouldSupportLegacyIssuedAt() {
+        Claims claims = Jwts.claims().setSubject("1").setIssuedAt(new Date(clock.millis() - 1000));
+        claims.put("type", "user");
+        when(jwt.parseTokenIfValid("legacy")).thenReturn(claims);
+        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of("before:" + clock.millis(), clock.millis() + 60_000));
+        assertThat(service.isBlacklisted("legacy")).isTrue();
     }
 
+    /** Global revocation persists a millisecond cutoff instead of a blanket user ban. */
     @Test
-    void removeFromBlacklist_deletesRecord() {
-        when(tokenBlacklistMapper.delete(any())).thenReturn(1);
-
-        service.removeFromBlacklist("some-token");
-
-        verify(tokenBlacklistMapper).delete(any());
+    void shouldPersistGlobalCutoff() {
+        when(jwt.getExpirationSeconds()).thenReturn(3600L);
+        service.blacklistAllUserTokens(TokenType.User, 1L, "kick");
+        var captor = ArgumentCaptor.forClass(TokenBlacklist.class);
+        verify(store).save(captor.capture());
+        assertThat(captor.getValue().getToken()).isEqualTo("1:user:1:before:" + clock.millis());
     }
 
-    @Test
-    void blacklistAllUserTokens_insertsUserLevelRecord() {
-        when(jwtUtil.getExpirationSeconds()).thenReturn(86400L);
-        when(tokenBlacklistMapper.insert(any(TokenBlacklist.class))).thenReturn(1);
-
-        service.blacklistAllUserTokens(TokenType.User, 42L, "admin kick");
-
-        verify(tokenBlacklistMapper).insert(any(TokenBlacklist.class));
+    private void claims(String token, String type, long issuedAt) {
+        Claims claims = Jwts.claims().setSubject("1");
+        claims.put("type", type);
+        claims.put("issuedAtMillis", issuedAt);
+        when(jwt.parseTokenIfValid(token)).thenReturn(claims);
     }
 }
