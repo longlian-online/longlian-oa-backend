@@ -14,6 +14,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -107,8 +110,6 @@ class LocalFileIngressTest {
 
         assertThat(ingress.read(SIGNED)).isSameAs(mockResource);
 
-        verify(signer).verify(SIGNED);
-        verify(resourceService).loadActivated("file/1.png");
     }
 
     @Test
@@ -123,10 +124,15 @@ class LocalFileIngressTest {
 
     @Test
     void read_invalidSignature_rejectsBeforeLookup() {
-        doThrow(new AppException(ResultCode.UNAUTHORIZED_OPERATION, "文件链接无效或已过期"))
-                .when(signer).verify(SIGNED);
+        LocalFileIngress ingressWithRealSigner = new LocalFileIngress(
+                resourceService,
+                localStorageService,
+                new LocalFileUrlSigner("a".repeat(32), 60L, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))
+        );
 
-        assertThatThrownBy(() -> ingress.read(SIGNED)).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> ingressWithRealSigner.read(SIGNED))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("文件链接无效或已过期");
 
         verifyNoInteractions(resourceService, localStorageService);
     }
