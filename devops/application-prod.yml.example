@@ -88,7 +88,7 @@ storage:
     base-url: ""
     signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
     read-url-ttl-seconds: ${STORAGE_LOCAL_READ_URL_TTL_SECONDS:300}
-    directory: ${STORAGE_LOCAL_DIRECTORY:/app/data/storage}
+    directory: /app/data/storage
   oss:
     bucket: ""
     region: ""
