@@ -4,6 +4,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.pojo.bo.common.TokenRevocationEntryBO;
+import online.longlian.app.pojo.bo.common.TokenRevocationSnapshotBO;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.Test;
@@ -13,7 +15,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Date;
-import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +39,7 @@ class TokenBlacklistServiceImplTest {
     @Test
     void shouldStoreOnlyTokenDigest() {
         service.addToBlacklist("private.jwt.token", TokenType.User, 1L, "logout", 60);
-        var captor = ArgumentCaptor.forClass(TokenBlacklist.class);
+        ArgumentCaptor<TokenBlacklist> captor = ArgumentCaptor.forClass(TokenBlacklist.class);
         verify(store).save(captor.capture());
         assertThat(captor.getValue().getToken()).isEqualTo(TokenRevocationStore.digest("private.jwt.token"))
                 .doesNotContain("private.jwt.token");
@@ -62,9 +64,9 @@ class TokenBlacklistServiceImplTest {
     @Test
     void shouldRespectDirectRevocationExpiry() {
         claims("token", "user", clock.millis());
-        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of(TokenRevocationStore.digest("token"), clock.millis() + 1));
+        when(store.entries(TokenType.User, 1L)).thenReturn(snapshot(TokenRevocationStore.digest("token"), clock.millis() + 1));
         assertThat(service.isBlacklisted("token")).isTrue();
-        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of(TokenRevocationStore.digest("token"), clock.millis()));
+        when(store.entries(TokenType.User, 1L)).thenReturn(snapshot(TokenRevocationStore.digest("token"), clock.millis()));
         assertThat(service.isBlacklisted("token")).isFalse();
     }
 
@@ -73,7 +75,7 @@ class TokenBlacklistServiceImplTest {
     void shouldOnlyRevokeTokensIssuedAtOrBeforeCutoff() {
         claims("old", "user", clock.millis());
         claims("new", "user", clock.millis() + 1);
-        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of("before:" + clock.millis(), clock.millis() + 60_000));
+        when(store.entries(TokenType.User, 1L)).thenReturn(snapshot("before:" + clock.millis(), clock.millis() + 60_000));
         assertThat(service.isBlacklisted("old")).isTrue();
         assertThat(service.isBlacklisted("new")).isFalse();
     }
@@ -82,7 +84,7 @@ class TokenBlacklistServiceImplTest {
     @Test
     void shouldScopeRevocationToTokenType() {
         claims("admin", "admin", clock.millis());
-        when(store.entries(TokenType.Admin, 1L)).thenReturn(Map.of());
+        when(store.entries(TokenType.Admin, 1L)).thenReturn(TokenRevocationSnapshotBO.builder().build());
         assertThat(service.isBlacklisted("admin")).isFalse();
         verify(store).entries(TokenType.Admin, 1L);
         verify(store, never()).entries(TokenType.User, 1L);
@@ -94,7 +96,7 @@ class TokenBlacklistServiceImplTest {
         Claims claims = Jwts.claims().setSubject("1").setIssuedAt(new Date(clock.millis() - 1000));
         claims.put("type", "user");
         when(jwt.parseTokenIfValid("legacy")).thenReturn(claims);
-        when(store.entries(TokenType.User, 1L)).thenReturn(Map.of("before:" + clock.millis(), clock.millis() + 60_000));
+        when(store.entries(TokenType.User, 1L)).thenReturn(snapshot("before:" + clock.millis(), clock.millis() + 60_000));
         assertThat(service.isBlacklisted("legacy")).isTrue();
     }
 
@@ -103,7 +105,7 @@ class TokenBlacklistServiceImplTest {
     void shouldPersistGlobalCutoff() {
         when(jwt.getExpirationSeconds()).thenReturn(3600L);
         service.blacklistAllUserTokens(TokenType.User, 1L, "kick");
-        var captor = ArgumentCaptor.forClass(TokenBlacklist.class);
+        ArgumentCaptor<TokenBlacklist> captor = ArgumentCaptor.forClass(TokenBlacklist.class);
         verify(store).save(captor.capture());
         assertThat(captor.getValue().getToken()).isEqualTo("1:user:1:before:" + clock.millis());
     }
@@ -135,5 +137,12 @@ class TokenBlacklistServiceImplTest {
         claims.put("type", type);
         claims.put("issuedAtMillis", issuedAt);
         when(jwt.parseTokenIfValid(token)).thenReturn(claims);
+    }
+
+    private TokenRevocationSnapshotBO snapshot(String key, long expiredAtMillis) {
+        return TokenRevocationSnapshotBO.builder()
+                .entries(List.of(TokenRevocationEntryBO.builder()
+                        .key(key).expiredAtMillis(expiredAtMillis).build()))
+                .build();
     }
 }

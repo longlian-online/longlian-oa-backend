@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.pojo.bo.common.TokenRevocationSnapshotBO;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.common.enumeration.TokenType;
@@ -38,10 +39,8 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
         long issuedAt = issuedAt(claims);
         String digest = TokenRevocationStore.digest(token);
         long now = clock.millis();
-        return store.entries(type, userId).entrySet().stream().anyMatch(entry ->
-                entry.getValue() > now && (entry.getKey().equals(digest)
-                        || entry.getKey().startsWith("before:")
-                        && issuedAt <= Long.parseLong(entry.getKey().substring("before:".length()))));
+        TokenRevocationSnapshotBO snapshot = store.entries(type, userId);
+        return snapshot.containsActiveRevocation(digest, issuedAt, now);
     }
 
     @Override

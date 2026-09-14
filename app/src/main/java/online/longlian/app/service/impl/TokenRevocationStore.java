@@ -1,11 +1,12 @@
 package online.longlian.app.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.mapper.TokenBlacklistMapper;
+import online.longlian.app.pojo.bo.common.TokenRevocationEntryBO;
+import online.longlian.app.pojo.bo.common.TokenRevocationSnapshotBO;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.common.enumeration.TokenType;
 import online.longlian.common.service.DistributedLockService;
@@ -22,9 +23,8 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.HexFormat;
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -38,7 +38,7 @@ public class TokenRevocationStore {
     private final PlatformTransactionManager transactionManager;
     private final Clock clock;
 
-    public Map<String, Long> entries(TokenType type, long userId) {
+    public TokenRevocationSnapshotBO entries(TokenType type, long userId) {
         DistributedLockService.Lock lock;
         try {
             lock = locks.tryAcquire(cacheKey(type, userId), 2, TimeUnit.SECONDS);
@@ -50,12 +50,13 @@ public class TokenRevocationStore {
             return load(type, userId);
         }
         try (lock) {
-            Map<String, Long> cachedEntries = readCache(type, userId);
+            TokenRevocationSnapshotBO cachedEntries = readCache(type, userId);
             if (cachedEntries != null) {
                 return cachedEntries;
             }
-            Map<String, Long> entries = load(type, userId);
-            long latestExpiry = entries.values().stream().mapToLong(Long::longValue)
+            TokenRevocationSnapshotBO entries = load(type, userId);
+            long latestExpiry = entries.getEntries().stream()
+                    .mapToLong(TokenRevocationEntryBO::getExpiredAtMillis)
                     .max().orElse(clock.millis() + 60_000);
             long ttl = Math.max(1, Math.min(60_000, latestExpiry - clock.millis()));
             writeCache(type, userId, entries, ttl);
@@ -63,18 +64,14 @@ public class TokenRevocationStore {
         }
     }
 
-    private Map<String, Long> readCache(TokenType type, long userId) {
+    private TokenRevocationSnapshotBO readCache(TokenType type, long userId) {
         try {
             String cached = redis.opsForValue().get(cacheKey(type, userId));
             if (cached == null) {
                 return null;
             }
-            Map<String, Long> entries = objectMapper.readValue(cached,
-                    new TypeReference<Map<String, Long>>() { });
-            if (entries == null || entries.entrySet().stream().anyMatch(entry ->
-                    entry.getKey() == null || entry.getValue() == null
-                            || !(entry.getKey().startsWith("sha256:")
-                            || entry.getKey().startsWith("before:")))) {
+            TokenRevocationSnapshotBO entries = objectMapper.readValue(cached, TokenRevocationSnapshotBO.class);
+            if (entries == null || !entries.isValid()) {
                 throw new IllegalArgumentException("撤销缓存结构无效");
             }
             return entries;
@@ -84,7 +81,7 @@ public class TokenRevocationStore {
         }
     }
 
-    private void writeCache(TokenType type, long userId, Map<String, Long> entries, long ttl) {
+    private void writeCache(TokenType type, long userId, TokenRevocationSnapshotBO entries, long ttl) {
         try {
             redis.opsForValue().set(cacheKey(type, userId), objectMapper.writeValueAsString(entries),
                     Duration.ofMillis(ttl));
@@ -116,7 +113,7 @@ public class TokenRevocationStore {
     }
 
     private void mutate(TokenType type, long userId, Runnable mutation) {
-        var lock = locks.tryAcquire(cacheKey(type, userId), 2, TimeUnit.SECONDS);
+        DistributedLockService.Lock lock = locks.tryAcquire(cacheKey(type, userId), 2, TimeUnit.SECONDS);
         if (lock == null) {
             throw new IllegalStateException("撤销状态更新繁忙，请重试");
         }
@@ -145,11 +142,11 @@ public class TokenRevocationStore {
         }
     }
 
-    private Map<String, Long> load(TokenType type, long userId) {
-        var rows = mapper.selectList(new LambdaQueryWrapper<TokenBlacklist>()
+    private TokenRevocationSnapshotBO load(TokenType type, long userId) {
+        List<TokenBlacklist> rows = mapper.selectList(new LambdaQueryWrapper<TokenBlacklist>()
                 .eq(TokenBlacklist::getTokenType, type).eq(TokenBlacklist::getUserId, userId)
                 .gt(TokenBlacklist::getExpiredAt, LocalDateTime.now(clock)));
-        Map<String, Long> entries = new HashMap<>();
+        TokenRevocationSnapshotBO entries = TokenRevocationSnapshotBO.builder().build();
         String identity = type.getCode() + ":user:" + userId + ":";
         for (TokenBlacklist row : rows) {
             String key;
@@ -160,7 +157,7 @@ public class TokenRevocationStore {
             } else {
                 key = row.getToken().startsWith("sha256:") ? row.getToken() : digest(row.getToken());
             }
-            entries.merge(key, row.getExpiredAt().atZone(clock.getZone()).toInstant().toEpochMilli(), Math::max);
+            entries.merge(key, row.getExpiredAt().atZone(clock.getZone()).toInstant().toEpochMilli());
         }
         return entries;
     }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import online.longlian.app.mapper.TokenBlacklistMapper;
+import online.longlian.app.pojo.bo.common.TokenRevocationEntryBO;
 import online.longlian.app.pojo.entity.TokenBlacklist;
 import online.longlian.common.enumeration.TokenType;
 import online.longlian.common.service.DistributedLockService;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -88,7 +90,7 @@ class TokenRevocationStoreTest {
     @Test
     void shouldReadWarmSnapshotWithoutDatabase() {
         when(values.get(key)).thenReturn("{}");
-        assertThat(store.entries(TokenType.User, 1L)).isEmpty();
+        assertThat(store.entries(TokenType.User, 1L).getEntries()).isEmpty();
         verifyNoInteractions(mapper);
         verify(lock).close();
     }
@@ -98,8 +100,9 @@ class TokenRevocationStoreTest {
         when(values.get(key)).thenReturn("not-json");
         when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
 
-        assertThat(store.entries(TokenType.User, 1L))
-                .containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .extracting(TokenRevocationEntryBO::getKey)
+                .contains(TokenRevocationStore.digest("legacy.jwt.token"));
         verify(mapper).selectList(any());
         verify(lock).close();
     }
@@ -110,8 +113,22 @@ class TokenRevocationStoreTest {
         when(values.get(key)).thenReturn("{\"unexpected\":123}");
         when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
 
-        assertThat(store.entries(TokenType.User, 1L))
-                .containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .extracting(TokenRevocationEntryBO::getKey)
+                .contains(TokenRevocationStore.digest("legacy.jwt.token"));
+        verify(mapper).selectList(any());
+        verify(lock).close();
+    }
+
+    /** 缓存中的全量吊销截止时间必须可解析，避免损坏快照绕过校验。 */
+    @Test
+    void shouldFallBackWhenCachedCutoffCannotBeParsed() {
+        when(values.get(key)).thenReturn("{\"entries\":[{\"key\":\"before:invalid\",\"expiredAtMillis\":1}]}");
+        when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
+
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .extracting(TokenRevocationEntryBO::getKey)
+                .contains(TokenRevocationStore.digest("legacy.jwt.token"));
         verify(mapper).selectList(any());
         verify(lock).close();
     }
@@ -122,8 +139,9 @@ class TokenRevocationStoreTest {
         doThrow(new IllegalStateException("offline")).when(values)
                 .set(anyString(), anyString(), any(Duration.class));
 
-        assertThat(store.entries(TokenType.User, 1L))
-                .containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .extracting(TokenRevocationEntryBO::getKey)
+                .contains(TokenRevocationStore.digest("legacy.jwt.token"));
         verify(lock).close();
     }
 
@@ -131,8 +149,11 @@ class TokenRevocationStoreTest {
     @Test
     void shouldLoadLegacyRowsAndCacheOnlyDigests() {
         when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
-        assertThat(store.entries(TokenType.User, 1L))
-                .containsEntry(TokenRevocationStore.digest("legacy.jwt.token"), clock.millis() + 60_000);
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .contains(TokenRevocationEntryBO.builder()
+                        .key(TokenRevocationStore.digest("legacy.jwt.token"))
+                        .expiredAtMillis(clock.millis() + 60_000)
+                        .build());
         verify(mapper, times(1)).selectList(any());
         verify(values).set(eq(key), argThat(value -> !value.contains("legacy.jwt.token")), eq(Duration.ofSeconds(60)));
     }
@@ -141,7 +162,9 @@ class TokenRevocationStoreTest {
     @Test
     void shouldReadLegacyGlobalRevocation() {
         when(mapper.selectList(any())).thenReturn(List.of(row("1:user:1:all")));
-        assertThat(store.entries(TokenType.User, 1L)).containsKey("before:" + clock.millis());
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .extracting(TokenRevocationEntryBO::getKey)
+                .contains("before:" + clock.millis());
     }
 
     /** Redis 故障时回退到持久化的吊销记录。 */
@@ -149,7 +172,9 @@ class TokenRevocationStoreTest {
     void shouldFallBackToDatabaseWhenRedisIsUnavailable() {
         when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenThrow(new IllegalStateException("offline"));
         when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
-        assertThat(store.entries(TokenType.User, 1L)).containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        assertThat(store.entries(TokenType.User, 1L).getEntries())
+                .extracting(TokenRevocationEntryBO::getKey)
+                .contains(TokenRevocationStore.digest("legacy.jwt.token"));
         verifyNoInteractions(values);
     }
 
@@ -166,7 +191,7 @@ class TokenRevocationStoreTest {
         when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenReturn(null);
         when(mapper.selectList(any())).thenReturn(List.of());
 
-        assertThat(store.entries(TokenType.User, 1L)).isEmpty();
+        assertThat(store.entries(TokenType.User, 1L).getEntries()).isEmpty();
         verify(mapper).selectList(any());
     }
 
@@ -175,7 +200,7 @@ class TokenRevocationStoreTest {
     void shouldCommitRevocationBeforeUnlocking() {
         TokenBlacklist entry = row(TokenRevocationStore.digest("token"));
         store.save(entry);
-        var order = inOrder(redis, mapper, transactions, lock);
+        InOrder order = inOrder(redis, mapper, transactions, lock);
         order.verify(redis).delete(key);
         order.verify(transactions).getTransaction(any());
         order.verify(mapper).selectOne(any());
