@@ -3,7 +3,9 @@ FROM arigaio/atlas:1.2.3 AS atlas
 FROM alpine:3.20
 WORKDIR /app/db
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# mariadb-client 用于同实例自动创建 {db}_atlas 和导入种子
+RUN apk add --no-cache mariadb-client=10.11.18-r0 \
+  && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=atlas /atlas /usr/local/bin/atlas
 COPY --chown=appuser:appgroup db /app/db

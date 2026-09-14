@@ -8,12 +8,20 @@ import online.longlian.generator.internal.EnumFieldMeta;
 import online.longlian.generator.internal.EnumProcessor;
 import online.longlian.generator.internal.ModelEnumMeta;
 import online.longlian.generator.internal.TypeConverter;
+import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.core.env.PropertySource;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class CodeGenerator {
@@ -26,14 +34,14 @@ public class CodeGenerator {
     }
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
-        StandardEnvironment env = new StandardEnvironment();
-        String host = env.getProperty("DB_HOST");
-        String port = env.getProperty("DB_PORT");
-        String database = env.getProperty("DB_DATABASE");
-        String username = env.getProperty("DB_USERNAME");
-        String password = env.getProperty("DB_PASSWORD");
-        String url = "jdbc:mysql://" + host + ":" + port + "/" + database
-                + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true";
+        StandardEnvironment env = loadApplicationYaml();
+        String url = env.getProperty("spring.datasource.url");
+        String username = env.getProperty("spring.datasource.username");
+        String password = env.getProperty("spring.datasource.password", "");
+        if (!StringUtils.hasText(url) || username == null) {
+            throw new IllegalStateException(
+                    "配置文件缺少 spring.datasource.url / spring.datasource.username，请检查 application.yml");
+        }
 
         // 获取枚举映射 表名 + 字段名 -> 类型名 + 包名
         enumTypeConvertMap = EnumProcessor.scanAndPrintModelEnums();
@@ -65,5 +73,35 @@ public class CodeGenerator {
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
 
+    }
+
+    private static StandardEnvironment loadApplicationYaml() throws IOException {
+        Path yml = resolveApplicationYml();
+        Resource resource = new FileSystemResource(yml);
+        List<PropertySource<?>> sources = new YamlPropertySourceLoader().load("application", resource);
+        if (sources.isEmpty()) {
+            throw new IllegalStateException("配置文件为空: " + yml.toAbsolutePath());
+        }
+        StandardEnvironment env = new StandardEnvironment();
+        for (PropertySource<?> source : sources) {
+            env.getPropertySources().addFirst(source);
+        }
+        return env;
+    }
+
+    private static Path resolveApplicationYml() {
+        Path[] candidates = {
+                Paths.get("app/src/main/resources/application.yml"),
+                Paths.get("../app/src/main/resources/application.yml"),
+                Paths.get("app/src/main/resources/application.yml.example"),
+                Paths.get("../app/src/main/resources/application.yml.example"),
+        };
+        for (Path path : candidates) {
+            if (Files.isRegularFile(path)) {
+                return path;
+            }
+        }
+        throw new IllegalStateException(
+                "找不到应用配置。请复制 app/src/main/resources/application.yml.example 为 application.yml");
     }
 }
