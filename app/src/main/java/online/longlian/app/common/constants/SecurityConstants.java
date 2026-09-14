@@ -22,6 +22,7 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/swagger-resources/**"),
             // 使用带有效期的 HMAC 签名授权读取，确保浏览器图片请求也能安全访问。
             new AntPathRequestMatcher("/common/file/local", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/common/file/local", HttpMethod.PUT.name()),
             new AntPathRequestMatcher("/error")
     );
 

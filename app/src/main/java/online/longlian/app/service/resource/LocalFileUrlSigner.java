@@ -17,7 +17,8 @@ import java.util.HexFormat;
 @Component
 public class LocalFileUrlSigner {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
-    private static final String SIGNATURE_DOMAIN = "longlian:local-file-read:v1";
+    private static final String READ_SIGNATURE_DOMAIN = "longlian:local-file-read:v1";
+    private static final String UPLOAD_SIGNATURE_DOMAIN = "longlian:local-file-upload:v1";
     private static final String PAYLOAD_SEPARATOR = "\n";
 
     private final SecretKeySpec key;
@@ -37,24 +38,40 @@ public class LocalFileUrlSigner {
     }
 
     public LocalFileReadParamsBO sign(String storageKey) {
-        long expires = Math.addExact(clock.instant().getEpochSecond(), ttlSeconds);
-        return new LocalFileReadParamsBO(storageKey, expires, signature(storageKey, expires));
+        return sign(storageKey, READ_SIGNATURE_DOMAIN);
     }
 
     public void verify(LocalFileReadParamsBO params) {
+        verify(params, READ_SIGNATURE_DOMAIN);
+    }
+
+    public LocalFileReadParamsBO signUpload(String storageKey) {
+        return sign(storageKey, UPLOAD_SIGNATURE_DOMAIN);
+    }
+
+    public void verifyUpload(LocalFileReadParamsBO params) {
+        verify(params, UPLOAD_SIGNATURE_DOMAIN);
+    }
+
+    private LocalFileReadParamsBO sign(String storageKey, String domain) {
+        long expires = Math.addExact(clock.instant().getEpochSecond(), ttlSeconds);
+        return new LocalFileReadParamsBO(storageKey, expires, signature(domain, storageKey, expires));
+    }
+
+    private void verify(LocalFileReadParamsBO params, String domain) {
         if (params.expires() <= clock.instant().getEpochSecond()
-                || !MessageDigest.isEqual(signature(params.key(), params.expires()).getBytes(StandardCharsets.US_ASCII),
+                || !MessageDigest.isEqual(signature(domain, params.key(), params.expires()).getBytes(StandardCharsets.US_ASCII),
                 params.signature().getBytes(StandardCharsets.US_ASCII))) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "文件链接无效或已过期");
         }
     }
 
-    private String signature(String storageKey, long expires) {
+    private String signature(String domain, String storageKey, long expires) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(key);
             // 使用独立的签名域，避免文件签名被当作其他凭证复用。
-            String payload = SIGNATURE_DOMAIN + PAYLOAD_SEPARATOR + expires + PAYLOAD_SEPARATOR + storageKey;
+            String payload = domain + PAYLOAD_SEPARATOR + expires + PAYLOAD_SEPARATOR + storageKey;
             return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
         // JDK 保证 HmacSHA256 算法存在，该异常分支无法通过测试触发。
         } catch (GeneralSecurityException e) { // skipcq: TCV-001

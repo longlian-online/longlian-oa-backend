@@ -50,6 +50,16 @@ class LocalFileUrlSignerTest {
         assertThatThrownBy(() -> signer.verify(other.sign("avatar/1.png"))).isInstanceOf(AppException.class);
     }
 
+    /** 读取签名不能授权上传，上传签名也不能授权读取。 */
+    @Test
+    void shouldRejectCrossDomainSignatures() {
+        LocalFileReadParamsBO read = signer.sign("avatar/1.png");
+        LocalFileReadParamsBO upload = signer.signUpload("avatar/1.png");
+        assertThatThrownBy(() -> signer.verifyUpload(read)).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> signer.verify(upload)).isInstanceOf(AppException.class);
+        assertThatCode(() -> signer.verifyUpload(upload)).doesNotThrowAnyException();
+    }
+
     @Test
     void shouldRejectInvalidConfiguration() {
         assertThatThrownBy(() -> new LocalFileUrlSigner("too-short", 300, clock))

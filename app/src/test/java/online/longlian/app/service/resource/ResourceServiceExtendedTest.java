@@ -5,9 +5,6 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
-import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
-import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
@@ -19,14 +16,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.ByteArrayInputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
@@ -40,8 +35,6 @@ class ResourceServiceExtendedTest {
     private StorageServiceFactory storageFactory;
     @Mock
     private StorageService storageService;
-    private final LocalFileUrlSigner localFileUrlSigner = new LocalFileUrlSigner(
-            "test-local-signing-secret-32-bytes", 300, java.time.Clock.systemUTC());
 
     private ResourceService resourceService;
 
@@ -51,7 +44,7 @@ class ResourceServiceExtendedTest {
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
         props.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageFactory, props, localFileUrlSigner);
+        resourceService = new ResourceService(resourceMapper, storageFactory, props);
     }
 
     @Test
@@ -140,112 +133,6 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void uploadLocalResource_resourceNotFound_throws() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
-                .contentLength(3L)
-                .build();
-        when(resourceMapper.selectOne(any())).thenReturn(null);
-
-        assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("无权上传");
-    }
-
-    @Test
-    void uploadLocalResource_sizeMismatch_throws() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
-                .contentLength(3L)
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(999L).build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
-
-        assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("文件大小不匹配");
-    }
-
-    @Test
-    void uploadLocalResource_valid_uploadsAndActivates() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
-                .contentLength(3L)
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        when(resourceMapper.update(isNull(), any())).thenReturn(1);
-
-        resourceService.uploadLocalResource(params);
-
-        verify(storageService).upload(argThat((LocalFileWriteParamsBO writeParams) ->
-                writeParams.getStorageKey().equals("file/1.png")
-                        && writeParams.getExpectedSize().equals(3L)
-                        && writeParams.getExpectedMimeType().equals("image/png")));
-        verify(resourceMapper).update(isNull(), any());
-    }
-
-    @Test
-    void shouldDeleteStoredFileWhenStatusUpdateFails() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
-                .contentLength(3L)
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        when(resourceMapper.update(isNull(), any())).thenReturn(0);
-
-        assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("文件状态更新失败");
-
-        verify(storageService).delete("file/1.png");
-    }
-
-    @Test
-    void shouldUploadChunkedContentWhenActualSizeMatches() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
-                .contentLength(-1L)
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        when(resourceMapper.update(isNull(), any())).thenReturn(1);
-
-        resourceService.uploadLocalResource(params);
-
-        verify(storageService).upload(any(LocalFileWriteParamsBO.class));
-    }
-
-    @Test
-    void shouldPreserveStatusFailureWhenStoredFileCleanupFails() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
-                .contentLength(3L)
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        when(resourceMapper.update(isNull(), any())).thenReturn(0);
-        doThrow(new IllegalStateException("delete failed")).when(storageService).delete("file/1.png");
-
-        Throwable failure = catchThrowable(() -> resourceService.uploadLocalResource(params));
-
-        assertThat(failure).isInstanceOf(AppException.class);
-        assertThat(failure.getSuppressed()).hasSize(1);
-        assertThat(failure.getSuppressed()[0]).hasMessage("delete failed");
-    }
-
-    @Test
     void shouldRejectAvatarWithNonImageMime() {
         ResourceCreateParamsBO params = new ResourceCreateParamsBO(
                 1L, 10L, "avatar.txt", "txt", 3L, "text/plain", "avatar", 1L);
@@ -258,35 +145,35 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void readLocalResource_notFound_throws() {
-        when(resourceMapper.selectCount(any())).thenReturn(0L);
-        LocalFileReadParamsBO params = localFileUrlSigner.sign("missing.png");
+    void loadPending_found_returnsResource() {
+        Resource pending = Resource.builder().id(1L).storageKey("file/1.png").fileSize(3L).build();
+        when(resourceMapper.selectOne(any())).thenReturn(pending);
 
-        assertThatThrownBy(() -> resourceService.readLocalResource(params))
-                .isInstanceOf(AppException.class);
-
+        assertThat(resourceService.loadPending("file/1.png")).isSameAs(pending);
     }
 
     @Test
-    void readLocalResource_validSignature_returnsResource() {
-        when(resourceMapper.selectCount(any())).thenReturn(1L);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        org.springframework.core.io.Resource mockResource = mock(org.springframework.core.io.Resource.class);
-        when(storageService.getResource("file/1.png")).thenReturn(mockResource);
-        LocalFileReadParamsBO params = localFileUrlSigner.sign("file/1.png");
+    void loadPending_missing_throws() {
+        when(resourceMapper.selectOne(any())).thenReturn(null);
 
-        org.springframework.core.io.Resource result = resourceService.readLocalResource(params);
-
-        assertThat(result).isEqualTo(mockResource);
+        assertThatThrownBy(() -> resourceService.loadPending("file/1.png"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权上传或文件已完成上传");
     }
 
     @Test
-    void readLocalResource_invalidSignature_rejectsBeforeLookup() {
-        LocalFileReadParamsBO params = new LocalFileReadParamsBO("file/1.png", 1L, "0".repeat(64));
+    void loadActivated_found_returnsResource() {
+        Resource activated = Resource.builder().id(1L).storageKey("file/1.png").build();
+        when(resourceMapper.selectOne(any())).thenReturn(activated);
 
-        assertThatThrownBy(() -> resourceService.readLocalResource(params))
+        assertThat(resourceService.loadActivated("file/1.png")).isSameAs(activated);
+    }
+
+    @Test
+    void loadActivated_missing_throws() {
+        when(resourceMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> resourceService.loadActivated("missing.png"))
                 .isInstanceOf(AppException.class);
-
-        verifyNoInteractions(resourceMapper, storageFactory);
     }
 }

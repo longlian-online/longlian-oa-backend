@@ -42,7 +42,10 @@ class LocalStorageServiceTest {
                 new PresignedUploadUrlParamsBO("avatar/1.png")))
                 .satisfies(result -> {
                     assertThat(result.getKey()).isEqualTo("avatar/1.png");
-                    assertThat(result.getUploadUrl()).isEqualTo("/common/file/local?key=avatar/1.png");
+                    assertThat(result.getUploadUrl())
+                            .contains("avatar/1.png")
+                            .contains("expires=")
+                            .matches(".*signature=[0-9a-f]{64}.*");
                 });
         Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
         assertThat(urls).containsOnlyKeys("avatar/1.png", "cover/2.png");

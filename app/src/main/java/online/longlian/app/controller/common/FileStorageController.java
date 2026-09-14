@@ -11,11 +11,11 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
-import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
+import online.longlian.app.service.resource.LocalFileIngress;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +31,7 @@ import java.io.IOException;
 public class FileStorageController {
 
     private final ResourceService resourceService;
+    private final LocalFileIngress localFileIngress;
 
     @Operation(
         summary = "创建文件上传",
@@ -59,18 +60,13 @@ public class FileStorageController {
     )
     @PutMapping("/local")
     @ResponseMessage("上传成功")
-    public void uploadLocalFile(@RequestParam String key,
-                                HttpServletRequest request,
-                                @UserSession SessionContext sessionContext) {
+    public void uploadLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
+                                HttpServletRequest request) {
         try {
-            resourceService.uploadLocalResource(
-                    LocalFileUploadParamsBO.builder()
-                            .storageKey(key)
-                            .content(request.getInputStream())
-                            .contentLength(request.getContentLengthLong())
-                            .userId(sessionContext.userId())
-                            .orgId(sessionContext.orgId())
-                            .build());
+            localFileIngress.upload(
+                    new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature()),
+                    request.getInputStream(),
+                    request.getContentLengthLong());
         } catch (IOException e) {
             throw new IllegalStateException("无法读取上传内容", e);
         }
@@ -83,7 +79,7 @@ public class FileStorageController {
     @NotWrap
     @GetMapping("/local")
     public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto) {
-        return ResponseEntity.ok(resourceService.readLocalResource(
+        return ResponseEntity.ok(localFileIngress.read(
                 new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
     }
 }

@@ -27,9 +27,6 @@ public class ResourceServiceTest {
     @Mock
     private OssStorageService ossStorageService;
 
-    @Mock
-    private LocalFileUrlSigner localFileUrlSigner;
-
     @InjectMocks
     private ResourceService resourceService;
 
@@ -39,7 +36,7 @@ public class ResourceServiceTest {
         storageProperties.setType(StorageType.OSS);
         storageProperties.setOss(new StorageProperties.OssConfig());
         resourceService = new ResourceService(
-                resourceMapper, storageServiceFactory, storageProperties, localFileUrlSigner);
+                resourceMapper, storageServiceFactory, storageProperties);
     }
 
     @Test

@@ -60,7 +60,10 @@ public class LocalStorageService implements StorageService {
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
         String key = params.getKey();
-        String uploadUrl = buildLocalResourceUrl(key);
+        LocalFileReadParamsBO signed = signer.signUpload(key);
+        String uploadUrl = buildLocalResourceUrl(key)
+                + "&expires=" + signed.expires()
+                + "&signature=" + signed.signature();
         return new PresignedUploadUrlResultBO(uploadUrl, key);
     }
 
@@ -75,7 +78,6 @@ public class LocalStorageService implements StorageService {
         return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
     }
 
-    @Override
     public void upload(LocalFileWriteParamsBO params) {
         Path target = resolveKey(params.getStorageKey());
         Path temporaryFile = null;
@@ -96,7 +98,6 @@ public class LocalStorageService implements StorageService {
         }
     }
 
-    @Override
     public void delete(String key) {
         try {
             Files.deleteIfExists(resolveKey(key));
@@ -105,7 +106,6 @@ public class LocalStorageService implements StorageService {
         }
     }
 
-    @Override
     public Resource getResource(String key) {
         Path target = resolveKey(key);
         if (!Files.isRegularFile(target)) {
