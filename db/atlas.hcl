@@ -1,6 +1,6 @@
 // Atlas 配置 — 声明式数据库管理。
 // schema.sql 是唯一真实来源；dev 可完整收敛，prod 不自动删除已有对象。
-// DB_URL / DEV_DB_URL 由 migrate.sh 注入（YAML 推导或 Docker 临时库 / {db}_atlas）。
+// DB_URL / DEV_DB_URL 由 migrate.sh 注入（YAML 推导；默认同实例 {db}_atlas）。
 
 variable "db_url" {
   type        = string
@@ -10,7 +10,7 @@ variable "db_url" {
 
 variable "dev_db_url" {
   type        = string
-  description = "Atlas 暂存库（migrate.sh 注入；Docker 临时库或同实例 {db}_atlas）"
+  description = "Atlas 暂存库（migrate.sh 注入，默认同实例 {db}_atlas）"
   default     = getenv("DEV_DB_URL")
 }
 

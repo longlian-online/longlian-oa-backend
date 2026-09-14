@@ -13,7 +13,7 @@
 #   task prod-down
 #
 # 应用与迁移共用 application-prod.yml（挂到 /app/config/application.yml）。
-# 迁移从 spring.datasource 推导连接；无 Docker 时在同一实例自动建 {db}_atlas。
+# 迁移从 spring.datasource 推导连接，并在同一实例自动建 {db}_atlas。
 
 name: longlian-oa-prod
 

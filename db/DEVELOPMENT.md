@@ -37,16 +37,13 @@ export DB_URL="mysql://root:pass@localhost:3306/longlian_oa"
 ./db/migrate.sh dev apply
 ```
 
-`DEV_DB_URL` 可选。不设时：
-
-1. 本机有 Docker：用 `docker://mysql/8.0/dev` 起临时 MySQL 算差异
-2. 否则（compose 迁移容器）：在同一实例自动创建 `{业务库}_atlas`
+`DEV_DB_URL` 可选。不设时在同一 MySQL 实例自动创建 `{业务库}_atlas`。
 
 ### 关于暂存库
 
 Atlas 声明式模式需要一个「暂存库」来推导期望状态：它把 `schema.sql` 真的在 MySQL 上执行一遍，再 inspect 结果，从而让数据库自己解析类型归一化、默认 collation、索引顺序等细节，同时顺带校验生成的 DDL 合法。
 
-这个库会被**反复清空重建**。`docker://` 路径用完即毁；`{db}_atlas` 必须是专用空库，绝不能指向有真实数据的库。账号没有 `CREATE DATABASE` 时，预先建好该库并设置 `DEV_DB_URL`。
+这个库会被**反复清空重建**，必须是专用空库，绝不能指向有真实数据的库。账号没有 `CREATE DATABASE` 时，预先建好 `{业务库}_atlas` 并设置 `DEV_DB_URL`。
 
 ## 前置条件
 
@@ -115,7 +112,7 @@ export DB_URL="mysql://user:pass@host:3306/dbname"
 ./db/migrate.sh prod apply
 ```
 
-有 Docker 时不必设 `DEV_DB_URL`。`apply` 使用 `--auto-approve`，不会交互提示。
+不必设 `DEV_DB_URL`（脚本会建 `{dbname}_atlas`）。`apply` 使用 `--auto-approve`，不会交互提示。账号没有 `CREATE DATABASE` 时再显式设置。
 
 ## API 测试建表
 

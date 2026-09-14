@@ -10,7 +10,7 @@
 #   - compose 把它挂到应用和迁移容器的 /app/config/application.yml
 #   - MySQL、Redis、邮件不由 compose 启动，必须指向已有外部实例
 #   - 迁移从下方 spring.datasource 推导连接，不必再配 DB_URL
-#   - 无 Docker 时会在同一实例自动创建 `{数据库名}_atlas` 空库作暂存；
+#   - 会在同一实例自动创建 `{数据库名}_atlas` 空库作暂存；
 #     账号没有 CREATE DATABASE 时需预先建好，或设 DEV_DB_URL
 # =============================================================================
 

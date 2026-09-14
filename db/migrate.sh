@@ -6,8 +6,7 @@
 #   DB_URL            目标库 mysql://user:pass@host:3306/db
 #                     可省略：缺省时从 APPLICATION_YML 的 spring.datasource 推导
 #   APPLICATION_YML   Spring YAML 路径，默认 /app/config/application.yml
-#   DEV_DB_URL        可选。不设则：有 Docker 用 docker://mysql/8.0/dev；
-#                     否则在同一 MySQL 实例自动创建 {db}_atlas
+#   DEV_DB_URL        可选。不设则在同一 MySQL 实例自动创建 {db}_atlas
 #   SEED_FILE         可选。apply 成功后导入种子数据
 #
 # 示例:
@@ -223,14 +222,9 @@ derive_shadow_url() {
   printf '%s/%s_atlas%s\n' "$rest" "$db" "$suffix"
 }
 
-docker_ok() {
-  command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
-}
-
 resolve_dev_url() {
   if [ -n "${DEV_DB_URL:-}" ]; then
     case "$DEV_DB_URL" in
-      docker://*) ;;
       mysql://*)
         if ! ensure_mysql_database "$DEV_DB_URL"; then
           echo "错误: DEV_DB_URL 指向的库不存在且无法自动创建" >&2
@@ -242,13 +236,6 @@ resolve_dev_url() {
     return 0
   fi
 
-  if docker_ok; then
-    DEV_DB_URL="docker://mysql/8.0/dev"
-    export DEV_DB_URL
-    echo "==> 使用 Docker 临时 MySQL 计算 schema 差异"
-    return 0
-  fi
-
   derived=$(derive_shadow_url "$DB_URL")
   if ensure_mysql_database "$derived"; then
     DEV_DB_URL=$derived
@@ -257,7 +244,7 @@ resolve_dev_url() {
   fi
 
   parse_mysql_url "$derived"
-  echo "错误: 没有 Docker，也无法自动创建影子库 \`$url_db\`。" >&2
+  echo "错误: 无法自动创建影子库 \`$url_db\`。" >&2
   echo "请授予 CREATE DATABASE，或预先建好该库并设置 DEV_DB_URL。" >&2
   exit 1
 }
@@ -279,12 +266,12 @@ setup_atlas() {
   fi
   docker_db_url=$(rewrite_localhost_for_docker "$DB_URL")
   run_atlas() {
+    docker_dev_url=$(rewrite_localhost_for_docker "${DEV_DB_URL}")
     docker run --rm \
       -v "${SCRIPT_DIR}:/work" -w /work \
-      -v /var/run/docker.sock:/var/run/docker.sock \
       --add-host host.docker.internal:host-gateway \
       -e "DB_URL=${docker_db_url}" \
-      -e DEV_DB_URL \
+      -e "DEV_DB_URL=${docker_dev_url}" \
       "${ATLAS_IMAGE}" "$@"
   }
 }
@@ -336,10 +323,7 @@ case "$ACTION" in
     run_atlas schema apply --env "$ENVIRONMENT" --dry-run
     ;;
   inspect)
-    if [ -z "${DEV_DB_URL:-}" ]; then
-      DEV_DB_URL="docker://mysql/8.0/dev"
-      export DEV_DB_URL
-    fi
+    resolve_dev_url
     run_atlas schema inspect --env "$ENVIRONMENT"
     ;;
 esac

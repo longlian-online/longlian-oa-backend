@@ -7,7 +7,7 @@
 # 包含：MySQL 8.0 + Redis 7-Alpine + Atlas 迁移（含种子）+ 应用
 # 应用 / 迁移共用：devops/application-dev.yml.example → /app/config/application.yml
 #
-# 迁移容器无 Docker 时，会在同一 MySQL 实例自动创建 longlian_oa_dev_atlas 作暂存库。
+# 迁移在同一 MySQL 实例自动创建 longlian_oa_dev_atlas 作暂存库。
 
 services:
   mysql-dev:
