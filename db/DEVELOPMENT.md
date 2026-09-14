@@ -20,7 +20,7 @@
 db/
 ├── DEVELOPMENT.md          # 本文件
 ├── .gitignore              # 忽略本地配置
-├── atlas.hcl               # Atlas 配置（dev/prod 环境，连接从环境变量读取）
+├── atlas.hcl               # Atlas 配置（dev/prod；连接由 migrate.sh 注入）
 ├── schema.sql              # 期望 schema 状态（唯一真实来源）
 ├── migrate.sh              # 同步脚本（本地 / CI 共用）
 └── seed/                   # 开发环境种子数据
@@ -29,20 +29,24 @@ db/
 
 ## 配置连接
 
-`atlas.hcl` 定义 `dev`、`prod` 两个环境，连接信息全部从环境变量读取，**不内置任何默认值**。使用前必须 export：
+`migrate.sh` 是唯一入口。目标库二选一：
 
 ```bash
 export DB_URL="mysql://root:pass@localhost:3306/longlian_oa"
-export DEV_DB_URL="mysql://root:pass@localhost:3306/longlian_oa_diff"
+# 或把 Spring YAML 挂到 /app/config/application.yml（compose 默认如此）
+./db/migrate.sh dev apply
 ```
 
-未设置时 Atlas 会直接报错并提示缺哪个变量。
+`DEV_DB_URL` 可选。不设时：
 
-### 关于 DEV_DB_URL
+1. 本机有 Docker：用 `docker://mysql/8.0/dev` 起临时 MySQL 算差异
+2. 否则（compose 迁移容器）：在同一实例自动创建 `{业务库}_atlas`
+
+### 关于暂存库
 
 Atlas 声明式模式需要一个「暂存库」来推导期望状态：它把 `schema.sql` 真的在 MySQL 上执行一遍，再 inspect 结果，从而让数据库自己解析类型归一化、默认 collation、索引顺序等细节，同时顺带校验生成的 DDL 合法。
 
-这个库会被**反复清空重建**，必须是专用空库。绝不能指向有真实数据的库 —— Atlas 检测到非空会拒绝工作并报 `connected database is not clean`。
+这个库会被**反复清空重建**。`docker://` 路径用完即毁；`{db}_atlas` 必须是专用空库，绝不能指向有真实数据的库。账号没有 `CREATE DATABASE` 时，预先建好该库并设置 `DEV_DB_URL`。
 
 ## 前置条件
 
@@ -108,11 +112,10 @@ atlas schema inspect --env prod           # 查看生产环境结构
 
 ```bash
 export DB_URL="mysql://user:pass@host:3306/dbname"
-export DEV_DB_URL="mysql://user:pass@host:3306/dev"
 ./db/migrate.sh prod apply
 ```
 
-`apply` 在脚本中使用 `--auto-approve`，不会交互提示。
+有 Docker 时不必设 `DEV_DB_URL`。`apply` 使用 `--auto-approve`，不会交互提示。
 
 ## API 测试建表
 
@@ -121,7 +124,7 @@ API 测试在测试数据库为空时会直接执行根目录的 `db/schema.sql`
 ## 注意事项
 
 - `schema.sql` 是唯一真实来源，所有表结构变更必须通过修改此文件完成
-- `dev` 没有删除保护，执行前确认 `DB_URL` 指向可安全重建的开发数据库
+- `dev` 没有删除保护，执行前确认目标库可安全重建
 - `prod` 的 `diff.skip` 会阻止删除 Schema、表、字段、索引和外键；不要绕过 `atlas.hcl` 直接执行裸 Atlas 命令
 - 字段类型等非删除变更仍可能影响数据，生产环境始终先执行 `prod plan`
 - 种子数据（`seed/`）不纳入 schema 管理，仅用于开发环境初始化

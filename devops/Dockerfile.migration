@@ -3,7 +3,8 @@ FROM arigaio/atlas:1.2.3 AS atlas
 FROM alpine:3.20
 WORKDIR /app/db
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk add --no-cache mariadb-client \
+  && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=atlas /atlas /usr/local/bin/atlas
 COPY --chown=appuser:appgroup db /app/db

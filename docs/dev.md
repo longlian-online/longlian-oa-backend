@@ -22,10 +22,10 @@ Docker 一键开发环境（`task dev`）挂载 `devops/application-dev.yml.exam
 
 ```
 cp devops/application-prod.yml.example devops/application-prod.yml
-cp devops/docker-compose.prod.override.yml.example devops/docker-compose.prod.override.yml
 ```
 
-YAML 挂到容器 `config/application.yml`。Atlas 仍要 `DB_URL` / `DEV_DB_URL`，写在 override 里，不要把密钥打进镜像或提交到 git。
+YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥打进镜像或提交到 git。
+需要钉死镜像 tag 或改端口时，再复制 `devops/docker-compose.prod.override.yml.example`。
 
 ## 运行
 
