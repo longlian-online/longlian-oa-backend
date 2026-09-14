@@ -3,7 +3,7 @@
 #
 # 本文件提交到仓库：值全是测试夹具，不含真实密钥。
 # API 测试通过 task api-test-docker 在 compose 网络中运行，因此主机名是
-# mysql-test / redis-test，与 devops/docker-compose.yml profile=test 的 service 名一致。
+# mysql-test / redis-test，与 devops/docker-compose.test.yml 的 service 名一致。
 # 不依赖 .env，也不读取开发用 application.yml。
 # =============================================================================
 

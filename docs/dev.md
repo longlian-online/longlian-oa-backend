@@ -25,7 +25,6 @@ cp devops/application-prod.yml.example devops/application-prod.yml
 ```
 
 YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥打进镜像或提交到 git。
-需要钉死镜像 tag 时，可在 `devops/.env` 写 `APP_IMAGE` / `MIGRATION_IMAGE`。
 
 ## 运行
 

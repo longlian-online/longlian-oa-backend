@@ -1,0 +1,42 @@
+# 生产环境
+#
+# 仅部署 Atlas 迁移 + 后端。MySQL、Redis、邮件等由外部提供，
+# 本文件不创建这些组件。
+#
+# 准备：
+#   cp devops/application-prod.yml.example devops/application-prod.yml
+#   填写外部地址与密钥
+# 启动：
+#   task prod
+# 停止：
+#   task prod-down
+#
+# 应用配置挂载为 /app/config/application.yml，不走 .env。
+# 迁移从同一份 YAML 的 spring.datasource 推导连接，
+# 并在同一实例自动创建 {db}_atlas。
+
+name: longlian-oa-prod
+
+services:
+  migrate:
+    image: ghcr.io/longlian-online/longlian-oa-backend:migration-latest
+    container_name: longlian-oa-migrate-prod
+    restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./application-prod.yml:/app/config/application.yml:ro
+
+  longlian-oa:
+    image: ghcr.io/longlian-online/longlian-oa-backend:latest
+    container_name: longlian-oa-prod
+    restart: unless-stopped
+    volumes:
+      - ./application-prod.yml:/app/config/application.yml:ro
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
