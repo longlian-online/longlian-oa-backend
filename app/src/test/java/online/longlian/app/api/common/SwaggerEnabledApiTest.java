@@ -6,7 +6,10 @@ import org.springframework.test.context.TestPropertySource;
 
 import static org.hamcrest.Matchers.startsWith;
 
-@TestPropertySource(properties = "SPRINGDOC_ENABLED=true")
+@TestPropertySource(properties = {
+        "springdoc.api-docs.enabled=true",
+        "springdoc.swagger-ui.enabled=true"
+})
 class SwaggerEnabledApiTest extends BaseApiTest {
     /** 显式启用时必须保留开发环境使用的 OpenAPI 接口。 */
     @Test
