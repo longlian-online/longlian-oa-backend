@@ -20,6 +20,7 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/swagger-ui/**"),
             new AntPathRequestMatcher("/v3/api-docs/**"),
             new AntPathRequestMatcher("/swagger-resources/**"),
+            // Read access is authorized by an expiring HMAC signature, including browser image requests.
             new AntPathRequestMatcher("/common/file/local", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/error")
     );

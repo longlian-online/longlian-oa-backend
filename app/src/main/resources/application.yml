@@ -65,6 +65,8 @@ springdoc:
 storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 OSS
   local:
+    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${JWT_SECRET}}
+    read-url-ttl-seconds: ${STORAGE_LOCAL_READ_URL_TTL_SECONDS:300}
     base-url: ${STORAGE_LOCAL_BASE_URL:}
     directory: ${STORAGE_LOCAL_DIRECTORY:${java.io.tmpdir}/longlian-oa}
   oss:

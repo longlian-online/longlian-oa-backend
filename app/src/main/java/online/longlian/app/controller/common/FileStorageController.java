@@ -10,10 +10,13 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
+import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.resource.LocalFileReadService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class FileStorageController {
 
     private final ResourceService resourceService;
+    private final LocalFileReadService localFileReadService;
 
     @Operation(
         summary = "创建文件上传",
@@ -68,11 +72,12 @@ public class FileStorageController {
 
     @Operation(
         summary = "读取本地文件",
-        description = "通过预签名 key 读取本地存储的文件内容，返回原始文件流"
+        description = "通过带有效期和签名的链接读取文件，裸 key 不可读取"
     )
     @NotWrap
     @GetMapping("/local")
-    public ResponseEntity<Resource> readLocalFile(@RequestParam String key) {
-        return ResponseEntity.ok(resourceService.getLocalResource(key));
+    public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto) {
+        return ResponseEntity.ok(localFileReadService.read(
+                new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
     }
 }

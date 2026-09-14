@@ -4,6 +4,7 @@ import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
+import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -22,9 +23,11 @@ import java.util.stream.Collectors;
 public class LocalStorageService implements StorageService {
 
     private final StorageProperties.LocalConfig localConfig;
+    private final LocalFileUrlSigner signer;
 
-    LocalStorageService(StorageProperties storageProperties) {
+    LocalStorageService(StorageProperties storageProperties, LocalFileUrlSigner signer) {
         localConfig = storageProperties.getLocal();
+        this.signer = signer;
     }
 
     @Override
@@ -41,7 +44,8 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public String getResourceReadUrl(String key) {
-        return buildLocalResourceUrl(key);
+        var signed = signer.sign(key);
+        return buildLocalResourceUrl(key) + "&expires=" + signed.expires() + "&signature=" + signed.signature();
     }
 
     @Override
