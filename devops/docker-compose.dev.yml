@@ -43,8 +43,7 @@ services:
   migrate-dev:
     build:
       context: ../
-      dockerfile: devops/Dockerfile
-      target: migration
+      dockerfile: devops/Dockerfile.migration
     container_name: longlian-oa-migrate-dev
     restart: "no"
     command: ["dev", "apply"]
@@ -61,7 +60,6 @@ services:
     build:
       context: ../
       dockerfile: devops/Dockerfile
-      target: app
     container_name: longlian-oa-dev
     volumes:
       - ../app/src/main/resources/application.yml.example:/app/config/application.yml:ro
