@@ -28,7 +28,7 @@ class LocalFileReadApiTest extends BaseApiTest {
     @Autowired private StorageProperties properties;
     @Autowired private LocalFileUrlSigner signer;
 
-    /** An authorized business response supplies an image URL usable without an Authorization header. */
+    /** 业务接口返回的授权链接无需 Authorization 请求头即可读取图片。 */
     @Test
     void shouldReadAvatarUsingSignedBusinessUrl() {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
@@ -42,7 +42,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(content).containsExactly(7);
     }
 
-    /** Knowledge of a raw storage key never authorizes file access. */
+    /** 仅知道存储 key 不能直接获得文件读取权限。 */
     @Test
     void shouldRejectUnsignedRead() {
         createFile();
@@ -50,7 +50,7 @@ class LocalFileReadApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
-    /** A signature for one resource cannot read another resource, including another organization. */
+    /** 一个资源的签名不能读取其他资源，也不能跨组织读取文件。 */
     @Test
     void shouldRejectCrossResourceRead() {
         createFile();
@@ -60,7 +60,7 @@ class LocalFileReadApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
-    /** Changing expiration invalidates the signature; an expired URL is denied as well. */
+    /** 修改过期时间会使签名失效，已过期的链接同样必须拒绝。 */
     @Test
     void shouldRejectInvalidExpiryAndSignature() {
         createFile();
@@ -72,7 +72,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         }
     }
 
-    /** A valid signature does not resurrect deleted metadata. */
+    /** 有效签名不能恢复已删除的资源元数据。 */
     @Test
     void shouldRejectMissingResource() {
         var signed = signer.sign("avatar/1.png");

@@ -16,7 +16,7 @@ class LocalFileUrlSignerTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
     private final LocalFileUrlSigner signer = new LocalFileUrlSigner(SECRET, 300, clock);
 
-    /** Valid signatures authorize the exact key until expiry. */
+    /** 有效签名只授权对应的 key，直到链接过期为止。 */
     @Test
     void shouldAcceptValidSignature() {
         var signed = signer.sign("avatar/中文 图片.png");
@@ -24,7 +24,7 @@ class LocalFileUrlSignerTest {
         assertThat(signed.expires()).isEqualTo(clock.instant().getEpochSecond() + 300);
     }
 
-    /** Key, expiry and signature are all integrity protected. */
+    /** key、过期时间和签名都受到完整性保护。 */
     @Test
     void shouldRejectTampering() {
         var signed = signer.sign("avatar/1.png");
@@ -36,7 +36,7 @@ class LocalFileUrlSignerTest {
                 .isInstanceOf(AppException.class);
     }
 
-    /** The expiry instant is already outside the validity window. */
+    /** 到达过期时间后链接立即超出有效窗口。 */
     @Test
     void shouldRejectAtExpiryBoundary() {
         var signed = signer.sign("avatar/1.png");
@@ -44,7 +44,7 @@ class LocalFileUrlSignerTest {
         assertThatThrownBy(() -> later.verify(signed)).isInstanceOf(AppException.class);
     }
 
-    /** Invalid signatures are rejected before querying resource metadata or the filesystem. */
+    /** 无效签名会在查询资源元数据或文件系统前被拒绝。 */
     @Test
     void shouldRejectBeforeResourceLookup() {
         ResourceService resources = mock(ResourceService.class);
@@ -54,7 +54,7 @@ class LocalFileUrlSignerTest {
         verifyNoInteractions(resources);
     }
 
-    /** Signing with another deployment key cannot authorize a read. */
+    /** 使用另一部署密钥生成的签名不能授权读取。 */
     @Test
     void shouldRejectSignatureFromDifferentSecret() {
         var other = new LocalFileUrlSigner("another-local-signing-secret-32-bytes", 300, clock);

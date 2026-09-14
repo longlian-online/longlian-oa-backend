@@ -49,7 +49,7 @@ public class LocalFileUrlSigner {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(key);
-            // Domain separation prevents a file signature from being reused as another credential.
+            // 使用独立的签名域，避免文件签名被当作其他凭证复用。
             String payload = "longlian:local-file-read:v1\n" + expires + "\n" + storageKey;
             return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException e) { // skipcq: TCV-001
