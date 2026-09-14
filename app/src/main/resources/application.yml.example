@@ -10,8 +10,8 @@
 #   - application.yml 已被 gitignore，禁止提交（避免把密钥、内网地址推上去）
 #   - 本模板面向「应用跑在宿主机、MySQL/Redis 由 task dev 映射到本机端口」
 #     MySQL = localhost:10001，Redis = localhost:10002
-#   - Docker 一键开发环境请用 devops/application-dev.yml.example
-#     （compose 会挂载为容器内 /app/config/application.yml）
+#   - Docker 一键开发环境（task dev）挂载本文件，并用 SPRING_DATASOURCE_URL /
+#     SPRING_DATA_REDIS_* 覆盖为本机 compose 服务名
 #   - 生产/预发把改好的 YAML 挂到容器工作目录的 config/application.yml
 #     不要把密钥打进镜像
 # =============================================================================
