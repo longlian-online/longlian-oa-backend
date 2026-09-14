@@ -8,6 +8,7 @@ import online.longlian.app.service.TokenBlacklistService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -45,7 +46,8 @@ class AuthenticationFailureApiTest extends BaseApiTest {
     void shouldReportUnavailableAuthenticationInfrastructure() {
         createAdmin(1L, "admin", "123456", "root");
         String token = adminLoginAs("admin", "123456");
-        doThrow(new IllegalStateException("private database details")).when(blacklist).isBlacklisted(token);
+        doThrow(new DataAccessResourceFailureException("private database details"))
+                .when(blacklist).isBlacklisted(token);
         String response = authRequest(token).get("/admin/admins/").then().statusCode(200)
                 .body("code", equalTo(ResultCode.FAIL.getCode())).extract().asString();
         assertThat(response).doesNotContain("private database details", token);

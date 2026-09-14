@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -82,6 +83,17 @@ class JwtAuthenticationFilterTest {
         verifyNoInteractions(chain);
     }
 
+    /** subject 不是数字时只按无效凭证处理，不应访问黑名单存储。 */
+    @Test
+    void shouldRejectMalformedSubjectWithoutBlacklistLookup() throws Exception {
+        var claims = Jwts.claims().setSubject("not-a-number");
+        claims.put("type", "admin");
+        when(jwt.parseToken("token")).thenReturn(claims);
+        filter.doFilter(request, response, chain);
+        assertThat(failure().getMessage()).isEqualTo("登录凭证无效");
+        verifyNoInteractions(blacklist, chain);
+    }
+
     /** 业务授权错误保留业务码和可公开的提示信息。 */
     @Test
     void shouldPreserveBusinessFailure() throws Exception {
@@ -99,7 +111,8 @@ class JwtAuthenticationFilterTest {
     @Test
     void shouldReportInfrastructureFailureWithoutDetails() throws Exception {
         validClaims();
-        when(blacklist.isBlacklisted("token")).thenThrow(new IllegalStateException("sql secret"));
+        when(blacklist.isBlacklisted("token"))
+                .thenThrow(new DataAccessResourceFailureException("sql secret"));
         filter.doFilter(request, response, chain);
         RequestAuthenticationException failure = (RequestAuthenticationException) failure();
         assertThat(failure.getCode()).isEqualTo(ResultCode.FAIL.getCode());
