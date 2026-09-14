@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
-import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
@@ -41,8 +40,8 @@ class ResourceServiceExtendedTest {
     private StorageServiceFactory storageFactory;
     @Mock
     private StorageService storageService;
-    @Mock
-    private LocalFileUrlSigner localFileUrlSigner;
+    private final LocalFileUrlSigner localFileUrlSigner = new LocalFileUrlSigner(
+            "test-local-signing-secret-32-bytes", 300, java.time.Clock.systemUTC());
 
     private ResourceService resourceService;
 
@@ -261,12 +260,11 @@ class ResourceServiceExtendedTest {
     @Test
     void readLocalResource_notFound_throws() {
         when(resourceMapper.selectCount(any())).thenReturn(0L);
-        LocalFileReadParamsBO params = new LocalFileReadParamsBO("missing.png", 1_000L, "a".repeat(64));
+        LocalFileReadParamsBO params = localFileUrlSigner.sign("missing.png");
 
         assertThatThrownBy(() -> resourceService.readLocalResource(params))
                 .isInstanceOf(AppException.class);
 
-        verify(localFileUrlSigner).verify(params);
     }
 
     @Test
@@ -275,19 +273,16 @@ class ResourceServiceExtendedTest {
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
         org.springframework.core.io.Resource mockResource = mock(org.springframework.core.io.Resource.class);
         when(storageService.getResource("file/1.png")).thenReturn(mockResource);
-        LocalFileReadParamsBO params = new LocalFileReadParamsBO("file/1.png", 1_000L, "a".repeat(64));
+        LocalFileReadParamsBO params = localFileUrlSigner.sign("file/1.png");
 
         org.springframework.core.io.Resource result = resourceService.readLocalResource(params);
 
         assertThat(result).isEqualTo(mockResource);
-        verify(localFileUrlSigner).verify(params);
     }
 
     @Test
     void readLocalResource_invalidSignature_rejectsBeforeLookup() {
         LocalFileReadParamsBO params = new LocalFileReadParamsBO("file/1.png", 1L, "0".repeat(64));
-        doThrow(new AppException(ResultCode.UNAUTHORIZED_OPERATION, "文件链接无效或已过期"))
-                .when(localFileUrlSigner).verify(params);
 
         assertThatThrownBy(() -> resourceService.readLocalResource(params))
                 .isInstanceOf(AppException.class);
