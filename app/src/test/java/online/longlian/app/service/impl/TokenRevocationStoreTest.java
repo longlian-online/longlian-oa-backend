@@ -82,6 +82,28 @@ class TokenRevocationStoreTest {
         verify(lock).close();
     }
 
+    @Test
+    void shouldFallBackWhenCachedSnapshotCannotBeDecoded() throws Exception {
+        when(values.get(key)).thenReturn("not-json");
+        when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
+
+        assertThat(store.entries(TokenType.User, 1L))
+                .containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        verify(mapper).selectList(any());
+        verify(lock).close();
+    }
+
+    @Test
+    void shouldReturnDatabaseEntriesWhenCacheWriteFails() {
+        when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
+        doThrow(new IllegalStateException("offline")).when(values)
+                .set(anyString(), anyString(), any(Duration.class));
+
+        assertThat(store.entries(TokenType.User, 1L))
+                .containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        verify(lock).close();
+    }
+
     /** Cold snapshots hash legacy tokens and have a bounded TTL. */
     @Test
     void shouldLoadLegacyRowsAndCacheOnlyDigests() {
@@ -153,6 +175,24 @@ class TokenRevocationStoreTest {
         assertThat(incoming.getExpiredAt()).isEqualTo(existing.getExpiredAt());
         verify(mapper).updateById(incoming);
         verify(mapper, never()).insert(any(TokenBlacklist.class));
+    }
+
+    @Test
+    void shouldRemoveDigestAndLegacyTokenBeforeUnlocking() {
+        store.remove(TokenType.User, 1L, "legacy.jwt.token");
+
+        verify(mapper).delete(any());
+        verify(lock).close();
+    }
+
+    @Test
+    void shouldRejectMutationWhenIdentityLockIsBusy() {
+        when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenReturn(null);
+
+        assertThatThrownBy(() -> store.save(row("sha256:busy")))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(mapper);
+        verifyNoInteractions(redis);
     }
 
     private TokenBlacklist row(String token) {

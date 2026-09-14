@@ -1,6 +1,7 @@
 package online.longlian.app.service.impl;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.pojo.entity.TokenBlacklist;
@@ -105,6 +106,28 @@ class TokenBlacklistServiceImplTest {
         var captor = ArgumentCaptor.forClass(TokenBlacklist.class);
         verify(store).save(captor.capture());
         assertThat(captor.getValue().getToken()).isEqualTo("1:user:1:before:" + clock.millis());
+    }
+
+    @Test
+    void shouldRemoveValidTokenUsingItsIdentity() {
+        Claims claims = Jwts.claims().setSubject("1");
+        claims.put("type", "user");
+        when(jwt.parseToken("token")).thenReturn(claims);
+
+        service.removeFromBlacklist("token");
+
+        verify(store).remove(TokenType.User, 1L, "token");
+    }
+
+    @Test
+    void shouldRemoveExpiredTokenUsingItsEmbeddedClaims() {
+        Claims claims = Jwts.claims().setSubject("1");
+        claims.put("type", "user");
+        when(jwt.parseToken("expired")).thenThrow(new ExpiredJwtException(null, claims, "expired"));
+
+        service.removeFromBlacklist("expired");
+
+        verify(store).remove(TokenType.User, 1L, "expired");
     }
 
     private void claims(String token, String type, long issuedAt) {
