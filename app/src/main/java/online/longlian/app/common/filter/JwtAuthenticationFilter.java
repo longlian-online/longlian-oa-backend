@@ -96,7 +96,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             reject(request, response, e);
             return;
         } catch (Exception e) {
-            // Driver exceptions may embed SQL parameters; never log token-bearing exception text.
+            // 驱动异常可能包含 SQL 参数，不能记录带有 token 的异常文本。
             log.error("鉴权基础设施异常 | type={}", e.getClass().getName());
             reject(request, response, new RequestAuthenticationException(ResultCode.FAIL.getCode(), ResultCode.FAIL.getMsg(), e));
             return;

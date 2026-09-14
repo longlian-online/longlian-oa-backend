@@ -3,7 +3,7 @@ package online.longlian.app.common.security;
 import lombok.Getter;
 import org.springframework.security.core.AuthenticationException;
 
-/** Carries a public business error through the security filter boundary. */
+/** 在安全过滤器边界中传递可公开的业务错误。 */
 @Getter
 public class RequestAuthenticationException extends AuthenticationException {
     private final int code;

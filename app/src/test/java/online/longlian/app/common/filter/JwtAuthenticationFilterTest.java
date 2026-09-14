@@ -50,7 +50,7 @@ class JwtAuthenticationFilterTest {
         SecurityContextHolder.clearContext();
     }
 
-    /** Expired tokens retain their cause and do not reach the database. */
+    /** 过期 token 保留原始原因，且不会访问数据库。 */
     @Test
     void shouldRejectExpiredTokenBeforeBlacklistLookup() throws Exception {
         ExpiredJwtException cause = new ExpiredJwtException(null, null, "private token details");
@@ -61,7 +61,7 @@ class JwtAuthenticationFilterTest {
         verifyNoInteractions(blacklist, chain);
     }
 
-    /** Invalid signatures and malformed tokens are rejected without SQL queries. */
+    /** 无效签名和格式错误的 token 会被拒绝，且不会执行 SQL 查询。 */
     @Test
     void shouldRejectInvalidTokenWithoutLeakingParserMessage() throws Exception {
         when(jwt.parseToken("token")).thenThrow(new MalformedJwtException("private token details"));
@@ -70,7 +70,7 @@ class JwtAuthenticationFilterTest {
         verifyNoInteractions(blacklist, chain);
     }
 
-    /** Revocation failures clear any previous security context. */
+    /** 吊销检查失败时必须清除之前残留的安全上下文。 */
     @Test
     void shouldRejectRevokedTokenAndClearContext() throws Exception {
         validClaims();
@@ -82,7 +82,7 @@ class JwtAuthenticationFilterTest {
         verifyNoInteractions(chain);
     }
 
-    /** Business authorization errors preserve their code and public message. */
+    /** 业务授权错误保留业务码和可公开的提示信息。 */
     @Test
     void shouldPreserveBusinessFailure() throws Exception {
         validClaims();
@@ -95,7 +95,7 @@ class JwtAuthenticationFilterTest {
         assertThat(failure.getCause()).isSameAs(cause);
     }
 
-    /** Infrastructure failures must not masquerade as invalid credentials. */
+    /** 基础设施故障不能伪装成无效凭证。 */
     @Test
     void shouldReportInfrastructureFailureWithoutDetails() throws Exception {
         validClaims();
@@ -106,7 +106,7 @@ class JwtAuthenticationFilterTest {
         assertThat(failure.getMessage()).doesNotContain("sql secret");
     }
 
-    /** Successful authentication continues the request exactly once. */
+    /** 认证成功后请求只继续执行一次。 */
     @Test
     void shouldContinueAuthenticatedRequest() throws Exception {
         validClaims();

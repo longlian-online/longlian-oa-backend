@@ -23,7 +23,7 @@ class AuthenticationFailureApiTest extends BaseApiTest {
     @SpyBean
     private TokenBlacklistService blacklist;
 
-    /** Clients can distinguish expired, revoked and invalid credentials without changing the legacy error code. */
+    /** 客户端可以区分过期、撤销和无效凭证，同时保持原有错误码不变。 */
     @Test
     void shouldDistinguishAuthenticationFailures() {
         createAdmin(1L, "admin", "123456", "root");
@@ -40,7 +40,7 @@ class AuthenticationFailureApiTest extends BaseApiTest {
         assertThat(expiredMessage).isNotEqualTo(invalidMessage);
     }
 
-    /** Database failure returns a system error and keeps private exception details out of the response. */
+    /** 数据库故障返回系统错误，响应中不能泄露内部异常详情。 */
     @Test
     void shouldReportUnavailableAuthenticationInfrastructure() {
         createAdmin(1L, "admin", "123456", "root");
