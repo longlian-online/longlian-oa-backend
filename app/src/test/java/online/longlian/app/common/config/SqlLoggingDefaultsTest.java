@@ -10,14 +10,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SqlLoggingDefaultsTest {
     /** SQL output must use the configurable logging backend in all application profiles. */
     @Test
-    void shouldUseSlf4jInDefaultDevelopmentAndProduction() {
-        for (String profile : new String[]{"default", "dev", "prod"}) {
-            new ApplicationContextRunner()
-                    .withInitializer(new ConfigDataApplicationContextInitializer())
-                    .withPropertyValues("spring.profiles.active=" + profile)
-                    .run(context -> assertThat(context.getEnvironment()
-                            .getProperty("mybatis-plus.configuration.log-impl"))
-                            .isEqualTo(Slf4jImpl.class.getName()));
-        }
+    void shouldUseSlf4jInDefaultProfile() {
+        assertSlf4jLogging("default");
+    }
+
+    @Test
+    void shouldUseSlf4jInDevelopmentProfile() {
+        assertSlf4jLogging("dev");
+    }
+
+    @Test
+    void shouldUseSlf4jInProductionProfile() {
+        assertSlf4jLogging("prod");
+    }
+
+    private void assertSlf4jLogging(String profile) {
+        new ApplicationContextRunner()
+                .withInitializer(new ConfigDataApplicationContextInitializer())
+                .withPropertyValues("spring.profiles.active=" + profile)
+                .run(context -> assertThat(context.getEnvironment()
+                        .getProperty("mybatis-plus.configuration.log-impl"))
+                        .isEqualTo(Slf4jImpl.class.getName()));
     }
 }
