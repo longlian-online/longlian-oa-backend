@@ -6,7 +6,6 @@ import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
-import online.longlian.app.service.resource.LocalFileReadService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
@@ -28,8 +27,7 @@ import static org.mockito.Mockito.when;
 
 class FileStorageControllerTest {
     private final ResourceService resources = mock(ResourceService.class);
-    private final LocalFileReadService reader = mock(LocalFileReadService.class);
-    private final FileStorageController controller = new FileStorageController(resources, reader);
+    private final FileStorageController controller = new FileStorageController(resources);
 
     @Test
     void shouldReturnResourceForSignedReadRequest() {
@@ -38,7 +36,7 @@ class FileStorageControllerTest {
         dto.setKey("avatar/1.png");
         dto.setExpires(1_000L);
         dto.setSignature("a".repeat(64));
-        when(reader.read(anyParams())).thenReturn(resource);
+        when(resources.readLocalResource(anyParams())).thenReturn(resource);
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto);
 

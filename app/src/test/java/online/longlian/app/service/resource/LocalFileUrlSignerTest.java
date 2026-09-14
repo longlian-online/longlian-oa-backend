@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class LocalFileUrlSignerTest {
     private static final String SECRET = "test-local-signing-secret-32-bytes";
@@ -42,16 +41,6 @@ class LocalFileUrlSignerTest {
         LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
         LocalFileUrlSigner later = new LocalFileUrlSigner(SECRET, 300, Clock.offset(clock, java.time.Duration.ofSeconds(300)));
         assertThatThrownBy(() -> later.verify(signed)).isInstanceOf(AppException.class);
-    }
-
-    /** 无效签名会在查询资源元数据或文件系统前被拒绝。 */
-    @Test
-    void shouldRejectBeforeResourceLookup() {
-        ResourceService resources = mock(ResourceService.class);
-        LocalFileReadService reader = new LocalFileReadService(signer, resources);
-        assertThatThrownBy(() -> reader.read(new LocalFileReadParamsBO("avatar/1.png", 1, "0".repeat(64))))
-                .isInstanceOf(AppException.class);
-        verifyNoInteractions(resources);
     }
 
     /** 使用另一部署密钥生成的签名不能授权读取。 */

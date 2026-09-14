@@ -9,6 +9,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
@@ -40,6 +41,7 @@ public class ResourceService {
     private final StorageServiceFactory storageFactory;
 
     private final StorageProperties storageProperties;
+    private final LocalFileUrlSigner localFileUrlSigner;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
@@ -189,7 +191,7 @@ public class ResourceService {
         }
     }
 
-    public org.springframework.core.io.Resource getLocalResource(String storageKey) {
+    private org.springframework.core.io.Resource getLocalResource(String storageKey) {
         Long count = resourceMapper.selectCount(new LambdaQueryWrapper<Resource>()
                 .eq(Resource::getStorageKey, storageKey)
                 .eq(Resource::getStorageType, StorageType.LOCAL)
@@ -198,6 +200,11 @@ public class ResourceService {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
         return storageFactory.get(StorageType.LOCAL).getResource(storageKey);
+    }
+
+    public org.springframework.core.io.Resource readLocalResource(LocalFileReadParamsBO params) {
+        localFileUrlSigner.verify(params);
+        return getLocalResource(params.key());
     }
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {

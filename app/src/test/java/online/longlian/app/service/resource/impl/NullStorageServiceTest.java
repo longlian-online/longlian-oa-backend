@@ -1,5 +1,6 @@
 package online.longlian.app.service.resource.impl;
 
+import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
@@ -7,6 +8,7 @@ import online.longlian.app.service.resource.StorageServiceFactory;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +47,13 @@ class NullStorageServiceTest {
 
     @Test
     void upload_throwsUnsupported() {
-        assertThatThrownBy(() -> service.upload("key", new byte[]{}))
+        LocalFileWriteParamsBO params = LocalFileWriteParamsBO.builder()
+                .storageKey("key")
+                .content(InputStream.nullInputStream())
+                .expectedSize(0L)
+                .build();
+
+        assertThatThrownBy(() -> service.upload(params))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 

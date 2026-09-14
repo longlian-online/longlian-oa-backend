@@ -4,6 +4,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.app.service.resource.ResourceService;
@@ -16,6 +17,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -184,7 +186,11 @@ class LocalFileReadApiTest extends BaseApiTest {
         createResource(1L, 1L, 1L);
         // 数据库在每个用例前清空，固定 key 的本地文件也需同步清理以保持测试隔离。
         storage.get(StorageType.LOCAL).delete("avatar/1.png");
-        storage.get(StorageType.LOCAL).upload("avatar/1.png", new byte[]{7});
+        storage.get(StorageType.LOCAL).upload(LocalFileWriteParamsBO.builder()
+                .storageKey("avatar/1.png")
+                .content(new ByteArrayInputStream(new byte[]{7}))
+                .expectedSize(1L)
+                .build());
     }
 
     private String createLocalUpload(String token, long fileSize) {

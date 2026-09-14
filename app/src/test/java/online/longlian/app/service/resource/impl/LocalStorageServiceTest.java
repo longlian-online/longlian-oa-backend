@@ -65,7 +65,7 @@ class LocalStorageServiceTest {
     void shouldStoreAndReadLocalResource(@TempDir Path directory) throws IOException {
         LocalStorageService storageService = storageService(directory);
 
-        storageService.upload("avatar/1.png", new byte[]{1, 2, 3});
+        storageService.upload(writeParams("avatar/1.png", new byte[]{1, 2, 3}, 3L, null));
 
         assertThat(storageService.getResource("avatar/1.png").getContentAsByteArray())
                 .containsExactly(1, 2, 3);
@@ -130,9 +130,10 @@ class LocalStorageServiceTest {
     @Test
     void shouldRejectOverwriteAndKeepOriginalContent(@TempDir Path directory) throws IOException {
         LocalStorageService storageService = storageService(directory);
-        storageService.upload("task/1.bin", new byte[]{1, 2, 3});
+        storageService.upload(writeParams("task/1.bin", new byte[]{1, 2, 3}, 3L, null));
 
-        assertThatThrownBy(() -> storageService.upload("task/1.bin", new byte[]{4, 5, 6}))
+        assertThatThrownBy(() -> storageService.upload(
+                writeParams("task/1.bin", new byte[]{4, 5, 6}, 3L, null)))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("已完成上传");
 
@@ -224,7 +225,8 @@ class LocalStorageServiceTest {
     void shouldRejectPathTraversal(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
 
-        assertThatThrownBy(() -> storageService.upload("../outside.bin", new byte[]{1}))
+        assertThatThrownBy(() -> storageService.upload(
+                writeParams("../outside.bin", new byte[]{1}, 1L, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("非法文件 key");
     }
@@ -250,7 +252,7 @@ class LocalStorageServiceTest {
     @Test
     void shouldDeleteStoredFile(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
-        storageService.upload("task/1.bin", new byte[]{1});
+        storageService.upload(writeParams("task/1.bin", new byte[]{1}, 1L, null));
 
         storageService.delete("task/1.bin");
 

@@ -10,14 +10,13 @@ import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.ResourceService;
-import online.longlian.app.service.resource.LocalFileReadService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +31,6 @@ import java.io.IOException;
 public class FileStorageController {
 
     private final ResourceService resourceService;
-    private final LocalFileReadService localFileReadService;
 
     @Operation(
         summary = "创建文件上传",
@@ -85,7 +83,7 @@ public class FileStorageController {
     @NotWrap
     @GetMapping("/local")
     public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto) {
-        return ResponseEntity.ok(localFileReadService.read(
+        return ResponseEntity.ok(resourceService.readLocalResource(
                 new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
     }
 }
