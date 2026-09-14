@@ -25,9 +25,7 @@ target/
 app/src/main/resources/application.yml
 app/src/main/resources/application-*.yml
 !app/src/main/resources/application.yml.example
-devops/application-dev.yml
 devops/application-prod.yml
-devops/docker-compose.prod.override.yml
 
 
 ### NetBeans ###

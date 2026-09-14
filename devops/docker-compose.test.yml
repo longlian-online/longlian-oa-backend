@@ -45,7 +45,6 @@ services:
         condition: service_healthy
       redis-test:
         condition: service_healthy
-
     volumes:
       # 挂载项目源码
       - ..:/app

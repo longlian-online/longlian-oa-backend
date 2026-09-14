@@ -120,6 +120,6 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 `application.yml` 不要提交。字段说明写在模板注释里。
 
-Docker 开发环境使用 `devops/application-dev.yml.example`（compose 自动挂载）。生产使用 `devops/application-prod.yml.example`（复制后 `task prod`）。测试使用已提交的 `app/src/test/resources/application-test.yml`。
+Docker 开发环境挂载本模板，compose 用环境变量覆盖 MySQL/Redis 主机名。生产复制 `devops/application-prod.yml.example` 后 `task prod`。测试使用已提交的 `app/src/test/resources/application-test.yml`。
 
 详见 [docs/dev.md](docs/dev.md)。
