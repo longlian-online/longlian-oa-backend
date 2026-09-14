@@ -35,7 +35,7 @@ class TokenRevocationApiTest extends BaseApiTest {
     @Autowired private PlatformTransactionManager transactionManager;
     @SpyBean private TokenBlacklistMapper mapper;
 
-    /** Logout invalidates a previously warmed cache and persists only a digest. */
+    /** 退出登录会使已有缓存失效，并且只持久化 token 摘要。 */
     @Test
     void shouldRevokeWarmTokenAndPermitNewLogin() {
         createAdmin(1L, "admin", "123456", "root");
@@ -50,7 +50,7 @@ class TokenRevocationApiTest extends BaseApiTest {
         authRequest(fresh).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
-    /** A warm identity snapshot removes blacklist SQL from subsequent requests. */
+    /** 命中身份缓存后，后续请求无需查询黑名单表。 */
     @Test
     void shouldAvoidBlacklistSqlOnWarmRequests() {
         createAdmin(1L, "admin", "123456", "root");
@@ -62,7 +62,7 @@ class TokenRevocationApiTest extends BaseApiTest {
         verify(mapper, never()).selectCount(any());
     }
 
-    /** Global user revocation does not affect the administrator with the same numeric ID. */
+    /** 用户全量吊销不会影响相同数字 ID 的管理员。 */
     @Test
     void shouldIsolateUserAndAdminGlobalRevocations() {
         createAdmin(1L, "admin", "123456", "root");
@@ -75,7 +75,7 @@ class TokenRevocationApiTest extends BaseApiTest {
         assertThat(blacklist.isBlacklisted(fresh)).isFalse();
     }
 
-    /** Concurrent cold reads and logout cannot restore a stale cached grant. */
+    /** 并发冷读和退出登录不能恢复过期的授权缓存。 */
     @Test
     void shouldRetainRevocationAcrossConcurrentReads() {
         createAdmin(1L, "admin", "123456", "root");
@@ -87,7 +87,7 @@ class TokenRevocationApiTest extends BaseApiTest {
         authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
-    /** Rolling back the business operation also rolls back revocation and releases the cache lock. */
+    /** 业务操作回滚时吊销记录也回滚，并释放缓存锁。 */
     @Test
     void shouldRollbackRevocationWithBusinessTransaction() {
         createAdmin(1L, "admin", "123456", "root");
@@ -102,7 +102,7 @@ class TokenRevocationApiTest extends BaseApiTest {
         authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
-    /** Legacy data migration is repeatable and retains the revocation. */
+    /** 历史数据迁移可以重复执行，并保留吊销记录。 */
     @Test
     void shouldMigrateLegacyTokensWithoutRestoringAccess() throws Exception {
         createAdmin(1L, "admin", "123456", "root");

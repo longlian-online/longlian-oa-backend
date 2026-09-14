@@ -60,7 +60,7 @@ class TokenRevocationStoreTest {
         TransactionSynchronizationManager.clear();
     }
 
-    /** An existing transaction keeps the identity lock through commit or rollback without another connection. */
+    /** 已有事务在提交或回滚前持续持有身份锁，且不额外创建连接。 */
     @Test
     void shouldHoldLockUntilOuterTransactionCompletes() {
         TransactionSynchronizationManager.initSynchronization();
@@ -73,7 +73,7 @@ class TokenRevocationStoreTest {
         verify(lock).close();
     }
 
-    /** Warm empty snapshots avoid database queries as well as positive snapshots. */
+    /** 热缓存中的空快照和非空快照一样都能避免数据库查询。 */
     @Test
     void shouldReadWarmSnapshotWithoutDatabase() {
         when(values.get(key)).thenReturn("{}");
@@ -104,7 +104,7 @@ class TokenRevocationStoreTest {
         verify(lock).close();
     }
 
-    /** Cold snapshots hash legacy tokens and have a bounded TTL. */
+    /** 冷缓存会将历史 token 转为摘要，并使用有界 TTL。 */
     @Test
     void shouldLoadLegacyRowsAndCacheOnlyDigests() {
         when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
@@ -114,14 +114,14 @@ class TokenRevocationStoreTest {
         verify(values).set(eq(key), argThat(value -> !value.contains("legacy.jwt.token")), eq(Duration.ofSeconds(60)));
     }
 
-    /** Historic blanket revocations are interpreted as a cutoff at creation time. */
+    /** 历史全量吊销记录按创建时间解释为截止点。 */
     @Test
     void shouldReadLegacyGlobalRevocation() {
         when(mapper.selectList(any())).thenReturn(List.of(row("1:user:1:all")));
         assertThat(store.entries(TokenType.User, 1L)).containsKey("before:" + clock.millis());
     }
 
-    /** Redis outages fall back to persisted revocations. */
+    /** Redis 故障时回退到持久化的吊销记录。 */
     @Test
     void shouldFallBackToDatabaseWhenRedisIsUnavailable() {
         when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenThrow(new IllegalStateException("offline"));
@@ -130,7 +130,7 @@ class TokenRevocationStoreTest {
         verifyNoInteractions(values);
     }
 
-    /** Failure of both storage paths never produces an empty allow-list snapshot. */
+    /** 两个存储路径都失败时不能生成空的放行快照。 */
     @Test
     void shouldPropagateDatabaseFailureOnFallback() {
         when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenReturn(null);
@@ -147,7 +147,7 @@ class TokenRevocationStoreTest {
         verify(mapper).selectList(any());
     }
 
-    /** Cache invalidation and DB commit both complete before releasing the identity lock. */
+    /** 缓存失效和数据库提交都完成后才释放身份锁。 */
     @Test
     void shouldCommitRevocationBeforeUnlocking() {
         TokenBlacklist entry = row(TokenRevocationStore.digest("token"));
@@ -161,7 +161,7 @@ class TokenRevocationStoreTest {
         order.verify(lock).close();
     }
 
-    /** If cached grants cannot be invalidated, the operation must fail rather than acknowledge logout. */
+    /** 缓存授权无法失效时操作必须失败，不能确认退出登录成功。 */
     @Test
     void shouldRejectWriteWhenCacheInvalidationFails() {
         when(redis.delete(key)).thenThrow(new IllegalStateException("offline"));
@@ -171,7 +171,7 @@ class TokenRevocationStoreTest {
         verify(lock).close();
     }
 
-    /** Repeated revocation is idempotent and cannot shorten an existing revocation. */
+    /** 重复吊销保持幂等，不能缩短已有吊销的有效期。 */
     @Test
     void shouldPreserveLongerExistingRevocation() {
         TokenBlacklist existing = row("sha256:token");

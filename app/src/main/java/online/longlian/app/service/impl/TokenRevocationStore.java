@@ -100,8 +100,8 @@ public class TokenRevocationStore {
         }
         boolean releaseOnCompletion = false;
         try {
-            // Invalidate before committing, while the same lock excludes cache readers/fillers.
-            // A Redis failure must not acknowledge revocation with potentially stale cached grants.
+            // 在提交前失效缓存，并由同一把锁排除读取和填充操作。
+            // Redis 失效失败时不能确认吊销成功，避免继续使用过期的授权缓存。
             redis.delete(cacheKey(type, userId));
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

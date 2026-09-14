@@ -25,7 +25,7 @@ class TokenBlacklistServiceImplTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
     private final TokenBlacklistServiceImpl service = new TokenBlacklistServiceImpl(store, jwt, clock);
 
-    /** Expired tokens require no persistence. */
+    /** 已过期 token 不需要持久化。 */
     @Test
     void shouldSkipExpiredToken() {
         service.addToBlacklist("token", TokenType.User, 1L, "logout", 0);
@@ -33,7 +33,7 @@ class TokenBlacklistServiceImplTest {
         verifyNoInteractions(store);
     }
 
-    /** Persisted revocations contain a digest, never the original JWT. */
+    /** 持久化的吊销记录只包含摘要，不能保存原始 JWT。 */
     @Test
     void shouldStoreOnlyTokenDigest() {
         service.addToBlacklist("private.jwt.token", TokenType.User, 1L, "logout", 60);
@@ -43,14 +43,14 @@ class TokenBlacklistServiceImplTest {
                 .doesNotContain("private.jwt.token");
     }
 
-    /** Invalid tokens do not query the store. */
+    /** 无效 token 不应查询存储。 */
     @Test
     void shouldSkipLookupForInvalidToken() {
         assertThat(service.isBlacklisted("invalid")).isFalse();
         verifyNoInteractions(store);
     }
 
-    /** Missing identity type is an invalid credential rather than an infrastructure failure. */
+    /** 缺少身份类型属于无效凭证，而不是基础设施故障。 */
     @Test
     void shouldRejectMissingTokenType() {
         when(jwt.parseTokenIfValid("untyped")).thenReturn(Jwts.claims().setSubject("1"));
@@ -58,7 +58,7 @@ class TokenBlacklistServiceImplTest {
         verifyNoInteractions(store);
     }
 
-    /** A direct revocation is applied only while it is active. */
+    /** 单 token 吊销只在有效期内生效。 */
     @Test
     void shouldRespectDirectRevocationExpiry() {
         claims("token", "user", clock.millis());
@@ -68,7 +68,7 @@ class TokenBlacklistServiceImplTest {
         assertThat(service.isBlacklisted("token")).isFalse();
     }
 
-    /** Tokens issued after a global cutoff remain valid, including within the same second. */
+    /** 全量吊销截止时间之后签发的 token 仍然有效，同一秒内也一样。 */
     @Test
     void shouldOnlyRevokeTokensIssuedAtOrBeforeCutoff() {
         claims("old", "user", clock.millis());
@@ -78,7 +78,7 @@ class TokenBlacklistServiceImplTest {
         assertThat(service.isBlacklisted("new")).isFalse();
     }
 
-    /** Identical numeric IDs in the two identity domains remain isolated. */
+    /** 用户和管理员身份域中的相同数字 ID 仍然相互隔离。 */
     @Test
     void shouldScopeRevocationToTokenType() {
         claims("admin", "admin", clock.millis());
@@ -88,7 +88,7 @@ class TokenBlacklistServiceImplTest {
         verify(store, never()).entries(TokenType.User, 1L);
     }
 
-    /** Legacy JWTs use their standard issued-at claim. */
+    /** 历史 JWT 使用标准的签发时间字段。 */
     @Test
     void shouldSupportLegacyIssuedAt() {
         Claims claims = Jwts.claims().setSubject("1").setIssuedAt(new Date(clock.millis() - 1000));
@@ -98,7 +98,7 @@ class TokenBlacklistServiceImplTest {
         assertThat(service.isBlacklisted("legacy")).isTrue();
     }
 
-    /** Global revocation persists a millisecond cutoff instead of a blanket user ban. */
+    /** 全量吊销持久化毫秒级截止时间，而不是永久禁止用户。 */
     @Test
     void shouldPersistGlobalCutoff() {
         when(jwt.getExpirationSeconds()).thenReturn(3600L);

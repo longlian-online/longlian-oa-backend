@@ -5,7 +5,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.TestContext;
 import org.springframework.test.context.support.AbstractTestExecutionListener;
 
-/** Match BaseApiTest's database reset without modifying its shared implementation. */
+/** 复用 BaseApiTest 的数据库清理逻辑，同时不修改共享测试基类。 */
 public class TokenRevocationCacheTestListener extends AbstractTestExecutionListener {
     @Override
     public void beforeTestMethod(TestContext testContext) {

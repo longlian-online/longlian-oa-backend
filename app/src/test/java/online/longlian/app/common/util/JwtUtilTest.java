@@ -10,7 +10,7 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JwtUtilTest {
-    /** Two logins in the same millisecond receive independently revocable tokens. */
+    /** 同一毫秒内的两次登录也必须生成可独立吊销的 token。 */
     @Test
     void shouldIssueUniqueTokensWithPreciseIssuedAt() {
         Clock clock = Clock.fixed(Instant.parse("2026-09-14T00:00:00.123Z"), ZoneOffset.UTC);
