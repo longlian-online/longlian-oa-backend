@@ -86,8 +86,8 @@ mybatis-plus:
       logic-delete-value: now()
       logic-not-delete-value: 'null'
   configuration:
-    # 开发可看 SQL；生产建议换成 nologging 或 slf4j
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 通过 SLF4J 统一输出，生产可按日志级别控制 SQL 详细程度
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
     default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
 
 debug: false
