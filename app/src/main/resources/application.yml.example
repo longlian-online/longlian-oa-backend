@@ -1,0 +1,143 @@
+# =============================================================================
+# longlian-oa 应用配置模板（本地运行）
+#
+# 使用方法：
+#   cp app/src/main/resources/application.yml.example \
+#      app/src/main/resources/application.yml
+#   再按本机环境修改 application.yml。
+#
+# 重要：
+#   - application.yml 已被 gitignore，禁止提交（避免把密钥、内网地址推上去）
+#   - 本模板面向「应用跑在宿主机、MySQL/Redis 由 task dev 映射到本机端口」
+#     MySQL = localhost:10001，Redis = localhost:10002
+#   - Docker 一键开发环境请用 devops/application-dev.yml.example
+#     （compose 会挂载为容器内 /app/config/application.yml）
+#   - 生产/预发把改好的 YAML 挂到容器工作目录的 config/application.yml
+#     不要把密钥打进镜像
+# =============================================================================
+
+server:
+  # 收到 SIGTERM 后等进行中的请求结束再退出，避免砍掉上传/长请求
+  shutdown: graceful
+
+longlian:
+  # 邮件发件显示名、对外展示用的系统名称
+  display-name: "longlian-oa"
+  datasource:
+    # mysql | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
+    type: mysql
+  cache:
+    # redis | local。local 仅适合单机，多实例必须 redis
+    type: redis
+
+spring:
+  application:
+    name: longlian-oa
+  profiles:
+    # 本地默认 dev。测试由 @ActiveProfiles("test") 加载 application-test.yml，不必改这里
+    active: dev
+  main:
+    # 现有部分 Bean 存在环依赖，关闭会导致启动失败
+    allow-circular-references: true
+  lifecycle:
+    # 优雅停机等待上限，需大于最慢接口的可接受耗时
+    timeout-per-shutdown-phase: 30s
+
+  # MySQL。仅 longlian.datasource.type=mysql 时生效
+  datasource:
+    url: jdbc:mysql://localhost:10001/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dev
+
+  data:
+    redis:
+      host: localhost
+      port: 10002
+      # 无密码留空字符串；Redisson 在空密码时不会调用 setPassword
+      password: ""
+      # 逻辑库编号，避免和其它项目抢 key。测试环境用 9，见 application-test.yml
+      database: 1
+  mail:
+    # notify.type=EMAIL 时必填。未配邮件可先改 notify.type=NOOP
+    host: localhost
+    username: ""
+    password: ""
+    # 465 通常配 ssl.enable=true；587 通常配 starttls.enable=true
+    port: 465
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: false
+          ssl:
+            enable: true
+
+# 仅 longlian.datasource.type=sqlite 时需要。默认注释掉，避免误连
+# sqlite:
+#   datasource:
+#     url: jdbc:sqlite:./data/longlian.db
+
+mybatis-plus:
+  global-config:
+    db-config:
+      # 与实体 deletedAt 字段对应，删除写 now()，未删除为 SQL NULL
+      logic-delete-field: deletedAt
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
+  configuration:
+    # 开发可看 SQL；生产建议换成 nologging 或 slf4j
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
+
+debug: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    # 生产建议 false，避免接口文档暴露
+    enabled: true
+  api-docs:
+    enabled: true
+
+storage:
+  # LOCAL | OSS | COS。LOCAL 走本机目录；OSS/COS 必须填对应子项
+  type: LOCAL
+  local:
+    # 返回给前端的访问前缀，可空（由网关拼）
+    base-url: ""
+    # 实际落盘目录。${java.io.tmpdir} 是 JVM 临时目录，重启可能被清
+    directory: ${java.io.tmpdir}/longlian-oa
+  oss:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    base-url: ""
+  cos:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    url-prefix: ""
+
+cors:
+  # 浏览器跨域白名单，多个用逗号分隔。必须写前端 Origin，不能写 *
+  allowed-origins: http://localhost:3000
+
+notify:
+  # EMAIL | NOOP。NOOP 不发信，验证码流程仍会写库
+  type: EMAIL
+  email:
+    template:
+      path: classpath:templates/verify-code.html
+
+jwt:
+  # HS256 密钥至少 32 字节。生产必须换成高强度随机串，泄露等于可伪造登录
+  secret: ChangeMe_DevOnly_JwtSecretKey_MustBeAtLeast32Bytes!
+  # 过期时间（秒）。86400 = 24 小时；登出另走 token_blacklist
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer

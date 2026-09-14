@@ -1,0 +1,118 @@
+# =============================================================================
+# longlian-oa 生产环境配置模板
+#
+# 使用方法：
+#   cp devops/application-prod.yml.example devops/application-prod.yml
+#   按外部 MySQL / Redis / 邮件 / 存储填写真实值。
+#
+# 重要：
+#   - application-prod.yml 已被 gitignore，禁止提交
+#   - compose 把它挂到容器内 /app/config/application.yml
+#   - MySQL、Redis、邮件不由 compose 启动，必须指向已有外部实例
+#   - Atlas 迁移不读本文件，只认 DB_URL / DEV_DB_URL；与下方账号保持一致，
+#     写到 devops/docker-compose.prod.override.yml（见同目录 example）
+#   - DEV_DB_URL 必须是可反复清空的专用空库，禁止指向生产业务库
+#   - 密码含特殊字符时，Atlas 的 mysql:// 连接串需 URL 编码
+# =============================================================================
+
+server:
+  shutdown: graceful
+
+longlian:
+  display-name: "longlian-oa"
+  datasource:
+    type: mysql
+  cache:
+    type: redis
+
+spring:
+  application:
+    name: longlian-oa
+  profiles:
+    active: prod
+  main:
+    allow-circular-references: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: jdbc:mysql://mysql.example.com:3306/longlian_oa?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=true&allowPublicKeyRetrieval=true
+    username: user
+    password: pass
+
+  data:
+    redis:
+      host: redis.example.com
+      port: 6379
+      password: ""
+      database: 1
+  mail:
+    host: ""
+    username: ""
+    password: ""
+    # 465 配 ssl.enable=true；587 配 starttls.enable=true
+    port: 465
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: false
+          ssl:
+            enable: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deletedAt
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
+
+debug: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    enabled: false
+  api-docs:
+    enabled: false
+
+storage:
+  # LOCAL | OSS | COS
+  type: LOCAL
+  local:
+    base-url: ""
+    directory: ${java.io.tmpdir}/longlian-oa
+  oss:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    base-url: ""
+  cos:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    url-prefix: ""
+
+cors:
+  allowed-origins: https://oa.longlian.online
+
+notify:
+  type: EMAIL
+  email:
+    template:
+      path: classpath:templates/verify-code.html
+
+jwt:
+  # HS256 至少 32 字节。生产必须换成高强度随机串
+  secret: change-me-to-a-long-random-secret-at-least-32-bytes
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer

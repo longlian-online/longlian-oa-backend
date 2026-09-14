@@ -5,6 +5,7 @@
 #   docker compose -f devops/docker-compose.dev.yml up --build -d
 #
 # 包含：MySQL 8.0 + Redis 7-Alpine + Atlas 迁移 + 种子数据 + 应用
+# 应用配置：挂载 devops/application-dev.yml.example → /app/config/application.yml
 
 services:
   mysql-dev:
@@ -82,14 +83,8 @@ services:
       context: ../
       dockerfile: devops/Dockerfile
     container_name: longlian-oa-dev
-    env_file:
-      - ../.env.dev
-    environment:
-      DB_HOST: mysql-dev
-      DB_PORT: 3306
-      REDIS_HOST: redis-dev
-      REDIS_PORT: 6379
-      SPRING_PROFILES_ACTIVE: dev
+    volumes:
+      - ../devops/application-dev.yml.example:/app/config/application.yml:ro
     ports:
       - "10003:8080"
     depends_on:

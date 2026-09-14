@@ -1,41 +1,39 @@
 # 生产环境
 #
 # 仅部署 Atlas 迁移 + 后端。MySQL、Redis、邮件等由外部提供，
-# 通过 .env.prod 注入，本文件不创建这些组件。
+# 本文件不创建这些组件。
 #
 # 准备：
-#   cp .env.prod.example .env.prod   # 填写外部组件地址与密钥
+#   cp devops/application-prod.yml.example devops/application-prod.yml
+#   cp devops/docker-compose.prod.override.yml.example \
+#      devops/docker-compose.prod.override.yml
+#   填写外部地址与密钥（两处账号保持一致）
 # 启动：
 #   task prod
-#   docker compose -f devops/docker-compose.prod.yml --env-file .env.prod up -d
 # 停止：
 #   task prod-down
 #
-# 镜像默认 GHCR；改用 CNB 制品库时在 .env.prod 设置：
-#   APP_IMAGE=docker.cnb.cool/longlian.online/longlian-oa-backend
+# 应用配置挂载为 /app/config/application.yml，不走 .env。
+# Atlas 仍要 DB_URL / DEV_DB_URL，写在 override 里。
 
 name: longlian-oa-prod
 
 services:
   migrate:
-    image: ${APP_IMAGE:-ghcr.io/longlian-online/longlian-oa-backend}:${MIGRATION_TAG:-migration-latest}
+    image: ghcr.io/longlian-online/longlian-oa-backend:migration-latest
     container_name: longlian-oa-migrate-prod
     restart: "no"
-    env_file:
-      - ../.env.prod
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   longlian-oa:
-    image: ${APP_IMAGE:-ghcr.io/longlian-online/longlian-oa-backend}:${APP_TAG:-latest}
+    image: ghcr.io/longlian-online/longlian-oa-backend:latest
     container_name: longlian-oa-prod
     restart: unless-stopped
-    env_file:
-      - ../.env.prod
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+    volumes:
+      - ./application-prod.yml:/app/config/application.yml:ro
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
