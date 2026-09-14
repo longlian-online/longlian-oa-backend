@@ -60,4 +60,12 @@ class LocalFileUrlSignerTest {
         var other = new LocalFileUrlSigner("another-local-signing-secret-32-bytes", 300, clock);
         assertThatThrownBy(() -> signer.verify(other.sign("avatar/1.png"))).isInstanceOf(AppException.class);
     }
+
+    @Test
+    void shouldRejectInvalidConfiguration() {
+        assertThatThrownBy(() -> new LocalFileUrlSigner("too-short", 300, clock))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new LocalFileUrlSigner(SECRET, 0, clock))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
