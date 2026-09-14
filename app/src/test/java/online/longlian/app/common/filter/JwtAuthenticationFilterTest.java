@@ -1,6 +1,7 @@
 package online.longlian.app.common.filter;
 
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
@@ -17,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -94,6 +96,31 @@ class JwtAuthenticationFilterTest {
         verifyNoInteractions(blacklist, chain);
     }
 
+    /** Token 类型字段格式错误时按无效凭证处理，不应进入策略层。 */
+    @Test
+    void shouldRejectMalformedTypeWithoutAuthentication() throws Exception {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn("1");
+        when(claims.get("type", String.class)).thenThrow(new MalformedJwtException("private token details"));
+        when(jwt.parseToken("token")).thenReturn(claims);
+        filter.doFilter(request, response, chain);
+        assertThat(failure().getMessage()).isEqualTo("登录凭证无效");
+        verifyNoInteractions(blacklist, chain);
+        verify(strategy, never()).authenticate(anyLong());
+    }
+
+    /** 未配置的 Token 类型必须被拒绝，避免绕过认证策略。 */
+    @Test
+    void shouldRejectUnsupportedType() throws Exception {
+        var claims = Jwts.claims().setSubject("1");
+        claims.put("type", "unsupported");
+        when(jwt.parseToken("token")).thenReturn(claims);
+        filter.doFilter(request, response, chain);
+        assertThat(failure().getMessage()).isEqualTo("登录凭证无效");
+        verify(blacklist).isBlacklisted("token");
+        verifyNoInteractions(chain);
+    }
+
     /** 业务授权错误保留业务码和可公开的提示信息。 */
     @Test
     void shouldPreserveBusinessFailure() throws Exception {
@@ -105,6 +132,16 @@ class JwtAuthenticationFilterTest {
         assertThat(failure.getCode()).isEqualTo(cause.getCode());
         assertThat(failure.getMessage()).isEqualTo(cause.getMsg());
         assertThat(failure.getCause()).isSameAs(cause);
+    }
+
+    /** 策略层的认证异常应直接交给认证入口处理。 */
+    @Test
+    void shouldPreserveAuthenticationFailure() throws Exception {
+        validClaims();
+        AuthenticationException cause = new BadCredentialsException("凭证无效");
+        when(strategy.authenticate(1L)).thenThrow(cause);
+        filter.doFilter(request, response, chain);
+        assertThat(failure()).isSameAs(cause);
     }
 
     /** 基础设施故障不能伪装成无效凭证。 */
