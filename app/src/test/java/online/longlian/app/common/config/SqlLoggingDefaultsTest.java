@@ -8,7 +8,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SqlLoggingDefaultsTest {
-    /** SQL output must use the configurable logging backend in all application profiles. */
+    /** 所有 application profile 都必须使用可配置的日志后端输出 SQL。 */
     @Test
     void shouldUseSlf4jInDefaultProfile() {
         assertSlf4jLogging("default");

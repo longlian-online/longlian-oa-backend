@@ -23,7 +23,7 @@ class SqlLoggingApiTest extends BaseApiTest {
     @Autowired
     private SqlSessionFactory sqlSessionFactory;
 
-    /** Database-backed requests must succeed without emitting SQL or bound parameters at INFO. */
+    /** 数据库请求在 INFO 级别下仍应成功，且不能输出 SQL 和绑定参数。 */
     @Test
     void shouldExecuteRequestsWithoutSqlOutput(CapturedOutput output) {
         createAdmin(1L, "admin", "123456", "root");
