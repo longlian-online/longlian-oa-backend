@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import online.longlian.app.common.properties.StorageProperties;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.service.resource.StorageService;
@@ -44,7 +45,7 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public String getResourceReadUrl(String key) {
-        var signed = signer.sign(key);
+        LocalFileReadParamsBO signed = signer.sign(key);
         return buildLocalResourceUrl(key) + "&expires=" + signed.expires() + "&signature=" + signed.signature();
     }
 

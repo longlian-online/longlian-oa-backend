@@ -19,7 +19,7 @@ class LocalFileUrlSignerTest {
     /** 有效签名只授权对应的 key，直到链接过期为止。 */
     @Test
     void shouldAcceptValidSignature() {
-        var signed = signer.sign("avatar/中文 图片.png");
+        LocalFileReadParamsBO signed = signer.sign("avatar/中文 图片.png");
         assertThatCode(() -> signer.verify(signed)).doesNotThrowAnyException();
         assertThat(signed.expires()).isEqualTo(clock.instant().getEpochSecond() + 300);
     }
@@ -27,7 +27,7 @@ class LocalFileUrlSignerTest {
     /** key、过期时间和签名都受到完整性保护。 */
     @Test
     void shouldRejectTampering() {
-        var signed = signer.sign("avatar/1.png");
+        LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
         assertThatThrownBy(() -> signer.verify(new LocalFileReadParamsBO("avatar/2.png", signed.expires(), signed.signature())))
                 .isInstanceOf(AppException.class);
         assertThatThrownBy(() -> signer.verify(new LocalFileReadParamsBO(signed.key(), signed.expires() + 1, signed.signature())))
@@ -39,8 +39,8 @@ class LocalFileUrlSignerTest {
     /** 到达过期时间后链接立即超出有效窗口。 */
     @Test
     void shouldRejectAtExpiryBoundary() {
-        var signed = signer.sign("avatar/1.png");
-        var later = new LocalFileUrlSigner(SECRET, 300, Clock.offset(clock, java.time.Duration.ofSeconds(300)));
+        LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
+        LocalFileUrlSigner later = new LocalFileUrlSigner(SECRET, 300, Clock.offset(clock, java.time.Duration.ofSeconds(300)));
         assertThatThrownBy(() -> later.verify(signed)).isInstanceOf(AppException.class);
     }
 
@@ -48,7 +48,7 @@ class LocalFileUrlSignerTest {
     @Test
     void shouldRejectBeforeResourceLookup() {
         ResourceService resources = mock(ResourceService.class);
-        var reader = new LocalFileReadService(signer, resources);
+        LocalFileReadService reader = new LocalFileReadService(signer, resources);
         assertThatThrownBy(() -> reader.read(new LocalFileReadParamsBO("avatar/1.png", 1, "0".repeat(64))))
                 .isInstanceOf(AppException.class);
         verifyNoInteractions(resources);
@@ -57,7 +57,7 @@ class LocalFileUrlSignerTest {
     /** 使用另一部署密钥生成的签名不能授权读取。 */
     @Test
     void shouldRejectSignatureFromDifferentSecret() {
-        var other = new LocalFileUrlSigner("another-local-signing-secret-32-bytes", 300, clock);
+        LocalFileUrlSigner other = new LocalFileUrlSigner("another-local-signing-secret-32-bytes", 300, clock);
         assertThatThrownBy(() -> signer.verify(other.sign("avatar/1.png"))).isInstanceOf(AppException.class);
     }
 

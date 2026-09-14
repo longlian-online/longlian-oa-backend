@@ -24,8 +24,8 @@ class FileStorageControllerTest {
 
     @Test
     void shouldReturnResourceForSignedReadRequest() {
-        var resource = new ByteArrayResource(new byte[]{7});
-        var dto = new LocalFileReadDTO();
+        ByteArrayResource resource = new ByteArrayResource(new byte[]{7});
+        LocalFileReadDTO dto = new LocalFileReadDTO();
         dto.setKey("avatar/1.png");
         dto.setExpires(1_000L);
         dto.setSignature("a".repeat(64));
@@ -39,8 +39,8 @@ class FileStorageControllerTest {
 
     @Test
     void shouldForwardUploadMetadataAndSession() {
-        var request = new CreateFileReqDTO("avatar.png", "png", 7L, "image/png", "avatar", 9L);
-        var expected = new ResourceCreateVO(1L, "upload", "avatar/1.png", StorageType.LOCAL);
+        CreateFileReqDTO request = new CreateFileReqDTO("avatar.png", "png", 7L, "image/png", "avatar", 9L);
+        ResourceCreateVO expected = new ResourceCreateVO(1L, "upload", "avatar/1.png", StorageType.LOCAL);
         when(resources.create(argThat(params -> params.getCreatorId().equals(5L)
                 && params.getOrgId().equals(6L)
                 && params.getFileName().equals("avatar.png")))).thenReturn(expected);

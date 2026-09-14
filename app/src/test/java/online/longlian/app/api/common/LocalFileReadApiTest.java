@@ -3,6 +3,7 @@ package online.longlian.app.api.common;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.resource.StorageServiceFactory;
@@ -64,7 +65,7 @@ class LocalFileReadApiTest extends BaseApiTest {
     @Test
     void shouldRejectInvalidExpiryAndSignature() {
         createFile();
-        var signed = signer.sign("avatar/1.png");
+        LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
         for (long expires : new long[]{1L, signed.expires() + 1}) {
             request().queryParam("key", signed.key()).queryParam("expires", expires)
                     .queryParam("signature", signed.signature()).get("/common/file/local").then()
@@ -75,7 +76,7 @@ class LocalFileReadApiTest extends BaseApiTest {
     /** 有效签名不能恢复已删除的资源元数据。 */
     @Test
     void shouldRejectMissingResource() {
-        var signed = signer.sign("avatar/1.png");
+        LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
         request().queryParam("key", signed.key()).queryParam("expires", signed.expires())
                 .queryParam("signature", signed.signature()).get("/common/file/local").then()
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
