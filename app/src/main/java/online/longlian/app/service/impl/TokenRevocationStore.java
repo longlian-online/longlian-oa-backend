@@ -150,6 +150,7 @@ public class TokenRevocationStore {
         try {
             return "sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(token.getBytes(StandardCharsets.UTF_8)));
+        // JDK 保证 SHA-256 算法存在，该异常分支无法通过测试触发。
         } catch (NoSuchAlgorithmException e) { // skipcq: TCV-001
             throw new IllegalStateException("SHA-256 unavailable", e); // skipcq: TCV-001
         }
