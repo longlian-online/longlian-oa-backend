@@ -138,6 +138,15 @@ class TokenRevocationStoreTest {
         assertThatThrownBy(() -> store.entries(TokenType.User, 1L)).isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void shouldLoadFromDatabaseWhenIdentityLockIsBusy() {
+        when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenReturn(null);
+        when(mapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(store.entries(TokenType.User, 1L)).isEmpty();
+        verify(mapper).selectList(any());
+    }
+
     /** Cache invalidation and DB commit both complete before releasing the identity lock. */
     @Test
     void shouldCommitRevocationBeforeUnlocking() {
