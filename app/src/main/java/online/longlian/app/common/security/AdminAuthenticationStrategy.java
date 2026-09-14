@@ -26,6 +26,7 @@ public class AdminAuthenticationStrategy implements AuthenticationStrategy {
     public Authentication authenticate(long subjectId) {
         Admin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>()
+                        .select(Admin::getId, Admin::getUsername, Admin::getRole)
                         .eq(Admin::getId, subjectId)
                         .last("LIMIT 1")
         );
@@ -36,7 +37,6 @@ public class AdminAuthenticationStrategy implements AuthenticationStrategy {
         AdminUserDetails adminUserDetails = AdminUserDetails.from(
                 admin.getId(),
                 admin.getUsername(),
-                admin.getPassword(),
                 admin.getRole()
         );
         return new UsernamePasswordAuthenticationToken(

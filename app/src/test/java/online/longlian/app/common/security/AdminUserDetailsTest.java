@@ -7,10 +7,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 class AdminUserDetailsTest {
 
     @Test
-    void shouldCreateAdminDetailsWithCredentialsAndAuthorities() {
-        AdminUserDetails userDetails = AdminUserDetails.from(1L, "admin", "encoded-password", "SUPER_ADMIN");
+    void shouldCreateAdminDetailsWithoutCredentials() {
+        AdminUserDetails userDetails = AdminUserDetails.from(1L, "admin", "SUPER_ADMIN");
 
-        Assertions.assertEquals("encoded-password", userDetails.getPassword());
+        Assertions.assertNull(userDetails.getPassword());
         Assertions.assertEquals("admin", userDetails.getUsername());
         Assertions.assertTrue(userDetails.getAuthorities()
                 .contains(new SimpleGrantedAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)));
