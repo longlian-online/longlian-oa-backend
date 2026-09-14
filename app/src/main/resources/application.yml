@@ -51,7 +51,7 @@ mybatis-plus:
       logic-delete-value: now()
       logic-not-delete-value: 'null'
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
     default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
 debug: ${APP_DEBUG:false}
 springdoc:
