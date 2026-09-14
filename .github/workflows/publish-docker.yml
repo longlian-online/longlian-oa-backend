@@ -79,6 +79,7 @@ jobs:
         with:
           context: .
           file: ./devops/Dockerfile
+          target: app
           build-args: |
             INCLUDE_OTEL=true
           push: true
@@ -107,7 +108,8 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
-          file: ./devops/Dockerfile.migration
+          file: ./devops/Dockerfile
+          target: migration
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta-migration.outputs.tags }}

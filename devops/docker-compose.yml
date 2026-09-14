@@ -1,0 +1,166 @@
+# 环境用 profile 区分，不要同时起多个：
+#   task dev / task prod / task api-test-docker
+#   docker compose -f devops/docker-compose.yml -p longlian-oa-dev --profile dev up --build -d
+#
+# prod：
+#   cp devops/application-prod.yml.example devops/application-prod.yml
+# 应用和迁移挂同一份 YAML。迁移从 spring.datasource 推导连接，
+# 并在同一实例自动创建 {db}_atlas。
+# 可选 devops/.env 钉死镜像：
+#   APP_IMAGE=ghcr.io/longlian-online/longlian-oa-backend:1.2.3
+#   MIGRATION_IMAGE=ghcr.io/longlian-online/longlian-oa-backend:1.2.3-migration
+
+services:
+  mysql-dev:
+    profiles: [dev]
+    image: mysql:8.0
+    container_name: longlian-oa-mysql-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: dev
+      MYSQL_DATABASE: longlian_oa_dev
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "10001:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis-dev:
+    profiles: [dev]
+    image: redis:7-alpine
+    container_name: longlian-oa-redis-dev
+    ports:
+      - "10002:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  migrate-dev:
+    profiles: [dev]
+    build:
+      context: ../
+      dockerfile: devops/Dockerfile
+      target: migration
+    container_name: longlian-oa-migrate-dev
+    restart: "no"
+    command: ["dev", "apply"]
+    environment:
+      DB_URL: mysql://root:dev@mysql-dev:3306/longlian_oa_dev
+      SEED_FILE: /app/db/seed/dev_data.sql
+    volumes:
+      - ../db:/app/db:ro
+    depends_on:
+      mysql-dev:
+        condition: service_healthy
+
+  longlian-oa-dev:
+    profiles: [dev]
+    build:
+      context: ../
+      dockerfile: devops/Dockerfile
+      target: app
+    container_name: longlian-oa-dev
+    volumes:
+      - ../app/src/main/resources/application.yml.example:/app/config/application.yml:ro
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-dev:3306/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATA_REDIS_HOST: redis-dev
+      SPRING_DATA_REDIS_PORT: "6379"
+    ports:
+      - "10003:8080"
+    depends_on:
+      migrate-dev:
+        condition: service_completed_successfully
+      redis-dev:
+        condition: service_healthy
+
+  mysql-test:
+    profiles: [test]
+    image: mysql:8.0
+    container_name: longlian-oa-mysql-test
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass
+      MYSQL_DATABASE: longlian_oa_test
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    tmpfs: /var/lib/mysql
+
+  redis-test:
+    profiles: [test]
+    image: redis:7-alpine
+    container_name: longlian-oa-redis-test
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  test-runner:
+    profiles: [test]
+    image: maven:3.9-eclipse-temurin-21
+    container_name: longlian-oa-test-runner
+    depends_on:
+      mysql-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    volumes:
+      - ..:/app
+      - ../settings.xml:/usr/share/maven/conf/settings.xml
+      - ${MAVEN_REPOSITORY:-maven-repo}:/root/.m2
+    working_dir: /app
+    entrypoint:
+      - sh
+      - -c
+      - >
+        echo "等待服务完全就绪..."
+        && sleep 15
+        && mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
+        && mvn -pl app test jacoco:report -e
+
+  migrate:
+    profiles: [prod]
+    image: ${MIGRATION_IMAGE:-ghcr.io/longlian-online/longlian-oa-backend:migration-latest}
+    container_name: longlian-oa-migrate-prod
+    restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./application-prod.yml:/app/config/application.yml:ro
+
+  longlian-oa:
+    profiles: [prod]
+    image: ${APP_IMAGE:-ghcr.io/longlian-online/longlian-oa-backend:latest}
+    container_name: longlian-oa-prod
+    restart: unless-stopped
+    volumes:
+      - ./application-prod.yml:/app/config/application.yml:ro
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  mysql_data:
+  maven-repo:
