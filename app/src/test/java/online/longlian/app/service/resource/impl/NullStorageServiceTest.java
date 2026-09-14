@@ -54,6 +54,12 @@ class NullStorageServiceTest {
         assertThatThrownBy(() -> service.getResource("key"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
+
+    @Test
+    void shouldThrowWhenDeleteIsUnsupported() {
+        assertThatThrownBy(() -> service.delete("key"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
 }
 
 class StorageServiceFactoryTest {

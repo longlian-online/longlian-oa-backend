@@ -3,7 +3,9 @@ package online.longlian.app.service.resource.impl;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
+import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
+import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,14 +14,37 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LocalStorageServiceTest {
+
+    @Test
+    void shouldIdentifyLocalStorageType(@TempDir Path directory) {
+        assertThat(storageService(directory).getStorageType()).isEqualTo(StorageType.LOCAL);
+    }
+
+    @Test
+    void shouldBuildLocalUploadAndBatchReadUrls(@TempDir Path directory) {
+        LocalStorageService storageService = storageService(directory);
+
+        assertThat(storageService.generatePresignedUploadUrl(
+                new PresignedUploadUrlParamsBO("avatar/1.png")))
+                .satisfies(result -> {
+                    assertThat(result.getKey()).isEqualTo("avatar/1.png");
+                    assertThat(result.getUploadUrl()).isEqualTo("/common/file/local?key=avatar/1.png");
+                });
+        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
+        assertThat(urls).containsOnlyKeys("avatar/1.png", "cover/2.png");
+        assertThat(urls.values()).allMatch(url -> url.contains("expires=") && url.contains("signature="));
+    }
 
     @Test
     void shouldBuildReadableLocalResourceUrl() {
@@ -66,6 +91,37 @@ class LocalStorageServiceTest {
         try (java.util.stream.Stream<Path> files = Files.list(directory.resolve("task"))) {
             assertThat(files).isEmpty();
         }
+    }
+
+    @Test
+    void shouldRejectContentShorterThanDeclaredSize(@TempDir Path directory) {
+        LocalStorageService storageService = storageService(directory);
+
+        assertThatThrownBy(() -> storageService.upload(
+                writeParams("task/1.bin", new byte[]{1, 2}, 3L, "application/octet-stream")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("文件大小不匹配");
+    }
+
+    @Test
+    void shouldReportInputStreamReadFailure(@TempDir Path directory) {
+        LocalStorageService storageService = storageService(directory);
+        InputStream failingContent = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                throw new IOException("read failed");
+            }
+        };
+        LocalFileWriteParamsBO params = LocalFileWriteParamsBO.builder()
+                .storageKey("task/1.bin")
+                .content(failingContent)
+                .expectedSize(1L)
+                .expectedMimeType("application/octet-stream")
+                .build();
+
+        assertThatThrownBy(() -> storageService.upload(params))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("本地文件写入失败");
     }
 
     @Test
@@ -116,6 +172,46 @@ class LocalStorageServiceTest {
     }
 
     @Test
+    void shouldAcceptJpegAndGifContent(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        byte[] jpeg = createImage("jpeg");
+        byte[] gif = createImage("gif");
+
+        storageService.upload(writeParams("avatar/1.jpg", jpeg, jpeg.length, "image/jpeg"));
+        storageService.upload(writeParams("avatar/2.gif", gif, gif.length, "image/gif"));
+
+        assertThat(storageService.getResource("avatar/1.jpg").contentLength()).isEqualTo(jpeg.length);
+        assertThat(storageService.getResource("avatar/2.gif").contentLength()).isEqualTo(gif.length);
+    }
+
+    @Test
+    void shouldRejectPathTraversal(@TempDir Path directory) {
+        LocalStorageService storageService = storageService(directory);
+
+        assertThatThrownBy(() -> storageService.upload("../outside.bin", new byte[]{1}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("非法文件 key");
+    }
+
+    @Test
+    void shouldFailWhenStoredResourceDoesNotExist(@TempDir Path directory) {
+        assertThatThrownBy(() -> storageService(directory).getResource("missing.bin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("本地文件不存在");
+    }
+
+    @Test
+    void shouldReportDeleteFailureForNonEmptyDirectory(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        Files.createDirectories(directory.resolve("task/folder"));
+        Files.write(directory.resolve("task/folder/file.bin"), new byte[]{1});
+
+        assertThatThrownBy(() -> storageService.delete("task/folder"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("本地文件删除失败");
+    }
+
+    @Test
     void shouldDeleteStoredFile(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
         storageService.upload("task/1.bin", new byte[]{1});
@@ -143,9 +239,13 @@ class LocalStorageServiceTest {
     }
 
     private byte[] createPng() throws IOException {
+        return createImage("png");
+    }
+
+    private byte[] createImage(String format) throws IOException {
         BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", output);
+        ImageIO.write(image, format, output);
         return output.toByteArray();
     }
 

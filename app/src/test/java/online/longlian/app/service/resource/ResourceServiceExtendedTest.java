@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
@@ -202,6 +203,43 @@ class ResourceServiceExtendedTest {
                 .hasMessageContaining("文件状态更新失败");
 
         verify(storageService).delete("file/1.png");
+    }
+
+    @Test
+    void shouldUploadChunkedContentWhenActualSizeMatches() {
+        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
+                .storageKey("file/1.png").userId(1L).orgId(10L)
+                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
+                .contentLength(-1L)
+                .build();
+        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
+        when(resourceMapper.selectOne(any())).thenReturn(resource);
+        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
+        when(resourceMapper.update(isNull(), any())).thenReturn(1);
+
+        resourceService.uploadLocalResource(params);
+
+        verify(storageService).upload(any(LocalFileWriteParamsBO.class));
+    }
+
+    @Test
+    void shouldPreserveStatusFailureWhenStoredFileCleanupFails() {
+        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
+                .storageKey("file/1.png").userId(1L).orgId(10L)
+                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
+                .contentLength(3L)
+                .build();
+        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
+        when(resourceMapper.selectOne(any())).thenReturn(resource);
+        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
+        when(resourceMapper.update(isNull(), any())).thenReturn(0);
+        doThrow(new IllegalStateException("delete failed")).when(storageService).delete("file/1.png");
+
+        Throwable failure = catchThrowable(() -> resourceService.uploadLocalResource(params));
+
+        assertThat(failure).isInstanceOf(AppException.class);
+        assertThat(failure.getSuppressed()).hasSize(1);
+        assertThat(failure.getSuppressed()[0]).hasMessage("delete failed");
     }
 
     @Test

@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,6 +74,17 @@ class FileStorageControllerTest {
         assertThat(readContent(params.getContent())).isEqualTo(content);
         assertThat(params.getUserId()).isEqualTo(5L);
         assertThat(params.getOrgId()).isEqualTo(6L);
+    }
+
+    @Test
+    void shouldFailWhenRequestContentCannotBeRead() throws IOException {
+        MockHttpServletRequest request = mock(MockHttpServletRequest.class);
+        doThrow(new IOException("read failed")).when(request).getInputStream();
+
+        assertThat(catchThrowable(
+                () -> controller.uploadLocalFile("avatar/1.png", request, new SessionContext(5L, 6L))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("无法读取上传内容");
     }
 
     private static byte[] readContent(InputStream content) {
