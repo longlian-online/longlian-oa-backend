@@ -16,6 +16,10 @@ import java.util.HexFormat;
 
 @Component
 public class LocalFileUrlSigner {
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final String SIGNATURE_DOMAIN = "longlian:local-file-read:v1";
+    private static final String PAYLOAD_SEPARATOR = "\n";
+
     private final SecretKeySpec key;
     private final Clock clock;
     private final long ttlSeconds;
@@ -27,7 +31,7 @@ public class LocalFileUrlSigner {
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32 || ttlSeconds <= 0) {
             throw new IllegalArgumentException("本地文件签名密钥至少需要 32 字节，链接有效期必须为正数");
         }
-        this.key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        this.key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
         this.clock = clock;
         this.ttlSeconds = ttlSeconds;
     }
@@ -47,10 +51,10 @@ public class LocalFileUrlSigner {
 
     private String signature(String storageKey, long expires) {
         try {
-            Mac mac = Mac.getInstance("HmacSHA256");
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(key);
             // 使用独立的签名域，避免文件签名被当作其他凭证复用。
-            String payload = "longlian:local-file-read:v1\n" + expires + "\n" + storageKey;
+            String payload = SIGNATURE_DOMAIN + PAYLOAD_SEPARATOR + expires + PAYLOAD_SEPARATOR + storageKey;
             return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
         // JDK 保证 HmacSHA256 算法存在，该异常分支无法通过测试触发。
         } catch (GeneralSecurityException e) { // skipcq: TCV-001

@@ -33,6 +33,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./application-prod.yml:/app/config/application.yml:ro
+      - local_storage_data:/app/data/storage
     ports:
       - "8080:8080"
     extra_hosts:
@@ -40,3 +41,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+volumes:
+  local_storage_data:

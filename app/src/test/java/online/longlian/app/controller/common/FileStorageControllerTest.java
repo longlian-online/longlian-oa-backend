@@ -1,21 +1,28 @@
 package online.longlian.app.controller.common;
 
-import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
-import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.common.resolver.SessionContext;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
+import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
+import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.LocalFileReadService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
+
+import java.io.IOException;
+import java.io.InputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.argThat;
 
 class FileStorageControllerTest {
     private final ResourceService resources = mock(ResourceService.class);
@@ -49,18 +56,33 @@ class FileStorageControllerTest {
     }
 
     @Test
-    void shouldForwardLocalUploadContentAndSession() {
+    void shouldForwardLocalUploadContentAndSession() throws IOException {
         byte[] content = {1, 2, 3};
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContent(content);
+        request.addHeader("Content-Length", content.length);
 
-        controller.uploadLocalFile("avatar/1.png", content, new SessionContext(5L, 6L));
+        controller.uploadLocalFile("avatar/1.png", request, new SessionContext(5L, 6L));
 
-        verify(resources).uploadLocalResource(argThat(params -> params.getStorageKey().equals("avatar/1.png")
-                && params.getContent() == content
-                && params.getUserId().equals(5L)
-                && params.getOrgId().equals(6L)));
+        ArgumentCaptor<LocalFileUploadParamsBO> captor = ArgumentCaptor.forClass(LocalFileUploadParamsBO.class);
+        verify(resources).uploadLocalResource(captor.capture());
+        LocalFileUploadParamsBO params = captor.getValue();
+        assertThat(params.getStorageKey()).isEqualTo("avatar/1.png");
+        assertThat(params.getContentLength()).isEqualTo(3L);
+        assertThat(readContent(params.getContent())).isEqualTo(content);
+        assertThat(params.getUserId()).isEqualTo(5L);
+        assertThat(params.getOrgId()).isEqualTo(6L);
     }
 
-    private static online.longlian.app.pojo.bo.common.LocalFileReadParamsBO anyParams() {
-        return org.mockito.ArgumentMatchers.any(online.longlian.app.pojo.bo.common.LocalFileReadParamsBO.class);
+    private static byte[] readContent(InputStream content) {
+        try {
+            return content.readAllBytes();
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static LocalFileReadParamsBO anyParams() {
+        return org.mockito.ArgumentMatchers.any(LocalFileReadParamsBO.class);
     }
 }

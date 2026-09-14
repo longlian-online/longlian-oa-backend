@@ -86,7 +86,9 @@ storage:
   type: LOCAL
   local:
     base-url: ""
-    directory: ${java.io.tmpdir}/longlian-oa
+    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
+    read-url-ttl-seconds: ${STORAGE_LOCAL_READ_URL_TTL_SECONDS:300}
+    directory: ${STORAGE_LOCAL_DIRECTORY:/app/data/storage}
   oss:
     bucket: ""
     region: ""

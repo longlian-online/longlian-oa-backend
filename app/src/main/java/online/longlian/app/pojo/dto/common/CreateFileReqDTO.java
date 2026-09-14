@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -31,6 +32,7 @@ public class CreateFileReqDTO {
     private String fileExt;
 
     @NotNull(message = "文件大小不能为空")
+    @Positive(message = "文件大小必须大于0")
     @Max(value = CommonConstants.FILE_UPLOAD_MAX_SIZE, message = "文件大小不能超过50MB")
     @Schema(description = "文件大小(字节)", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long fileSize;

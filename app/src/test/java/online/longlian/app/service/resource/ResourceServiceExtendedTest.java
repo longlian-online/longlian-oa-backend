@@ -6,12 +6,10 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
-import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.common.ResourceCreateVO;
-import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
-import online.longlian.app.service.resource.impl.NullStorageService;
 import online.longlian.common.enumeration.StorageType;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.ByteArrayInputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -140,20 +139,22 @@ class ResourceServiceExtendedTest {
     void uploadLocalResource_resourceNotFound_throws() {
         LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
                 .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new byte[]{1, 2, 3})
+                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
+                .contentLength(3L)
                 .build();
         when(resourceMapper.selectOne(any())).thenReturn(null);
 
         assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("无权上传该文件");
+                .hasMessageContaining("无权上传");
     }
 
     @Test
     void uploadLocalResource_sizeMismatch_throws() {
         LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
                 .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new byte[]{1, 2, 3})
+                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
+                .contentLength(3L)
                 .build();
         Resource resource = Resource.builder().id(1L).fileSize(999L).build();
         when(resourceMapper.selectOne(any())).thenReturn(resource);
@@ -167,17 +168,52 @@ class ResourceServiceExtendedTest {
     void uploadLocalResource_valid_uploadsAndActivates() {
         LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
                 .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new byte[]{1, 2, 3})
+                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
+                .contentLength(3L)
                 .build();
-        Resource resource = Resource.builder().id(1L).fileSize(3L).build();
+        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
         when(resourceMapper.selectOne(any())).thenReturn(resource);
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
 
         resourceService.uploadLocalResource(params);
 
-        verify(storageService).upload("file/1.png", new byte[]{1, 2, 3});
+        verify(storageService).upload(argThat((LocalFileWriteParamsBO writeParams) ->
+                writeParams.getStorageKey().equals("file/1.png")
+                        && writeParams.getExpectedSize().equals(3L)
+                        && writeParams.getExpectedMimeType().equals("image/png")));
         verify(resourceMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldDeleteStoredFileWhenStatusUpdateFails() {
+        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
+                .storageKey("file/1.png").userId(1L).orgId(10L)
+                .content(new ByteArrayInputStream(new byte[]{1, 2, 3}))
+                .contentLength(3L)
+                .build();
+        Resource resource = Resource.builder().id(1L).fileSize(3L).fileMime("image/png").build();
+        when(resourceMapper.selectOne(any())).thenReturn(resource);
+        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
+        when(resourceMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("文件状态更新失败");
+
+        verify(storageService).delete("file/1.png");
+    }
+
+    @Test
+    void shouldRejectAvatarWithNonImageMime() {
+        ResourceCreateParamsBO params = new ResourceCreateParamsBO(
+                1L, 10L, "avatar.txt", "txt", 3L, "text/plain", "avatar", 1L);
+
+        assertThatThrownBy(() -> resourceService.create(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("只能上传图片");
+
+        verifyNoInteractions(storageFactory, resourceMapper);
     }
 
     @Test

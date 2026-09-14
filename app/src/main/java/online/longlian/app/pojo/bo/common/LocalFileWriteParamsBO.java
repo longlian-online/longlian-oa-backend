@@ -13,10 +13,9 @@ import java.io.InputStream;
 @ToString(exclude = "content")
 @NoArgsConstructor
 @AllArgsConstructor
-public class LocalFileUploadParamsBO {
+public class LocalFileWriteParamsBO {
     private String storageKey;
     private InputStream content;
-    private Long contentLength;
-    private Long userId;
-    private Long orgId;
+    private Long expectedSize;
+    private String expectedMimeType;
 }

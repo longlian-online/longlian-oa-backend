@@ -2,6 +2,7 @@ package online.longlian.app.controller.common;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,8 @@ import online.longlian.app.service.resource.LocalFileReadService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @Slf4j
 @Tag(name = "文件上传接口", description = "文件预签名上传(用户端/管理端共用)，支持本地存储/OSS/COS")
@@ -59,15 +62,20 @@ public class FileStorageController {
     @PutMapping("/local")
     @ResponseMessage("上传成功")
     public void uploadLocalFile(@RequestParam String key,
-                                @RequestBody byte[] content,
+                                HttpServletRequest request,
                                 @UserSession SessionContext sessionContext) {
-        resourceService.uploadLocalResource(
-                LocalFileUploadParamsBO.builder()
-                        .storageKey(key)
-                        .content(content)
-                        .userId(sessionContext.userId())
-                        .orgId(sessionContext.orgId())
-                        .build());
+        try {
+            resourceService.uploadLocalResource(
+                    LocalFileUploadParamsBO.builder()
+                            .storageKey(key)
+                            .content(request.getInputStream())
+                            .contentLength(request.getContentLengthLong())
+                            .userId(sessionContext.userId())
+                            .orgId(sessionContext.orgId())
+                            .build());
+        } catch (IOException e) {
+            throw new IllegalStateException("无法读取上传内容", e);
+        }
     }
 
     @Operation(

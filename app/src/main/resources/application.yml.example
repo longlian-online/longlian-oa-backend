@@ -115,7 +115,7 @@ storage:
     # 签名链接有效期（秒），过短会增加重新获取链接的频率
     read-url-ttl-seconds: ${STORAGE_LOCAL_READ_URL_TTL_SECONDS:300}
     # 实际落盘目录。${java.io.tmpdir} 是 JVM 临时目录，重启可能被清
-    directory: ${java.io.tmpdir}/longlian-oa
+    directory: ${STORAGE_LOCAL_DIRECTORY:${java.io.tmpdir}/longlian-oa}
   oss:
     bucket: ""
     region: ""

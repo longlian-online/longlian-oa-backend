@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
@@ -31,6 +33,7 @@ import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ResourceService {
 
     private final ResourceMapper resourceMapper;
@@ -39,6 +42,9 @@ public class ResourceService {
     private final StorageProperties storageProperties;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
+        if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
+            throw new AppException(ResultCode.PARAM_ERROR, "头像和封面只能上传图片");
+        }
         // 1. 生成文件ID
         long fileId = IdWorker.getId();
 
@@ -97,6 +103,7 @@ public class ResourceService {
                 Resource::getStorageType,
                 Resource::getOrgId
         ).in(Resource::getId, resourceIds);
+        query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
         List<Resource> resources = resourceMapper.selectList(query);
 
@@ -146,25 +153,47 @@ public class ResourceService {
                 .eq(Resource::getStorageType, StorageType.LOCAL)
                 .eq(Resource::getCreatorId, params.getUserId())
                 .eq(Resource::getOrgId, params.getOrgId())
+                .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
                 .last("LIMIT 1"));
         if (resource == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传该文件");
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传或文件已完成上传");
         }
-        if (!resource.getFileSize().equals((long) params.getContent().length)) {
+        if (params.getContentLength() >= 0 && !resource.getFileSize().equals(params.getContentLength())) {
             throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
         }
 
-        storageFactory.get(StorageType.LOCAL).upload(params.getStorageKey(), params.getContent());
-        resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                .eq(Resource::getId, resource.getId())
-                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+        StorageService storageService = storageFactory.get(StorageType.LOCAL);
+        LocalFileWriteParamsBO writeParams = LocalFileWriteParamsBO.builder()
+                .storageKey(params.getStorageKey())
+                .content(params.getContent())
+                .expectedSize(resource.getFileSize())
+                .expectedMimeType(resource.getFileMime())
+                .build();
+        boolean stored = false;
+        try {
+            storageService.upload(writeParams);
+            stored = true;
+            int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                    .eq(Resource::getId, resource.getId())
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                    .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                    .set(Resource::getUpdatedAt, LocalDateTime.now()));
+            if (updated == 0) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "文件状态更新失败，请重新创建上传");
+            }
+        } catch (RuntimeException e) {
+            if (stored) {
+                deleteStoredFile(storageService, params.getStorageKey(), e);
+            }
+            throw e;
+        }
     }
 
     public org.springframework.core.io.Resource getLocalResource(String storageKey) {
         Long count = resourceMapper.selectCount(new LambdaQueryWrapper<Resource>()
                 .eq(Resource::getStorageKey, storageKey)
-                .eq(Resource::getStorageType, StorageType.LOCAL));
+                .eq(Resource::getStorageType, StorageType.LOCAL)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Activated));
         if (count == 0) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
@@ -173,6 +202,20 @@ public class ResourceService {
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
+    }
+
+    private boolean isImageBusiness(String bizType) {
+        return "avatar".equals(bizType) || "cover".equals(bizType);
+    }
+
+    private void deleteStoredFile(StorageService storageService, String storageKey, RuntimeException uploadFailure) {
+        try {
+            storageService.delete(storageKey);
+        } catch (RuntimeException cleanupFailure) {
+            uploadFailure.addSuppressed(cleanupFailure);
+            log.warn("数据库状态更新失败且本地文件清理失败 | key={} | type={}",
+                    storageKey, cleanupFailure.getClass().getSimpleName());
+        }
     }
 
 }

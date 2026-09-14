@@ -63,11 +63,13 @@ services:
     container_name: longlian-oa-dev
     volumes:
       - ../app/src/main/resources/application.yml.example:/app/config/application.yml:ro
+      - local_storage_data:/app/data/storage
     environment:
       # 覆盖本地模板里的 localhost:10001/10002，改走 compose 网络
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-dev:3306/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATA_REDIS_HOST: redis-dev
       SPRING_DATA_REDIS_PORT: "6379"
+      STORAGE_LOCAL_DIRECTORY: /app/data/storage
     ports:
       - "10003:8080"
     depends_on:
@@ -78,3 +80,4 @@ services:
 
 volumes:
   mysql_data:
+  local_storage_data:

@@ -1,10 +1,12 @@
 package online.longlian.app.service.resource;
 
+import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.core.io.Resource;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -50,7 +52,19 @@ public interface StorageService {
     Map<String, String> getResourceReadUrls(List<String> keys);
 
     default void upload(String key, byte[] content) {
+        upload(LocalFileWriteParamsBO.builder()
+                .storageKey(key)
+                .content(new ByteArrayInputStream(content))
+                .expectedSize((long) content.length)
+                .build());
+    }
+
+    default void upload(LocalFileWriteParamsBO params) {
         throw new UnsupportedOperationException("当前存储不支持服务端上传");
+    }
+
+    default void delete(String key) {
+        throw new UnsupportedOperationException("当前存储不支持服务端删除");
     }
 
     default Resource getResource(String key) {
