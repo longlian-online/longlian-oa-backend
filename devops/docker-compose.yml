@@ -2,13 +2,30 @@
 #   task dev / task prod / task api-test-docker
 #   docker compose -f devops/docker-compose.yml -p longlian-oa-dev --profile dev up --build -d
 #
-# prod：
+# 开发环境（profile=dev）
+#   包含：MySQL 8.0 + Redis 7-Alpine + Atlas 迁移（含种子）+ 应用
+#   应用配置：挂载 app/.../application.yml.example → /app/config/application.yml
+#   compose 用 SPRING_DATASOURCE_URL / SPRING_DATA_REDIS_* 覆盖为本机服务名
+#   迁移在同一 MySQL 实例自动创建 longlian_oa_dev_atlas 作暂存库
+#
+# API 测试（profile=test）
+#   包含：MySQL 8.0 + Redis 7-Alpine + Maven 测试执行器
+#   一键运行：task api-test-docker
+#
+# 生产环境（profile=prod）
+#   仅部署 Atlas 迁移 + 后端。MySQL、Redis、邮件等由外部提供，
+#   本文件不创建这些组件。
+# 准备：
 #   cp devops/application-prod.yml.example devops/application-prod.yml
-# 应用和迁移挂同一份 YAML。迁移从 spring.datasource 推导连接，
-# 并在同一实例自动创建 {db}_atlas。
+# 启动 / 停止：
+#   task prod
+#   task prod-down
+# 应用与迁移共用 application-prod.yml（挂到 /app/config/application.yml）。
+# 迁移从 spring.datasource 推导连接，并在同一实例自动建 {db}_atlas。
 # 可选 devops/.env 钉死镜像：
 #   APP_IMAGE=ghcr.io/longlian-online/longlian-oa-backend:1.2.3
 #   MIGRATION_IMAGE=ghcr.io/longlian-online/longlian-oa-backend:1.2.3-migration
+#   # CNB：docker.cnb.cool/longlian.online/longlian-oa-backend
 
 services:
   mysql-dev:
@@ -71,6 +88,7 @@ services:
     volumes:
       - ../app/src/main/resources/application.yml.example:/app/config/application.yml:ro
     environment:
+      # 覆盖本地模板里的 localhost:10001/10002，改走 compose 网络
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-dev:3306/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATA_REDIS_HOST: redis-dev
       SPRING_DATA_REDIS_PORT: "6379"
@@ -123,8 +141,11 @@ services:
       redis-test:
         condition: service_healthy
     volumes:
+      # 挂载项目源码
       - ..:/app
+      # 挂载 settings.xml（阿里云镜像）
       - ../settings.xml:/usr/share/maven/conf/settings.xml
+      # 本地默认使用 named volume；CI 可通过 MAVEN_REPOSITORY 挂载可缓存的宿主机目录
       - ${MAVEN_REPOSITORY:-maven-repo}:/root/.m2
     working_dir: /app
     entrypoint:
