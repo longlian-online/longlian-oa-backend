@@ -52,6 +52,7 @@ public class LocalFileUrlSigner {
             // 使用独立的签名域，避免文件签名被当作其他凭证复用。
             String payload = "longlian:local-file-read:v1\n" + expires + "\n" + storageKey;
             return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+        // JDK 保证 HmacSHA256 算法存在，该异常分支无法通过测试触发。
         } catch (GeneralSecurityException e) { // skipcq: TCV-001
             throw new IllegalStateException("无法生成文件签名", e); // skipcq: TCV-001
         }
