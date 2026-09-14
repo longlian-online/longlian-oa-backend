@@ -98,9 +98,11 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
     # 生产建议 false，避免接口文档暴露
-    enabled: true
+    # 默认关闭，开发环境由 application-dev.yml 显式开启
+    enabled: ${SPRINGDOC_ENABLED:false}
   api-docs:
-    enabled: true
+    # 默认关闭，开发环境由 application-dev.yml 显式开启
+    enabled: ${SPRINGDOC_ENABLED:false}
 
 storage:
   # LOCAL | OSS | COS。LOCAL 走本机目录；OSS/COS 必须填对应子项
