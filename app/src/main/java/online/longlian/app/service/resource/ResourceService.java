@@ -57,7 +57,7 @@ public class ResourceService {
                 .fileSize(params.getFileSize())
                 .fileMime(params.getFileMime())
                 .bizType(params.getBizType())
-                .bizId(params.getBizId())
+                .bizId(0L)
                 .processStatus(FileProcessStatus.Pending)
                 .creatorId(params.getCreatorId())
                 .createdAt(LocalDateTime.now())

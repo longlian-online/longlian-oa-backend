@@ -43,7 +43,7 @@ class FileStorageControllerTest {
 
     @Test
     void shouldForwardUploadMetadataAndSession() {
-        CreateFileReqDTO request = new CreateFileReqDTO("avatar.png", "png", 7L, "image/png", "avatar", 9L);
+        CreateFileReqDTO request = new CreateFileReqDTO("avatar.png", "png", 7L, "image/png", "avatar");
         ResourceCreateVO expected = new ResourceCreateVO(1L, "upload", "avatar/1.png", StorageType.LOCAL);
         when(resources.create(argThat(params -> params.getCreatorId().equals(5L)
                 && params.getOrgId().equals(6L)

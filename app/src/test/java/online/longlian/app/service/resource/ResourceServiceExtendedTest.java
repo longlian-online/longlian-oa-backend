@@ -135,7 +135,7 @@ class ResourceServiceExtendedTest {
     @Test
     void shouldRejectAvatarWithNonImageMime() {
         ResourceCreateParamsBO params = new ResourceCreateParamsBO(
-                1L, 10L, "avatar.txt", "txt", 3L, "text/plain", "avatar", 1L);
+                1L, 10L, "avatar.txt", "txt", 3L, "text/plain", "avatar");
 
         assertThatThrownBy(() -> resourceService.create(params))
                 .isInstanceOf(AppException.class)

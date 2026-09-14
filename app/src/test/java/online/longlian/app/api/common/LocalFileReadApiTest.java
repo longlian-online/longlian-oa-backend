@@ -107,6 +107,9 @@ class LocalFileReadApiTest extends BaseApiTest {
         Integer processStatus = jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, created.key());
         assertThat(processStatus).isZero();
+        Long unboundBizId = jdbcTemplate.queryForObject(
+                "SELECT biz_id FROM resource WHERE storage_key = ?", Long.class, created.key());
+        assertThat(unboundBizId).isZero();
         assertThat(Files.readAllBytes(Path.of(properties.getLocal().getDirectory()).resolve(created.key()))).isEqualTo(png);
     }
 
@@ -214,7 +217,10 @@ class LocalFileReadApiTest extends BaseApiTest {
 
         Integer processStatus = jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, created.key());
+        Long unboundBizId = jdbcTemplate.queryForObject(
+                "SELECT biz_id FROM resource WHERE storage_key = ?", Long.class, created.key());
         assertThat(processStatus).isZero();
+        assertThat(unboundBizId).isZero();
 
         authRequest(token)
                 .body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
@@ -260,7 +266,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("user", "123456");
         CreateFileReqDTO request = new CreateFileReqDTO(
-                "avatar.png", "png", 0L, "image/png", "avatar", 1L);
+                "avatar.png", "png", 0L, "image/png", "avatar");
 
         authRequest(token).body(request).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
@@ -279,7 +285,7 @@ class LocalFileReadApiTest extends BaseApiTest {
 
     private LocalUpload createLocalUpload(String token, long fileSize) {
         CreateFileReqDTO request = new CreateFileReqDTO(
-                "avatar.png", "png", fileSize, "image/png", "avatar", 1L);
+                "avatar.png", "png", fileSize, "image/png", "avatar");
         var response = authRequest(token).body(request).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .extract();

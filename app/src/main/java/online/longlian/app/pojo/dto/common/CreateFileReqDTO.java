@@ -1,7 +1,5 @@
 package online.longlian.app.pojo.dto.common;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
@@ -46,9 +44,4 @@ public class CreateFileReqDTO {
     @Pattern(regexp = PatternConstants.FILE_BIZ_TYPE_PATTERN, message = "不支持的业务类型")
     @Schema(description = "业务类型(avatar/cover/task_submit)", requiredMode = Schema.RequiredMode.REQUIRED)
     private String bizType;
-
-    @NotNull(message = "业务ID不能为空")
-    @JsonLongIdString
-    @Schema(type = "string", description = "业务ID(用户ID/组织ID/任务ID)", requiredMode = Schema.RequiredMode.REQUIRED)
-    private Long bizId;
 }

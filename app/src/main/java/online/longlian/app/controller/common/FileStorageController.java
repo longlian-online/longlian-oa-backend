@@ -48,8 +48,7 @@ public class FileStorageController {
                 createFileReqDTO.getFileExt(),
                 createFileReqDTO.getFileSize(),
                 createFileReqDTO.getFileMime(),
-                createFileReqDTO.getBizType(),
-                createFileReqDTO.getBizId()
+                createFileReqDTO.getBizType()
         );
         return resourceService.create(params);
     }

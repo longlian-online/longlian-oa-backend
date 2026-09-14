@@ -13,5 +13,4 @@ public class ResourceCreateParamsBO {
     private Long fileSize;
     private String fileMime;
     private String bizType;
-    private Long bizId;
 }
