@@ -73,6 +73,17 @@ class TokenRevocationStoreTest {
         verify(lock).close();
     }
 
+    /** 事务已激活但未开启同步时应使用独立事务，不能注册无效回调。 */
+    @Test
+    void shouldUseTemplateWhenTransactionSynchronizationIsInactive() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+
+        store.save(row("sha256:token"));
+
+        verify(transactions).getTransaction(any());
+        verify(lock).close();
+    }
+
     /** 热缓存中的空快照和非空快照一样都能避免数据库查询。 */
     @Test
     void shouldReadWarmSnapshotWithoutDatabase() {
@@ -85,6 +96,18 @@ class TokenRevocationStoreTest {
     @Test
     void shouldFallBackWhenCachedSnapshotCannotBeDecoded() throws Exception {
         when(values.get(key)).thenReturn("not-json");
+        when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
+
+        assertThat(store.entries(TokenType.User, 1L))
+                .containsKey(TokenRevocationStore.digest("legacy.jwt.token"));
+        verify(mapper).selectList(any());
+        verify(lock).close();
+    }
+
+    /** 缓存快照结构异常时必须回退数据库，避免损坏数据导致鉴权异常。 */
+    @Test
+    void shouldFallBackWhenCachedSnapshotHasInvalidEntries() {
+        when(values.get(key)).thenReturn("{\"unexpected\":123}");
         when(mapper.selectList(any())).thenReturn(List.of(row("legacy.jwt.token")));
 
         assertThat(store.entries(TokenType.User, 1L))

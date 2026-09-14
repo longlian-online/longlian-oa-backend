@@ -50,24 +50,46 @@ public class TokenRevocationStore {
             return load(type, userId);
         }
         try (lock) {
-            try {
-                String cached = redis.opsForValue().get(cacheKey(type, userId));
-                if (cached != null) {
-                    return objectMapper.readValue(cached, new TypeReference<Map<String, Long>>() { });
-                }
-            } catch (Exception e) {
-                log.warn("撤销缓存读取失败，使用数据库校验 | type={}", e.getClass().getSimpleName());
-                return load(type, userId);
+            Map<String, Long> cachedEntries = readCache(type, userId);
+            if (cachedEntries != null) {
+                return cachedEntries;
             }
             Map<String, Long> entries = load(type, userId);
-            long latestExpiry = entries.values().stream().mapToLong(Long::longValue).max().orElse(clock.millis() + 60_000);
+            long latestExpiry = entries.values().stream().mapToLong(Long::longValue)
+                    .max().orElse(clock.millis() + 60_000);
             long ttl = Math.max(1, Math.min(60_000, latestExpiry - clock.millis()));
-            try {
-                redis.opsForValue().set(cacheKey(type, userId), objectMapper.writeValueAsString(entries), Duration.ofMillis(ttl));
-            } catch (Exception e) {
-                log.warn("撤销缓存写入失败 | type={}", e.getClass().getSimpleName());
+            writeCache(type, userId, entries, ttl);
+            return entries;
+        }
+    }
+
+    private Map<String, Long> readCache(TokenType type, long userId) {
+        try {
+            String cached = redis.opsForValue().get(cacheKey(type, userId));
+            if (cached == null) {
+                return null;
+            }
+            Map<String, Long> entries = objectMapper.readValue(cached,
+                    new TypeReference<Map<String, Long>>() { });
+            if (entries == null || entries.entrySet().stream().anyMatch(entry ->
+                    entry.getKey() == null || entry.getValue() == null
+                            || !(entry.getKey().startsWith("sha256:")
+                            || entry.getKey().startsWith("before:")))) {
+                throw new IllegalArgumentException("撤销缓存结构无效");
             }
             return entries;
+        } catch (Exception e) {
+            log.warn("撤销缓存读取失败，使用数据库校验 | type={}", e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private void writeCache(TokenType type, long userId, Map<String, Long> entries, long ttl) {
+        try {
+            redis.opsForValue().set(cacheKey(type, userId), objectMapper.writeValueAsString(entries),
+                    Duration.ofMillis(ttl));
+        } catch (Exception e) {
+            log.warn("撤销缓存写入失败 | type={}", e.getClass().getSimpleName());
         }
     }
 
@@ -103,7 +125,8 @@ public class TokenRevocationStore {
             // 在提交前失效缓存，并由同一把锁排除读取和填充操作。
             // Redis 失效失败时不能确认吊销成功，避免继续使用过期的授权缓存。
             redis.delete(cacheKey(type, userId));
-            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            if (TransactionSynchronizationManager.isActualTransactionActive()
+                    && TransactionSynchronizationManager.isSynchronizationActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCompletion(int status) {
