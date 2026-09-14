@@ -8,7 +8,7 @@ import static org.hamcrest.Matchers.startsWith;
 
 @TestPropertySource(properties = "SPRINGDOC_ENABLED=true")
 class SwaggerEnabledApiTest extends BaseApiTest {
-    /** Explicit enablement must preserve the OpenAPI endpoint used in development. */
+    /** 显式启用时必须保留开发环境使用的 OpenAPI 接口。 */
     @Test
     void shouldExposeDocumentationWhenEnabled() {
         request().get("/v3/api-docs").then().statusCode(200)

@@ -9,7 +9,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 @TestPropertySource(properties = "SPRINGDOC_ENABLED=false")
 class SwaggerDisabledApiTest extends BaseApiTest {
-    /** The default application must not expose anonymous documentation. */
+    /** 默认配置不能匿名暴露接口文档。 */
     @Test
     void shouldNotExposeDocumentationByDefault() {
         for (String path : new String[]{"/v3/api-docs", "/swagger-ui.html"}) {

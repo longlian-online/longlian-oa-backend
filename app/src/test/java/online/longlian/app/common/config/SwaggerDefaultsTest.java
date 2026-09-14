@@ -11,7 +11,7 @@ class SwaggerDefaultsTest {
             .withInitializer(context -> context.getEnvironment().getPropertySources().remove("systemEnvironment"))
             .withInitializer(new ConfigDataApplicationContextInitializer());
 
-    /** Documentation must be disabled in default and production profiles. */
+    /** 默认和生产 profile 必须关闭接口文档。 */
     @Test
     void shouldDisableDocumentationByDefault() {
         for (String profile : new String[]{"default", "prod"}) {
@@ -22,7 +22,7 @@ class SwaggerDefaultsTest {
         }
     }
 
-    /** Development profiles explicitly enable documentation. */
+    /** 开发 profile 显式启用接口文档。 */
     @Test
     void shouldEnableDocumentationInDevelopment() {
         for (String profile : new String[]{"dev", "local"}) {
@@ -33,7 +33,7 @@ class SwaggerDefaultsTest {
         }
     }
 
-    /** An explicit deployment override takes priority over development defaults. */
+    /** 部署时的显式配置优先于开发环境默认值。 */
     @Test
     void shouldHonorExplicitDisable() {
         runner.withPropertyValues("spring.profiles.active=dev", "SPRINGDOC_ENABLED=false").run(context -> {
