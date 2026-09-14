@@ -163,7 +163,9 @@ class LocalFileReadApiTest extends BaseApiTest {
     @Test
     void shouldRejectLocalUploadWithoutAuthentication() {
         request().contentType("application/octet-stream").queryParam("key", "avatar/1.png")
-                .body(new byte[]{1}).put("/common/file/local").then().statusCode(401);
+                .body(new byte[]{1}).put("/common/file/local").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     /** 文件大小必须为正数，避免创建永远无法完成的上传记录。 */
@@ -180,6 +182,8 @@ class LocalFileReadApiTest extends BaseApiTest {
 
     private void createFile() {
         createResource(1L, 1L, 1L);
+        // 数据库在每个用例前清空，固定 key 的本地文件也需同步清理以保持测试隔离。
+        storage.get(StorageType.LOCAL).delete("avatar/1.png");
         storage.get(StorageType.LOCAL).upload("avatar/1.png", new byte[]{7});
     }
 
