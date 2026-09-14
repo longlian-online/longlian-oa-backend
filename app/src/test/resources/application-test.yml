@@ -1,17 +1,40 @@
-# =====================================================
-# 测试环境配置 (spring.profiles.active=test)
-# 使用独立测试数据库，避免污染开发库
-# =====================================================
+# =============================================================================
+# 测试配置（spring.profiles.active=test）
+#
+# 本文件提交到仓库：值全是测试夹具，不含真实密钥。
+# API 测试通过 task api-test-docker 在 compose 网络中运行，因此主机名是
+# mysql-test / redis-test，与 devops/docker-compose.test.yml 的 service 名一致。
+# 不依赖 .env，也不读取开发用 application.yml。
+# =============================================================================
 
-# 覆盖 .env 中的数据库名，host/port/user/pass 复用 .env 的值
-DB_DATABASE: longlian_oa_test
+longlian:
+  display-name: "longlian-oa"
+  datasource:
+    type: mysql
+  cache:
+    type: redis
+
+server:
+  shutdown: graceful
 
 spring:
+  main:
+    allow-circular-references: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: jdbc:mysql://mysql-test:3306/longlian_oa_test?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: testpass
   sql:
     init:
       mode: never
   data:
     redis:
+      host: redis-test
+      port: 6379
+      password: ""
+      database: 9
       timeout: 5s
       connect-timeout: 5s
   mail:
@@ -19,13 +42,63 @@ spring:
     username: test
     password: test
     port: 25
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          ssl:
+            enable: false
 
 mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deletedAt
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
   configuration:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
 
-notify:
-  type: NOOP
+debug: false
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
+storage:
+  type: LOCAL
+  local:
+    base-url: ""
+    directory: ${java.io.tmpdir}/longlian-oa-test
+  # CosStorageService / OssStorageService 启动时就会读这些字段，即使 type=LOCAL 也不能缺
+  oss:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    base-url: ""
+  cos:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    url-prefix: ""
 
 cors:
   allowed-origins: http://localhost:3000
+
+notify:
+  type: NOOP
+  email:
+    template:
+      path: classpath:templates/verify-code.html
+
+jwt:
+  secret: test-jwt-secret-key-must-be-at-least-32-bytes-long
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer
