@@ -8,6 +8,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
@@ -63,7 +64,12 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .updatedAt(now)
                 .build();
         baseTaskMapper.insert(task);
-        resourceService.bindBizId(params.getIconFileId(), task.getId(), params.getCreatorId(), params.getOrgId());
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(params.getIconFileId())
+                .bizId(task.getId())
+                .creatorId(params.getCreatorId())
+                .orgId(params.getOrgId())
+                .build());
     }
 
     @Override

@@ -8,6 +8,7 @@ import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.app.service.resource.impl.LocalStorageService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -205,9 +206,9 @@ class LocalFileReadApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
-    /** 绑定用户头像后资源才 Activated，业务返回的 avatarUrl 可读原图。 */
+    /** 替换用户头像会废弃旧资源，旧签名链接不再可读。 */
     @Test
-    void shouldActivateResourceWhenBoundToUser() throws IOException {
+    void shouldReplaceUserAvatarAndDeprecateOldResource() throws IOException {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("user", "123456");
         byte[] png = createPng();
@@ -229,13 +230,31 @@ class LocalFileReadApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
-        Integer boundStatus = jdbcTemplate.queryForObject(
-                "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, created.key());
-        Long bizId = jdbcTemplate.queryForObject(
-                "SELECT biz_id FROM resource WHERE storage_key = ?", Long.class, created.key());
-        assertThat(boundStatus).isEqualTo(1);
-        assertThat(bizId).isEqualTo(1L);
+        String oldAvatarUrl = authRequest(token).get("/app/user/").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
+        LocalUpload replacement = createLocalUpload(token, png.length);
+        putSignedUpload(replacement.uploadUrl(), png)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
+        authRequest(token)
+                .body(Map.of("nickname", "user", "avatarFileId", replacement.fileId()))
+                .put("/app/user/")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Integer oldStatus = jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, created.key());
+        Integer replacementStatus = jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, replacement.key());
+        Long replacementBizId = jdbcTemplate.queryForObject(
+                "SELECT biz_id FROM resource WHERE storage_key = ?", Long.class, replacement.key());
+        assertThat(oldStatus).isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
+        assertThat(replacementBizId).isEqualTo(1L);
+
+        request().urlEncodingEnabled(false).get(oldAvatarUrl).then()
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
         String avatarUrl = authRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
         byte[] content = request().urlEncodingEnabled(false).get(avatarUrl).then()

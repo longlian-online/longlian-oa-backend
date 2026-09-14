@@ -4,11 +4,13 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class OrgAdminOrganizationApiTest extends BaseApiTest {
@@ -39,7 +41,10 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldUpdateOrganizationInfoSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
         createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 1 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 1");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -53,6 +58,12 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 1", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     @Test

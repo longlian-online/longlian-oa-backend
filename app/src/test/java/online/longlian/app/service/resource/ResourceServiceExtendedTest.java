@@ -6,6 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.common.enumeration.StorageType;
@@ -97,37 +98,63 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void bindBizId_nullResourceId_doesNothing() {
-        resourceService.bindBizId(null, 1L, 1L, 1L);
+    void bindBizResource_nullBizId_doesNothing() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder().resourceId(1L).build());
+
         verify(resourceMapper, never()).update(any(), any());
     }
 
     @Test
-    void bindBizId_zeroResourceId_doesNothing() {
-        resourceService.bindBizId(0L, 1L, 1L, 1L);
+    void bindBizResource_zeroResourceId_doesNothing() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder().resourceId(0L).bizId(1L).build());
+
         verify(resourceMapper, never()).update(any(), any());
     }
 
     @Test
-    void bindBizId_nullBizId_doesNothing() {
-        resourceService.bindBizId(1L, null, 1L, 1L);
-        verify(resourceMapper, never()).update(any(), any());
-    }
-
-    @Test
-    void bindBizId_updateFails_throws() {
+    void bindBizResource_updateFails_throws() {
         when(resourceMapper.update(isNull(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> resourceService.bindBizId(1L, 2L, 1L, 1L))
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build()))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("无权使用该文件");
     }
 
     @Test
-    void bindBizId_updateSucceeds_noException() {
+    void bindBizResource_activatesNewResource() {
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
 
-        resourceService.bindBizId(1L, 2L, 1L, 1L);
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+
+        verify(resourceMapper).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_replacesActivatedResource() {
+        when(resourceMapper.update(isNull(), any())).thenReturn(1, 1);
+
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(2L).replacedResourceId(1L).bizId(3L).creatorId(1L).orgId(1L).build());
+
+        verify(resourceMapper, times(2)).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_sameResourceDoesNotDeprecateIt() {
+        when(resourceMapper.update(isNull(), any())).thenReturn(1);
+
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).replacedResourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+
+        verify(resourceMapper).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_zeroNewResourceDeprecatesReplacedResource() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(0L).replacedResourceId(1L).bizId(2L).orgId(1L).build());
 
         verify(resourceMapper).update(isNull(), any());
     }

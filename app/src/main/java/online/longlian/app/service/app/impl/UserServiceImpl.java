@@ -23,6 +23,7 @@ import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
@@ -145,13 +146,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateMyInfo(UserUpdateMyInfoParamsBO params) {
+        User user = userMapper.selectById(params.getUserId());
+        Long oldAvatarFileId = user.getAvatarFileId();
         userMapper.update(null,
                 new LambdaUpdateWrapper<User>()
                         .eq(User::getId, params.getUserId())
                         .set(User::getNickname, params.getNickname())
                         .set(User::getAvatarFileId, params.getAvatarFileId())
         );
-        resourceService.bindBizId(params.getAvatarFileId(), params.getUserId(), params.getUserId(), null);
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(params.getAvatarFileId())
+                .replacedResourceId(oldAvatarFileId)
+                .bizId(params.getUserId())
+                .creatorId(params.getUserId())
+                .build());
     }
 
     @Override

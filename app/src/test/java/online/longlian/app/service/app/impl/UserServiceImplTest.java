@@ -1,5 +1,8 @@
 package online.longlian.app.service.app.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
@@ -8,9 +11,11 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
@@ -68,6 +73,7 @@ class UserServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
         service = new UserServiceImpl(
                 passwordEncoder,
                 organizationMapper,
@@ -118,6 +124,32 @@ class UserServiceImplTest {
 
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
+    }
+
+    @Test
+    void shouldDeprecatePreviousAvatarWhenReplacingIt() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
+        UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
+                .userId(1L).nickname("user").avatarFileId(20L).build();
+
+        service.updateMyInfo(params);
+
+        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
+                && resource.getReplacedResourceId().equals(10L)
+                && resource.getBizId().equals(1L)
+                && resource.getCreatorId().equals(1L)
+                && resource.getOrgId() == null));
+    }
+
+    @Test
+    void shouldKeepCurrentAvatarWhenFileIdIsUnchanged() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
+        UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
+                .userId(1L).nickname("user").avatarFileId(10L).build();
+
+        service.updateMyInfo(params);
+        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(10L)
+                && resource.getReplacedResourceId().equals(10L)));
     }
 
     @Test

@@ -10,6 +10,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
@@ -22,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -119,26 +121,49 @@ public class ResourceService {
     }
 
     /**
-     * 绑定业务对象并激活，此后 {@code getResourceReadUrl(s)} 才签发读链接。
-     *
-     * @param resourceId 资源 ID
-     * @param bizId      业务对象 ID
+     * 将业务对象资源更新为指定资源。
+     * <p>
+     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源会被废弃。
+     * {@code resourceId} 为 {@code null} 或非正数时表示清空业务对象资源。
      */
-    public void bindBizId(Long resourceId, Long bizId, Long creatorId, Long orgId) {
-        if (resourceId == null || resourceId <= 0 || bizId == null) {
+    public void bindBizResource(ResourceBindParamsBO params) {
+        if (params.getBizId() == null) {
             return;
         }
-        int updated = resourceMapper.update(null,
-                new LambdaUpdateWrapper<Resource>()
-                        .eq(Resource::getId, resourceId)
-                        .eq(Resource::getCreatorId, creatorId)
-                        .eq(orgId != null, Resource::getOrgId, orgId)
-                        .set(Resource::getBizId, bizId)
-                        .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                        .set(Resource::getUpdatedAt, LocalDateTime.now()));
-        if (updated == 0) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        Long resourceId = params.getResourceId();
+        if (isResourceId(resourceId)) {
+            int updated = resourceMapper.update(null,
+                    new LambdaUpdateWrapper<Resource>()
+                            .eq(Resource::getId, resourceId)
+                            .eq(Resource::getCreatorId, params.getCreatorId())
+                            .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
+                            .set(Resource::getBizId, params.getBizId())
+                            .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                            .set(Resource::getUpdatedAt, LocalDateTime.now()));
+            if (updated == 0) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            }
         }
+        if (!Objects.equals(resourceId, params.getReplacedResourceId())) {
+            deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
+        }
+    }
+
+    private void deprecateReplacedResource(Long resourceId, Long bizId, Long orgId) {
+        if (!isResourceId(resourceId)) {
+            return;
+        }
+        resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resourceId)
+                .eq(Resource::getBizId, bizId)
+                .eq(orgId != null, Resource::getOrgId, orgId)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .set(Resource::getProcessStatus, FileProcessStatus.Deprecated)
+                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+    }
+
+    private boolean isResourceId(Long resourceId) {
+        return resourceId != null && resourceId > 0;
     }
 
     public Resource loadPending(String storageKey) {
