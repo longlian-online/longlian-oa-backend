@@ -12,7 +12,8 @@ import online.longlian.common.service.DistributedLockService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -93,16 +94,31 @@ public class TokenRevocationStore {
     }
 
     private void mutate(TokenType type, long userId, Runnable mutation) {
-        try (var lock = locks.tryAcquire(cacheKey(type, userId), 2, TimeUnit.SECONDS)) {
-            if (lock == null) {
-                throw new IllegalStateException("撤销状态更新繁忙，请重试");
-            }
+        var lock = locks.tryAcquire(cacheKey(type, userId), 2, TimeUnit.SECONDS);
+        if (lock == null) {
+            throw new IllegalStateException("撤销状态更新繁忙，请重试");
+        }
+        boolean releaseOnCompletion = false;
+        try {
             // Invalidate before committing, while the same lock excludes cache readers/fillers.
             // A Redis failure must not acknowledge revocation with potentially stale cached grants.
             redis.delete(cacheKey(type, userId));
-            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            transaction.executeWithoutResult(status -> mutation.run());
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        lock.close();
+                    }
+                });
+                releaseOnCompletion = true;
+                mutation.run();
+            } else {
+                new TransactionTemplate(transactionManager).executeWithoutResult(status -> mutation.run());
+            }
+        } finally {
+            if (!releaseOnCompletion) {
+                lock.close();
+            }
         }
     }
 

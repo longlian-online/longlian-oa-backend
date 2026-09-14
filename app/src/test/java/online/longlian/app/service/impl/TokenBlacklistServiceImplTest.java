@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 class TokenBlacklistServiceImplTest {
@@ -45,6 +46,14 @@ class TokenBlacklistServiceImplTest {
     @Test
     void shouldSkipLookupForInvalidToken() {
         assertThat(service.isBlacklisted("invalid")).isFalse();
+        verifyNoInteractions(store);
+    }
+
+    /** Missing identity type is an invalid credential rather than an infrastructure failure. */
+    @Test
+    void shouldRejectMissingTokenType() {
+        when(jwt.parseTokenIfValid("untyped")).thenReturn(Jwts.claims().setSubject("1"));
+        assertThatThrownBy(() -> service.isBlacklisted("untyped")).isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(store);
     }
 

@@ -35,9 +35,7 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
         }
         TokenType type = tokenType(claims);
         long userId = Long.parseLong(claims.getSubject());
-        Long issuedAtMillis = claims.get("issuedAtMillis", Long.class);
-        long issuedAt = issuedAtMillis != null ? issuedAtMillis
-                : claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : Long.MIN_VALUE;
+        long issuedAt = issuedAt(claims);
         String digest = TokenRevocationStore.digest(token);
         long now = clock.millis();
         return store.entries(type, userId).entrySet().stream().anyMatch(entry ->
@@ -70,10 +68,21 @@ public class TokenBlacklistServiceImpl implements TokenBlacklistService {
     }
 
     private TokenType tokenType(Claims claims) {
-        return switch (claims.get("type", String.class)) {
-            case "user" -> TokenType.User;
-            case "admin" -> TokenType.Admin;
-            default -> throw new IllegalArgumentException("未知凭证类型");
-        };
+        String type = claims.get("type", String.class);
+        if ("user".equals(type)) {
+            return TokenType.User;
+        }
+        if ("admin".equals(type)) {
+            return TokenType.Admin;
+        }
+        throw new IllegalArgumentException("未知凭证类型");
+    }
+
+    private long issuedAt(Claims claims) {
+        Long precise = claims.get("issuedAtMillis", Long.class);
+        if (precise != null) {
+            return precise;
+        }
+        return claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : Long.MIN_VALUE;
     }
 }

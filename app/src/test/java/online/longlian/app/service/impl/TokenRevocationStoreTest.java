@@ -9,12 +9,15 @@ import online.longlian.common.enumeration.TokenType;
 import online.longlian.common.service.DistributedLockService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -50,6 +53,24 @@ class TokenRevocationStoreTest {
         when(locks.tryAcquire(key, 2, TimeUnit.SECONDS)).thenReturn(lock);
         when(redis.opsForValue()).thenReturn(values);
         when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+    }
+
+    @AfterEach
+    void clearTransactions() {
+        TransactionSynchronizationManager.clear();
+    }
+
+    /** An existing transaction keeps the identity lock through commit or rollback without another connection. */
+    @Test
+    void shouldHoldLockUntilOuterTransactionCompletes() {
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        store.save(row("sha256:token"));
+        verify(lock, never()).close();
+        verify(transactions, never()).getTransaction(any());
+        TransactionSynchronizationManager.getSynchronizations().forEach(sync ->
+                sync.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
+        verify(lock).close();
     }
 
     /** Warm empty snapshots avoid database queries as well as positive snapshots. */
