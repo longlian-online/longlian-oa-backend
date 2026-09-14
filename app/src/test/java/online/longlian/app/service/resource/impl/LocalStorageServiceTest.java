@@ -13,13 +13,16 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.CRC32;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -161,6 +164,28 @@ class LocalStorageServiceTest {
     }
 
     @Test
+    void shouldRejectTruncatedImageContent(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        byte[] truncatedPng = Arrays.copyOf(createPng(), 24);
+
+        assertThatThrownBy(() -> storageService.upload(
+                writeParams("avatar/1.png", truncatedPng, truncatedPng.length, "image/png")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("不是有效图片");
+    }
+
+    @Test
+    void shouldRejectImageWithExcessivePixelCount(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        byte[] oversizedPngHeader = createPngHeader(5_001, 5_001);
+
+        assertThatThrownBy(() -> storageService.upload(writeParams(
+                "avatar/1.png", oversizedPngHeader, oversizedPngHeader.length, "image/png")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("像素过大");
+    }
+
+    @Test
     void shouldRejectImageWhoseContentDoesNotMatchMimeType(@TempDir Path directory) throws IOException {
         LocalStorageService storageService = storageService(directory);
         byte[] png = createPng();
@@ -182,6 +207,17 @@ class LocalStorageServiceTest {
 
         assertThat(storageService.getResource("avatar/1.jpg").contentLength()).isEqualTo(jpeg.length);
         assertThat(storageService.getResource("avatar/2.gif").contentLength()).isEqualTo(gif.length);
+    }
+
+    @Test
+    void shouldRejectUnsupportedImageMimeType(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        byte[] png = createPng();
+
+        assertThatThrownBy(() -> storageService.upload(
+                writeParams("avatar/1.webp", png, png.length, "image/webp")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("MIME 类型不匹配");
     }
 
     @Test
@@ -246,6 +282,28 @@ class LocalStorageServiceTest {
         BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ImageIO.write(image, format, output);
+        return output.toByteArray();
+    }
+
+    private byte[] createPngHeader(int width, int height) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (DataOutputStream data = new DataOutputStream(output)) {
+            data.write(new byte[]{(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+            data.writeInt(13);
+            byte[] chunkType = {'I', 'H', 'D', 'R'};
+            ByteArrayOutputStream chunkOutput = new ByteArrayOutputStream();
+            try (DataOutputStream chunk = new DataOutputStream(chunkOutput)) {
+                chunk.write(chunkType);
+                chunk.writeInt(width);
+                chunk.writeInt(height);
+                chunk.write(new byte[]{8, 2, 0, 0, 0});
+            }
+            byte[] chunkBytes = chunkOutput.toByteArray();
+            data.write(chunkBytes);
+            CRC32 crc = new CRC32();
+            crc.update(chunkBytes);
+            data.writeInt((int) crc.getValue());
+        }
         return output.toByteArray();
     }
 
