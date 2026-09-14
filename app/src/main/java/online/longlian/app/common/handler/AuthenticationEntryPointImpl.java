@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.security.RequestAuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -54,7 +55,9 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
             return;
         }
 
-        String msg = (authException != null) ? authException.getMessage() : "未认证访问";
+        RequestAuthenticationException publicError = authException instanceof RequestAuthenticationException error ? error : null;
+        String msg = publicError != null ? publicError.getMessage() : ResultCode.UNAUTHORIZED.getMsg();
+        int code = publicError != null ? publicError.getCode() : ResultCode.UNAUTHORIZED.getCode();
         log.warn("认证失败 | msg={} | uri={} | method={}",
                 msg,
                 request.getRequestURI(),
@@ -62,6 +65,6 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
         );
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.setStatus(HttpStatus.OK.value());
-        response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.UNAUTHORIZED)));
+        response.getWriter().write(objectMapper.writeValueAsString(Result.fail(code, msg)));
     }
 }

@@ -1,6 +1,8 @@
 package online.longlian.app.common.filter;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -9,12 +11,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.SecurityConstants;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
+import online.longlian.app.common.security.RequestAuthenticationException;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
@@ -64,12 +68,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
         try {
+            Claims claims = jwtUtil.parseToken(token);
             if (tokenBlacklistService.isBlacklisted(token)) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
-            }
-            Claims claims = jwtUtil.parseTokenIfValid(token);
-            if (claims == null) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
+                throw new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证已撤销，请重新登录", null);
             }
 
             long subjectId = Long.parseLong(claims.getSubject());
@@ -77,15 +78,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             AuthenticationStrategy strategy = strategyMap.get(type);
             if (strategy == null) {
-                throw new BadCredentialsException(ResultCode.UNAUTHORIZED.getMsg());
+                throw new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证无效", null);
             }
 
             Authentication authentication = strategy.authenticate(subjectId);
             SecurityContextHolder.getContext().setAuthentication(authentication);
+        } catch (ExpiredJwtException e) {
+            reject(request, response, new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证已过期，请重新登录", e));
+            return;
+        } catch (JwtException | IllegalArgumentException e) {
+            reject(request, response, new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证无效", e));
+            return;
+        } catch (AppException e) {
+            reject(request, response, new RequestAuthenticationException(e.getCode(), e.getMsg(), e));
+            return;
+        } catch (AuthenticationException e) {
+            reject(request, response, e);
+            return;
         } catch (Exception e) {
-            authenticationEntryPoint.commence(request, response, null);
+            // Driver exceptions may embed SQL parameters; never log token-bearing exception text.
+            log.error("鉴权基础设施异常 | type={}", e.getClass().getName());
+            reject(request, response, new RequestAuthenticationException(ResultCode.FAIL.getCode(), ResultCode.FAIL.getMsg(), e));
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void reject(HttpServletRequest request, HttpServletResponse response,
+                        AuthenticationException exception) throws IOException, ServletException {
+        SecurityContextHolder.clearContext();
+        authenticationEntryPoint.commence(request, response, exception);
     }
 }
