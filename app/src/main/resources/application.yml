@@ -12,7 +12,7 @@ spring:
   application:
     name: longlian-oa
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE:default}
   main:
     allow-circular-references: true
   lifecycle:
@@ -59,9 +59,9 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
-    enabled: ${SPRINGDOC_ENABLED:true}
+    enabled: ${SPRINGDOC_ENABLED:false}
   api-docs:
-    enabled: ${SPRINGDOC_ENABLED:true}
+    enabled: ${SPRINGDOC_ENABLED:false}
 storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 OSS
   local:
