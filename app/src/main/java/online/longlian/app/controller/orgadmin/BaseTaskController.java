@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
@@ -94,7 +93,8 @@ public class BaseTaskController {
             description = "禁用后该任务无法被添加到新模板节点中，已引用的节点不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{taskId}/status")
-    public Result<Void> changeBaseTaskStatus(@UserSession(required = true) SessionContext sessionContext,
+    @ResponseMessage("状态修改成功")
+    public void changeBaseTaskStatus(@UserSession(required = true) SessionContext sessionContext,
                                               @PathVariable Long taskId,
                                               @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         baseTaskService.changeBaseTaskStatus(
@@ -104,6 +104,5 @@ public class BaseTaskController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
-        return Result.success(changeStatusDTO.getStatus().getDesc() + "成功");
     }
 }

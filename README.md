@@ -82,6 +82,10 @@ longlian-oa-backend/
 | 链路追踪 | OpenTelemetry |
 | 序列化 | Fastjson2 |
 
+### 响应约定
+
+Controller 业务方法返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 统一包装为 `Result<T>`；通过 `@ResponseMessage` 指定成功提示，文件下载等原始响应使用 `@NotWrap`。HTTP JSON 统一使用 Fastjson2 Spring 6 消息转换器，避免 Fastjson2 与 Jackson 在同一响应链路中并存。
+
 ---
 
 ## 关键基础设施
