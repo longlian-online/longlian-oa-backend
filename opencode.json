@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "custom": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Custom OpenAI-Compatible Provider",
+      "options": {
+        "baseURL": "{env:OPENCODE_BASE_URL}",
+        "apiKey": "{env:OPENCODE_API_KEY}"
+      },
+      "models": {
+        "gpt-5.6-terra": {
+          "name": "GPT-5.6 Terra"
+        }
+      }
+    }
+  }
+}

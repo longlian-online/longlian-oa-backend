@@ -24,8 +24,9 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL }}
         with:
-          model: opencode-go/deepseek-v4-pro
+          model: custom/gpt-5.6-terra
           prompt: |
             你是 Spring Boot 项目的定期代码审查专家。审查近一周 `release/v1.0.0` 分支的代码变更，生成结构化报告。
 
