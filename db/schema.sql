@@ -55,7 +55,6 @@ CREATE TABLE `group_application` (
   `review_remark` varchar(500) NULL DEFAULT "" COMMENT "审核备注",
   `application_type` tinyint NULL COMMENT "申请入组的类型：0-注册入组 1-已注册用户入组",
   `username` varchar(50) NULL COMMENT "用户名",
-  `password` varchar(100) NULL COMMENT "密码",
   `nickname` varchar(50) NULL DEFAULT "" COMMENT "昵称",
   `email` varchar(100) NULL DEFAULT "" COMMENT "邮箱",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
