@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.TaskScheduler;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -51,7 +52,7 @@ class ScheduledTaskEngineTest {
         when(taskLogService.insertRunningLog(eq("long-running"), any(), eq(TriggerSource.MANUAL), any(), eq(1L), any()))
                 .thenReturn(1L);
         ScheduledTaskEngine engine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, sessionService, taskLogService, lockService);
+                taskScheduler, applicationContext, sessionService, taskLogService, lockService, Clock.systemUTC());
         engine.start();
         engine.trigger("long-running", LocalDateTime.now());
 
