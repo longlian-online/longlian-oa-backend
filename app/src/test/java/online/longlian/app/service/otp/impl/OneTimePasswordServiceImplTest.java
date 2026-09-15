@@ -15,7 +15,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,18 +33,19 @@ class OneTimePasswordServiceImplTest {
     private OneTimePasswordMapper oneTimePasswordMapper;
 
     private OneTimePasswordServiceImpl service;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Shanghai"));
 
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OneTimePassword.class);
-        service = new OneTimePasswordServiceImpl(oneTimePasswordMapper);
+        service = new OneTimePasswordServiceImpl(oneTimePasswordMapper, clock);
     }
 
     @Test
     void generateOTP_insertsAndReturns() {
         OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
-                .expiredAt(LocalDateTime.now().plusMinutes(5))
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .bizType(OTPType.EmailVerify)
                 .creatorId(1L)
                 .build();
@@ -67,8 +71,8 @@ class OneTimePasswordServiceImplTest {
     void getValidOTP_alreadyUsed_throws() {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
-                .status(OTPStatus.USED).usedAt(LocalDateTime.now())
-                .expiredAt(LocalDateTime.now().plusMinutes(5))
+                .status(OTPStatus.USED).usedAt(LocalDateTime.now(clock))
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .build();
         when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
 
@@ -82,7 +86,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
                 .status(OTPStatus.PENDING).usedAt(null)
-                .expiredAt(LocalDateTime.now().minusMinutes(1))
+                .expiredAt(LocalDateTime.now(clock).minusMinutes(1))
                 .build();
         when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
 
@@ -96,7 +100,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
                 .status(OTPStatus.PENDING).usedAt(null)
-                .expiredAt(LocalDateTime.now().plusMinutes(5))
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .build();
         when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
 
@@ -119,7 +123,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
                 .status(OTPStatus.PENDING).usedAt(null)
-                .expiredAt(LocalDateTime.now().plusMinutes(5))
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .build();
         when(oneTimePasswordMapper.selectById(1L)).thenReturn(otp);
         when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(1);
@@ -134,7 +138,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
                 .status(OTPStatus.PENDING).usedAt(null)
-                .expiredAt(LocalDateTime.now().plusMinutes(5))
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .build();
         when(oneTimePasswordMapper.selectById(1L)).thenReturn(otp);
         when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(0);

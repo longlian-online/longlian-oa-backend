@@ -16,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+
 @ExtendWith(MockitoExtension.class)
 public class ResourceServiceTest {
     @Mock
@@ -35,7 +37,7 @@ public class ResourceServiceTest {
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setType(StorageType.OSS);
         storageProperties.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageServiceFactory, storageProperties);
+        resourceService = new ResourceService(resourceMapper, storageServiceFactory, storageProperties, Clock.systemUTC());
     }
 
     @Test

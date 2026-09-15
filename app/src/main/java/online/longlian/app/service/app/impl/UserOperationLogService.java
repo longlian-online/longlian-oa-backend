@@ -9,6 +9,7 @@ import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 public class UserOperationLogService {
 
     private final UserOperationLogMapper userOperationLogMapper;
+    private final Clock clock;
 
     @Async("operationLogExecutor")
     public void log(Long userId, Long projectId, Long itemId,
@@ -28,8 +30,8 @@ public class UserOperationLogService {
                     .itemId(itemId)
                     .operationType(operationType)
                     .requestBody(requestBody != null ? JSON.toJSONString(requestBody) : null)
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
+                    .createdAt(LocalDateTime.now(clock))
+                    .updatedAt(LocalDateTime.now(clock))
                     .build();
             userOperationLogMapper.insert(operationLog);
         } catch (Exception e) {

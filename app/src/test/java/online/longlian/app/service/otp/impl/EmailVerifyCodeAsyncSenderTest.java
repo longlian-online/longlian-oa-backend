@@ -12,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -28,7 +30,7 @@ class EmailVerifyCodeAsyncSenderTest {
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), EmailVerifyOtp.class);
-        sender = new EmailVerifyCodeAsyncSender(emailVerifyOtpMapper, notificationManager);
+        sender = new EmailVerifyCodeAsyncSender(emailVerifyOtpMapper, notificationManager, Clock.systemUTC());
     }
 
     @Test
