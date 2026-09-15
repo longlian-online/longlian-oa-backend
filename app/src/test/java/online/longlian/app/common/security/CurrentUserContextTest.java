@@ -38,6 +38,15 @@ class CurrentUserContextTest {
     }
 
     @Test
+    void getAdminIdReturnsNullForUserOrMissingAuthentication() {
+        assertThat(context.getAdminId()).isNull();
+        UserDetailImpl user = UserDetailImpl.builder().id(42L).build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(user, null));
+        assertThat(context.getAdminId()).isNull();
+    }
+
+    @Test
     void requireUserRejectsMissingOrWrongPrincipal() {
         assertThatThrownBy(context::requireUser)
                 .isInstanceOf(AppException.class);
