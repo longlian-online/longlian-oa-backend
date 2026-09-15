@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-class OssStorageServiceTest {
+public class OssStorageServiceTest {
     @Test
-    void shouldDeleteExactObjectKeyFromConfiguredBucket() {
+    public void shouldDeleteExactObjectKeyFromConfiguredBucket() {
         COSClient cosClient = mock(COSClient.class);
         StorageProperties.OssConfig config = new StorageProperties.OssConfig();
         config.setBucket("resource-bucket");

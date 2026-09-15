@@ -23,7 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class DeprecatedResourceCleanupServiceTest {
+public class DeprecatedResourceCleanupServiceTest {
     @Mock
     private ResourceMapper resourceMapper;
     @Mock
@@ -34,7 +34,7 @@ class DeprecatedResourceCleanupServiceTest {
     private DeprecatedResourceCleanupService cleanupService;
 
     @Test
-    void shouldDeleteDeprecatedLocalResourceAndMarkCleaned() {
+    public void shouldDeleteDeprecatedLocalResourceAndMarkCleaned() {
         LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 12, 0);
         DeprecatedResourceCleanupBO resource = resource(1L, StorageType.LOCAL, "avatar/1.png", 0);
         when(resourceMapper.selectDeprecatedForCleanup(FileProcessStatus.Deprecated, executeTime, 100))
@@ -50,7 +50,7 @@ class DeprecatedResourceCleanupServiceTest {
     }
 
     @Test
-    void shouldDeleteDeprecatedOssResourceUsingItsPersistedStorageType() {
+    public void shouldDeleteDeprecatedOssResourceUsingItsPersistedStorageType() {
         LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 12, 0);
         DeprecatedResourceCleanupBO resource = resource(2L, StorageType.OSS, "cover/2.jpg", 0);
         when(resourceMapper.selectDeprecatedForCleanup(FileProcessStatus.Deprecated, executeTime, 100))
@@ -66,7 +66,7 @@ class DeprecatedResourceCleanupServiceTest {
     }
 
     @Test
-    void shouldRecordRetryableFailureWithoutMarkingResourceCleaned() {
+    public void shouldRecordRetryableFailureWithoutMarkingResourceCleaned() {
         LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 12, 0);
         DeprecatedResourceCleanupBO resource = resource(3L, StorageType.LOCAL, "avatar/3.png", 1);
         when(resourceMapper.selectDeprecatedForCleanup(FileProcessStatus.Deprecated, executeTime, 100))

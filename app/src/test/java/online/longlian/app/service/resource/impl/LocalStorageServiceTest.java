@@ -10,12 +10,12 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class LocalStorageServiceTest {
+public class LocalStorageServiceTest {
     @TempDir
     Path storageRoot;
 
     @Test
-    void shouldDeleteOnlyTheExactStorageKey() throws Exception {
+    public void shouldDeleteOnlyTheExactStorageKey() throws Exception {
         Path obsoleteFile = Files.createDirectories(storageRoot.resolve("avatar")).resolve("obsolete.png");
         Files.writeString(obsoleteFile, "obsolete");
         Path activeFile = Files.writeString(storageRoot.resolve("avatar/active.png"), "active");
@@ -29,7 +29,7 @@ class LocalStorageServiceTest {
     }
 
     @Test
-    void shouldRejectStorageKeyOutsideConfiguredRoot() {
+    public void shouldRejectStorageKeyOutsideConfiguredRoot() {
         LocalStorageService storageService = new LocalStorageService(storageProperties());
 
         assertThatThrownBy(() -> storageService.delete("../outside"))
