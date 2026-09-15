@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class LocalStorageService implements StorageService {
@@ -43,17 +44,17 @@ public class LocalStorageService implements StorageService {
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
         String key = params.getKey();
-        String uploadUrl = localConfig.getBaseUrl() + "/upload/local?key=" + key;
+        String uploadUrl = localConfig.getBaseUrl().replaceAll("/+$", "") + "/upload/local?key=" + key;
         return new PresignedUploadUrlResultBO(uploadUrl, key);
     }
 
     @Override
     public String getResourceReadUrl(String key) {
-        return "";
+        return localConfig.getBaseUrl().replaceAll("/+$", "") + "/" + key;
     }
 
     @Override
     public Map<String, String> getResourceReadUrls(List<String> keys) {
-        return Map.of();
+        return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
     }
 }

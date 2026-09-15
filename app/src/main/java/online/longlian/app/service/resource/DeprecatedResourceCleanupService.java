@@ -41,14 +41,15 @@ public class DeprecatedResourceCleanupService {
         } catch (Exception exception) {
             int attempts = resource.getCleanupAttempts() + 1;
             LocalDateTime nextAttemptAt = executeTime.plusMinutes(retryDelayMinutes(attempts));
+            String failure = truncateFailure(exception);
             resourceMapper.recordCleanupFailure(
                     resource.getId(),
                     FileProcessStatus.Deprecated,
-                    truncateFailure(exception),
+                    failure,
                     nextAttemptAt
             );
-            log.warn("废弃资源物理清理失败 | resourceId={} storageType={} storageKey={} nextAttemptAt={}",
-                    resource.getId(), resource.getStorageType(), resource.getStorageKey(), nextAttemptAt, exception);
+            log.warn("废弃资源物理清理失败 | resourceId={} storageType={} storageKey={} nextAttemptAt={} error={}",
+                    resource.getId(), resource.getStorageType(), resource.getStorageKey(), nextAttemptAt, failure);
         }
     }
 

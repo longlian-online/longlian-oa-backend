@@ -18,6 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,6 +89,65 @@ public class DeprecatedResourceCleanupServiceTest {
         );
         assertThat(nextAttemptAt.getValue()).isEqualTo(executeTime.plusMinutes(15));
         verify(resourceMapper, never()).markStorageCleaned(any(), any(), any());
+    }
+
+    @Test
+    public void shouldSkipResourceThatIsNoLongerDeprecated() {
+        LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 12, 0);
+        DeprecatedResourceCleanupBO resource = resource(4L, StorageType.LOCAL, "avatar/4.png", 0);
+        when(resourceMapper.selectDeprecatedForCleanup(FileProcessStatus.Deprecated, executeTime, 100))
+                .thenReturn(List.of(resource));
+        when(resourceMapper.selectDeprecatedForCleanupById(4L, FileProcessStatus.Deprecated)).thenReturn(null);
+
+        cleanupService.cleanup(executeTime);
+
+        verifyNoInteractions(storageServiceFactory, storageService);
+        verify(resourceMapper, never()).markStorageCleaned(any(), any(), any());
+    }
+
+    @Test
+    public void shouldApplyIncreasingRetryBackoff() {
+        LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 12, 0);
+        List<DeprecatedResourceCleanupBO> resources = List.of(
+                resource(5L, StorageType.LOCAL, "avatar/5.png", 0),
+                resource(6L, StorageType.LOCAL, "avatar/6.png", 2),
+                resource(7L, StorageType.LOCAL, "avatar/7.png", 3),
+                resource(8L, StorageType.LOCAL, "avatar/8.png", 4)
+        );
+        when(resourceMapper.selectDeprecatedForCleanup(FileProcessStatus.Deprecated, executeTime, 100))
+                .thenReturn(resources);
+        resources.forEach(resource -> when(resourceMapper.selectDeprecatedForCleanupById(
+                resource.getId(), FileProcessStatus.Deprecated)).thenReturn(resource));
+        when(storageServiceFactory.get(StorageType.LOCAL)).thenReturn(storageService);
+        doThrow(new IllegalStateException("storage unavailable")).when(storageService).delete(anyString());
+        ArgumentCaptor<LocalDateTime> nextAttemptAt = ArgumentCaptor.forClass(LocalDateTime.class);
+
+        cleanupService.cleanup(executeTime);
+
+        verify(resourceMapper, times(4)).recordCleanupFailure(any(), any(), any(), nextAttemptAt.capture());
+        assertThat(nextAttemptAt.getAllValues()).containsExactly(
+                executeTime.plusMinutes(5),
+                executeTime.plusMinutes(60),
+                executeTime.plusMinutes(360),
+                executeTime.plusMinutes(1440)
+        );
+    }
+
+    @Test
+    public void shouldTruncateOversizedFailureMessage() {
+        LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 12, 0);
+        DeprecatedResourceCleanupBO resource = resource(9L, StorageType.LOCAL, "avatar/9.png", 0);
+        when(resourceMapper.selectDeprecatedForCleanup(FileProcessStatus.Deprecated, executeTime, 100))
+                .thenReturn(List.of(resource));
+        when(resourceMapper.selectDeprecatedForCleanupById(9L, FileProcessStatus.Deprecated)).thenReturn(resource);
+        when(storageServiceFactory.get(StorageType.LOCAL)).thenReturn(storageService);
+        doThrow(new IllegalStateException("x".repeat(1200))).when(storageService).delete("avatar/9.png");
+        ArgumentCaptor<String> failure = ArgumentCaptor.forClass(String.class);
+
+        cleanupService.cleanup(executeTime);
+
+        verify(resourceMapper).recordCleanupFailure(eq(9L), eq(FileProcessStatus.Deprecated), failure.capture(), any());
+        assertThat(failure.getValue()).hasSize(1000);
     }
 
     private DeprecatedResourceCleanupBO resource(Long id, StorageType storageType, String storageKey, int attempts) {
