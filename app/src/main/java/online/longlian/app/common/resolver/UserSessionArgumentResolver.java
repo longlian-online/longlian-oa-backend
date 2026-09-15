@@ -1,7 +1,7 @@
 package online.longlian.app.common.resolver;
 
 import online.longlian.app.common.annotation.UserSession;
-import online.longlian.app.service.app.SessionService;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
@@ -13,12 +13,12 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 @Component
 public class UserSessionArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private final SessionService sessionService;
+    private final CurrentUserContext currentUserContext;
     private final CurrentOrganizationService currentOrganizationService;
 
-    public UserSessionArgumentResolver(SessionService sessionService,
+    public UserSessionArgumentResolver(CurrentUserContext currentUserContext,
                                         CurrentOrganizationService currentOrganizationService) {
-        this.sessionService = sessionService;
+        this.currentUserContext = currentUserContext;
         this.currentOrganizationService = currentOrganizationService;
     }
 
@@ -30,7 +30,7 @@ public class UserSessionArgumentResolver implements HandlerMethodArgumentResolve
     @Override
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                    NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
-        Long userId = sessionService.getCurrentUserId();
+        Long userId = currentUserContext.requireUserId();
         UserSession annotation = parameter.getParameterAnnotation(UserSession.class);
         Long orgId;
         if (annotation != null && annotation.required()) {
