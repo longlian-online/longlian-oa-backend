@@ -4,6 +4,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,10 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.CRC32;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -142,6 +147,54 @@ class LocalStorageServiceTest {
 
         assertThat(storageService.getResource("task/1.bin").getContentAsByteArray())
                 .containsExactly(1, 2, 3);
+    }
+
+    @Test
+    void shouldRejectConcurrentWriteAndKeepFirstContent(@TempDir Path directory) throws Exception {
+        LocalStorageService storageService = storageService(directory);
+        CountDownLatch opened = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        InputStream delayed = new ByteArrayInputStream(new byte[]{1}) {
+            @Override
+            public int read(byte[] buffer, int offset, int length) {
+                opened.countDown();
+                try {
+                    resume.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+                return super.read(buffer, offset, length);
+            }
+        };
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            var first = executor.submit(() -> storageService.upload(LocalFileWriteParamsBO.builder()
+                    .storageKey("task/1.bin").content(delayed).expectedSize(1L).build()));
+            assertThat(opened.await(10, TimeUnit.SECONDS)).isTrue();
+
+            assertThatThrownBy(() -> storageService.upload(writeParams("task/1.bin", new byte[]{2}, 1L, null)))
+                    .isInstanceOf(AppException.class);
+            resume.countDown();
+            first.get(10, TimeUnit.SECONDS);
+        }
+
+        assertThat(Files.readAllBytes(directory.resolve("task/1.bin"))).containsExactly(1);
+    }
+
+    @Test
+    void shouldProbeStoredFileBeforeBinding(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        byte[] png = createPng();
+        storageService.upload(writeParams("avatar/1.png", png, png.length, "image/png"));
+
+        storageService.probe(new ResourceProbeParamsBO("avatar/1.png", (long) png.length, "image/png"));
+
+        assertThatThrownBy(() -> storageService.probe(
+                new ResourceProbeParamsBO("avatar/1.png", (long) png.length + 1, "image/png")))
+                .isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> storageService.probe(
+                new ResourceProbeParamsBO("missing.png", 1L, "image/png")))
+                .isInstanceOf(AppException.class);
     }
 
     @Test

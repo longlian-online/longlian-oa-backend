@@ -2,6 +2,7 @@ package online.longlian.app.service.resource;
 
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.common.enumeration.StorageType;
 
 import java.util.List;
@@ -47,5 +48,10 @@ public interface StorageService {
      * @return key 到 URL 的映射
      */
     Map<String, String> getResourceReadUrls(List<String> keys);
+
+    /**
+     * 确认文件已由存储后端完整保存。
+     */
+    void probe(ResourceProbeParamsBO params);
 
 }

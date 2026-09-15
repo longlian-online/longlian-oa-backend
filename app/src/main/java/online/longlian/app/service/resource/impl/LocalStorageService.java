@@ -1,6 +1,5 @@
 package online.longlian.app.service.resource.impl;
 
-import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
@@ -8,6 +7,7 @@ import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.common.enumeration.StorageType;
@@ -23,10 +23,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
@@ -35,7 +34,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@Slf4j
 public class LocalStorageService implements StorageService {
     private static final int COPY_BUFFER_SIZE = 8192;
     private static final long MAX_IMAGE_PIXELS = 25_000_000L;
@@ -80,21 +78,38 @@ public class LocalStorageService implements StorageService {
 
     public void upload(LocalFileWriteParamsBO params) {
         Path target = resolveKey(params.getStorageKey());
-        Path temporaryFile = null;
+        boolean created = false;
+        boolean completed = false;
         try {
             Files.createDirectories(target.getParent());
-            if (Files.exists(target)) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "文件已完成上传");
+            try (InputStream content = params.getContent();
+                 OutputStream output = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                created = true;
+                writeContent(content, output, params.getExpectedSize());
             }
-            temporaryFile = Files.createTempFile(target.getParent(), ".upload-", ".tmp");
-            writeContent(params.getContent(), temporaryFile, params.getExpectedSize());
-            validateImage(temporaryFile, params.getExpectedMimeType());
-            moveIntoPlace(temporaryFile, target);
-            temporaryFile = null;
+            validateImage(target, params.getExpectedMimeType());
+            completed = true;
+        } catch (FileAlreadyExistsException e) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "文件已完成上传");
         } catch (IOException e) {
             throw new IllegalStateException("本地文件写入失败", e);
         } finally {
-            deleteTemporaryFile(temporaryFile);
+            if (created && !completed) {
+                deleteFile(target);
+            }
+        }
+    }
+
+    @Override
+    public void probe(ResourceProbeParamsBO params) {
+        Path target = resolveKey(params.storageKey());
+        try {
+            if (!Files.isRegularFile(target) || Files.size(target) != params.expectedSize()) {
+                throw incompleteFile();
+            }
+            validateImage(target, params.expectedMimeType());
+        } catch (IOException e) {
+            throw incompleteFile();
         }
     }
 
@@ -132,19 +147,16 @@ public class LocalStorageService implements StorageService {
         return target;
     }
 
-    private void writeContent(InputStream content, Path temporaryFile, long expectedSize) throws IOException {
+    private void writeContent(InputStream content, OutputStream output, long expectedSize) throws IOException {
         long actualSize = 0;
         byte[] buffer = new byte[COPY_BUFFER_SIZE];
-        try (content; OutputStream output = Files.newOutputStream(temporaryFile,
-                StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            int read;
-            while ((read = content.read(buffer)) != -1) {
-                actualSize += read;
-                if (actualSize > expectedSize) {
-                    throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
-                }
-                output.write(buffer, 0, read);
+        int read;
+        while ((read = content.read(buffer)) != -1) {
+            actualSize += read;
+            if (actualSize > expectedSize) {
+                throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
             }
+            output.write(buffer, 0, read);
         }
         if (actualSize != expectedSize) {
             throw new AppException(ResultCode.PARAM_ERROR, "文件大小不匹配");
@@ -200,26 +212,16 @@ public class LocalStorageService implements StorageService {
         };
     }
 
-    private void moveIntoPlace(Path temporaryFile, Path target) throws IOException {
+    private void deleteFile(Path file) {
         try {
-            Files.move(temporaryFile, target, StandardCopyOption.ATOMIC_MOVE);
-        // 是否支持原子移动由底层文件系统决定，CI 无法稳定构造不支持场景。
-        } catch (AtomicMoveNotSupportedException e) { // skipcq: TCV-001
-            Files.move(temporaryFile, target); // skipcq: TCV-001
+            Files.deleteIfExists(file);
+        } catch (IOException ignored) {
+            // 保留原始上传异常。
         }
     }
 
-    private void deleteTemporaryFile(Path temporaryFile) {
-        if (temporaryFile == null) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(temporaryFile);
-        } catch (IOException e) { // skipcq: TCV-001
-            // 上传失败时优先保留原始异常，临时文件由运维清理策略兜底。
-            log.warn("本地上传临时文件清理失败 | path={} | type={}", // skipcq: TCV-001
-                    temporaryFile, e.getClass().getSimpleName()); // skipcq: TCV-001
-        }
+    private AppException incompleteFile() {
+        return new AppException(ResultCode.OPERATION_FAIL, "文件未完成上传或内容不匹配");
     }
 
     private AppException invalidImage() {

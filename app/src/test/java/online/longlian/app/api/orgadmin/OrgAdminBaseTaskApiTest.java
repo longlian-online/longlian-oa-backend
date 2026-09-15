@@ -3,6 +3,7 @@ package online.longlian.app.api.orgadmin;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -39,6 +40,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
     void shouldCreateBaseTaskSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 12345L);
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)

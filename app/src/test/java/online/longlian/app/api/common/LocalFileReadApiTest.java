@@ -114,6 +114,32 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(Files.readAllBytes(Path.of(properties.getLocal().getDirectory()).resolve(created.key()))).isEqualTo(png);
     }
 
+    /** 未完成上传的资源不能替换业务引用，上传后可用同一 fileId 重试绑定。 */
+    @Test
+    void shouldKeepPendingResourceWhenBindingBeforeUpload() throws IOException {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        byte[] png = createPng();
+        LocalUpload created = createLocalUpload(token, png.length);
+
+        authRequest(token).body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
+                .put("/app/user/").then()
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        Integer pendingStatus = jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, created.key());
+        assertThat(pendingStatus).isEqualTo(FileProcessStatus.Pending.getCode());
+
+        putSignedUpload(created.uploadUrl(), png)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
+                .put("/app/user/").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Integer activatedStatus = jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, created.key());
+        assertThat(activatedStatus).isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
     /** 声明为图片但内容无法解码时拒绝上传，并保留待上传状态。 */
     @Test
     void shouldRejectFakeLocalImage() {

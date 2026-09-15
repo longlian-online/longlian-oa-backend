@@ -12,6 +12,7 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
@@ -132,11 +133,17 @@ public class ResourceService {
         }
         Long resourceId = params.getResourceId();
         if (isResourceId(resourceId)) {
+            if (Objects.equals(resourceId, params.getReplacedResourceId())) {
+                return;
+            }
+            Resource resource = loadOwnedResource(resourceId, params);
+            ensureUploaded(resource, params);
             int updated = resourceMapper.update(null,
                     new LambdaUpdateWrapper<Resource>()
                             .eq(Resource::getId, resourceId)
                             .eq(Resource::getCreatorId, params.getCreatorId())
                             .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
+                            .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
                             .set(Resource::getBizId, params.getBizId())
                             .set(Resource::getProcessStatus, FileProcessStatus.Activated)
                             .set(Resource::getUpdatedAt, LocalDateTime.now()));
@@ -146,6 +153,38 @@ public class ResourceService {
         }
         if (!Objects.equals(resourceId, params.getReplacedResourceId())) {
             deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
+        }
+    }
+
+    private Resource loadOwnedResource(Long resourceId, ResourceBindParamsBO params) {
+        Resource resource = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
+                .eq(Resource::getId, resourceId)
+                .eq(Resource::getCreatorId, params.getCreatorId())
+                .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId()));
+        if (resource == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
+        return resource;
+    }
+
+    private void ensureUploaded(Resource resource, ResourceBindParamsBO params) {
+        if (resource.getProcessStatus() == FileProcessStatus.Pending) {
+            storageFactory.get(resource.getStorageType()).probe(
+                    new ResourceProbeParamsBO(resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+            int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                    .eq(Resource::getId, resource.getId())
+                    .eq(Resource::getCreatorId, params.getCreatorId())
+                    .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                    .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                    .set(Resource::getUpdatedAt, LocalDateTime.now()));
+            if (updated == 1) {
+                return;
+            }
+            resource = loadOwnedResource(resource.getId(), params);
+        }
+        if (resource.getProcessStatus() != FileProcessStatus.Uploaded) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
         }
     }
 

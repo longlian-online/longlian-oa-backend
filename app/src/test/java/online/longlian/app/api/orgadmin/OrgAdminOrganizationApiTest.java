@@ -43,6 +43,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
         createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 12345L);
         jdbcTemplate.update("UPDATE organization SET avatar_file_id = 1 WHERE id = 1");
         jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 1");
         String token = loginAs("orgadmin", "123456");
