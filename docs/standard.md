@@ -16,6 +16,14 @@
 ## Mapper
 1. 数据库操作调用 Mapper 方法操作（参考https://baomidou.com/guides/data-interface/#mapper-interface），以 Lambda 操作优先，以保证类型安全
 
+## 数据库变更
+
+1. 数据库使用 Atlas 声明式管理，`db/schema.sql` 是数据库结构的唯一真实来源。
+2. 修改数据库结构时，直接修改 `db/schema.sql` 中对应的现有表定义，使其表达目标状态。
+3. 禁止新增或维护版本式迁移目录、迁移文件或重复的建表脚本；不要在 `db/data-migrations/` 下编写结构变更 SQL。
+4. 开发环境使用 `./db/migrate.sh dev plan` 预览变更，再使用 `./db/migrate.sh dev apply` 同步数据库；生产环境必须先审核 `./db/migrate.sh prod plan` 的结果。
+5. 从 `schema.sql` 移除字段、表或其他对象只表达目标结构。生产环境的删除操作受保护，不会自动执行；涉及历史数据清理的变更必须作为单独、经审核的运维操作执行。
+
 ## 定时任务
 1. 任务须实现 `ScheduledTask` 接口，通过 `getDefinition()` 返回任务定义
 2. 任务定义使用 `ScheduledTaskDefinition` 构造，包含：taskName（唯一标识）、description、cronExpression（Spring 6字段格式）、enabled
