@@ -12,6 +12,7 @@ public interface StorageService {
     StorageType getStorageType();
     PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params);
     String getResourceReadUrl(String key);
+    void delete(String key);
 
     /**
      * 返回文件地址

@@ -94,8 +94,8 @@ public class ResourceService {
                 Resource::getStorageKey,
                 Resource::getStorageType,
                 Resource::getOrgId
-        ).in(Resource::getId, resourceIds);
-
+        ).in(Resource::getId, resourceIds)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Activated);
         List<Resource> resources = resourceMapper.selectList(query);
 
         Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));

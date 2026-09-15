@@ -78,6 +78,7 @@ storage:
   type: ${STORAGE_TYPE:LOCAL}   # LOCAL 或 OSS
   local:
     base-url: ${STORAGE_LOCAL_BASE_URL:}
+    base-path: ${STORAGE_LOCAL_BASE_PATH:./storage}
   oss:
     bucket: ${STORAGE_OSS_BUCKET}
     region: ${STORAGE_OSS_REGION}

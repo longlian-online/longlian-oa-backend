@@ -30,15 +30,27 @@ public class OssStorageService implements StorageService, DisposableBean {
     private final StorageProperties.OssConfig ossConfig;
 
     public OssStorageService(StorageProperties storageProperties) {
-        ossConfig = storageProperties.getOss();
+        this(createCosClient(storageProperties.getOss()), storageProperties.getOss());
+    }
+
+    OssStorageService(COSClient cosClient, StorageProperties.OssConfig ossConfig) {
+        this.cosClient = cosClient;
+        this.ossConfig = ossConfig;
+    }
+
+    private static COSClient createCosClient(StorageProperties.OssConfig ossConfig) {
         COSCredentials cred = new BasicCOSCredentials(ossConfig.getSecretId(), ossConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(ossConfig.getRegion()));
-        this.cosClient = new COSClient(cred, clientConfig);
+        return new COSClient(cred, clientConfig);
     }
 
     @Override
     public StorageType getStorageType() {
         return StorageType.OSS;
+    }
+    @Override
+    public void delete(String key) {
+        cosClient.deleteObject(ossConfig.getBucket(), key);
     }
 
     private String getPresignUrl(String key, HttpMethodName method) {

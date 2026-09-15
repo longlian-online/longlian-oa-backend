@@ -1,35 +1,22 @@
-package online.longlian.app.service.resource;
+package online.longlian.app.service.resource.impl;
 
-import online.longlian.app.pojo.bo.PresignedUploadUrlParamsBO;
-import online.longlian.app.pojo.bo.PresignedUploadUrlResultBO;
-import online.longlian.app.service.resource.impl.OssStorageService;
-import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.Disabled;
+import com.qcloud.cos.COSClient;
+import online.longlian.app.common.properties.StorageProperties;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
-import java.util.concurrent.atomic.AtomicReference;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
-
-@SpringBootTest
-@ActiveProfiles
-@Disabled
-public class OssStorageServiceTest {
-
-    @Autowired
-    private OssStorageService ossStorageService;
-
+class OssStorageServiceTest {
     @Test
-    void testGeneratePresignedUploadUrl() {
-        AtomicReference<PresignedUploadUrlResultBO> result = new AtomicReference<>();
-        Assertions.assertThatCode(()->{
-            result.set(ossStorageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("key")));
-        }).doesNotThrowAnyException();
+    void shouldDeleteExactObjectKeyFromConfiguredBucket() {
+        COSClient cosClient = mock(COSClient.class);
+        StorageProperties.OssConfig config = new StorageProperties.OssConfig();
+        config.setBucket("resource-bucket");
+        OssStorageService storageService = new OssStorageService(cosClient, config);
 
-        Assertions.assertThat(result.get()).isNotNull();
-        Assertions.assertThat(result.get().getUploadUrl()).isNotEmpty();
-        Assertions.assertThat(result.get().getKey()).isNotEmpty();
+        storageService.delete("cover/obsolete.jpg");
+
+        verify(cosClient).deleteObject("resource-bucket", "cover/obsolete.jpg");
     }
 }
