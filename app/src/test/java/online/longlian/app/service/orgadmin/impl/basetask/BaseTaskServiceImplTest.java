@@ -2,6 +2,7 @@ package online.longlian.app.service.orgadmin.impl.basetask;
 
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.resource.ResourceService;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +18,7 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 
@@ -71,6 +73,10 @@ class BaseTaskServiceImplTest {
         verify(baseTaskMapper).insert(taskCaptor.capture());
         assertThat(taskCaptor.getValue().getIconFileId()).isEqualTo(20L);
         assertThat(taskCaptor.getValue().getIconName()).isEqualTo("Languages");
-        verify(resourceService).bindBizId(20L, 100L, 2L, 1L);
+        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
+                && resource.getReplacedResourceId() == null
+                && resource.getBizId().equals(100L)
+                && resource.getCreatorId().equals(2L)
+                && resource.getOrgId().equals(1L)));
     }
 }

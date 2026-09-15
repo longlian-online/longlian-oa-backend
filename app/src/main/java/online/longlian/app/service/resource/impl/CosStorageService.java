@@ -9,8 +9,11 @@ import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.region.Region;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.properties.StorageProperties;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.beans.factory.DisposableBean;
@@ -65,6 +68,24 @@ public class CosStorageService implements StorageService, DisposableBean {
     @Override
     public Map<String, String> getResourceReadUrls(List<String> keys) {
         return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
+    }
+
+    @Override
+    public void probe(ResourceProbeParamsBO params) {
+        try {
+            if (cosClient.getObjectMetadata(cosConfig.getBucket(), params.storageKey()).getContentLength()
+                    != params.expectedSize()) {
+                throw incompleteFile();
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw incompleteFile();
+        }
+    }
+
+    private AppException incompleteFile() {
+        return new AppException(ResultCode.OPERATION_FAIL, "文件未完成上传或内容不匹配");
     }
 
     @Override

@@ -2,6 +2,7 @@ package online.longlian.app.controller.common;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,14 +10,19 @@ import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
+import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
+import online.longlian.app.service.resource.LocalFileIngress;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @Slf4j
 @Tag(name = "文件上传接口", description = "文件预签名上传(用户端/管理端共用)，支持本地存储/OSS/COS")
@@ -26,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class FileStorageController {
 
     private final ResourceService resourceService;
+    private final LocalFileIngress localFileIngress;
 
     @Operation(
         summary = "创建文件上传",
@@ -42,8 +49,7 @@ public class FileStorageController {
                 createFileReqDTO.getFileExt(),
                 createFileReqDTO.getFileSize(),
                 createFileReqDTO.getFileMime(),
-                createFileReqDTO.getBizType(),
-                createFileReqDTO.getBizId()
+                createFileReqDTO.getBizType()
         );
         return resourceService.create(params);
     }
@@ -54,25 +60,26 @@ public class FileStorageController {
     )
     @PutMapping("/local")
     @ResponseMessage("上传成功")
-    public void uploadLocalFile(@RequestParam String key,
-                                @RequestBody byte[] content,
-                                @UserSession SessionContext sessionContext) {
-        resourceService.uploadLocalResource(
-                LocalFileUploadParamsBO.builder()
-                        .storageKey(key)
-                        .content(content)
-                        .userId(sessionContext.userId())
-                        .orgId(sessionContext.orgId())
-                        .build());
+    public void uploadLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
+                                HttpServletRequest request) {
+        try {
+            localFileIngress.upload(
+                    new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature()),
+                    request.getInputStream(),
+                    request.getContentLengthLong());
+        } catch (IOException e) {
+            throw new IllegalStateException("无法读取上传内容", e);
+        }
     }
 
     @Operation(
         summary = "读取本地文件",
-        description = "通过预签名 key 读取本地存储的文件内容，返回原始文件流"
+        description = "通过带有效期和签名的链接读取文件，裸 key 不可读取"
     )
     @NotWrap
-    @GetMapping("/local")
-    public ResponseEntity<Resource> readLocalFile(@RequestParam String key) {
-        return ResponseEntity.ok(resourceService.getLocalResource(key));
+    @GetMapping(value = "/local", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto) {
+        return ResponseEntity.ok(localFileIngress.read(
+                new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
     }
 }

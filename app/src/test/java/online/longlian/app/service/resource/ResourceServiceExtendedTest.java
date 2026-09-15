@@ -5,13 +5,12 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.bo.common.LocalFileUploadParamsBO;
-import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
-import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
-import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
-import online.longlian.app.service.resource.impl.NullStorageService;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
+import online.longlian.app.pojo.entity.Resource;
+import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,102 +101,163 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void bindBizId_nullResourceId_doesNothing() {
-        resourceService.bindBizId(null, 1L, 1L, 1L);
+    void bindBizResource_nullBizId_doesNothing() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder().resourceId(1L).build());
+
         verify(resourceMapper, never()).update(any(), any());
     }
 
     @Test
-    void bindBizId_zeroResourceId_doesNothing() {
-        resourceService.bindBizId(0L, 1L, 1L, 1L);
+    void bindBizResource_zeroResourceId_doesNothing() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder().resourceId(0L).bizId(1L).build());
+
         verify(resourceMapper, never()).update(any(), any());
     }
 
     @Test
-    void bindBizId_nullBizId_doesNothing() {
-        resourceService.bindBizId(1L, null, 1L, 1L);
-        verify(resourceMapper, never()).update(any(), any());
-    }
-
-    @Test
-    void bindBizId_updateFails_throws() {
+    void bindBizResource_updateFails_throws() {
+        Resource pending = pendingResource(1L);
+        when(resourceMapper.selectOne(any())).thenReturn(pending);
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
         when(resourceMapper.update(isNull(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> resourceService.bindBizId(1L, 2L, 1L, 1L))
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build()))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("无权使用该文件");
     }
 
     @Test
-    void bindBizId_updateSucceeds_noException() {
+    void bindBizResource_activationCompareAndSetFails_throws() {
+        Resource uploaded = pendingResource(1L);
+        uploaded.setProcessStatus(FileProcessStatus.Uploaded);
+        when(resourceMapper.selectOne(any())).thenReturn(uploaded);
+        when(resourceMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权使用该文件");
+    }
+
+    @Test
+    void bindBizResource_activatesNewResource() {
+        when(resourceMapper.selectOne(any())).thenReturn(pendingResource(1L));
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        when(resourceMapper.update(isNull(), any())).thenReturn(1, 1);
+
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+
+        verify(storageService).probe(new ResourceProbeParamsBO("avatar/1.png", 3L, "image/png"));
+        verify(resourceMapper, times(2)).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_replacesActivatedResource() {
+        when(resourceMapper.selectOne(any())).thenReturn(pendingResource(2L));
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        when(resourceMapper.update(isNull(), any())).thenReturn(1, 1, 1);
+
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(2L).replacedResourceId(1L).bizId(3L).creatorId(1L).orgId(1L).build());
+
+        verify(resourceMapper, times(3)).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_sameResourceDoesNotDeprecateIt() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).replacedResourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+
+        verifyNoInteractions(resourceMapper, storageFactory);
+    }
+
+    @Test
+    void bindBizResource_probeFailureKeepsPendingAndReplacement() {
+        when(resourceMapper.selectOne(any())).thenReturn(pendingResource(2L));
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        doThrow(new AppException(online.longlian.app.common.result.ResultCode.OPERATION_FAIL))
+                .when(storageService).probe(any());
+
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(2L).replacedResourceId(1L).bizId(3L).creatorId(1L).orgId(1L).build()))
+                .isInstanceOf(AppException.class);
+
+        verify(storageService).probe(any());
+        verify(resourceMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_uploadedResourceActivatesWithoutAnotherProbe() {
+        Resource uploaded = pendingResource(1L);
+        uploaded.setProcessStatus(FileProcessStatus.Uploaded);
+        when(resourceMapper.selectOne(any())).thenReturn(uploaded);
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
 
-        resourceService.bindBizId(1L, 2L, 1L, 1L);
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+
+        verifyNoInteractions(storageFactory);
+        verify(resourceMapper).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_zeroNewResourceDeprecatesReplacedResource() {
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(0L).replacedResourceId(1L).bizId(2L).orgId(1L).build());
 
         verify(resourceMapper).update(isNull(), any());
     }
 
     @Test
-    void uploadLocalResource_resourceNotFound_throws() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new byte[]{1, 2, 3})
-                .build();
+    void shouldRejectAvatarWithNonImageMime() {
+        ResourceCreateParamsBO params = new ResourceCreateParamsBO(
+                1L, 10L, "avatar.txt", "txt", 3L, "text/plain", "avatar");
+
+        assertThatThrownBy(() -> resourceService.create(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("只能上传图片");
+
+        verifyNoInteractions(storageFactory, resourceMapper);
+    }
+
+    @Test
+    void loadPending_found_returnsResource() {
+        Resource pending = Resource.builder().id(1L).storageKey("file/1.png").fileSize(3L).build();
+        when(resourceMapper.selectOne(any())).thenReturn(pending);
+
+        assertThat(resourceService.loadPending("file/1.png")).isSameAs(pending);
+    }
+
+    @Test
+    void loadPending_missing_throws() {
         when(resourceMapper.selectOne(any())).thenReturn(null);
 
-        assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
+        assertThatThrownBy(() -> resourceService.loadPending("file/1.png"))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("无权上传该文件");
+                .hasMessageContaining("无权上传或文件已完成上传");
     }
 
     @Test
-    void uploadLocalResource_sizeMismatch_throws() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new byte[]{1, 2, 3})
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(999L).build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
+    void loadActivated_found_returnsResource() {
+        Resource activated = Resource.builder().id(1L).storageKey("file/1.png").build();
+        when(resourceMapper.selectOne(any())).thenReturn(activated);
 
-        assertThatThrownBy(() -> resourceService.uploadLocalResource(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("文件大小不匹配");
+        assertThat(resourceService.loadActivated("file/1.png")).isSameAs(activated);
     }
 
     @Test
-    void uploadLocalResource_valid_uploadsAndActivates() {
-        LocalFileUploadParamsBO params = LocalFileUploadParamsBO.builder()
-                .storageKey("file/1.png").userId(1L).orgId(10L)
-                .content(new byte[]{1, 2, 3})
-                .build();
-        Resource resource = Resource.builder().id(1L).fileSize(3L).build();
-        when(resourceMapper.selectOne(any())).thenReturn(resource);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        when(resourceMapper.update(isNull(), any())).thenReturn(1);
+    void loadActivated_missing_throws() {
+        when(resourceMapper.selectOne(any())).thenReturn(null);
 
-        resourceService.uploadLocalResource(params);
-
-        verify(storageService).upload("file/1.png", new byte[]{1, 2, 3});
-        verify(resourceMapper).update(isNull(), any());
-    }
-
-    @Test
-    void getLocalResource_notFound_throws() {
-        when(resourceMapper.selectCount(any())).thenReturn(0L);
-
-        assertThatThrownBy(() -> resourceService.getLocalResource("missing.png"))
+        assertThatThrownBy(() -> resourceService.loadActivated("missing.png"))
                 .isInstanceOf(AppException.class);
     }
 
-    @Test
-    void getLocalResource_found_returnsResource() {
-        when(resourceMapper.selectCount(any())).thenReturn(1L);
-        when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
-        org.springframework.core.io.Resource mockResource = mock(org.springframework.core.io.Resource.class);
-        when(storageService.getResource("file/1.png")).thenReturn(mockResource);
-
-        org.springframework.core.io.Resource result = resourceService.getLocalResource("file/1.png");
-
-        assertThat(result).isEqualTo(mockResource);
+    private Resource pendingResource(Long id) {
+        return Resource.builder().id(id).creatorId(1L).orgId(1L).storageKey("avatar/1.png")
+                .storageType(StorageType.OSS).fileSize(3L).fileMime("image/png")
+                .processStatus(FileProcessStatus.Pending).build();
     }
 }

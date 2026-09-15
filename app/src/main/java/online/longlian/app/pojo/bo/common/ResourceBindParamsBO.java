@@ -2,18 +2,17 @@ package online.longlian.app.pojo.bo.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
-@Getter
+@Data
 @Builder
-@ToString(exclude = "content")
 @NoArgsConstructor
 @AllArgsConstructor
-public class LocalFileUploadParamsBO {
-    private String storageKey;
-    private byte[] content;
-    private Long userId;
+public class ResourceBindParamsBO {
+    private Long resourceId;
+    private Long replacedResourceId;
+    private Long bizId;
+    private Long creatorId;
     private Long orgId;
 }

@@ -3,10 +3,12 @@ package online.longlian.app.api.app;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class ProjectApiTest extends BaseApiTest {
@@ -188,6 +190,8 @@ public class ProjectApiTest extends BaseApiTest {
     void shouldCreateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 1L);
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -219,7 +223,11 @@ public class ProjectApiTest extends BaseApiTest {
     @Test
     void shouldUpdateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
         createResource(2L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 2L);
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 1");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -231,7 +239,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{}", 1L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -248,6 +256,12 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 1", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 2", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     /**

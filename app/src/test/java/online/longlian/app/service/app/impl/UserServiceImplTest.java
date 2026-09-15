@@ -1,5 +1,8 @@
 package online.longlian.app.service.app.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
@@ -8,9 +11,11 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
@@ -68,6 +73,7 @@ class UserServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
         service = new UserServiceImpl(
                 passwordEncoder,
                 organizationMapper,
@@ -121,6 +127,89 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldFailRegisterWhenUsernameAlreadyExists() {
+        stubRegisterValidation();
+        when(userMapper.selectOne(any())).thenReturn(User.builder().id(1L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("用户名已存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenEmailAlreadyExists() {
+        stubRegisterValidation();
+        when(userMapper.selectOne(any())).thenReturn(null, User.builder().id(1L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenJoinInviteDoesNotExist() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码不存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenJoinOrganizationDoesNotExist() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织不存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenJoinOrganizationIsDisabled() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectById(30L)).thenReturn(
+                Organization.builder().id(30L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织已被禁用");
+    }
+
+    @Test
+    void shouldDeprecatePreviousAvatarWhenReplacingIt() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
+        UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
+                .userId(1L).nickname("user").avatarFileId(20L).build();
+
+        service.updateMyInfo(params);
+
+        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
+                && resource.getReplacedResourceId().equals(10L)
+                && resource.getBizId().equals(1L)
+                && resource.getCreatorId().equals(1L)
+                && resource.getOrgId() == null));
+    }
+
+    @Test
+    void shouldKeepCurrentAvatarWhenFileIdIsUnchanged() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
+        UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
+                .userId(1L).nickname("user").avatarFileId(10L).build();
+
+        service.updateMyInfo(params);
+        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(10L)
+                && resource.getReplacedResourceId().equals(10L)));
+    }
+
+    @Test
     void registerAndJoinOrganizationStoresInviteIdOnApplication() {
         UserRegisterByInviteParamsBO params = UserRegisterByInviteParamsBO.builder()
                 .inviteCode("JOIN01").username("newuser").password("password")
@@ -159,6 +248,28 @@ class UserServiceImplTest {
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+    }
+
+    private void stubRegisterValidation() {
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.selectOne(any())).thenReturn(null);
+    }
+
+    private void stubJoinInvite() {
+        when(otpServiceFactory.get(OTPType.OrganizationUserInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+    }
+
+    private UserRegisterByInviteParamsBO registerParams() {
+        return UserRegisterByInviteParamsBO.builder()
+                .inviteCode("JOIN01")
+                .username("newuser")
+                .password("password")
+                .nickname("New User")
+                .email("new@example.com")
+                .code("EMAIL1")
+                .build();
     }
 
     private UserResetPasswordParamsBO resetPasswordParams() {

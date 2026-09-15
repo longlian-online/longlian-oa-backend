@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.app.ProjectListResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
@@ -160,7 +161,12 @@ public class ProjectServiceImpl implements ProjectService {
                 .updatedAt(now)
                 .build();
         projectMapper.insert(project);
-        resourceService.bindBizId(params.getCoverFileId(), project.getId(), params.getCreatorId(), params.getOrgId());
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(params.getCoverFileId())
+                .bizId(project.getId())
+                .creatorId(params.getCreatorId())
+                .orgId(params.getOrgId())
+                .build());
     }
 
     @Override
@@ -184,7 +190,13 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getCoverFileId, params.getCoverFileId())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
-        resourceService.bindBizId(params.getCoverFileId(), params.getProjectId(), params.getUserId(), params.getOrgId());
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(params.getCoverFileId())
+                .replacedResourceId(project.getCoverFileId())
+                .bizId(params.getProjectId())
+                .creatorId(params.getUserId())
+                .orgId(params.getOrgId())
+                .build());
     }
 
     @Override

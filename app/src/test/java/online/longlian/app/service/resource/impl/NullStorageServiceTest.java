@@ -1,7 +1,9 @@
 package online.longlian.app.service.resource.impl;
 
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.app.service.resource.StorageServiceFactory;
 import online.longlian.common.enumeration.StorageType;
@@ -44,16 +46,11 @@ class NullStorageServiceTest {
     }
 
     @Test
-    void upload_throwsUnsupported() {
-        assertThatThrownBy(() -> service.upload("key", new byte[]{}))
-                .isInstanceOf(UnsupportedOperationException.class);
+    void probe_rejectsUnsupportedStorage() {
+        assertThatThrownBy(() -> service.probe(new ResourceProbeParamsBO("a.png", 1L, "image/png")))
+                .isInstanceOf(AppException.class);
     }
 
-    @Test
-    void getResource_throwsUnsupported() {
-        assertThatThrownBy(() -> service.getResource("key"))
-                .isInstanceOf(UnsupportedOperationException.class);
-    }
 }
 
 class StorageServiceFactoryTest {

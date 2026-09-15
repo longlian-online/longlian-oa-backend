@@ -12,6 +12,9 @@
 #   task prod-down
 #
 # 应用配置挂载为 /app/config/application.yml，不走 .env。
+# 本地上传目录 bind 到 ./data/storage（相对本文件），便于备份和迁移。
+# 不要用 named volume：文件会藏进 Docker 卷目录，down -v 易误删。
+# 容器以非 root 的 appuser 写入；task prod 会先建目录并 chmod 1777。
 # 迁移从同一份 YAML 的 spring.datasource 推导连接，
 # 并在同一实例自动创建 {db}_atlas。
 
@@ -33,6 +36,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./application-prod.yml:/app/config/application.yml:ro
+      - ./data/storage:/app/data/storage
     ports:
       - "8080:8080"
     extra_hosts:
@@ -40,3 +44,4 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+

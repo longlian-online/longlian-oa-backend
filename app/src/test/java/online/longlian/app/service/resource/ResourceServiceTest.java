@@ -42,7 +42,7 @@ public class ResourceServiceTest {
 
     @Test
     void testCreate() {
-        ResourceCreateParamsBO params = new ResourceCreateParamsBO(1L, 1L, "test_file", "txt", 100L, "", "biz", 1L);
+        ResourceCreateParamsBO params = new ResourceCreateParamsBO(1L, 1L, "test_file", "txt", 100L, "", "biz");
         PresignedUploadUrlResultBO presignedUploadUrlResult= PresignedUploadUrlResultBO.builder().uploadUrl("xxxxxx").key("xxxxxx").build();
         Mockito.when(resourceMapper.insert(Mockito.any(Resource.class))).thenReturn(1);
         Mockito.when(storageServiceFactory.get(Mockito.any())).thenReturn(ossStorageService);

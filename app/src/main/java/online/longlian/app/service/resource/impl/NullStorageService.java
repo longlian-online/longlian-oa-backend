@@ -1,7 +1,10 @@
 package online.longlian.app.service.resource.impl;
 
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
@@ -30,5 +33,10 @@ public class NullStorageService implements StorageService {
     @Override
     public Map<String, String> getResourceReadUrls(List<String> keys) {
         return Collections.emptyMap();
+    }
+
+    @Override
+    public void probe(ResourceProbeParamsBO params) {
+        throw new AppException(ResultCode.OPERATION_FAIL, "当前存储不支持文件上传");
     }
 }
