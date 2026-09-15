@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,6 +52,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     private final CurrentUserContext currentUserContext;
     private final ScheduledTaskLogService taskLogService;
     private final DistributedLockService lockService;
+    private final Clock clock;
 
     /**
      * 所有已注册的任务，按 taskName 索引
@@ -109,12 +111,12 @@ public class ScheduledTaskEngine implements SmartLifecycle {
 
         // 快照当前运行中的任务，避免迭代期间 ConcurrentHashMap 弱一致性导致遗漏或重复
         Map<String, Thread> snapshot = new HashMap<>(runningTasks);
-        long deadline = System.currentTimeMillis() + shutdownTimeout.toMillis();
+        long deadline = clock.millis() + shutdownTimeout.toMillis();
 
         for (Map.Entry<String, Thread> entry : snapshot.entrySet()) {
             String taskName = entry.getKey();
             Thread thread = entry.getValue();
-            long remaining = deadline - System.currentTimeMillis();
+            long remaining = deadline - clock.millis();
             if (remaining > 0) {
                 try {
                     thread.join(remaining);
@@ -185,7 +187,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             return;
         }
         ScheduledTask task = getTask(taskName);
-        LocalDateTime execTime = executeTime != null ? executeTime : LocalDateTime.now();
+        LocalDateTime execTime = executeTime != null ? executeTime : LocalDateTime.now(clock);
         Long userId = getCurrentUserIdSafely();
 
         executeAndLog(task, taskName, execTime, TriggerSource.MANUAL, userId);
@@ -201,7 +203,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
                         log.info("系统正在关闭，跳过定时任务: {}", taskName);
                         return;
                     }
-                    executeAndLog(task, taskName, LocalDateTime.now(), TriggerSource.SCHEDULED, null);
+                    executeAndLog(task, taskName, LocalDateTime.now(clock), TriggerSource.SCHEDULED, null);
                 },
                 new CronTrigger(cronExpression));
     }
@@ -234,7 +236,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
      */
     private void doExecuteAndLog(ScheduledTask task, String taskName, LocalDateTime executeTime,
             TriggerSource source, Long triggeredBy) {
-        LocalDateTime startedAt = LocalDateTime.now();
+        LocalDateTime startedAt = LocalDateTime.now(clock);
 
         String traceId = TraceIdUtil.getTraceId();
         Long logId = taskLogService.insertRunningLog(taskName, executeTime, source, traceId, triggeredBy, startedAt);
@@ -254,7 +256,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             errorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
             log.error("定时任务执行失败: {}", taskName, e);
         } finally {
-            LocalDateTime endedAt = LocalDateTime.now();
+            LocalDateTime endedAt = LocalDateTime.now(clock);
             long durationMs = java.time.Duration.between(startedAt, endedAt).toMillis();
             taskLogService.updateLog(logId, finalStatus, errorMessage, endedAt, durationMs);
         }

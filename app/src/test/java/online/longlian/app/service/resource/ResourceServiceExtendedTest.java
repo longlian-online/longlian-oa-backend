@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.time.Clock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,7 +49,7 @@ class ResourceServiceExtendedTest {
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
         props.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageFactory, props);
+        resourceService = new ResourceService(resourceMapper, storageFactory, props, Clock.systemUTC());
     }
 
     @Test

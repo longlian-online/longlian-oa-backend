@@ -3,7 +3,6 @@ package online.longlian.app.common.resolver;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.service.common.CurrentOrganizationService;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -17,8 +16,8 @@ public class UserSessionArgumentResolver implements HandlerMethodArgumentResolve
     private final CurrentUserContext currentUserContext;
     private final CurrentOrganizationService currentOrganizationService;
 
-    public UserSessionArgumentResolver(@Lazy CurrentUserContext currentUserContext,
-                                        @Lazy CurrentOrganizationService currentOrganizationService) {
+    public UserSessionArgumentResolver(CurrentUserContext currentUserContext,
+                                        CurrentOrganizationService currentOrganizationService) {
         this.currentUserContext = currentUserContext;
         this.currentOrganizationService = currentOrganizationService;
     }

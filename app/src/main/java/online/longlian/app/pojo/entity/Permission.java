@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @TableName("permission")
 @ApiModel(value = "Permission对象", description = "权限表")
+@Deprecated(since = "2026-09", forRemoval = false)
 public class Permission implements Serializable {
 
     private static final long serialVersionUID = 1L;

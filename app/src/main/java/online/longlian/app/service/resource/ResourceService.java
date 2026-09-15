@@ -20,6 +20,7 @@ import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +38,7 @@ public class ResourceService {
     private final StorageServiceFactory storageFactory;
 
     private final StorageProperties storageProperties;
+    private final Clock clock;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
         // 1. 生成文件ID
@@ -59,8 +61,8 @@ public class ResourceService {
                 .bizId(params.getBizId())
                 .processStatus(FileProcessStatus.Pending)
                 .creatorId(params.getCreatorId())
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now(clock))
+                .updatedAt(LocalDateTime.now(clock))
                 .build();
 
         // 4. 获取上传链接
@@ -158,7 +160,7 @@ public class ResourceService {
         resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
                 .eq(Resource::getId, resource.getId())
                 .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
     }
 
     public org.springframework.core.io.Resource getLocalResource(String storageKey) {

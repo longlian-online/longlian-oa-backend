@@ -63,7 +63,7 @@ public class UserApiTest extends BaseApiTest {
         String email = "register-with-login-code@example.com";
         jdbcTemplate.update(
                 "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, ?, ?)",
-                otpId, "654321", LocalDateTime.now().plusMinutes(30), 3, 0, 0L
+                otpId, "654321", testNow().plusMinutes(30), 3, 0, 0L
         );
         jdbcTemplate.update(
                 "INSERT INTO email_verify_otp (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
@@ -344,9 +344,9 @@ public class UserApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, 0, 1, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 2L, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, 0, 1, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, "user2", "用户2", "user2@example.com"
         );
         String token2 = loginAs("user2", "123456");
 

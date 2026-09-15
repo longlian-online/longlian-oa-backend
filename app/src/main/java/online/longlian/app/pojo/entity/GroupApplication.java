@@ -100,13 +100,6 @@ public class GroupApplication implements Serializable {
     private String username;
 
     /**
-     * 密码
-     */
-    @ApiModelProperty("密码")
-    @TableField("password")
-    private String password;
-
-    /**
      * 昵称
      */
     @ApiModelProperty("昵称")

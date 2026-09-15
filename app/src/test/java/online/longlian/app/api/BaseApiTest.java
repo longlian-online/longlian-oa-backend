@@ -18,6 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
@@ -32,6 +33,12 @@ import static org.hamcrest.Matchers.equalTo;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Slf4j
 public abstract class BaseApiTest {
+
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
+
+    protected LocalDateTime testNow() {
+        return LocalDateTime.now(BUSINESS_ZONE);
+    }
 
     @LocalServerPort
     protected int port;
@@ -230,7 +237,7 @@ public abstract class BaseApiTest {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
-                otpId, code, LocalDateTime.now().plusMinutes(30), 3, creatorId
+                otpId, code, testNow().plusMinutes(30), 3, creatorId
         );
         jdbcTemplate.update(
                 "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
@@ -245,7 +252,7 @@ public abstract class BaseApiTest {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
-                otpId, code, LocalDateTime.now().plusMinutes(30), 2
+                otpId, code, testNow().plusMinutes(30), 2
         );
         jdbcTemplate.update(
                 "INSERT INTO `organization_join_otp` (id, otp_id, org_id) VALUES (?, ?, ?)",
@@ -260,7 +267,7 @@ public abstract class BaseApiTest {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
-                otpId, code, LocalDateTime.now().plusMinutes(30), 1
+                otpId, code, testNow().plusMinutes(30), 1
         );
         jdbcTemplate.update(
                 "INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)",

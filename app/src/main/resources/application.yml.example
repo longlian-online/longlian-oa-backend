@@ -38,7 +38,6 @@ spring:
     active: dev
   main:
     # 现有部分 Bean 存在环依赖，关闭会导致启动失败
-    allow-circular-references: true
   lifecycle:
     # 优雅停机等待上限，需大于最慢接口的可接受耗时
     timeout-per-shutdown-phase: 30s
