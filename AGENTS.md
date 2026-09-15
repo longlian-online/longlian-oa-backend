@@ -69,6 +69,8 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 
 ## 数据库变更规范
 
+详细规范见 [`docs/standard.md`](docs/standard.md) 和 [`db/DEVELOPMENT.md`](db/DEVELOPMENT.md)。
+
 1. 数据库采用 Atlas 声明式管理，`db/schema.sql` 是唯一真实来源
 2. **禁止直接修改 entity 类**，变更流程：修改 `db/schema.sql` → 开发环境执行 `./db/migrate.sh dev apply` 同步数据库 → 使用 `generator` 模块重新生成 entity/mapper/XML
 3. generator 模块通过注解驱动代码生成（如 `@ModelEnum` / `@ModelEnums` 生成枚举类）
