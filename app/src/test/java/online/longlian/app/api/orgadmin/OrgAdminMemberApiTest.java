@@ -40,6 +40,9 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
+        createTestUser(2L, "applyuser", "123456", "apply@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = 2");
+
         // 插入待审核的入组申请
         jdbcTemplate.update(
                 "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
