@@ -129,6 +129,36 @@ class ApplicationReviewHandlerTest {
     }
 
     @Test
+    void activateRegisteredApplication_userNotFound_throws() {
+        GroupApplication app = GroupApplication.builder().userId(99L).orgId(1L).build();
+        when(userMapper.selectById(99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
+                .isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void activateRegisteredApplication_enabledUser_throws() {
+        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
+        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("注册申请对应用户状态无效");
+    }
+
+    @Test
+    void activateRegisteredApplication_existingMember_throws() {
+        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
+        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(OrganizationMember.builder().id(8L).build());
+
+        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("申请人已加入该组织");
+    }
+
+    @Test
     void getExistingApplicationUser_userNotFound_throws() {
         GroupApplication app = GroupApplication.builder().userId(99L).orgId(1L).build();
         when(userMapper.selectById(99L)).thenReturn(null);
