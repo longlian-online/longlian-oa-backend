@@ -107,6 +107,10 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 - 分布式锁（Redis 可用但无封装）
 - 消息队列
 
+## 授权模型
+
+当前业务授权使用 `organization_member.org_role` 和管理员的 `admin.role`，控制器通过 `@PreAuthorize` 校验组织角色。`role`、`permission`、`role_permission`、`user_role` 表及对应生成代码属于冻结的历史 RBAC 模型，不参与登录、鉴权或权限查询；新增授权需求应先完成模型迁移决策，再解除冻结。
+
 ## Pull Request
 
 生成 pull request 消息必须参考 docs/pull_request_template.md 的格式
