@@ -188,7 +188,7 @@ CREATE TABLE `permission` (
   `deleted_at` datetime NULL COMMENT "软删除时间",
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_perm_code` (`perm_code`) COMMENT "权限编码唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "权限表";
+) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "权限表（冻结：当前授权使用 organization_member.org_role）";
 -- Create "project" table
 CREATE TABLE `project` (
   `id` bigint NOT NULL,
@@ -260,7 +260,7 @@ CREATE TABLE `role` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_role_code` (`role_code`) COMMENT "角色编码唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "角色表";
+) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "角色表（冻结：当前授权使用 organization_member.org_role）";
 -- Create "role_permission" table
 CREATE TABLE `role_permission` (
   `id` bigint NOT NULL COMMENT "主键ID",
@@ -271,7 +271,7 @@ CREATE TABLE `role_permission` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_role_perm` (`role_id`, `permission_id`) COMMENT "角色-权限唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "角色权限关联表";
+) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "角色权限关联表（冻结：当前授权使用 organization_member.org_role）";
 -- Create "scheduled_task_log" table
 CREATE TABLE `scheduled_task_log` (
   `id` bigint NOT NULL COMMENT "日志ID",
@@ -408,4 +408,4 @@ CREATE TABLE `user_role` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_user_role` (`user_id`, `role_id`) COMMENT "用户-角色唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "用户角色关联表";
+) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "用户角色关联表（冻结：当前授权使用 organization_member.org_role）";
