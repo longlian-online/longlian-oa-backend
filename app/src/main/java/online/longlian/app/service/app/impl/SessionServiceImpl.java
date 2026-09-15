@@ -22,7 +22,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -76,33 +75,19 @@ public class SessionServiceImpl implements SessionService {
     }
 
     @Override
-    public void refreshCurrentUserOrg(Long currentOrgId, List<String> roles) {
-        UserDetailImpl userDetail = getCurrentUser();
-        userDetail.setCurrentOrgId(currentOrgId);
-        userDetail.setRoles(roles == null ? List.of() : roles);
-        long ttlSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userDetail.getId(), TimeUnit.SECONDS);
+    public void refreshCurrentUserOrg(Long userId, Long currentOrgId, List<String> roles) {
+        LoginSessionCacheBO session = (LoginSessionCacheBO) redisTemplate.opsForValue()
+                .get(RedisConstants.LOGIN_USER + userId);
+        if (session == null) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+        session.setCurrentOrgId(currentOrgId);
+        session.setRoles(roles == null ? List.of() : roles);
+        long ttlSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userId, TimeUnit.SECONDS);
         if (ttlSeconds <= 0) {
             ttlSeconds = jwtUtil.getExpirationSeconds();
         }
-        cacheLoginSession(userDetail, ttlSeconds);
-    }
-
-    @Override
-    public UserDetailImpl getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getPrincipal() == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED);
-        }
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof UserDetailImpl userDetail)) {
-            throw new AppException(ResultCode.UNAUTHORIZED);
-        }
-        return userDetail;
-    }
-
-    @Override
-    public Long getCurrentUserId() {
-        return getCurrentUser().getId();
+        redisTemplate.opsForValue().set(RedisConstants.LOGIN_USER + userId, session, ttlSeconds, TimeUnit.SECONDS);
     }
 
     @Override

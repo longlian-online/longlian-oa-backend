@@ -1,7 +1,7 @@
 package online.longlian.app.scheduled;
 
 import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
-import online.longlian.app.service.app.SessionService;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
 import online.longlian.common.enumeration.TriggerSource;
 import online.longlian.common.service.DistributedLockService;
@@ -31,7 +31,7 @@ class ScheduledTaskEngineTest {
     @Mock
     private ApplicationContext applicationContext;
     @Mock
-    private SessionService sessionService;
+    private CurrentUserContext currentUserContext;
     @Mock
     private ScheduledTaskLogService taskLogService;
     @Mock
@@ -47,12 +47,12 @@ class ScheduledTaskEngineTest {
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("longRunningTask", task));
-        when(sessionService.getCurrentUserId()).thenReturn(1L);
+        when(currentUserContext.requireUserId()).thenReturn(1L);
         when(lockService.tryAcquire("scheduled-task:long-running", 0, TimeUnit.SECONDS)).thenReturn(lock);
         when(taskLogService.insertRunningLog(eq("long-running"), any(), eq(TriggerSource.MANUAL), any(), eq(1L), any()))
                 .thenReturn(1L);
         ScheduledTaskEngine engine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, sessionService, taskLogService, lockService, Clock.systemUTC());
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, Clock.systemUTC());
         engine.start();
         engine.trigger("long-running", LocalDateTime.now());
 

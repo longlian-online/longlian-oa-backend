@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.admin.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminLoginResultBO;
 import online.longlian.app.pojo.bo.admin.AdminLogoutParamsBO;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminSessionController {
 
     private final AdminSessionService adminSessionService;
+    private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "管理员登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("")
@@ -48,7 +50,7 @@ public class AdminSessionController {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return;
         }
-        Long adminId = adminSessionService.getCurrentAdminId();
+        Long adminId = currentUserContext.getAdminId();
         if (adminId == null) {
             return;
         }

@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -14,7 +15,6 @@ import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
-import online.longlian.app.service.admin.AdminSessionService;
 import online.longlian.app.service.admin.OrganizationService;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +28,7 @@ import java.util.List;
 public class AdminOrganizationController {
 
     private final OrganizationService organizationService;
-    private final AdminSessionService sessionService;
+    private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
@@ -66,7 +66,7 @@ public class AdminOrganizationController {
     @ResponseMessage("生成成功")
     public InviteCodeVO generateCreateOrgInviteCode() {
         AdminGenerateInviteCodeResultBO resultBO = organizationService.generateCreateOrgInviteCode(
-                new AdminGenerateCreateOrgInviteCodeParamsBO(sessionService.getCurrentAdminId())
+                new AdminGenerateCreateOrgInviteCodeParamsBO(currentUserContext.getAdminId())
         );
         return InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())

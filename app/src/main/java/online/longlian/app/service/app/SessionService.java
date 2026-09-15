@@ -1,6 +1,5 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
@@ -49,25 +48,11 @@ public interface SessionService {
     /**
      * 刷新当前用户在 SecurityContext 和 Redis 中的组织信息。
      *
+     * @param userId       当前用户 ID
      * @param currentOrgId 切换后的组织 ID
      * @param roles        切换后的角色列表
      */
-    void refreshCurrentUserOrg(Long currentOrgId, List<String> roles);
-
-    /**
-     * 从 SecurityContext 获取当前登录用户详情，未认证或 Token 无效时抛出
-     * {@link online.longlian.app.common.result.ResultCode#UNAUTHORIZED} 异常。
-     *
-     * @return 当前登录用户的认证详情
-     */
-    UserDetailImpl getCurrentUser();
-
-    /**
-     * 获取当前登录用户 ID。
-     *
-     * @return 当前登录用户的 ID
-     */
-    Long getCurrentUserId();
+    void refreshCurrentUserOrg(Long userId, Long currentOrgId, List<String> roles);
 
     /**
      * 清除用户会话缓存。

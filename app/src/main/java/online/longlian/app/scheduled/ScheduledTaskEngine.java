@@ -3,12 +3,12 @@ package online.longlian.app.scheduled;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.service.DistributedLockService;
 import online.longlian.app.common.util.TraceIdUtil;
 import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
-import online.longlian.app.service.app.SessionService;
 import online.longlian.common.enumeration.ScheduledTaskStatus;
 import online.longlian.common.enumeration.TriggerSource;
 import org.springframework.context.ApplicationContext;
@@ -49,7 +49,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
 
     private final TaskScheduler taskScheduler;
     private final ApplicationContext applicationContext;
-    private final SessionService sessionService;
+    private final CurrentUserContext currentUserContext;
     private final ScheduledTaskLogService taskLogService;
     private final DistributedLockService lockService;
     private final Clock clock;
@@ -267,7 +267,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
      */
     private Long getCurrentUserIdSafely() {
         try {
-            return sessionService.getCurrentUserId();
+            return currentUserContext.requireUserId();
         } catch (Exception e) {
             return null;
         }

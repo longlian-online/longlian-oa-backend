@@ -25,11 +25,30 @@ class CurrentUserContextTest {
                 new UsernamePasswordAuthenticationToken(user, null));
 
         assertThat(context.requireUserId()).isEqualTo(42L);
+        assertThat(context.requireUser()).isSameAs(user);
     }
 
     @Test
-    void requireUserIdRejectsMissingOrWrongPrincipal() {
-        assertThatThrownBy(context::requireUserId)
+    void getAdminIdReturnsAuthenticatedAdminId() {
+        AdminUserDetails admin = AdminUserDetails.from(7L, "admin", "root");
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(admin, null));
+
+        assertThat(context.getAdminId()).isEqualTo(7L);
+    }
+
+    @Test
+    void getAdminIdReturnsNullForUserOrMissingAuthentication() {
+        assertThat(context.getAdminId()).isNull();
+        UserDetailImpl user = UserDetailImpl.builder().id(42L).build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(user, null));
+        assertThat(context.getAdminId()).isNull();
+    }
+
+    @Test
+    void requireUserRejectsMissingOrWrongPrincipal() {
+        assertThatThrownBy(context::requireUser)
                 .isInstanceOf(AppException.class);
 
         SecurityContextHolder.getContext().setAuthentication(
