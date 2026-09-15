@@ -24,7 +24,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL }}
         with:
-          model: custom/deepseek-v4-pro
+          model: custom/gpt-5.6-terra
           prompt: |
             你是 Spring Boot 项目的 Issue 分类助手。阅读 Issue 内容并搜索代码库，按以下策略处理。
 
