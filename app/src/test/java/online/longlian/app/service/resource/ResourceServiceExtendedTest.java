@@ -127,6 +127,19 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
+    void bindBizResource_activationCompareAndSetFails_throws() {
+        Resource uploaded = pendingResource(1L);
+        uploaded.setProcessStatus(FileProcessStatus.Uploaded);
+        when(resourceMapper.selectOne(any())).thenReturn(uploaded);
+        when(resourceMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权使用该文件");
+    }
+
+    @Test
     void bindBizResource_activatesNewResource() {
         when(resourceMapper.selectOne(any())).thenReturn(pendingResource(1L));
         when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);

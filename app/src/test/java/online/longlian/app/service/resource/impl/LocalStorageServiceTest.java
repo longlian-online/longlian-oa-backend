@@ -8,6 +8,8 @@ import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.ImageIO;
@@ -313,6 +315,21 @@ class LocalStorageServiceTest {
         storageService.delete("task/1.bin");
 
         assertThat(directory.resolve("task/1.bin")).doesNotExist();
+    }
+
+    @Test
+    void shouldRejectProbeWhenFileSizeCannotBeRead(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        Path target = directory.toAbsolutePath().normalize().resolve("avatar/1.png");
+
+        try (MockedStatic<Files> files = Mockito.mockStatic(Files.class, Mockito.CALLS_REAL_METHODS)) {
+            files.when(() -> Files.isRegularFile(target)).thenReturn(true);
+            files.when(() -> Files.size(target)).thenThrow(new IOException("read failed"));
+
+            assertThatThrownBy(() -> storageService.probe(new ResourceProbeParamsBO("avatar/1.png", 1L, null)))
+                    .isInstanceOf(AppException.class)
+                    .hasMessageContaining("文件未完成上传或内容不匹配");
+        }
     }
 
     private LocalStorageService storageService(Path directory) {

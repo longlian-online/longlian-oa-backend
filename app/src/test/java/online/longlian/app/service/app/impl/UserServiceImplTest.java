@@ -127,6 +127,63 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldFailRegisterWhenUsernameAlreadyExists() {
+        stubRegisterValidation();
+        when(userMapper.selectOne(any())).thenReturn(User.builder().id(1L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("用户名已存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenEmailAlreadyExists() {
+        stubRegisterValidation();
+        when(userMapper.selectOne(any())).thenReturn(null, User.builder().id(1L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenJoinInviteDoesNotExist() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码不存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenJoinOrganizationDoesNotExist() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织不存在");
+    }
+
+    @Test
+    void shouldFailRegisterWhenJoinOrganizationIsDisabled() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectById(30L)).thenReturn(
+                Organization.builder().id(30L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织已被禁用");
+    }
+
+    @Test
     void shouldDeprecatePreviousAvatarWhenReplacingIt() {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
         UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
@@ -183,6 +240,28 @@ class UserServiceImplTest {
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+    }
+
+    private void stubRegisterValidation() {
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.selectOne(any())).thenReturn(null);
+    }
+
+    private void stubJoinInvite() {
+        when(otpServiceFactory.get(OTPType.OrganizationUserInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+    }
+
+    private UserRegisterByInviteParamsBO registerParams() {
+        return UserRegisterByInviteParamsBO.builder()
+                .inviteCode("JOIN01")
+                .username("newuser")
+                .password("password")
+                .nickname("New User")
+                .email("new@example.com")
+                .code("EMAIL1")
+                .build();
     }
 
     private UserResetPasswordParamsBO resetPasswordParams() {
