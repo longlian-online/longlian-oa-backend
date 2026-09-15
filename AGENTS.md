@@ -90,6 +90,13 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 ```
 异常统一通过 `AppException` 抛出，由 `GlobalExceptionHandler` 捕获转换为 `Result`。
 
+### 响应包装与序列化约定
+
+- Controller 的业务方法只返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 自动包装为 `Result<T>`。
+- 需要覆盖默认成功提示时使用 `@ResponseMessage`；文件下载等原始响应使用 `@NotWrap`。
+- Controller 禁止手动返回 `Result.success(...)`，异常处理器返回的 `Result` 保留原样，避免重复包装。
+- HTTP JSON 响应统一由 Fastjson2 Spring 6 消息转换器序列化，时间格式使用 `yyyy-MM-dd HH:mm:ss`；Jackson 仅保留给缓存等内部兼容场景。
+
 ## 已有基础设施（可直接复用）
 
 | 能力 | 关键类/方式 |

@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
@@ -163,7 +162,8 @@ public class TaskTemplateController {
     )
     @PatchMapping("/{templateId}/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
-    public Result<Void> changeTaskTemplateStatus(@UserSession(required = true) SessionContext sessionContext,
+    @ResponseMessage("状态修改成功")
+    public void changeTaskTemplateStatus(@UserSession(required = true) SessionContext sessionContext,
                                                   @PathVariable Long templateId,
                                                   @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         taskTemplateService.changeTaskTemplateStatus(
@@ -173,6 +173,5 @@ public class TaskTemplateController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
-        return Result.success(null);
     }
 }

@@ -74,6 +74,11 @@
                 <version>2.0.43</version>
             </dependency>
             <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2-extension-spring6</artifactId>
+                <version>2.0.43</version>
+            </dependency>
+            <dependency>
                 <groupId>me.paulschwarz</groupId>
                 <artifactId>spring-dotenv</artifactId>
                 <version>4.0.0</version>

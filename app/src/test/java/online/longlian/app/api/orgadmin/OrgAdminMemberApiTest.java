@@ -206,7 +206,8 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("状态修改成功"));
     }
 
     // ========== 邀请码 ==========

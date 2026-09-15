@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeChangeStatusParamsBO;
@@ -101,7 +100,8 @@ public class ProjectTypeController {
 
     @Operation(summary = "启用/禁用企划类型", description = "禁用后用户端不展示该类型，但已有数据保留。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{typeId}/status")
-    public Result<Void> changeProjectTypeStatus(@UserSession(required = true) SessionContext sessionContext,
+    @ResponseMessage("状态修改成功")
+    public void changeProjectTypeStatus(@UserSession(required = true) SessionContext sessionContext,
                                                  @PathVariable Long typeId,
                                                  @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         projectTypeService.changeProjectTypeStatus(
@@ -111,6 +111,5 @@ public class ProjectTypeController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
-        return Result.success(null);
     }
 }
