@@ -15,7 +15,6 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.LockService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
@@ -24,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 处理入组申请的审批流程：校验、通过、拒绝、状态更新。
@@ -37,7 +35,6 @@ public class ApplicationReviewHandler {
     private final OrganizationMemberMapper organizationMemberMapper;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
-    private final LockService lockService;
     private final Clock clock;
 
     public void validatePendingApplication(GroupApplication application, Long orgId) {
@@ -50,12 +47,12 @@ public class ApplicationReviewHandler {
     }
 
     /**
-     * 通过申请：REGISTER 类型需同步创建用户账户
+     * 通过申请：注册申请启用提交时创建的禁用用户
      */
     public OrganizationMember approveApplication(GroupApplication application) {
         LocalDateTime now = LocalDateTime.now(clock);
         User user = switch (application.getApplicationType()) {
-            case REGISTER -> createUserByApplication(application, now);
+            case REGISTER -> activateRegisteredApplication(application, now);
             case EXISTING_USER -> getExistingApplicationUser(application);
         };
 
@@ -80,29 +77,29 @@ public class ApplicationReviewHandler {
         }
     }
 
-    public User createUserByApplication(GroupApplication application, LocalDateTime now) {
-        String lockKey = "user:create:email:" + application.getEmail();
-        try (var lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
-            if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getEmail, application.getEmail())) > 0) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在，无法通过该申请");
-            }
-            if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, application.getUsername())) > 0) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "用户名已存在，无法通过该申请");
-            }
-
-            User user = User.builder()
-                    .username(application.getUsername())
-                    .password(application.getPassword())
-                    .nickname(application.getNickname())
-                    .email(application.getEmail())
-                    .status(Status.ENABLED)
-                    .defaultOrgId(application.getOrgId())
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            userMapper.insert(user);
-            return user;
+    /**
+     * 注册申请提交时已创建禁用用户，审批通过只需启用该用户并绑定组织。
+     */
+    public User activateRegisteredApplication(GroupApplication application, LocalDateTime now) {
+        User user = userMapper.selectById(application.getUserId());
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
         }
+        if (user.getStatus() != Status.DISABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "注册申请对应用户状态无效");
+        }
+        if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, application.getOrgId())
+                .eq(OrganizationMember::getUserId, user.getId())
+                .last("LIMIT 1")) != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "申请人已加入该组织");
+        }
+
+        user.setStatus(Status.ENABLED);
+        user.setDefaultOrgId(application.getOrgId());
+        user.setUpdatedAt(now);
+        userMapper.updateById(user);
+        return user;
     }
 
     public User getExistingApplicationUser(GroupApplication application) {

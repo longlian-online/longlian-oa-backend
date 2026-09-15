@@ -344,9 +344,9 @@ public class UserApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 2L);
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, 0, 1, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 2L, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, 0, 1, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, "user2", "用户2", "user2@example.com"
         );
         String token2 = loginAs("user2", "123456");
 
