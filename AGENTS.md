@@ -101,10 +101,10 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
 | 定时任务 | `ScheduledTask` 接口定义任务，`ScheduledTaskEngine` 调度引擎（Spring Cron），手动触发通过 `admin/ScheduledTaskController` |
+| 分布式锁 | `RedissonConfig` 提供 `RedissonClient`，`DistributedLockService` 和 `LockService` 封装业务锁 |
 
 ## 项目中不具备的基础设施（如需使用需从零搭建）
 
-- 分布式锁（Redis 可用但无封装）
 - 消息队列
 
 ## Pull Request
