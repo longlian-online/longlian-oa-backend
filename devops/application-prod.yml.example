@@ -30,7 +30,6 @@ spring:
   profiles:
     active: prod
   main:
-    allow-circular-references: true
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
