@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.net.URL;
 import java.util.*;
@@ -29,6 +30,7 @@ public class OssStorageService implements StorageService, DisposableBean {
     private final COSClient cosClient;
     private final StorageProperties.OssConfig ossConfig;
 
+    @Autowired
     public OssStorageService(StorageProperties storageProperties) {
         this(createCosClient(storageProperties.getOss()), storageProperties.getOss());
     }
