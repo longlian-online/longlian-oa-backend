@@ -63,7 +63,7 @@ public class UserApiTest extends BaseApiTest {
         String email = "register-with-login-code@example.com";
         jdbcTemplate.update(
                 "INSERT INTO one_time_password (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, ?, ?)",
-                otpId, "654321", LocalDateTime.now().plusMinutes(30), 3, 0, 0L
+                otpId, "654321", testNow().plusMinutes(30), 3, 0, 0L
         );
         jdbcTemplate.update(
                 "INSERT INTO email_verify_otp (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
