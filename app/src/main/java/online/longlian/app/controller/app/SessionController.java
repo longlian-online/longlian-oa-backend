@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 public class SessionController {
     private final SessionService sessionService;
     private final OTPServiceFactory otpServiceFactory;
+    private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
@@ -85,7 +87,7 @@ public class SessionController {
         String token = authHeader.substring(7);
         sessionService.logout(
                 SessionLogoutParamsBO.builder()
-                        .userId(sessionService.getCurrentUserId())
+                        .userId(currentUserContext.requireUserId())
                         .token(token)
                         .build()
         );

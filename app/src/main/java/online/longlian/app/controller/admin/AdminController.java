@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.admin.AdminCreateParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminListParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminListResultBO;
@@ -16,7 +17,6 @@ import online.longlian.app.pojo.dto.admin.AdminListDTO;
 import online.longlian.app.pojo.vo.admin.AdminVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.admin.AdminManagementService;
-import online.longlian.app.service.admin.AdminSessionService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,7 +29,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminManagementService adminManagementService;
-    private final AdminSessionService adminSessionService;
+    private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "创建管理员")
     @PostMapping("/")
@@ -40,7 +40,7 @@ public class AdminController {
                         .username(dto.getUsername())
                         .password(dto.getPassword())
                         .build(),
-                adminSessionService.getCurrentAdminId()
+                currentUserContext.getAdminId()
         );
         return String.valueOf(adminId);
     }
@@ -49,7 +49,7 @@ public class AdminController {
     @DeleteMapping("/{id}")
     @ResponseMessage("删除成功")
     public void delete(@PathVariable Long id) {
-        adminManagementService.delete(id, adminSessionService.getCurrentAdminId());
+        adminManagementService.delete(id, currentUserContext.getAdminId());
     }
 
     @Operation(summary = "分页查询管理员列表")

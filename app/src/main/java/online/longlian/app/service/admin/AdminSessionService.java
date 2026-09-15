@@ -31,10 +31,4 @@ public interface AdminSessionService {
      */
     void logout(AdminLogoutParamsBO params);
 
-    /**
-     * 从 SecurityContext 获取当前登录管理员 ID，未认证时返回 null。
-     *
-     * @return 当前管理员 ID，未登录时返回 null
-     */
-    Long getCurrentAdminId();
 }
