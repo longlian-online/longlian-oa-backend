@@ -12,7 +12,10 @@ public class StorageProperties {
     private OssConfig oss;
 
     @Data
-    public static class LocalConfig { private String baseUrl; }
+    public static class LocalConfig {
+        private String baseUrl;
+        private String basePath;
+    }
     @Data
     public static class OssConfig {
         private String baseUrl;

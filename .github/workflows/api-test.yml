@@ -1,5 +1,9 @@
 name: API Tests
 
+permissions:
+  contents: read
+  id-token: write
+
 on:
   push:
     branches: [ main ]
@@ -12,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install Task
         uses: go-task/setup-task@v2
@@ -25,7 +31,7 @@ jobs:
           curl -fsSL https://cli.deepsource.com/install | BINDIR=./bin sh
 
           # 上报数据
-          ./bin/deepsource report --analyzer test-coverage --key java --value-file app/target/site/jacoco/jacoco.xml
+          ./bin/deepsource report --analyzer test-coverage --key java --value-file app/target/site/jacoco/jacoco.xml --use-oidc
 
         env:
           DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
