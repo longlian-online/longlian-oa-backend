@@ -18,6 +18,7 @@ import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.LocalFileIngress;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -76,7 +77,7 @@ public class FileStorageController {
         description = "通过带有效期和签名的链接读取文件，裸 key 不可读取"
     )
     @NotWrap
-    @GetMapping("/local")
+    @GetMapping(value = "/local", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto) {
         return ResponseEntity.ok(localFileIngress.read(
                 new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
