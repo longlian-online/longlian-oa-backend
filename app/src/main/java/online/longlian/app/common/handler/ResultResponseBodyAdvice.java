@@ -1,6 +1,5 @@
 package online.longlian.app.common.handler;
 
-import com.alibaba.fastjson2.JSON;
 import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.result.Result;
@@ -16,8 +15,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 /**
  * 自动将 Controller 返回值包装为 {@link Result}，消除每个接口手动调用 Result.success() 的样板代码
  * <p>
- * 兼容策略：若 body 已是 Result 实例（如 GlobalExceptionHandler 返回的失败结果或尚未迁移的旧代码），
- * 直接返回不做二次包装，确保现有代码平滑过渡
+ * 兼容策略：若 body 已是 Result 实例（如异常处理器返回的失败结果），直接返回不做二次包装。
  */
 @ControllerAdvice(basePackages = "online.longlian.app.controller")
 public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
@@ -52,21 +50,6 @@ public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
             }
         }
 
-        Result<?> result;
-        if (body == null) {
-            result = Result.success(msg);
-        } else {
-            result = Result.success(msg, body);
-        }
-
-        // 控制器返回 String 时，Spring 会提前选择 StringHttpMessageConverter
-        // beforeBodyWrite 返回 Result 后该转换器无法处理，导致 ClassCastException
-        // 此处将 Result 序列化为 JSON 字符串，兼容 StringHttpMessageConverter
-        if (body instanceof String) {
-            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-            return JSON.toJSONString(result);
-        }
-
-        return result;
+        return body == null ? Result.success(msg) : Result.success(msg, body);
     }
 }

@@ -257,14 +257,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
+        User pendingUser = User.builder()
+                .username(params.getUsername())
+                .password(passwordEncoder.encode(params.getPassword()))
+                .nickname(params.getNickname())
+                .email(params.getEmail())
+                .status(Status.DISABLED)
+                .defaultOrgId(0L)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        userMapper.insert(pendingUser);
+
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .otpId(inviteOtp.getId())
-                .userId(0L)
+                .userId(pendingUser.getId())
                 .status(ApplicationStatus.PENDING)
                 .applicationType(ApplicationType.REGISTER)
                 .username(params.getUsername())
-                .password(passwordEncoder.encode(params.getPassword()))
                 .nickname(params.getNickname())
                 .email(params.getEmail())
                 .createdAt(now)
@@ -319,7 +330,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .status(ApplicationStatus.PENDING)
                 .applicationType(ApplicationType.EXISTING_USER)
                 .username(user.getUsername())
-                .password(user.getPassword())
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .createdAt(now)

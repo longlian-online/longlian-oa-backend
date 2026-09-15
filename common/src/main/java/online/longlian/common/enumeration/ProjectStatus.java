@@ -1,6 +1,7 @@
 package online.longlian.common.enumeration;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.alibaba.fastjson2.annotation.JSONField;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import online.longlian.common.annotation.ModelEnum;
@@ -15,6 +16,7 @@ public enum ProjectStatus implements CodeEnum {
 
     private final Integer code;
     @JsonValue
+    @JSONField(value = true)
     private final String desc;
 
     @Override

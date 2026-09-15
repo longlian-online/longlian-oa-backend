@@ -20,6 +20,8 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     void shouldListApplications() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
+        createTestUser(2L, "applyuser", "123456", "apply@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 2L);
 
         Response response = authRequest(token)
                 .body(Map.of("pageNum", 1, "pageSize", 10))
@@ -38,11 +40,14 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
+        createTestUser(2L, "applyuser", "123456", "apply@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = 2");
+
         // 插入待审核的入组申请
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 0L, 0, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, 0, 0, "applyuser", "申请人", "apply@example.com"
         );
 
         Response response = authRequest(token)
@@ -64,11 +69,13 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     void shouldRejectApplicationSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
+        createTestUser(2L, "applyuser", "123456", "apply@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 2L);
 
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 0L, 0, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, 0, 0, "applyuser", "申请人", "apply@example.com"
         );
 
         Response response = authRequest(token)
@@ -90,12 +97,14 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     void shouldFailReviewAlreadyReviewedApplication() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
+        createTestUser(2L, "applyuser", "123456", "apply@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 2L);
 
         // status=1 → APPROVED，非 PENDING
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 0L, 1, 0, "applyuser", passwordEncoder.encode("123456"), "申请人", "apply@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, 1, 0, "applyuser", "申请人", "apply@example.com"
         );
 
         Response response = authRequest(token)
@@ -128,9 +137,9 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         // PENDING 申请，application_type=1 EXISTING_USER，user_id=2（已是成员）
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, password, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 2L, 0, 1, "user2", passwordEncoder.encode("123456"), "用户2", "user2@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L, 0, 1, "user2", "用户2", "user2@example.com"
         );
 
         Response response = authRequest(token)
@@ -197,7 +206,8 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("状态修改成功"));
     }
 
     // ========== 邀请码 ==========

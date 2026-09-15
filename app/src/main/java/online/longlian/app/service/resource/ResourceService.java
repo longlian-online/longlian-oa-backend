@@ -20,6 +20,7 @@ import online.longlian.common.enumeration.FileProcessStatus;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Paths;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +39,7 @@ public class ResourceService {
     private final StorageServiceFactory storageFactory;
 
     private final StorageProperties storageProperties;
+    private final Clock clock;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
@@ -63,8 +65,8 @@ public class ResourceService {
                 .bizId(0L)
                 .processStatus(FileProcessStatus.Pending)
                 .creatorId(params.getCreatorId())
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now(clock))
+                .updatedAt(LocalDateTime.now(clock))
                 .build();
 
         // 4. 获取上传链接
@@ -198,7 +200,7 @@ public class ResourceService {
                 .eq(orgId != null, Resource::getOrgId, orgId)
                 .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
                 .set(Resource::getProcessStatus, FileProcessStatus.Deprecated)
-                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
     }
 
     private boolean isResourceId(Long resourceId) {

@@ -11,11 +11,9 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.LockService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
-import online.longlian.common.service.DistributedLockService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +27,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
@@ -49,11 +46,6 @@ class ApplicationReviewHandlerTest {
     private GroupApplicationMapper groupApplicationMapper;
     @Mock
     private OrganizationJoinOtpMapper organizationJoinOtpMapper;
-    @Mock
-    private LockService lockService;
-    @Mock
-    private DistributedLockService.Lock lock;
-
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("UTC"));
     private ApplicationReviewHandler handler;
 
@@ -65,7 +57,7 @@ class ApplicationReviewHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(config, ""), OrganizationJoinOtp.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(config, ""), User.class);
         handler = new ApplicationReviewHandler(userMapper, organizationMemberMapper,
-                groupApplicationMapper, organizationJoinOtpMapper, lockService, clock);
+                groupApplicationMapper, organizationJoinOtpMapper, clock);
     }
 
     @Test
@@ -118,44 +110,52 @@ class ApplicationReviewHandlerTest {
     @Test
     void approveApplication_registerType_createsUserAndMember() {
         GroupApplication app = GroupApplication.builder()
-                .id(1L).orgId(10L)
+                .id(1L).orgId(10L).userId(5L)
                 .applicationType(ApplicationType.REGISTER)
                 .email("test@example.com").username("testuser")
-                .password("hashed").nickname("Test")
+                .nickname("Test")
                 .build();
-        when(lockService.tryAcquireOrThrow(anyString(), eq(0L), eq(5L), eq(TimeUnit.SECONDS))).thenReturn(lock);
-        when(userMapper.selectCount(any())).thenReturn(0L);
-        when(userMapper.insert(any(User.class))).thenReturn(1);
+        User user = User.builder().id(5L).status(Status.DISABLED).build();
+        when(userMapper.selectById(5L)).thenReturn(user);
+        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
         when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
 
         OrganizationMember member = handler.approveApplication(app);
 
         assertThat(member.getOrgId()).isEqualTo(10L);
-        verify(userMapper).insert(any(User.class));
+        assertThat(user.getStatus()).isEqualTo(Status.ENABLED);
+        assertThat(user.getDefaultOrgId()).isEqualTo(10L);
+        verify(userMapper).updateById(user);
     }
 
     @Test
-    void createUserByApplication_emailExists_throws() {
-        GroupApplication app = GroupApplication.builder()
-                .email("dup@example.com").username("user1").build();
-        when(lockService.tryAcquireOrThrow(anyString(), eq(0L), eq(5L), eq(TimeUnit.SECONDS))).thenReturn(lock);
-        when(userMapper.selectCount(any())).thenReturn(1L);
+    void activateRegisteredApplication_userNotFound_throws() {
+        GroupApplication app = GroupApplication.builder().userId(99L).orgId(1L).build();
+        when(userMapper.selectById(99L)).thenReturn(null);
 
-        assertThatThrownBy(() -> handler.createUserByApplication(app, LocalDateTime.now(clock)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("邮箱已存在");
+        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
+                .isInstanceOf(AppException.class);
     }
 
     @Test
-    void createUserByApplication_usernameExists_throws() {
-        GroupApplication app = GroupApplication.builder()
-                .email("new@example.com").username("dupuser").build();
-        when(lockService.tryAcquireOrThrow(anyString(), eq(0L), eq(5L), eq(TimeUnit.SECONDS))).thenReturn(lock);
-        when(userMapper.selectCount(any())).thenReturn(0L).thenReturn(1L);
+    void activateRegisteredApplication_enabledUser_throws() {
+        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
+        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.ENABLED).build());
 
-        assertThatThrownBy(() -> handler.createUserByApplication(app, LocalDateTime.now(clock)))
+        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("用户名已存在");
+                .hasMessageContaining("注册申请对应用户状态无效");
+    }
+
+    @Test
+    void activateRegisteredApplication_existingMember_throws() {
+        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
+        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(OrganizationMember.builder().id(8L).build());
+
+        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("申请人已加入该组织");
     }
 
     @Test
@@ -256,14 +256,14 @@ class ApplicationReviewHandlerTest {
     void review_approved_backfillsTheInviteUsedByRegisterApplication() {
         GroupApplication app = GroupApplication.builder()
                 .id(42L).orgId(10L).otpId(88L)
+                .userId(5L)
                 .applicationType(ApplicationType.REGISTER)
                 .status(ApplicationStatus.PENDING)
                 .email("new@example.com").username("newuser")
-                .password("hashed").nickname("New")
+                .nickname("New")
                 .build();
-        when(lockService.tryAcquireOrThrow(anyString(), eq(0L), eq(5L), eq(TimeUnit.SECONDS))).thenReturn(lock);
-        when(userMapper.selectCount(any())).thenReturn(0L);
-        when(userMapper.insert(any(User.class))).thenReturn(1);
+        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
         when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
 
         OrganizationJoinOtp matchedOtp = OrganizationJoinOtp.builder().id(7L).build();

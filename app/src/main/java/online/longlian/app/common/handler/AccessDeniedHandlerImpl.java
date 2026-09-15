@@ -1,6 +1,6 @@
 package online.longlian.app.common.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,8 +23,6 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
-    private final ObjectMapper objectMapper;
-
     @Override
     public void handle(HttpServletRequest request,
                        HttpServletResponse response,
@@ -45,6 +43,6 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
         Result<Void> result = Result.fail(ResultCode.UNAUTHORIZED_OPERATION);
 
         // 写入响应体
-        response.getWriter().write(objectMapper.writeValueAsString(result));
+        response.getWriter().write(JSON.toJSONString(result));
     }
 }

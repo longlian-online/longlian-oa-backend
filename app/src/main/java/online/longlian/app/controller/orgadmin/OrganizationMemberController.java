@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
@@ -165,7 +164,8 @@ public class OrganizationMemberController {
             description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{memberId}/status")
-    public Result<Void> changeMemberStatus(@UserSession(required = true) SessionContext sessionContext,
+    @ResponseMessage("状态修改成功")
+    public void changeMemberStatus(@UserSession(required = true) SessionContext sessionContext,
                                             @PathVariable Long memberId,
                                             @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         organizationMemberService.changeMemberStatus(
@@ -175,7 +175,6 @@ public class OrganizationMemberController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
-        return Result.success(null);
     }
 
     @Operation(

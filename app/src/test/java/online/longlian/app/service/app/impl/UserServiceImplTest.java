@@ -227,6 +227,11 @@ class UserServiceImplTest {
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectById(30L)).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
+        when(passwordEncoder.encode("password")).thenReturn("hashed-password");
+        doAnswer(invocation -> {
+            invocation.getArgument(0, User.class).setId(99L);
+            return 1;
+        }).when(userMapper).insert(any(User.class));
         doAnswer(invocation -> {
             invocation.getArgument(0, online.longlian.app.pojo.entity.GroupApplication.class).setId(123L);
             return 1;
@@ -237,6 +242,9 @@ class UserServiceImplTest {
         ArgumentCaptor<GroupApplication> applicationCaptor = ArgumentCaptor.forClass(GroupApplication.class);
         verify(groupApplicationMapper).insert(applicationCaptor.capture());
         assertThat(applicationCaptor.getValue().getOtpId()).isEqualTo(20L);
+        assertThat(applicationCaptor.getValue().getUserId()).isEqualTo(99L);
+        verify(userMapper).insert(argThat((User user) -> user.getStatus() == Status.DISABLED
+                && "hashed-password".equals(user.getPassword())));
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));

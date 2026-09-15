@@ -90,6 +90,13 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 ```
 异常统一通过 `AppException` 抛出，由 `GlobalExceptionHandler` 捕获转换为 `Result`。
 
+### 响应包装与序列化约定
+
+- Controller 的业务方法只返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 自动包装为 `Result<T>`。
+- 需要覆盖默认成功提示时使用 `@ResponseMessage`；文件下载等原始响应使用 `@NotWrap`。
+- Controller 禁止手动返回 `Result.success(...)`，异常处理器返回的 `Result` 保留原样，避免重复包装。
+- HTTP JSON 响应统一由 Fastjson2 Spring 6 消息转换器序列化，时间格式使用 `yyyy-MM-dd HH:mm:ss`；Jackson 仅保留给缓存等内部兼容场景。
+
 ## 已有基础设施（可直接复用）
 
 | 能力 | 关键类/方式 |
@@ -101,11 +108,15 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
 | 定时任务 | `ScheduledTask` 接口定义任务，`ScheduledTaskEngine` 调度引擎（Spring Cron），手动触发通过 `admin/ScheduledTaskController` |
+| 分布式锁 | `RedissonConfig` 提供 `RedissonClient`，`DistributedLockService` 和 `LockService` 封装业务锁 |
 
 ## 项目中不具备的基础设施（如需使用需从零搭建）
 
-- 分布式锁（Redis 可用但无封装）
 - 消息队列
+
+## 授权模型
+
+当前业务授权使用 `organization_member.org_role` 和管理员的 `admin.role`，控制器通过 `@PreAuthorize` 校验组织角色。`role`、`permission`、`role_permission`、`user_role` 表及对应生成代码属于冻结的历史 RBAC 模型，不参与登录、鉴权或权限查询；新增授权需求应先完成模型迁移决策，再解除冻结。
 
 ## Pull Request
 

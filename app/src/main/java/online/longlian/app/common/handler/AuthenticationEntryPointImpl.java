@@ -1,6 +1,6 @@
 package online.longlian.app.common.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,7 +27,6 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
 
-    private final ObjectMapper objectMapper;
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
 
     @Override
@@ -44,14 +43,14 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                         request.getMethod());
                 response.setContentType(CommonConstants.CONTENT_TYPE);
                 response.setStatus(HttpStatus.OK.value());
-                response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.NOT_FOUND)));
+                response.getWriter().write(JSON.toJSONString(Result.fail(ResultCode.NOT_FOUND)));
                 return;
             }
         } catch (Exception e) {
             log.error("获取对应 handler 失败, err: {}", e.getMessage());
             response.setContentType(CommonConstants.CONTENT_TYPE);
             response.setStatus(HttpStatus.OK.value());
-            response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.FAIL)));
+            response.getWriter().write(JSON.toJSONString(Result.fail(ResultCode.FAIL)));
             return;
         }
 
@@ -65,6 +64,6 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
         );
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.setStatus(HttpStatus.OK.value());
-        response.getWriter().write(objectMapper.writeValueAsString(Result.fail(code, msg)));
+        response.getWriter().write(JSON.toJSONString(Result.fail(code, msg)));
     }
 }
