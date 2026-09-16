@@ -25,6 +25,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class DeprecatedResourceCleanupServiceTest {
@@ -89,6 +91,47 @@ class DeprecatedResourceCleanupServiceTest {
                 .contains(executeTime.plusMinutes(5));
     }
 
+    @Test
+    void shouldIncreaseRetryDelayForRepeatedFailures() {
+        LocalDateTime executeTime = LocalDateTime.of(2026, 9, 16, 8, 0);
+
+        assertThat(failedCleanupUpdate(1, new IllegalStateException("first"), executeTime)
+                .getParamNameValuePairs().values()).contains(executeTime.plusMinutes(15));
+        assertThat(failedCleanupUpdate(2, new IllegalStateException("second"), executeTime)
+                .getParamNameValuePairs().values()).contains(executeTime.plusHours(1));
+        assertThat(failedCleanupUpdate(3, new IllegalStateException("third"), executeTime)
+                .getParamNameValuePairs().values()).contains(executeTime.plusHours(6));
+        assertThat(failedCleanupUpdate(4, new IllegalStateException("fourth"), executeTime)
+                .getParamNameValuePairs().values()).contains(executeTime.plusHours(24));
+    }
+
+    @Test
+    void shouldTruncateCleanupFailureMessage() {
+        LambdaUpdateWrapper<Resource> update = failedCleanupUpdate(0,
+                new IllegalStateException("x".repeat(1_001)), LocalDateTime.of(2026, 9, 16, 8, 0));
+
+        assertThat(update.getParamNameValuePairs().values())
+                .contains(("IllegalStateException: " + "x".repeat(1_001)).substring(0, 1_000));
+    }
+
+    @Test
+    void shouldContinueBatchWhenFailureStateCannotBePersisted() {
+        Resource failed = deprecatedResource(1L, "avatar/1.png", StorageType.OSS, 0);
+        Resource succeeding = deprecatedResource(2L, "avatar/2.png", StorageType.OSS, 0);
+        when(resourceMapper.selectList(any())).thenReturn(List.of(failed, succeeding));
+        when(resourceMapper.selectOne(any())).thenReturn(failed, succeeding);
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        doThrow(new IllegalStateException("object store unavailable")).doNothing()
+                .when(storageService).delete(any());
+        when(resourceMapper.update(isNull(), any())).thenThrow(new IllegalStateException("database unavailable"))
+                .thenReturn(1);
+
+        cleanupService.cleanup(LocalDateTime.of(2026, 9, 16, 8, 0));
+
+        verify(storageService).delete("avatar/2.png");
+        verify(resourceMapper, times(2)).update(isNull(), any());
+    }
+
     @SuppressWarnings("unchecked")
     private ArgumentCaptor<LambdaUpdateWrapper<Resource>> updateCaptor() {
         ArgumentCaptor<LambdaUpdateWrapper<Resource>> update = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
@@ -96,13 +139,31 @@ class DeprecatedResourceCleanupServiceTest {
         return update;
     }
 
+    private LambdaUpdateWrapper<Resource> failedCleanupUpdate(int attempts, RuntimeException exception,
+            LocalDateTime executeTime) {
+        reset(resourceMapper, storageFactory, storageService);
+        Resource resource = deprecatedResource(1L, "avatar/1.png", StorageType.OSS, attempts);
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+        when(resourceMapper.selectOne(any())).thenReturn(resource);
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        doThrow(exception).when(storageService).delete("avatar/1.png");
+
+        cleanupService.cleanup(executeTime);
+        ArgumentCaptor<LambdaUpdateWrapper<Resource>> update = updateCaptor();
+        return update.getValue();
+    }
+
     private Resource deprecatedResource(StorageType storageType) {
+        return deprecatedResource(1L, "avatar/1.png", storageType, 0);
+    }
+
+    private Resource deprecatedResource(Long id, String storageKey, StorageType storageType, int cleanupAttempts) {
         return Resource.builder()
-                .id(1L)
+                .id(id)
                 .storageType(storageType)
-                .storageKey("avatar/1.png")
+                .storageKey(storageKey)
                 .processStatus(FileProcessStatus.Deprecated)
-                .cleanupAttempts(0)
+                .cleanupAttempts(cleanupAttempts)
                 .build();
     }
 }
