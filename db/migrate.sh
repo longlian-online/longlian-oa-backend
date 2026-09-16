@@ -188,12 +188,12 @@ parse_mysql_url() {
 
 mysql_exec() {
   if ! command -v mysql >/dev/null 2>&1; then
-    echo "错误: 需要 mysql 客户端（mariadb-client）才能连接数据库" >&2
+    echo "错误: 需要支持 caching_sha2_password 的 MySQL 客户端才能连接数据库" >&2
     return 1
   fi
   parse_mysql_url "$1"
   shift
-  MYSQL_PWD="$url_pass" mysql --protocol=TCP \
+  MYSQL_PWD="$url_pass" mysql --protocol=TCP --get-server-public-key \
     -h "$url_host" -P "$url_port" -u "$url_user" \
     --connect-timeout=10 "$@"
 }
@@ -204,7 +204,7 @@ ensure_mysql_database() {
   fi
   parse_mysql_url "$1"
   echo "==> 确保影子库 \`$url_db\` 存在于 $url_host:$url_port"
-  MYSQL_PWD="$url_pass" mysql --protocol=TCP \
+  MYSQL_PWD="$url_pass" mysql --protocol=TCP --get-server-public-key \
     -h "$url_host" -P "$url_port" -u "$url_user" \
     --connect-timeout=10 \
     -e "CREATE DATABASE IF NOT EXISTS \`$url_db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
