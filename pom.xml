@@ -9,7 +9,7 @@
     </parent>
     <groupId>online.longlian</groupId>
     <artifactId>longlian-oa-backend</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
     <name>longlian-oa-backend</name>
     <url />
     <licenses>
@@ -21,7 +21,7 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:https://github.com/longlian-online/longlian-oa-backend.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/longlian-online/longlian-oa-backend.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>v1.0.1</tag>
         <url>https://github.com/longlian-online/longlian-oa-backend</url>
     </scm>
     <properties>
