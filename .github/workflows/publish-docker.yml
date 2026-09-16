@@ -5,9 +5,9 @@
 #   docker.cnb.cool/longlian.online/longlian-oa-backend
 # （linux/amd64 + linux/arm64 清单）
 # 应用镜像:
-#   tag v1.2.3 → :1.2.3 :1.2，非预发布再打 :latest（metadata-action flavor latest=auto）
+#   任意 semver tag → :<version> :<major>.<minor> :latest
 # 迁移镜像:
-#   tag v1.2.3 → :1.2.3-migration :1.2-migration，非预发布再打 :migration-latest
+#   任意 semver tag → :<version>-migration :<major>.<minor>-migration :migration-latest
 #
 # CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
 name: Publish Docker images
@@ -69,7 +69,7 @@ jobs:
             ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
             ${{ env.CNB_REGISTRY }}/${{ env.CNB_IMAGE }}
           flavor: |
-            latest=auto
+            latest=true
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -101,7 +101,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}-migration
             type=semver,pattern={{major}}.{{minor}}-migration
-            type=raw,value=migration-latest,enable={{is_default_tag}}
+            type=raw,value=migration-latest
 
       - name: Build and push migration image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
