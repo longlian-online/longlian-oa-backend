@@ -2,6 +2,9 @@
 
 本文说明项目基于 Maven Release Plugin 的版本更新、Git 标签和构件发布流程。
 
+本文命令默认远程仓库名为 `origin`。如果本地使用其他远程名，请将命令中的
+`origin` 替换为实际远程名。
+
 ## 发版配置
 
 根目录 `pom.xml` 已配置：
@@ -19,7 +22,7 @@
 
 ```bash
 git status --short
-git fetch github --prune
+git fetch origin --prune
 mvn -B validate -DskipTests
 mvn -B clean verify
 ```
@@ -33,7 +36,7 @@ ssh -T git@github.com
 同时确认目标标签不存在：
 
 ```bash
-git ls-remote --tags github refs/tags/v1.0.0
+git ls-remote --tags origin refs/tags/v1.0.0
 ```
 
 如果命令没有输出，表示远程目前没有该标签。
@@ -45,7 +48,7 @@ git ls-remote --tags github refs/tags/v1.0.0
 从目标发布分支创建工作分支，示例：
 
 ```bash
-git switch -c build/release-1.0.0 github/release/v1.0.0
+git switch -c build/release-1.0.0 origin/release/v1.0.0
 ```
 
 ### 2. 预览发版变更
@@ -94,8 +97,19 @@ mvn -B release:prepare \
 mvn -B release:perform
 ```
 
-该命令会检出正式版本标签并执行 `deploy`。执行前必须在 Maven `settings.xml`
-或项目的 `<distributionManagement>` 中配置可写的 Maven 仓库及认证信息。
+该命令会检出正式版本标签并执行 `deploy`。当前项目 POM 未配置
+`<distributionManagement>`，因此执行前必须在 POM 中配置可写的 Maven 仓库，
+并在 Maven `settings.xml` 中为相同的仓库 `id` 配置认证信息。仅配置
+`settings.xml` 的 `<server>` 不能提供部署地址。
+
+如果不希望修改 POM，也可以向 `release:perform` 传入 Maven Deploy Plugin 支持的
+`altDeploymentRepository` 参数。参数格式以当前使用的 Maven Deploy Plugin 版本为准，
+示例：
+
+```bash
+mvn -B release:perform \
+  -Darguments="-DaltDeploymentRepository=internal::https://repo.example.com/releases"
+```
 
 ## 仅手动修改版本
 
@@ -114,7 +128,7 @@ mvn -B versions:commit
 git add pom.xml app/pom.xml common/pom.xml generator/pom.xml
 git commit -m "build: set release version 1.0.0"
 git tag v1.0.0
-git push github HEAD --follow-tags
+git push origin HEAD --follow-tags
 ```
 
 这种方式不会自动生成下一个 `SNAPSHOT` 版本，也不会执行 Maven 构件发布。
@@ -138,7 +152,7 @@ mvn -B release:clean
 ```bash
 git add docs/release.md
 git commit -m "docs: add maven release guide"
-git push -u github HEAD
+git push -u origin HEAD
 ```
 
 Pull Request 使用 [pull_request_template.md](pull_request_template.md)，目标分支
