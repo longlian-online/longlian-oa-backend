@@ -7,25 +7,29 @@
 - **构建时**：通过 `INCLUDE_OTEL` 构建参数决定是否将 agent jar 打入镜像
 - **运行时**：通过标准 JVM 环境变量 `JAVA_TOOL_OPTIONS` 决定是否启用 agent
 
+构建参数只控制 agent 文件是否存在，不会自动开启链路追踪。
+
 ## 构建镜像
 
 ### 不含 agent（默认，精简镜像）
 
 ```bash
-docker build -f devops/Dockerfile -t longlian-oa .
+docker build -f devops/Dockerfile -t longlian-oa:default .
 ```
 
 ### 含 agent
 
 ```bash
-docker build --build-arg INCLUDE_OTEL=true -f devops/Dockerfile -t longlian-oa .
+docker build --build-arg INCLUDE_OTEL=true -f devops/Dockerfile -t longlian-oa:otel .
 ```
 
 agent 版本：`v2.26.1`，文件位于镜像内 `/app/opentelemetry-javaagent.jar`。
 
+构建阶段会使用 `curl -fL` 下载文件，并通过 `jar tf` 校验其确实是有效的 JAR；下载失败或校验失败会使镜像构建失败。未启用 agent 时，构建阶段不会下载该文件。
+
 ## 运行时启用
 
-无需修改镜像或启动命令，通过 `JAVA_TOOL_OPTIONS` 环境变量注入即可，JVM 启动时会自动读取：
+含 agent 的镜像无需修改启动命令，通过 `JAVA_TOOL_OPTIONS` 环境变量注入即可，JVM 启动时会自动读取：
 
 ```bash
 docker run \
@@ -59,8 +63,22 @@ services:
 
 完整配置参考：[OpenTelemetry SDK 环境变量文档](https://opentelemetry.io/docs/languages/sdk-configuration/)
 
-## 设计说明
+## 启动保护
 
-- 构建时未设置 `INCLUDE_OTEL=true` 则不下载 agent，镜像中不包含该文件（精简约 30MB）
-- Dockerfile 中使用 glob 模式 `opentelemetry-javaagent.ja[r]` 进行 COPY，文件不存在时静默跳过，不会导致构建失败
-- ENTRYPOINT 不包含任何 OTel 逻辑，保持简洁；启用完全由运行时环境变量控制
+如果使用不含 agent 的镜像，却仍通过 `JAVA_TOOL_OPTIONS` 配置了 `-javaagent`，Dockerfile 的 ENTRYPOINT 会自动移除该参数后再启动应用，避免 JVM 因找不到 agent 文件而直接退出。使用含 agent 的镜像时不会修改 `JAVA_TOOL_OPTIONS`。
+
+因此，推荐只在 `INCLUDE_OTEL=true` 的镜像上设置 `JAVA_TOOL_OPTIONS=-javaagent:/app/opentelemetry-javaagent.jar`。
+
+## 验证镜像
+
+构建完成后，可以检查两种镜像的文件状态：
+
+```bash
+# 含 agent：文件应存在且非空
+docker run --rm --entrypoint sh longlian-oa:otel \
+  -c 'test -s /app/opentelemetry-javaagent.jar'
+
+# 不含 agent：文件不应存在
+docker run --rm --entrypoint sh longlian-oa:default \
+  -c '! test -e /app/opentelemetry-javaagent.jar'
+```
