@@ -39,4 +39,9 @@ public class NullStorageService implements StorageService {
     public void probe(ResourceProbeParamsBO params) {
         throw new AppException(ResultCode.OPERATION_FAIL, "当前存储不支持文件上传");
     }
+
+    @Override
+    public void delete(String key) {
+        // NONE 不持久化实际文件，清理视为完成。
+    }
 }

@@ -281,6 +281,19 @@ class LocalFileReadApiTest extends BaseApiTest {
 
         request().urlEncodingEnabled(false).get(oldAvatarUrl).then()
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        createAdmin(2L, "resource_cleanup_admin", "123456", "SUPER_ADMIN");
+        String adminToken = adminLoginAs("resource_cleanup_admin", "123456");
+        authRequest(adminToken)
+                .body("{}")
+                .post("/admin/scheduled-tasks/resource-cleanup/trigger")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(Path.of(properties.getLocal().getDirectory()).resolve(created.key())).doesNotExist();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT storage_cleaned_at FROM resource WHERE storage_key = ?", Object.class, created.key()))
+                .isNotNull();
+
         String avatarUrl = authRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
         byte[] content = request().urlEncodingEnabled(false).get(avatarUrl).then()

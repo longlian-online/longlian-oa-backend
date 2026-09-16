@@ -23,9 +23,9 @@ public class ScheduledTaskApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0))
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data", notNullValue())
-                .body("data.size()", greaterThanOrEqualTo(0));
+                .body("data.taskName", hasItem("resource-cleanup"));
     }
 
     /**
@@ -50,27 +50,15 @@ public class ScheduledTaskApiTest extends BaseApiTest {
         createAdmin(2L, "superadmin2", "123456", "SUPER_ADMIN");
         String token = adminLoginAs("superadmin2", "123456");
 
-        Response listResponse = authRequest(token)
-                .get("/admin/scheduled-tasks/");
+        Response triggerResponse = authRequest(token)
+                .body("{}")
+                .post("/admin/scheduled-tasks/resource-cleanup/trigger");
 
-        listResponse
+        triggerResponse
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
-
-        if (!listResponse.jsonPath().getList("data").isEmpty()) {
-            String taskName = listResponse.jsonPath().getString("data[0].taskName");
-
-            Response triggerResponse = authRequest(token)
-                    .body("{}")
-                    .post("/admin/scheduled-tasks/" + taskName + "/trigger");
-
-            triggerResponse
-                    .then()
-                    .statusCode(200)
-                    .body("code", equalTo(0))
-                    .body("msg", equalTo("触发成功"));
-        }
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("触发成功"));
     }
 
     /**
