@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 
@@ -21,7 +22,6 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
  */
 @Data
 @Builder
@@ -48,7 +48,7 @@ public class Resource implements Serializable {
     private Long orgId;
 
     /**
-     * 存储类型 1-本地存储 2-云对象存储
+     * 存储类型 1-本地存储 2-阿里云对象存储 3-腾讯云对象存储
      */
     @TableField("storage_type")
     @ApiModelProperty("存储类型 1-本地存储 2-阿里云对象存储 3-腾讯云对象存储")
@@ -104,11 +104,39 @@ public class Resource implements Serializable {
     private Long bizId;
 
     /**
-     * 状态 0-未上传 1-已上传 3-已废弃
+     * 状态 0-待上传 1-已激活 2-已废弃 3-已上传待绑定
      */
     @TableField("process_status")
-    @ApiModelProperty("状态 0-未上传 1-已上传 3-已废弃")
+    @ApiModelProperty("状态 0-待上传 1-已激活 2-已废弃 3-已上传待绑定")
     private FileProcessStatus processStatus;
+
+    /**
+     * 存储实际文件清理完成时间
+     */
+    @ApiModelProperty("存储实际文件清理完成时间")
+    @TableField("storage_cleaned_at")
+    private LocalDateTime storageCleanedAt;
+
+    /**
+     * 存储清理尝试次数
+     */
+    @ApiModelProperty("存储清理尝试次数")
+    @TableField("cleanup_attempts")
+    private Integer cleanupAttempts;
+
+    /**
+     * 存储清理下次重试时间
+     */
+    @TableField("cleanup_next_at")
+    @ApiModelProperty("存储清理下次重试时间")
+    private LocalDateTime cleanupNextAt;
+
+    /**
+     * 最近一次存储清理失败信息
+     */
+    @TableField("cleanup_error")
+    @ApiModelProperty("最近一次存储清理失败信息")
+    private String cleanupError;
 
     /**
      * 上传人ID

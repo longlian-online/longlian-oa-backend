@@ -244,12 +244,17 @@ CREATE TABLE `resource` (
   `biz_type` varchar(50) NOT NULL COMMENT "业务类型（如：avatar/cover/task_submit）",
   `biz_id` bigint NOT NULL COMMENT "业务ID（关联的用户ID/组织ID/企划ID/任务提交ID）",
   `process_status` tinyint NOT NULL DEFAULT 0 COMMENT "状态 0-待上传 1-已激活 2-已废弃 3-已上传待绑定",
+  `storage_cleaned_at` datetime NULL COMMENT "存储实际文件清理完成时间",
+  `cleanup_attempts` int NOT NULL DEFAULT 0 COMMENT "存储清理尝试次数",
+  `cleanup_next_at` datetime NULL COMMENT "存储清理下次重试时间",
+  `cleanup_error` varchar(1000) NULL COMMENT "最近一次存储清理失败信息",
   `creator_id` bigint NOT NULL COMMENT "上传人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_storage_key` (`storage_key`)
+  INDEX `idx_storage_key` (`storage_key`),
+  INDEX `idx_resource_cleanup` (`process_status`, `storage_cleaned_at`, `cleanup_next_at`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "通用文件存储表";
 -- Create "role" table
 CREATE TABLE `role` (

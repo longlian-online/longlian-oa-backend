@@ -84,6 +84,11 @@ public class OssStorageService implements StorageService, DisposableBean {
         }
     }
 
+    @Override
+    public void delete(String key) {
+        cosClient.deleteObject(ossConfig.getBucket(), key);
+    }
+
     private AppException incompleteFile() {
         return new AppException(ResultCode.OPERATION_FAIL, "文件未完成上传或内容不匹配");
     }

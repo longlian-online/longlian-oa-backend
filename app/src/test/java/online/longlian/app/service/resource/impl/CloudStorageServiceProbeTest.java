@@ -51,6 +51,15 @@ class CloudStorageServiceProbeTest {
         }
     }
 
+    @Test
+    void shouldDeleteExactCloudObject() {
+        for (CloudStorage cloud : cloudStorageServices()) {
+            cloud.storage().delete("deprecated/avatar/1.png");
+
+            verify(cloud.client()).deleteObject(cloud.bucket(), "deprecated/avatar/1.png");
+        }
+    }
+
 
     @Test
     void shouldAcceptCloudObjectsWithExpectedSize() {

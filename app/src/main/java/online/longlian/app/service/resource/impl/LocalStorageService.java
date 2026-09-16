@@ -113,6 +113,7 @@ public class LocalStorageService implements StorageService {
         }
     }
 
+    @Override
     public void delete(String key) {
         try {
             Files.deleteIfExists(resolveKey(key));
