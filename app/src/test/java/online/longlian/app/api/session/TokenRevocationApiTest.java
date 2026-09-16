@@ -20,6 +20,7 @@ import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,9 +108,12 @@ class TokenRevocationApiTest extends BaseApiTest {
     void shouldMigrateLegacyTokensWithoutRestoringAccess() throws Exception {
         createAdmin(1L, "admin", "123456", "root");
         String token = adminLoginAs("admin", "123456");
-        jdbcTemplate.update("INSERT INTO token_blacklist (id,token,token_type,user_id,expired_at) VALUES (112,?,2,1,DATE_ADD(NOW(), INTERVAL 1 HOUR))", token);
-        jdbcTemplate.update("INSERT INTO token_blacklist (id,token,token_type,user_id,expired_at) VALUES (113,?,2,1,DATE_ADD(NOW(), INTERVAL 1 MINUTE))",
-                TokenRevocationStore.digest(token));
+        LocalDateTime longExpiry = testNow().plusHours(1);
+        LocalDateTime shortExpiry = testNow().plusMinutes(1);
+        jdbcTemplate.update("INSERT INTO token_blacklist (id,token,token_type,user_id,expired_at) VALUES (112,?,2,1,?)",
+                token, longExpiry);
+        jdbcTemplate.update("INSERT INTO token_blacklist (id,token,token_type,user_id,expired_at) VALUES (113,?,2,1,?)",
+                TokenRevocationStore.digest(token), shortExpiry);
         Path script = Path.of("db/data-migrations/112-hash-token-blacklist.sql");
         if (!Files.isRegularFile(script)) {
             script = Path.of("../db/data-migrations/112-hash-token-blacklist.sql");
@@ -121,7 +125,8 @@ class TokenRevocationApiTest extends BaseApiTest {
         }
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM token_blacklist WHERE token LIKE '%.%.%'", Integer.class)).isZero();
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM token_blacklist", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT TIMESTAMPDIFF(SECOND,NOW(),expired_at) FROM token_blacklist", Integer.class)).isGreaterThan(3500);
+        assertThat(jdbcTemplate.queryForObject("SELECT expired_at FROM token_blacklist", LocalDateTime.class))
+                .isAfter(testNow().plusMinutes(59));
         authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 }
