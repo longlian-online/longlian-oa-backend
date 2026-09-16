@@ -10,7 +10,6 @@ import org.apache.ibatis.annotations.Mapper;
  * </p>
  *
  * @author longlian
- * @since 2026-04-17
  */
 @Mapper
 public interface ResourceMapper extends BaseMapper<Resource> {

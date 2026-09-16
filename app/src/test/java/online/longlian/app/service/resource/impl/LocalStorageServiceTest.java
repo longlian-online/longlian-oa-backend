@@ -318,6 +318,11 @@ class LocalStorageServiceTest {
     }
 
     @Test
+    void shouldTreatMissingStoredFileAsDeleted(@TempDir Path directory) {
+        storageService(directory).delete("task/missing.bin");
+    }
+
+    @Test
     void shouldRejectProbeWhenFileSizeCannotBeRead(@TempDir Path directory) throws IOException {
         LocalStorageService storageService = storageService(directory);
         Path target = directory.toAbsolutePath().normalize().resolve("avatar/1.png");
