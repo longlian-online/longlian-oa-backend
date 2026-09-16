@@ -36,7 +36,7 @@ docker run \
   -e JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar" \
   -e OTEL_SERVICE_NAME=longlian-oa \
   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4317 \
-  longlian-oa
+  longlian-oa:otel
 ```
 
 ### docker-compose 示例
@@ -44,7 +44,7 @@ docker run \
 ```yaml
 services:
   app:
-    image: longlian-oa
+    image: longlian-oa:otel
     environment:
       JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
       OTEL_SERVICE_NAME: longlian-oa
