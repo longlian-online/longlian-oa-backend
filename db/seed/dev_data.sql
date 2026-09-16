@@ -5,10 +5,10 @@
 
 INSERT IGNORE INTO `admin` (`id`, `username`, `password`, `role`, `last_login_at`, `created_at`, `updated_at`, `deleted_at`) VALUES ('1', 'root', '$2y$10$x1expS7FECBmkKNkA6ZEeOAWFXn3zFXkcPoHF6JL.xe.wbCEzI2l2', 'root', '2026-06-09 00:00:00', '2026-06-10 00:00:00', '2026-06-10 00:00:00', NULL);
 
+INSERT IGNORE INTO `organization` (`id`, `name`, `creator_id`, `status`, `created_at`, `updated_at`, `deleted_at`) VALUES ('1', '开发组织', '1', 1, '2026-06-10 00:00:00', '2026-06-10 00:00:00', NULL);
+
 INSERT IGNORE INTO `user` (`id`, `username`, `password`, `nickname`, `email`, `avatar_file_id`, `default_org_id`, `status`, `created_at`, `updated_at`, `deleted_at`) VALUES ('1', 'user', '$2y$10$x1expS7FECBmkKNkA6ZEeOAWFXn3zFXkcPoHF6JL.xe.wbCEzI2l2', 'user', '123456@qq.com', NULL, '1', 1, '2026-06-10 00:00:00', '2026-06-10 00:00:00', NULL);
 
-INSERT IGNORE INTO `organization` (`id`, `name`, `avatar_file_id`, `description`, `status`, `creator_id`, `created_at`, `updated_at`, `deleted_at`) VALUES ('1', '开发组织', NULL, '本地开发默认组织', 1, 1, '2026-06-10 00:00:00', '2026-06-10 00:00:00', NULL);
+INSERT IGNORE INTO `organization_member` (`id`, `org_id`, `user_id`, `org_role`, `status`, `created_at`, `updated_at`, `deleted_at`) VALUES ('1', '1', '1', 'ORG_ADMIN', 1, '2026-06-10 00:00:00', '2026-06-10 00:00:00', NULL);
 
-INSERT IGNORE INTO `organization_member` (`id`, `org_id`, `user_id`, `org_role`, `joined_at`, `last_submitted_at`, `submit_count`, `status`, `created_at`, `updated_at`, `deleted_at`) VALUES ('1', '1', '1', 'ORG_ADMIN', '2026-06-10 00:00:00', NULL, 0, 1, '2026-06-10 00:00:00', '2026-06-10 00:00:00', NULL);
-
-UPDATE `user` SET `default_org_id` = 1 WHERE `id` = 1 AND `default_org_id` = 0;
+UPDATE `user` SET `default_org_id` = 1 WHERE `id` = 1 AND (`default_org_id` IS NULL OR `default_org_id` = 0);
