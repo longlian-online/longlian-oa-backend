@@ -1,11 +1,12 @@
 FROM arigaio/atlas:1.2.3 AS atlas
 
-FROM alpine:3.20
+FROM mysql:8.0.46
 WORKDIR /app/db
 
-# mariadb-client 用于同实例自动创建 {db}_atlas 和导入种子
-RUN apk add --no-cache mariadb-client=10.11.18-r0 \
-  && addgroup -S appgroup && adduser -S appuser -G appgroup
+# 官方 MySQL 客户端支持 MySQL 8 默认的 caching_sha2_password，
+# 用于同实例自动创建 {db}_atlas 和导入种子。
+RUN groupadd --system appgroup \
+  && useradd --system --gid appgroup --no-create-home --home-dir /nonexistent appuser
 
 COPY --from=atlas /atlas /usr/local/bin/atlas
 COPY --chown=appuser:appgroup db /app/db
