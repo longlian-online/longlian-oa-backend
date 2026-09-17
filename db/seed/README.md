@@ -4,4 +4,6 @@
 
 每次 `db/migrate.sh <dev|prod> apply` 在结构同步成功后都会执行该文件。SQL 必须可重复执行，且不得覆盖已有业务数据。
 
+当前 root 账号的密码由部署环境中的 `DEFAULT_ADMIN_PASSWORD_HASH` 提供。该变量必须来自受控的密钥管理系统，值为 BCrypt 哈希；不得在版本控制文件中写入固定密码或哈希。
+
 `dev_data.sql` 仅用于本地开发环境，不能承载部署基础配置。

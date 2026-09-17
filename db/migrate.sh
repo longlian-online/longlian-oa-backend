@@ -290,13 +290,31 @@ seed_if_requested() {
 }
 bootstrap_base_data() {
   base_data_file="${SCRIPT_DIR}/seed/base_data.sql"
+  default_admin_password_hash="${DEFAULT_ADMIN_PASSWORD_HASH:-}"
   if [ ! -f "$base_data_file" ]; then
     echo "错误: 部署基础数据文件不存在: $base_data_file" >&2
     exit 1
   fi
+  if [ -z "$default_admin_password_hash" ]; then
+    echo "错误: 必须设置 DEFAULT_ADMIN_PASSWORD_HASH 以初始化管理端账号" >&2
+    exit 1
+  fi
+  case "$default_admin_password_hash" in
+    '$2a$'*|'$2b$'*|'$2y$'*) ;;
+    *)
+      echo "错误: DEFAULT_ADMIN_PASSWORD_HASH 必须是 BCrypt 哈希" >&2
+      exit 1
+      ;;
+  esac
+  case "$default_admin_password_hash" in
+    *[!./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\$]*)
+      echo "错误: DEFAULT_ADMIN_PASSWORD_HASH 包含无效字符" >&2
+      exit 1
+      ;;
+  esac
   parse_mysql_url "$DB_URL"
   echo "==> 导入部署基础数据 $base_data_file"
-  mysql_exec "$DB_URL" "$url_db" < "$base_data_file"
+  sed "s|__DEFAULT_ADMIN_PASSWORD_HASH__|$default_admin_password_hash|g" "$base_data_file" | mysql_exec "$DB_URL" "$url_db"
 }
 
 
