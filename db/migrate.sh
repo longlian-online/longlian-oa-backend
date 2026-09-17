@@ -288,6 +288,17 @@ seed_if_requested() {
   echo "==> 导入种子数据 $SEED_FILE"
   mysql_exec "$DB_URL" "$url_db" < "$SEED_FILE"
 }
+bootstrap_base_data() {
+  base_data_file="${SCRIPT_DIR}/seed/base_data.sql"
+  if [ ! -f "$base_data_file" ]; then
+    echo "错误: 部署基础数据文件不存在: $base_data_file" >&2
+    exit 1
+  fi
+  parse_mysql_url "$DB_URL"
+  echo "==> 导入部署基础数据 $base_data_file"
+  mysql_exec "$DB_URL" "$url_db" < "$base_data_file"
+}
+
 
 case "$ENVIRONMENT" in
   dev|prod) ;;
@@ -315,6 +326,7 @@ case "$ACTION" in
     echo "==> [${ENVIRONMENT}] 同步数据库到 schema.sql 声明状态..."
     run_atlas schema apply --env "$ENVIRONMENT" --auto-approve
     echo "==> [${ENVIRONMENT}] 同步完成"
+    bootstrap_base_data
     seed_if_requested
     ;;
   plan)
