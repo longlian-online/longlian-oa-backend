@@ -49,7 +49,6 @@ services:
     command: ["dev", "apply"]
     environment:
       DB_URL: mysql://root:dev@mysql-dev:3306/longlian_oa_dev
-      DEFAULT_ADMIN_PASSWORD_HASH: $$2y$$10$$x1expS7FECBmkKNkA6ZEeOAWFXn3zFXkcPoHF6JL.xe.wbCEzI2l2
       SEED_FILE: /app/db/seed/dev_data.sql
     volumes:
       - ../db:/app/db:ro
