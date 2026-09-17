@@ -23,6 +23,8 @@ server:
 longlian:
   # 邮件发件显示名、对外展示用的系统名称
   display-name: "longlian-oa"
+  # 对外部署地址；用于 OpenAPI 文档及需生成绝对地址的业务代码。
+  server-url: http://localhost:10003
   datasource:
     # mysql | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
     type: mysql
@@ -37,7 +39,8 @@ spring:
     # 本地默认 dev。测试由 @ActiveProfiles("test") 加载 application-test.yml，不必改这里
     active: dev
   main:
-    # 现有部分 Bean 存在环依赖，关闭会导致启动失败
+    # 现有部分 Bean 存在环依赖，关闭会导致启动失败。
+    allow-circular-references: true
   lifecycle:
     # 优雅停机等待上限，需大于最慢接口的可接受耗时
     timeout-per-shutdown-phase: 30s

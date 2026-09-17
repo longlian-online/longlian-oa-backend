@@ -16,7 +16,7 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 2. 按本机环境改数据库、Redis、JWT、邮件等。每个字段的含义和取值见模板内注释。
 
-Docker 一键开发环境（`task dev`）挂载上面的本地模板，用环境变量把 MySQL/Redis 指到 compose 服务名。
+Docker 一键开发环境（`task dev`）挂载本地 `application.yml`，再挂载 `application-dev.yml` 作为开发 profile 覆盖；Spring Boot 按属性优先级合并二者，并用 Compose 环境变量把 MySQL/Redis 指到容器服务名。
 
 生产（`task prod`）只部署迁移 + 后端，MySQL/Redis 用外部实例：
 
