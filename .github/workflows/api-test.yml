@@ -27,6 +27,9 @@ jobs:
       - name: Install Task
         uses: go-task/setup-task@v2
 
+      - name: Run unit tests
+        run: ./mvnw -B verify
+
       - name: Run API Tests
         run: |
           mkdir -p .ci-cache/m2
