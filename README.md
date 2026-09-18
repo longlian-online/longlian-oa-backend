@@ -126,6 +126,6 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 Docker 开发环境挂载本模板，compose 用环境变量覆盖 MySQL/Redis 主机名。生产复制 `devops/application-prod.yml.example` 后 `task prod`。测试使用已提交的 `app/src/test/resources/application-test.yml`。
 
-生产 YAML 中存储 CDN 项支持 `${STORAGE_*}` 覆盖，模板见 `devops/.env.example`。CDN 接入与签名算法见 [docs/cdn.md](docs/cdn.md)。
+存储与 CDN 项直接写在 YAML 中。CDN 接入与签名算法见 [docs/cdn.md](docs/cdn.md)。
 
 详见 [docs/dev.md](docs/dev.md)。

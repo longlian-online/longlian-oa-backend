@@ -101,27 +101,27 @@ springdoc:
     tagsSorter: alpha
     # 生产建议 false，避免接口文档暴露
     # 默认关闭，开发环境由 application-dev.yml 显式开启
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: false
   api-docs:
     # 默认关闭，开发环境由 application-dev.yml 显式开启
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: false
 
 storage:
   # LOCAL | OSS | COS。LOCAL 走本机目录；OSS/COS 必须填对应子项
   type: LOCAL
   # 存储服务生成的预签名 URL 有效期（秒）
-  presigned-url-ttl-seconds: ${STORAGE_PRESIGNED_URL_TTL_SECONDS:300}
+  presigned-url-ttl-seconds: 300
   # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
   cdn:
-    enabled: ${STORAGE_CDN_ENABLED:false}
-    url-prefix: ${STORAGE_CDN_URL_PREFIX:}
-    auth-key: ${STORAGE_CDN_AUTH_KEY:}
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
   local:
     # 本地文件访问地址复用 longlian.server-url，避免出现两个服务端地址配置
     # 本地文件签名密钥，默认复用 JWT 密钥；多实例必须保持一致
-    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
+    signing-secret: ${jwt.secret}
     # 实际落盘目录。${java.io.tmpdir} 是 JVM 临时目录，重启可能被清
-    directory: ${STORAGE_LOCAL_DIRECTORY:${java.io.tmpdir}/longlian-oa}
+    directory: ${java.io.tmpdir}/longlian-oa
   oss:
     bucket: ""
     region: ""

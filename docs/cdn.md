@@ -21,9 +21,9 @@ COS GET 预签名每次带不同的 `q-sign-*` 参数，CDN 无法复用缓存�
 ```yaml
 storage:
   cdn:
-    enabled: ${STORAGE_CDN_ENABLED:false}
-    url-prefix: ${STORAGE_CDN_URL_PREFIX:}
-    auth-key: ${STORAGE_CDN_AUTH_KEY:}
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
 ```
 
 | 项 | 含义 |
@@ -32,7 +32,7 @@ storage:
 | `url-prefix` | EdgeOne 对外访问前缀，必须是无查询参数的绝对 URL，不要尾斜杠。可带路径前缀，例如 `https://static.example.com/private` |
 | `auth-key` | 与 EdgeOne 控制台 Type D 鉴权密钥一致 |
 
-生产可复制 `devops/.env.example` 为 `devops/.env` 注入上述变量。主配置仍是 `application-prod.yml`。
+在 `application.yml` / `application-prod.yml` 中直接填写上述项。
 
 开启 CDN 但未配置 `url-prefix` / `auth-key` 时，`CdnUrlSigner` 抛出 `IllegalStateException`，不会回退到 COS 预签名。
 
