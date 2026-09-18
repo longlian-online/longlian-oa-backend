@@ -19,6 +19,8 @@ server:
 
 longlian:
   display-name: "longlian-oa"
+  # 对外部署地址；部署时替换为当前环境域名。
+  server-url: https://api.example.com
   datasource:
     type: mysql
   cache:
@@ -30,6 +32,7 @@ spring:
   profiles:
     active: prod
   main:
+    allow-circular-references: true
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
@@ -76,9 +79,9 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
-    enabled: false
+    enabled: true
   api-docs:
-    enabled: false
+    enabled: true
 
 storage:
   # LOCAL | OSS | COS

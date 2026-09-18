@@ -9,6 +9,7 @@
 
 longlian:
   display-name: "longlian-oa"
+  server-url: https://api.test.longlian.online
   datasource:
     type: mysql
   cache:

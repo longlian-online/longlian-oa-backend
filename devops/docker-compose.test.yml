@@ -60,7 +60,7 @@ services:
         echo "等待服务完全就绪..."
         && sleep 15
         && mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
-        && mvn -pl app test jacoco:report -e
+        && mvn -pl app test jacoco:report -Papi-test -e
 
 volumes:
   maven-repo:
