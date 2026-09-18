@@ -89,7 +89,6 @@ storage:
   # 所有上传和读取预签名链接有效期（秒）
   presigned-url-ttl-seconds: ${STORAGE_PRESIGNED_URL_TTL_SECONDS:300}
   local:
-    base-url: ""
     signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
     directory: /app/data/storage
   oss:

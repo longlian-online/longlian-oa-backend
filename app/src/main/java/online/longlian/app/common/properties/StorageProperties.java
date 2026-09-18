@@ -15,7 +15,6 @@ public class StorageProperties {
 
     @Data
     public static class LocalConfig {
-        private String baseUrl;
         private String directory;
     }
 

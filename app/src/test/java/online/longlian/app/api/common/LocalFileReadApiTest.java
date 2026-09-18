@@ -34,7 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 @TestPropertySource(properties = {
-        "storage.type=LOCAL", "storage.local.base-url=",
+        "storage.type=LOCAL",
+        "longlian.server-url=",
         "storage.presigned-url-ttl-seconds=120",
         "storage.local.directory=${java.io.tmpdir}/longlian-issue107-${random.uuid}"
 })
