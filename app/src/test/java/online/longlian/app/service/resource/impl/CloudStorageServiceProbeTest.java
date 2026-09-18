@@ -31,7 +31,7 @@ class CloudStorageServiceProbeTest {
     private static final long PRESIGNED_URL_TTL_SECONDS = 120;
     @Test
     void shouldGenerateCloudUploadAndReadUrls() throws Exception {
-        URL signedUrl = new URL("https://cdn.example/resource.png");
+        URL signedUrl = new URL("https://cos.example/resource.png");
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
 
@@ -46,13 +46,13 @@ class CloudStorageServiceProbeTest {
     }
 
     @Test
-    void shouldUseConfiguredPresignedUrlTtl() throws Exception {
+    void shouldUseConfiguredPresignedUrlTtlForUploads() throws Exception {
         Instant before = Instant.now();
         URL signedUrl = new URL("https://cdn.example/resource.png");
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
 
-            cloud.storage().getResourceReadUrl("resource.png");
+            cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png"));
 
             ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
             verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());

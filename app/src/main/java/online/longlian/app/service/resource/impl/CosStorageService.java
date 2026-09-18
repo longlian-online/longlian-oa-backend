@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 @Service
 public class CosStorageService implements StorageService, DisposableBean {
 
+
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
     private final long presignedUrlTtlMillis;
@@ -58,8 +59,9 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
-        return new PresignedUploadUrlResultBO(this.getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
+        return new PresignedUploadUrlResultBO(getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
     }
+
 
     @Override
     public String getResourceReadUrl(String key) {
@@ -95,7 +97,7 @@ public class CosStorageService implements StorageService, DisposableBean {
     }
 
     @Override
-    public void destroy() throws Exception {
+    public void destroy() {
         this.cosClient.shutdown();
         log.info("COS 客户端已关闭");
     }

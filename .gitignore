@@ -20,6 +20,7 @@ target/
 *.ipr
 
 **/.env*
+!**/.env.example
 
 # 本地 / 生产 Spring 配置（从 *.yml.example 复制，禁止提交）
 app/src/main/resources/application.yml

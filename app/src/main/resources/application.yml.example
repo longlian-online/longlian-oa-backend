@@ -109,8 +109,13 @@ springdoc:
 storage:
   # LOCAL | OSS | COS。LOCAL 走本机目录；OSS/COS 必须填对应子项
   type: LOCAL
-  # 所有上传和读取预签名链接有效期（秒）
+  # 存储服务生成的预签名 URL 有效期（秒）
   presigned-url-ttl-seconds: ${STORAGE_PRESIGNED_URL_TTL_SECONDS:300}
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
+  cdn:
+    enabled: ${STORAGE_CDN_ENABLED:false}
+    url-prefix: ${STORAGE_CDN_URL_PREFIX:}
+    auth-key: ${STORAGE_CDN_AUTH_KEY:}
   local:
     # 本地文件访问地址复用 longlian.server-url，避免出现两个服务端地址配置
     # 本地文件签名密钥，默认复用 JWT 密钥；多实例必须保持一致
@@ -128,7 +133,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
 
 cors:
   # 浏览器跨域白名单，多个用逗号分隔。必须写前端 Origin，不能写 *

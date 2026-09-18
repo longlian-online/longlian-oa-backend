@@ -61,6 +61,7 @@ public class OssStorageService implements StorageService, DisposableBean {
         return new PresignedUploadUrlResultBO(this.getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
     }
 
+
     @Override
     public String getResourceReadUrl(String key) {
         return getPresignUrl(key, HttpMethodName.GET);

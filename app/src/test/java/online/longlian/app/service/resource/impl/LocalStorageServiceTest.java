@@ -26,6 +26,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,12 +43,12 @@ class LocalStorageServiceTest {
         assertThat(storageService(directory).getStorageType()).isEqualTo(StorageType.LOCAL);
     }
 
+
     @Test
-    void shouldBuildLocalUploadAndBatchReadUrls(@TempDir Path directory) {
+    void shouldBuildLocalUploadUrl(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
 
-        assertThat(storageService.generatePresignedUploadUrl(
-                new PresignedUploadUrlParamsBO("avatar/1.png")))
+        assertThat(storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("avatar/1.png")))
                 .satisfies(result -> {
                     assertThat(result.getKey()).isEqualTo("avatar/1.png");
                     assertThat(result.getUploadUrl())
@@ -55,9 +56,6 @@ class LocalStorageServiceTest {
                             .contains("expires=")
                             .matches(".*signature=[0-9a-f]{64}.*");
                 });
-        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
-        assertThat(urls).containsOnlyKeys("avatar/1.png", "cover/2.png");
-        assertThat(urls.values()).allMatch(url -> url.contains("expires=") && url.contains("signature="));
     }
 
     @Test
@@ -66,6 +64,37 @@ class LocalStorageServiceTest {
 
         assertThat(storageService.getResourceReadUrl("avatar/1.png"))
                 .matches("https://api.example.com/common/file/local\\?key=avatar/1.png\u0026expires=[0-9]+\u0026signature=[0-9a-f]{64}");
+    }
+
+    @Test
+    void shouldReturnNativeReadUrlsForMultipleKeys() {
+        LocalStorageService storageService = storageService("https://api.example.com");
+
+        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
+
+        assertThat(urls).hasSize(2);
+        assertThat(urls.get("avatar/1.png")).contains("key=avatar/1.png", "expires=", "signature=");
+        assertThat(urls.get("cover/2.png")).contains("key=cover/2.png", "expires=", "signature=");
+    }
+
+    @Test
+    void shouldFallbackToTempDirectoryWhenLocalDirectoryBlank() throws IOException {
+        LocalStorageService storageService = storageService("https://api.example.com");
+        String key = "coverage/" + UUID.randomUUID() + ".bin";
+        Path stored = Path.of(System.getProperty("java.io.tmpdir"), "longlian-oa").resolve(key);
+
+        try {
+            storageService.upload(writeParams(key, new byte[]{9, 8, 7}, 3L, null));
+
+            assertThat(stored).exists();
+            assertThat(Files.readAllBytes(stored)).containsExactly(9, 8, 7);
+        } finally {
+            Files.deleteIfExists(stored);
+            Path parent = stored.getParent();
+            if (parent != null) {
+                Files.deleteIfExists(parent);
+            }
+        }
     }
 
     @Test
@@ -339,12 +368,14 @@ class LocalStorageServiceTest {
         localConfig.setDirectory(directory.toString());
         StorageProperties properties = new StorageProperties();
         properties.setLocal(localConfig);
+        properties.setCdn(cdnConfig());
         return new LocalStorageService(properties, new LonglianProperties(), signer());
     }
 
     private LocalStorageService storageService(String serverUrl) {
         StorageProperties properties = new StorageProperties();
         properties.setLocal(new StorageProperties.LocalConfig());
+        properties.setCdn(cdnConfig());
         LonglianProperties longlianProperties = new LonglianProperties();
         longlianProperties.setServerUrl(serverUrl);
         return new LocalStorageService(properties, longlianProperties, signer());
@@ -390,6 +421,13 @@ class LocalStorageServiceTest {
             data.writeInt((int) crc.getValue());
         }
         return output.toByteArray();
+    }
+
+    private StorageProperties.CdnConfig cdnConfig() {
+        StorageProperties.CdnConfig config = new StorageProperties.CdnConfig();
+        config.setUrlPrefix("https://edge.example.com");
+        config.setAuthKey("test-cdn-key");
+        return config;
     }
 
     private LocalFileUrlSigner signer() {

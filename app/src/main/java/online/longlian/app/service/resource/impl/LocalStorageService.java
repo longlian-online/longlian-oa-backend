@@ -71,6 +71,7 @@ public class LocalStorageService implements StorageService {
         return new PresignedUploadUrlResultBO(uploadUrl, key);
     }
 
+
     @Override
     public String getResourceReadUrl(String key) {
         LocalFileReadParamsBO signed = signer.sign(key);

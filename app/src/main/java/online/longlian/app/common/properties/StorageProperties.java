@@ -9,9 +9,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class StorageProperties {
     private StorageType type;
     private long presignedUrlTtlSeconds = 300;
+    private CdnConfig cdn;
     private LocalConfig local;
     private OssConfig oss;
     private CosConfig cos;
+
+    @Data
+    public static class CdnConfig {
+        private boolean enabled;
+        private String urlPrefix;
+        private String authKey;
+    }
 
     @Data
     public static class LocalConfig {
@@ -29,7 +37,6 @@ public class StorageProperties {
 
     @Data
     public static class CosConfig {
-        private String urlPrefix;
         private String bucket;
         private String secretId;
         private String region;
