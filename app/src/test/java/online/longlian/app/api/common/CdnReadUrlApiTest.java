@@ -20,14 +20,14 @@ import static org.hamcrest.Matchers.equalTo;
         "storage.cos.region=ap-guangzhou",
         "storage.cos.secret-id=test-secret-id",
         "storage.cos.secret-key=test-secret-key",
-        "storage.cos.url-prefix=https://static.example.com",
-        "storage.cos.edgeone-auth-key=test-edgeone-key"
+        "storage.cdn.url-prefix=https://static.example.com",
+        "storage.cdn.auth-key=test-cdn-key"
 })
-class EdgeOneReadUrlApiTest extends BaseApiTest {
+class CdnReadUrlApiTest extends BaseApiTest {
 
-    /** COS 私有资源经业务接口返回 EO 方法 D 链接，上传凭据不暴露给读取接口。 */
+    /** COS 私有资源经业务接口返回 CDN 路径令牌链接，上传凭据不暴露给读取接口。 */
     @Test
-    void shouldReturnEdgeOneSignedUrlForCosAvatar() {
+    void shouldReturnCdnSignedUrlForCosAvatar() {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         createResource(1L, 1L, 1L);
         jdbcTemplate.update("UPDATE resource SET storage_type = 3 WHERE id = 1");
@@ -44,7 +44,7 @@ class EdgeOneReadUrlApiTest extends BaseApiTest {
         assertThat(uri.getHost()).isEqualTo("static.example.com");
         assertThat(uri.getRawPath()).isEqualTo("/avatar/1.png");
         assertThat(queryValue(uri.getRawQuery(), "token"))
-                .isEqualTo(md5("test-edgeone-key" + uri.getRawPath() + timestamp));
+                .isEqualTo(md5("test-cdn-key" + uri.getRawPath() + timestamp));
     }
 
     private String queryValue(String query, String name) {

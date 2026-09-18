@@ -9,6 +9,7 @@ import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
+import online.longlian.app.service.resource.CdnUrlSigner;
 import online.longlian.app.service.resource.LocalFileUrlSigner;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.common.enumeration.StorageType;
@@ -27,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
@@ -46,14 +48,17 @@ public class LocalStorageService implements StorageService {
     private final StorageProperties.LocalConfig localConfig;
     private final String serverUrl;
     private final LocalFileUrlSigner signer;
+    private final CdnUrlSigner cdnUrlSigner;
 
     LocalStorageService(
             StorageProperties storageProperties,
             LonglianProperties longlianProperties,
-            LocalFileUrlSigner signer) {
+            LocalFileUrlSigner signer,
+            Clock clock) {
         localConfig = storageProperties.getLocal();
         serverUrl = longlianProperties.getServerUrl();
         this.signer = signer;
+        cdnUrlSigner = new CdnUrlSigner(storageProperties.getCdn(), clock);
     }
 
     @Override
@@ -74,7 +79,10 @@ public class LocalStorageService implements StorageService {
     @Override
     public String getResourceReadUrl(String key) {
         LocalFileReadParamsBO signed = signer.sign(key);
-        return buildLocalResourceUrl(key) + "&expires=" + signed.expires() + "&signature=" + signed.signature();
+        String query = "key=" + UriUtils.encodeQueryParam(key, StandardCharsets.UTF_8)
+                + "&expires=" + signed.expires()
+                + "&signature=" + signed.signature();
+        return cdnUrlSigner.signPath("/common/file/local", query);
     }
 
     @Override

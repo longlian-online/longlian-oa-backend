@@ -15,7 +15,7 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
-import online.longlian.app.service.resource.EdgeOneUrlSigner;
+import online.longlian.app.service.resource.CdnUrlSigner;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,7 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
-    private final EdgeOneUrlSigner edgeOneUrlSigner;
+    private final CdnUrlSigner cdnUrlSigner;
     private final long presignedUrlTtlMillis;
 
     public CosStorageService(StorageProperties storageProperties, Clock clock) {
@@ -41,7 +41,7 @@ public class CosStorageService implements StorageService, DisposableBean {
         COSCredentials cred = new BasicCOSCredentials(cosConfig.getSecretId(), cosConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(cosConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
-        edgeOneUrlSigner = new EdgeOneUrlSigner(cosConfig.getUrlPrefix(), cosConfig.getEdgeOneAuthKey(), clock);
+        cdnUrlSigner = new CdnUrlSigner(storageProperties.getCdn(), clock);
     }
 
     @Override
@@ -68,7 +68,7 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     @Override
     public String getResourceReadUrl(String key) {
-        return edgeOneUrlSigner.sign(key);
+        return cdnUrlSigner.sign(key);
     }
 
     @Override

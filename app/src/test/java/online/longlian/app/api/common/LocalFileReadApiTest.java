@@ -22,6 +22,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,8 @@ import static org.hamcrest.Matchers.equalTo;
         "storage.type=LOCAL",
         "longlian.server-url=",
         "storage.presigned-url-ttl-seconds=120",
+        "storage.cdn.url-prefix=http://localhost",
+        "storage.cdn.auth-key=test-cdn-key",
         "storage.local.directory=${java.io.tmpdir}/longlian-issue107-${random.uuid}"
 })
 class LocalFileReadApiTest extends BaseApiTest {
@@ -54,8 +57,8 @@ class LocalFileReadApiTest extends BaseApiTest {
         String token = loginAs("user", "123456");
         String url = authRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
-        assertThat(url).contains("expires=", "signature=");
-        byte[] content = request().urlEncodingEnabled(false).get(url).then().statusCode(200).extract().asByteArray();
+        assertThat(url).contains("expires=", "signature=", "token=", "t=");
+        byte[] content = request().urlEncodingEnabled(false).get(originPath(url)).then().statusCode(200).extract().asByteArray();
         assertThat(content).containsExactly(7);
     }
 
@@ -89,7 +92,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         createFile();
         createResource(2L, 2L, 2L);
         String url = resources.getResourceReadUrl(1L).replace("avatar/1.png", "avatar/2.png");
-        request().urlEncodingEnabled(false).get(url).then()
+        request().urlEncodingEnabled(false).get(originPath(url)).then()
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
@@ -299,7 +302,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementBizId).isEqualTo(1L);
 
-        request().urlEncodingEnabled(false).get(oldAvatarUrl).then()
+        request().urlEncodingEnabled(false).get(originPath(oldAvatarUrl)).then()
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
         createAdmin(2L, "resource_cleanup_admin", "123456", "SUPER_ADMIN");
         String adminToken = adminLoginAs("resource_cleanup_admin", "123456");
@@ -316,7 +319,7 @@ class LocalFileReadApiTest extends BaseApiTest {
 
         String avatarUrl = authRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
-        byte[] content = request().urlEncodingEnabled(false).get(avatarUrl).then()
+        byte[] content = request().urlEncodingEnabled(false).get(originPath(avatarUrl)).then()
                 .statusCode(200).extract().asByteArray();
         assertThat(content).isEqualTo(png);
     }
@@ -370,6 +373,11 @@ class LocalFileReadApiTest extends BaseApiTest {
         String uploadUrl = response.path("data.uploadUrl");
         assertThat(uploadUrl).contains("expires=", "signature=");
         return new LocalUpload(response.path("data.fileId"), response.path("data.key"), uploadUrl);
+    }
+
+    private String originPath(String url) {
+        URI uri = URI.create(url);
+        return uri.getRawPath() + "?" + uri.getRawQuery();
     }
 
     private io.restassured.response.ValidatableResponse putSignedUpload(String uploadUrl, byte[] body) {

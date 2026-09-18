@@ -73,6 +73,9 @@ springdoc:
 storage:
   type: LOCAL
   presigned-url-ttl-seconds: 300
+  cdn:
+    url-prefix: http://localhost
+    auth-key: test-cdn-key
   local:
     directory: ${java.io.tmpdir}/longlian-oa-test
   # CosStorageService / OssStorageService 启动时就会读这些字段，即使 type=LOCAL 也不能缺
@@ -87,8 +90,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
-    edgeone-auth-key: ""
 
 cors:
   allowed-origins: http://localhost:3000

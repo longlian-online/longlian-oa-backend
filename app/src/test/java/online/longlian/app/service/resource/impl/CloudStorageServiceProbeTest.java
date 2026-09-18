@@ -42,18 +42,11 @@ class CloudStorageServiceProbeTest {
             assertThat(upload.getUploadUrl()).isEqualTo(signedUrl.toString());
             assertThat(upload.getKey()).isEqualTo("resource.png");
 
-            if (cloud.storage() instanceof CosStorageService) {
-                assertThat(cloud.storage().getResourceReadUrl("resource.png"))
-                        .isEqualTo("https://edge.example/resource.png"
-                                + "?token=3199cf4e4140043b45fd1431e7f31f2f&t=1721029907");
-                assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
-                        .allSatisfy((key, url) -> assertThat(url).startsWith("https://edge.example/"));
-            } else {
-                assertThat(cloud.storage().getResourceReadUrl("resource.png")).isEqualTo(signedUrl.toString());
-                assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
-                        .containsEntry("first.png", signedUrl.toString())
-                        .containsEntry("second.png", signedUrl.toString());
-            }
+            assertThat(cloud.storage().getResourceReadUrl("resource.png"))
+                    .isEqualTo("https://edge.example/resource.png"
+                            + "?token=3199cf4e4140043b45fd1431e7f31f2f&t=1721029907");
+            assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
+                    .allSatisfy((key, url) -> assertThat(url).startsWith("https://edge.example/"));
         }
     }
 
@@ -131,6 +124,10 @@ class CloudStorageServiceProbeTest {
     private List<CloudStorage> cloudStorageServices() {
         StorageProperties properties = new StorageProperties();
         properties.setPresignedUrlTtlSeconds(PRESIGNED_URL_TTL_SECONDS);
+        StorageProperties.CdnConfig cdnConfig = new StorageProperties.CdnConfig();
+        cdnConfig.setUrlPrefix("https://edge.example");
+        cdnConfig.setAuthKey("test-secret");
+        properties.setCdn(cdnConfig);
 
         StorageProperties.CosConfig cosConfig = storageConfig(new StorageProperties.CosConfig());
         properties.setCos(cosConfig);
@@ -140,7 +137,7 @@ class CloudStorageServiceProbeTest {
 
         StorageProperties.OssConfig ossConfig = storageConfig(new StorageProperties.OssConfig());
         properties.setOss(ossConfig);
-        OssStorageService ossStorage = new OssStorageService(properties);
+        OssStorageService ossStorage = new OssStorageService(properties, CLOCK);
         COSClient ossClient = mock(COSClient.class);
         ReflectionTestUtils.setField(ossStorage, "cosClient", ossClient);
 
@@ -152,8 +149,6 @@ class CloudStorageServiceProbeTest {
 
     private <T extends StorageProperties.CosConfig> T storageConfig(T config) {
         config.setBucket("cos-bucket");
-        config.setUrlPrefix("https://edge.example");
-        config.setEdgeOneAuthKey("test-secret");
         config.setRegion("ap-guangzhou");
         config.setSecretId("test-secret-id");
         config.setSecretKey("test-secret-key");

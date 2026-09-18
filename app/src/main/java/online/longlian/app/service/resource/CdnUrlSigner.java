@@ -1,5 +1,6 @@
 package online.longlian.app.service.resource;
 
+import online.longlian.app.common.properties.StorageProperties;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriUtils;
 
@@ -11,34 +12,49 @@ import java.time.Clock;
 import java.util.HexFormat;
 
 /**
- * Produces EdgeOne URL-authentication method D links for private COS objects.
+ * Produces private storage URLs using the configured CDN path-token protocol.
  */
-public final class EdgeOneUrlSigner {
+public final class CdnUrlSigner {
 
     private final String urlPrefix;
     private final String authKey;
     private final Clock clock;
 
-    public EdgeOneUrlSigner(String urlPrefix, String authKey, Clock clock) {
+    public CdnUrlSigner(StorageProperties.CdnConfig config, Clock clock) {
+        this(config == null ? null : config.getUrlPrefix(), config == null ? null : config.getAuthKey(), clock);
+    }
+
+    public CdnUrlSigner(String urlPrefix, String authKey, Clock clock) {
         this.urlPrefix = urlPrefix;
         this.authKey = authKey;
         this.clock = clock;
     }
 
     public String sign(String storageKey) {
-        if (!StringUtils.hasText(urlPrefix) || !StringUtils.hasText(authKey)) {
-            throw new IllegalStateException("COS 的 EdgeOne 读取域名和鉴权密钥必须配置");
-        }
         if (!StringUtils.hasText(storageKey) || storageKey.startsWith("/")) {
             throw new IllegalArgumentException("非法文件 key");
         }
+        return signPath("/" + UriUtils.encodePath(storageKey, StandardCharsets.UTF_8), "");
+    }
+
+    /**
+     * 签名 CDN 回源路径。查询参数不参与路径令牌计算，调用方必须自行保护可篡改参数。
+     */
+    public String signPath(String path, String query) {
+        if (!StringUtils.hasText(urlPrefix) || !StringUtils.hasText(authKey)) {
+            throw new IllegalStateException("CDN 读取域名和鉴权密钥必须配置");
+        }
+        if (!StringUtils.hasText(path) || !path.startsWith("/") || path.contains("?") || path.contains("#")) {
+            throw new IllegalArgumentException("非法读取路径");
+        }
 
         URI baseUri = parseBaseUri();
-        String path = buildPath(baseUri, storageKey);
+        String requestPath = buildPath(baseUri, path);
         long timestamp = clock.instant().getEpochSecond();
-        String token = md5(authKey + path + timestamp);
-        return baseUri.getScheme() + "://" + baseUri.getRawAuthority() + path
-                + "?token=" + token + "&t=" + timestamp;
+        String token = md5(authKey + requestPath + timestamp);
+        String queryPrefix = StringUtils.hasText(query) ? query + "&" : "";
+        return baseUri.getScheme() + "://" + baseUri.getRawAuthority() + requestPath
+                + "?" + queryPrefix + "token=" + token + "&t=" + timestamp;
     }
 
     private URI parseBaseUri() {
@@ -55,26 +71,26 @@ public final class EdgeOneUrlSigner {
         }
     }
 
-    private String buildPath(URI baseUri, String storageKey) {
+    private String buildPath(URI baseUri, String path) {
         String basePath = baseUri.getRawPath();
         int end = basePath.length();
         while (end > 0 && basePath.charAt(end - 1) == '/') {
             end--;
         }
-        return basePath.substring(0, end) + "/" + UriUtils.encodePath(storageKey, StandardCharsets.UTF_8);
+        return basePath.substring(0, end) + path;
     }
 
     private String md5(String source) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("MD5")
                     .digest(source.getBytes(StandardCharsets.UTF_8)));
-        // EdgeOne 方法 D 固定要求 MD5；JDK 保证该算法存在。
+        // CDN 路径令牌协议要求 MD5；JDK 保证该算法存在。
         } catch (NoSuchAlgorithmException e) { // skipcq: TCV-001
-            throw new IllegalStateException("无法生成 EdgeOne 鉴权签名", e); // skipcq: TCV-001
+            throw new IllegalStateException("无法生成 CDN 鉴权签名", e); // skipcq: TCV-001
         }
     }
 
     private IllegalStateException invalidBaseUrl() {
-        return new IllegalStateException("COS 的 EdgeOne 读取域名必须是无查询参数的绝对 URL");
+        return new IllegalStateException("CDN 读取域名必须是无查询参数的绝对 URL");
     }
 }

@@ -111,6 +111,10 @@ storage:
   type: LOCAL
   # 存储服务生成的预签名 URL 有效期（秒）
   presigned-url-ttl-seconds: ${STORAGE_PRESIGNED_URL_TTL_SECONDS:300}
+  # 三种存储读取链接统一由 CDN 路径令牌生成；CDN 必须配置对应源站与私有回源。
+  cdn:
+    url-prefix: ${STORAGE_CDN_URL_PREFIX:}
+    auth-key: ${STORAGE_CDN_AUTH_KEY:}
   local:
     # 本地文件访问地址复用 longlian.server-url，避免出现两个服务端地址配置
     # 本地文件签名密钥，默认复用 JWT 密钥；多实例必须保持一致
@@ -128,10 +132,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    # 私有资源读取域名。EO 域名须配置 COS 私有桶回源，不能使用 COS 原始域名。
-    url-prefix: ${STORAGE_COS_URL_PREFIX:}
-    # EO URL 鉴权方法 D 的密钥；必须与 EO 控制台的鉴权密钥一致。
-    edgeone-auth-key: ${STORAGE_COS_EDGEONE_AUTH_KEY:}
 
 cors:
   # 浏览器跨域白名单，多个用逗号分隔。必须写前端 Origin，不能写 *

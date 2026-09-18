@@ -65,7 +65,8 @@ class LocalStorageServiceTest {
         LocalStorageService storageService = storageService("https://api.example.com");
 
         assertThat(storageService.getResourceReadUrl("avatar/1.png"))
-                .matches("https://api.example.com/common/file/local\\?key=avatar/1.png\u0026expires=[0-9]+\u0026signature=[0-9a-f]{64}");
+                .matches("https://edge.example.com/common/file/local\\?key=avatar/1.png"
+                        + "&expires=[0-9]+&signature=[0-9a-f]{64}&token=[0-9a-f]{32}&t=[0-9]+");
     }
 
     @Test
@@ -339,15 +340,17 @@ class LocalStorageServiceTest {
         localConfig.setDirectory(directory.toString());
         StorageProperties properties = new StorageProperties();
         properties.setLocal(localConfig);
-        return new LocalStorageService(properties, new LonglianProperties(), signer());
+        properties.setCdn(cdnConfig());
+        return new LocalStorageService(properties, new LonglianProperties(), signer(), Clock.systemUTC());
     }
 
     private LocalStorageService storageService(String serverUrl) {
         StorageProperties properties = new StorageProperties();
         properties.setLocal(new StorageProperties.LocalConfig());
+        properties.setCdn(cdnConfig());
         LonglianProperties longlianProperties = new LonglianProperties();
         longlianProperties.setServerUrl(serverUrl);
-        return new LocalStorageService(properties, longlianProperties, signer());
+        return new LocalStorageService(properties, longlianProperties, signer(), Clock.systemUTC());
     }
 
     private LocalFileWriteParamsBO writeParams(String key, byte[] content, long size, String mimeType) {
@@ -390,6 +393,13 @@ class LocalStorageServiceTest {
             data.writeInt((int) crc.getValue());
         }
         return output.toByteArray();
+    }
+
+    private StorageProperties.CdnConfig cdnConfig() {
+        StorageProperties.CdnConfig config = new StorageProperties.CdnConfig();
+        config.setUrlPrefix("https://edge.example.com");
+        config.setAuthKey("test-cdn-key");
+        return config;
     }
 
     private LocalFileUrlSigner signer() {
