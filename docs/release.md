@@ -36,6 +36,7 @@ git status --short
 git fetch origin --prune
 mvn -B validate -DskipTests
 mvn -B clean verify
+task api-test-docker
 ```
 
 工作区必须干净。GitHub SSH 权限可以用下面的命令检查：
