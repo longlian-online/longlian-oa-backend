@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.properties.LonglianProperties;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
@@ -43,10 +44,15 @@ public class LocalStorageService implements StorageService {
     private static final String GIF_MIME_TYPE = "image/gif";
 
     private final StorageProperties.LocalConfig localConfig;
+    private final String serverUrl;
     private final LocalFileUrlSigner signer;
 
-    LocalStorageService(StorageProperties storageProperties, LocalFileUrlSigner signer) {
+    LocalStorageService(
+            StorageProperties storageProperties,
+            LonglianProperties longlianProperties,
+            LocalFileUrlSigner signer) {
         localConfig = storageProperties.getLocal();
+        serverUrl = longlianProperties.getServerUrl();
         this.signer = signer;
     }
 
@@ -131,7 +137,7 @@ public class LocalStorageService implements StorageService {
     }
 
     private String buildLocalResourceUrl(String key) {
-        String baseUrl = localConfig.getBaseUrl() == null ? "" : localConfig.getBaseUrl().replaceAll("/$", "");
+        String baseUrl = serverUrl == null ? "" : serverUrl.replaceAll("/$", "");
         return baseUrl + "/common/file/local?key=" + UriUtils.encodeQueryParam(key, StandardCharsets.UTF_8);
     }
 

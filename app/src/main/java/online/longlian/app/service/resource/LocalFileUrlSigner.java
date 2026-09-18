@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,8 +28,9 @@ public class LocalFileUrlSigner {
 
     public LocalFileUrlSigner(
             @Value("${storage.local.signing-secret:${jwt.secret}}") String secret,
-            @Value("${storage.local.read-url-ttl-seconds:300}") long ttlSeconds,
+            StorageProperties storageProperties,
             Clock clock) {
+        long ttlSeconds = storageProperties.getPresignedUrlTtlSeconds();
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32 || ttlSeconds <= 0) {
             throw new IllegalArgumentException("本地文件签名密钥至少需要 32 字节，链接有效期必须为正数");
         }

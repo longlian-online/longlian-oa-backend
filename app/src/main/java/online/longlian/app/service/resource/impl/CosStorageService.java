@@ -29,14 +29,15 @@ import java.util.stream.Collectors;
 @Service
 public class CosStorageService implements StorageService, DisposableBean {
 
-    private static final int UPLOAD_URL_EXPIRE_MILLIS = 10 * 60 * 1000;
 
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
     private final EdgeOneUrlSigner edgeOneUrlSigner;
+    private final long presignedUrlTtlMillis;
 
     public CosStorageService(StorageProperties storageProperties, Clock clock) {
         cosConfig = storageProperties.getCos();
+        presignedUrlTtlMillis = Math.multiplyExact(storageProperties.getPresignedUrlTtlSeconds(), 1000L);
         COSCredentials cred = new BasicCOSCredentials(cosConfig.getSecretId(), cosConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(cosConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
@@ -49,7 +50,7 @@ public class CosStorageService implements StorageService, DisposableBean {
     }
 
     private String getPresignUploadUrl(String key) {
-        Date expiration = new Date(System.currentTimeMillis() + UPLOAD_URL_EXPIRE_MILLIS);
+        Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosConfig.getBucket(),
                 key,

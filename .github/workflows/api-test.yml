@@ -1,4 +1,4 @@
-name: API Tests
+name: All Tests
 
 on:
   workflow_dispatch:
@@ -21,6 +21,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+
       - name: Cache Maven repository
         uses: actions/cache@v4
         with:
@@ -31,16 +32,13 @@ jobs:
 
       - name: Install Task
         uses: go-task/setup-task@v2
-
-      - name: Run unit tests
-        run: ./mvnw -B verify
-
-      - name: Run API Tests
+      - name: Run all tests in Docker
         run: |
           mkdir -p .ci-cache/m2
-          task api-test-docker
+          task test-docker
         env:
           MAVEN_REPOSITORY: ${{ github.workspace }}/.ci-cache/m2
+
 
       - name: Dump test logs on failure
         if: failure()
