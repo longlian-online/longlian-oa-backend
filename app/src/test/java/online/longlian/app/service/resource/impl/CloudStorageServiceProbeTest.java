@@ -42,11 +42,6 @@ class CloudStorageServiceProbeTest {
             assertThat(upload.getUploadUrl()).isEqualTo(signedUrl.toString());
             assertThat(upload.getKey()).isEqualTo("resource.png");
 
-            assertThat(cloud.storage().getResourceReadUrl("resource.png"))
-                    .isEqualTo("https://edge.example/resource.png"
-                            + "?token=3199cf4e4140043b45fd1431e7f31f2f&t=1721029907");
-            assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
-                    .allSatisfy((key, url) -> assertThat(url).startsWith("https://edge.example/"));
         }
     }
 
@@ -124,20 +119,16 @@ class CloudStorageServiceProbeTest {
     private List<CloudStorage> cloudStorageServices() {
         StorageProperties properties = new StorageProperties();
         properties.setPresignedUrlTtlSeconds(PRESIGNED_URL_TTL_SECONDS);
-        StorageProperties.CdnConfig cdnConfig = new StorageProperties.CdnConfig();
-        cdnConfig.setUrlPrefix("https://edge.example");
-        cdnConfig.setAuthKey("test-secret");
-        properties.setCdn(cdnConfig);
 
         StorageProperties.CosConfig cosConfig = storageConfig(new StorageProperties.CosConfig());
         properties.setCos(cosConfig);
-        CosStorageService cosStorage = new CosStorageService(properties, CLOCK);
+        CosStorageService cosStorage = new CosStorageService(properties);
         COSClient cosClient = mock(COSClient.class);
         ReflectionTestUtils.setField(cosStorage, "cosClient", cosClient);
 
         StorageProperties.OssConfig ossConfig = storageConfig(new StorageProperties.OssConfig());
         properties.setOss(ossConfig);
-        OssStorageService ossStorage = new OssStorageService(properties, CLOCK);
+        OssStorageService ossStorage = new OssStorageService(properties);
         COSClient ossClient = mock(COSClient.class);
         ReflectionTestUtils.setField(ossStorage, "cosClient", ossClient);
 

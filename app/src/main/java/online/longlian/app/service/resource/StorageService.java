@@ -33,21 +33,6 @@ public interface StorageService {
      */
     PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params);
 
-    /**
-     * 获取单个文件的读取 URL。
-     *
-     * @param key 文件存储 key
-     * @return 按存储策略生成的可访问 URL；私有存储返回短时授权链接
-     */
-    String getResourceReadUrl(String key);
-
-    /**
-     * 批量获取文件的访问 URL。
-     *
-     * @param keys 文件 key 列表
-     * @return key 到 URL 的映射
-     */
-    Map<String, String> getResourceReadUrls(List<String> keys);
 
     /**
      * 确认文件已由存储后端完整保存。

@@ -42,12 +42,12 @@ class LocalStorageServiceTest {
         assertThat(storageService(directory).getStorageType()).isEqualTo(StorageType.LOCAL);
     }
 
+
     @Test
-    void shouldBuildLocalUploadAndBatchReadUrls(@TempDir Path directory) {
+    void shouldBuildLocalUploadUrl(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
 
-        assertThat(storageService.generatePresignedUploadUrl(
-                new PresignedUploadUrlParamsBO("avatar/1.png")))
+        assertThat(storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("avatar/1.png")))
                 .satisfies(result -> {
                     assertThat(result.getKey()).isEqualTo("avatar/1.png");
                     assertThat(result.getUploadUrl())
@@ -55,18 +55,6 @@ class LocalStorageServiceTest {
                             .contains("expires=")
                             .matches(".*signature=[0-9a-f]{64}.*");
                 });
-        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
-        assertThat(urls).containsOnlyKeys("avatar/1.png", "cover/2.png");
-        assertThat(urls.values()).allMatch(url -> url.contains("expires=") && url.contains("signature="));
-    }
-
-    @Test
-    void shouldBuildReadableLocalResourceUrl() {
-        LocalStorageService storageService = storageService("https://api.example.com");
-
-        assertThat(storageService.getResourceReadUrl("avatar/1.png"))
-                .matches("https://edge.example.com/common/file/local\\?key=avatar/1.png"
-                        + "&expires=[0-9]+&signature=[0-9a-f]{64}&token=[0-9a-f]{32}&t=[0-9]+");
     }
 
     @Test
@@ -341,7 +329,7 @@ class LocalStorageServiceTest {
         StorageProperties properties = new StorageProperties();
         properties.setLocal(localConfig);
         properties.setCdn(cdnConfig());
-        return new LocalStorageService(properties, new LonglianProperties(), signer(), Clock.systemUTC());
+        return new LocalStorageService(properties, new LonglianProperties(), signer());
     }
 
     private LocalStorageService storageService(String serverUrl) {
@@ -350,7 +338,7 @@ class LocalStorageServiceTest {
         properties.setCdn(cdnConfig());
         LonglianProperties longlianProperties = new LonglianProperties();
         longlianProperties.setServerUrl(serverUrl);
-        return new LocalStorageService(properties, longlianProperties, signer(), Clock.systemUTC());
+        return new LocalStorageService(properties, longlianProperties, signer());
     }
 
     private LocalFileWriteParamsBO writeParams(String key, byte[] content, long size, String mimeType) {

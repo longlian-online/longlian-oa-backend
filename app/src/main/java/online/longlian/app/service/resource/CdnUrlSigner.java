@@ -1,6 +1,8 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.common.properties.StorageProperties;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriUtils;
 
@@ -14,11 +16,17 @@ import java.util.HexFormat;
 /**
  * Produces private storage URLs using the configured CDN path-token protocol.
  */
+@Component
 public final class CdnUrlSigner {
 
     private final String urlPrefix;
     private final String authKey;
     private final Clock clock;
+
+    @Autowired
+    public CdnUrlSigner(StorageProperties properties, Clock clock) {
+        this(properties.getCdn(), clock);
+    }
 
     public CdnUrlSigner(StorageProperties.CdnConfig config, Clock clock) {
         this(config == null ? null : config.getUrlPrefix(), config == null ? null : config.getAuthKey(), clock);

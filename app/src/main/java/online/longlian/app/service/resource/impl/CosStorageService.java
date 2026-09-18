@@ -15,13 +15,11 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
-import online.longlian.app.service.resource.CdnUrlSigner;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;
-import java.time.Clock;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,16 +30,14 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
-    private final CdnUrlSigner cdnUrlSigner;
     private final long presignedUrlTtlMillis;
 
-    public CosStorageService(StorageProperties storageProperties, Clock clock) {
+    public CosStorageService(StorageProperties storageProperties) {
         cosConfig = storageProperties.getCos();
         presignedUrlTtlMillis = Math.multiplyExact(storageProperties.getPresignedUrlTtlSeconds(), 1000L);
         COSCredentials cred = new BasicCOSCredentials(cosConfig.getSecretId(), cosConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(cosConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
-        cdnUrlSigner = new CdnUrlSigner(storageProperties.getCdn(), clock);
     }
 
     @Override
@@ -66,15 +62,6 @@ public class CosStorageService implements StorageService, DisposableBean {
         return new PresignedUploadUrlResultBO(getPresignUploadUrl(params.getKey()), params.getKey());
     }
 
-    @Override
-    public String getResourceReadUrl(String key) {
-        return cdnUrlSigner.sign(key);
-    }
-
-    @Override
-    public Map<String, String> getResourceReadUrls(List<String> keys) {
-        return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
-    }
 
     @Override
     public void probe(ResourceProbeParamsBO params) {

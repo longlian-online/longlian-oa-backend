@@ -57,9 +57,9 @@ class LocalFileReadApiTest extends BaseApiTest {
         String token = loginAs("user", "123456");
         String url = authRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
-        assertThat(url).contains("expires=", "signature=", "token=", "t=");
-        byte[] content = request().urlEncodingEnabled(false).get(originPath(url)).then().statusCode(200).extract().asByteArray();
-        assertThat(content).containsExactly(7);
+        URI uri = URI.create(url);
+        assertThat(uri.getRawPath()).isEqualTo("/avatar/1.png");
+        assertThat(uri.getRawQuery()).contains("token=", "t=");
     }
 
     /** 创建上传返回的本地预签名链接使用统一配置的有效期。 */
@@ -89,10 +89,9 @@ class LocalFileReadApiTest extends BaseApiTest {
     /** 一个资源的签名不能读取其他资源，也不能跨组织读取文件。 */
     @Test
     void shouldRejectCrossResourceRead() {
-        createFile();
-        createResource(2L, 2L, 2L);
-        String url = resources.getResourceReadUrl(1L).replace("avatar/1.png", "avatar/2.png");
-        request().urlEncodingEnabled(false).get(originPath(url)).then()
+        LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
+        request().queryParam("key", "avatar/2.png").queryParam("expires", signed.expires())
+                .queryParam("signature", signed.signature()).get("/common/file/local").then()
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
@@ -302,8 +301,6 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementBizId).isEqualTo(1L);
 
-        request().urlEncodingEnabled(false).get(originPath(oldAvatarUrl)).then()
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
         createAdmin(2L, "resource_cleanup_admin", "123456", "SUPER_ADMIN");
         String adminToken = adminLoginAs("resource_cleanup_admin", "123456");
         authRequest(adminToken)
@@ -317,9 +314,9 @@ class LocalFileReadApiTest extends BaseApiTest {
                 "SELECT storage_cleaned_at FROM resource WHERE storage_key = ?", Object.class, created.key()))
                 .isNotNull();
 
-        String avatarUrl = authRequest(token).get("/app/user/").then()
-                .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
-        byte[] content = request().urlEncodingEnabled(false).get(originPath(avatarUrl)).then()
+        LocalFileReadParamsBO read = signer.sign(replacement.key());
+        byte[] content = request().queryParam("key", read.key()).queryParam("expires", read.expires())
+                .queryParam("signature", read.signature()).get("/common/file/local").then()
                 .statusCode(200).extract().asByteArray();
         assertThat(content).isEqualTo(png);
     }

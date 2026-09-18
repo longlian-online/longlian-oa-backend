@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +34,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ResourceServiceExtendedTest {
+    private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(1721029907L), ZoneOffset.UTC);
+
 
     @Mock
     private ResourceMapper resourceMapper;
@@ -48,7 +52,8 @@ class ResourceServiceExtendedTest {
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
         props.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageFactory, props, Clock.systemUTC());
+        resourceService = new ResourceService(resourceMapper, storageFactory,
+                new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK), props, CLOCK);
     }
 
     @Test
@@ -69,13 +74,12 @@ class ResourceServiceExtendedTest {
                 .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
                 .build();
         when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
-        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
-        when(storageService.getResourceReadUrl("avatar/1.png")).thenReturn("https://cdn/avatar/1.png");
 
         Map<Long, ResourceReadUrlGetResultBO> result = resourceService.getResourceReadUrls(List.of(1L));
 
         assertThat(result).containsKey(1L);
-        assertThat(result.get(1L).getUrl()).isEqualTo("https://cdn/avatar/1.png");
+        assertThat(result.get(1L).getUrl())
+                .isEqualTo("https://cdn.example/avatar/1.png?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
     }
 
     @Test
@@ -84,12 +88,10 @@ class ResourceServiceExtendedTest {
                 .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
                 .build();
         when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
-        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
-        when(storageService.getResourceReadUrl("avatar/1.png")).thenReturn("https://cdn/avatar/1.png");
 
         String url = resourceService.getResourceReadUrl(1L);
 
-        assertThat(url).isEqualTo("https://cdn/avatar/1.png");
+        assertThat(url).isEqualTo("https://cdn.example/avatar/1.png?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
     }
 
     @Test

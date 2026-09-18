@@ -37,6 +37,7 @@ public class ResourceService {
 
     private final ResourceMapper resourceMapper;
     private final StorageServiceFactory storageFactory;
+    private final CdnUrlSigner cdnUrlSigner;
 
     private final StorageProperties storageProperties;
     private final Clock clock;
@@ -100,7 +101,6 @@ public class ResourceService {
         LambdaQueryWrapper<Resource> query = lambdaQuery(Resource.class).select(
                 Resource::getId,
                 Resource::getStorageKey,
-                Resource::getStorageType,
                 Resource::getOrgId
         ).in(Resource::getId, resourceIds);
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
@@ -109,16 +109,13 @@ public class ResourceService {
 
         Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));
 
-        Stream<ResourceReadUrlGetResultBO> resourceReadUrlResultStream = resources.stream().map(resource -> {
-            StorageService storageService = storageFactory.get(resource.getStorageType());
-            String resourceReadUrl = storageService.getResourceReadUrl(resource.getStorageKey());
-
-            return new ResourceReadUrlGetResultBO(
-                    resourceReadUrl,
-                    resource.getOrgId(),
-                    resource.getStorageKey()
-            );
-        });
+        Stream<ResourceReadUrlGetResultBO> resourceReadUrlResultStream = resources.stream().map(resource ->
+                new ResourceReadUrlGetResultBO(
+                        cdnUrlSigner.sign(resource.getStorageKey()),
+                        resource.getOrgId(),
+                        resource.getStorageKey()
+                )
+        );
 
         return resourceReadUrlResultStream.collect(Collectors.toMap((org) -> resourceIdKeyMap.get(org.getKey()), org -> org));
     }

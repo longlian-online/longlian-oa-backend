@@ -1,4 +1,5 @@
 package online.longlian.app.service.resource;
+import online.longlian.app.common.properties.StorageProperties;
 
 import org.junit.jupiter.api.Test;
 
@@ -44,10 +45,42 @@ class CdnUrlSignerTest {
                         + "&token=96f266ee47fcf9965117d2e095830f71&t=1721029907");
     }
 
+    /** 配置对象和字符串构造路径生成相同的 CDN 读取协议。 */
+    @Test
+    void shouldSignUsingCdnConfiguration() {
+        StorageProperties.CdnConfig config = new StorageProperties.CdnConfig();
+        config.setUrlPrefix("https://static.example.com");
+        config.setAuthKey("test-secret");
+
+        assertThat(new CdnUrlSigner(config, CLOCK).sign("avatar/1.png"))
+                .isEqualTo("https://static.example.com/avatar/1.png"
+                        + "?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
+    }
+
+    /** 存储 key 和 CDN 路径必须保持路径语义，不能注入查询参数或片段。 */
+    @Test
+    void shouldRejectMalformedStorageKeysAndPaths() {
+        CdnUrlSigner signer = new CdnUrlSigner("https://static.example.com", "test-secret", CLOCK);
+
+        assertThatThrownBy(() -> signer.sign(""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> signer.sign("/avatar/1.png"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> signer.signPath("avatar/1.png", ""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> signer.signPath("/avatar/1.png?download=1", ""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> signer.signPath("/avatar/1.png#fragment", ""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new CdnUrlSigner("https://[invalid", "test-secret", CLOCK).sign("avatar/1.png"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("CDN 读取域名必须是无查询参数的绝对 URL");
+    }
+
     /** 缺少 CDN 域名或密钥时不能回退到存储服务读预签名链接。 */
     @Test
     void shouldRejectMissingCdnReadConfiguration() {
-        CdnUrlSigner signer = new CdnUrlSigner("https://static.example.com", "", CLOCK);
+        CdnUrlSigner signer = new CdnUrlSigner((StorageProperties.CdnConfig) null, CLOCK);
 
         assertThatThrownBy(() -> signer.sign("avatar/1.png"))
                 .isInstanceOf(IllegalStateException.class)
