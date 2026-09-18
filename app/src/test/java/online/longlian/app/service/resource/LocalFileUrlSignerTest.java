@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +14,7 @@ import static org.assertj.core.api.Assertions.*;
 class LocalFileUrlSignerTest {
     private static final String SECRET = "test-local-signing-secret-32-bytes";
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
-    private final LocalFileUrlSigner signer = new LocalFileUrlSigner(SECRET, 300, clock);
+    private final LocalFileUrlSigner signer = signer(300, clock);
 
     /** 有效签名只授权对应的 key，直到链接过期为止。 */
     @Test
@@ -39,14 +40,14 @@ class LocalFileUrlSignerTest {
     @Test
     void shouldRejectAtExpiryBoundary() {
         LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
-        LocalFileUrlSigner later = new LocalFileUrlSigner(SECRET, 300, Clock.offset(clock, java.time.Duration.ofSeconds(300)));
+        LocalFileUrlSigner later = signer(300, Clock.offset(clock, java.time.Duration.ofSeconds(300)));
         assertThatThrownBy(() -> later.verify(signed)).isInstanceOf(AppException.class);
     }
 
     /** 使用另一部署密钥生成的签名不能授权读取。 */
     @Test
     void shouldRejectSignatureFromDifferentSecret() {
-        LocalFileUrlSigner other = new LocalFileUrlSigner("another-local-signing-secret-32-bytes", 300, clock);
+        LocalFileUrlSigner other = signer("another-local-signing-secret-32-bytes", 300, clock);
         assertThatThrownBy(() -> signer.verify(other.sign("avatar/1.png"))).isInstanceOf(AppException.class);
     }
 
@@ -62,9 +63,27 @@ class LocalFileUrlSignerTest {
 
     @Test
     void shouldRejectInvalidConfiguration() {
-        assertThatThrownBy(() -> new LocalFileUrlSigner("too-short", 300, clock))
+        assertThatThrownBy(() -> signer("too-short", 300, clock))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new LocalFileUrlSigner(SECRET, 0, clock))
+        assertThatThrownBy(() -> signer(SECRET, 0, clock))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** 本地签名链接使用统一的存储预签名有效期。 */
+    @Test
+    void shouldUseConfiguredPresignedUrlTtl() {
+        LocalFileReadParamsBO signed = signer(120, clock).sign("avatar/1.png");
+
+        assertThat(signed.expires()).isEqualTo(clock.instant().getEpochSecond() + 120);
+    }
+
+    private LocalFileUrlSigner signer(long ttlSeconds, Clock signerClock) {
+        return signer(SECRET, ttlSeconds, signerClock);
+    }
+
+    private LocalFileUrlSigner signer(String secret, long ttlSeconds, Clock signerClock) {
+        StorageProperties properties = new StorageProperties();
+        properties.setPresignedUrlTtlSeconds(ttlSeconds);
+        return new LocalFileUrlSigner(secret, properties, signerClock);
     }
 }

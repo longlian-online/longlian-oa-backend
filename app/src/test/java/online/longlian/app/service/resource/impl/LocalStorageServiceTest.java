@@ -388,6 +388,8 @@ class LocalStorageServiceTest {
     }
 
     private LocalFileUrlSigner signer() {
-        return new LocalFileUrlSigner("test-local-signing-secret-32-bytes", 300, Clock.systemUTC());
+        StorageProperties properties = new StorageProperties();
+        properties.setPresignedUrlTtlSeconds(300);
+        return new LocalFileUrlSigner("test-local-signing-secret-32-bytes", properties, Clock.systemUTC());
     }
 }

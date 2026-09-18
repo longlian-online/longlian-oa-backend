@@ -9,23 +9,26 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.net.URL;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class CloudStorageServiceProbeTest {
 
     private static final ResourceProbeParamsBO PROBE = new ResourceProbeParamsBO("resource.png", 3L, "image/png");
+    private static final long PRESIGNED_URL_TTL_SECONDS = 120;
     @Test
     void shouldGenerateCloudUploadAndReadUrls() throws Exception {
         URL signedUrl = new URL("https://cdn.example/resource.png");
@@ -39,6 +42,22 @@ class CloudStorageServiceProbeTest {
             assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
                     .containsEntry("first.png", signedUrl.toString())
                     .containsEntry("second.png", signedUrl.toString());
+        }
+    }
+
+    @Test
+    void shouldUseConfiguredPresignedUrlTtl() throws Exception {
+        Instant before = Instant.now();
+        URL signedUrl = new URL("https://cdn.example/resource.png");
+        for (CloudStorage cloud : cloudStorageServices()) {
+            when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
+
+            cloud.storage().getResourceReadUrl("resource.png");
+
+            ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+            verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());
+            assertThat(request.getValue().getExpiration().toInstant())
+                    .isBetween(before.plusSeconds(PRESIGNED_URL_TTL_SECONDS), Instant.now().plusSeconds(PRESIGNED_URL_TTL_SECONDS));
         }
     }
 
@@ -98,24 +117,41 @@ class CloudStorageServiceProbeTest {
     }
 
     private List<CloudStorage> cloudStorageServices() {
-        COSClient cosClient = mock(COSClient.class);
-        CosStorageService cosStorage = mock(CosStorageService.class, CALLS_REAL_METHODS);
-        StorageProperties.CosConfig cosConfig = new StorageProperties.CosConfig();
-        cosConfig.setBucket("cos-bucket");
-        ReflectionTestUtils.setField(cosStorage, "cosClient", cosClient);
-        ReflectionTestUtils.setField(cosStorage, "cosConfig", cosConfig);
+        StorageProperties properties = new StorageProperties();
+        properties.setPresignedUrlTtlSeconds(PRESIGNED_URL_TTL_SECONDS);
 
+        StorageProperties.CosConfig cosConfig = storageConfig(new StorageProperties.CosConfig());
+        properties.setCos(cosConfig);
+        CosStorageService cosStorage = new CosStorageService(properties);
+        COSClient cosClient = mock(COSClient.class);
+        ReflectionTestUtils.setField(cosStorage, "cosClient", cosClient);
+
+        StorageProperties.OssConfig ossConfig = storageConfig(new StorageProperties.OssConfig());
+        properties.setOss(ossConfig);
+        OssStorageService ossStorage = new OssStorageService(properties);
         COSClient ossClient = mock(COSClient.class);
-        OssStorageService ossStorage = mock(OssStorageService.class, CALLS_REAL_METHODS);
-        StorageProperties.OssConfig ossConfig = new StorageProperties.OssConfig();
-        ossConfig.setBucket("oss-bucket");
         ReflectionTestUtils.setField(ossStorage, "cosClient", ossClient);
-        ReflectionTestUtils.setField(ossStorage, "ossConfig", ossConfig);
 
         return List.of(
                 new CloudStorage(cosStorage, cosClient, cosConfig.getBucket()),
                 new CloudStorage(ossStorage, ossClient, ossConfig.getBucket())
         );
+    }
+
+    private <T extends StorageProperties.CosConfig> T storageConfig(T config) {
+        config.setBucket("cos-bucket");
+        config.setRegion("ap-guangzhou");
+        config.setSecretId("test-secret-id");
+        config.setSecretKey("test-secret-key");
+        return config;
+    }
+
+    private StorageProperties.OssConfig storageConfig(StorageProperties.OssConfig config) {
+        config.setBucket("oss-bucket");
+        config.setRegion("ap-guangzhou");
+        config.setSecretId("test-secret-id");
+        config.setSecretKey("test-secret-key");
+        return config;
     }
 
     private record CloudStorage(StorageService storage, COSClient client, String bucket) {

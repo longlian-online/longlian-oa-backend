@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import javax.imageio.ImageIO;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -33,6 +35,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 @TestPropertySource(properties = {
         "storage.type=LOCAL", "storage.local.base-url=",
+        "storage.presigned-url-ttl-seconds=120",
         "storage.local.directory=${java.io.tmpdir}/longlian-issue107-${random.uuid}"
 })
 class LocalFileReadApiTest extends BaseApiTest {
@@ -53,6 +56,22 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(url).contains("expires=", "signature=");
         byte[] content = request().urlEncodingEnabled(false).get(url).then().statusCode(200).extract().asByteArray();
         assertThat(content).containsExactly(7);
+    }
+
+    /** 创建上传返回的本地预签名链接使用统一配置的有效期。 */
+    @Test
+    void shouldUseConfiguredPresignedUrlTtlForLocalUpload() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        long before = Instant.now().getEpochSecond();
+
+        LocalUpload upload = createLocalUpload(token, 1L);
+        long expires = Long.parseLong(UriComponentsBuilder.fromUriString(upload.uploadUrl())
+                .build().getQueryParams().getFirst("expires"));
+
+        assertThat(properties.getPresignedUrlTtlSeconds()).isEqualTo(120);
+        assertThat(expires).isBetween(before + properties.getPresignedUrlTtlSeconds(),
+                Instant.now().getEpochSecond() + properties.getPresignedUrlTtlSeconds());
     }
 
     /** 仅知道存储 key 不能直接获得文件读取权限。 */

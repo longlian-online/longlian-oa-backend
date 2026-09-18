@@ -71,6 +71,7 @@ springdoc:
 
 storage:
   type: LOCAL
+  presigned-url-ttl-seconds: 300
   local:
     base-url: ""
     directory: ${java.io.tmpdir}/longlian-oa-test
