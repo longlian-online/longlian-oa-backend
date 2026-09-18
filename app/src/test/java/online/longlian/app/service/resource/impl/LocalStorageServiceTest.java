@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.properties.LonglianProperties;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
@@ -61,14 +62,10 @@ class LocalStorageServiceTest {
 
     @Test
     void shouldBuildReadableLocalResourceUrl() {
-        StorageProperties.LocalConfig localConfig = new StorageProperties.LocalConfig();
-        localConfig.setBaseUrl("https://api.example.com");
-        StorageProperties properties = new StorageProperties();
-        properties.setLocal(localConfig);
-        LocalStorageService storageService = new LocalStorageService(properties, signer());
+        LocalStorageService storageService = storageService("https://api.example.com");
 
         assertThat(storageService.getResourceReadUrl("avatar/1.png"))
-                .matches("https://api.example.com/common/file/local\\?key=avatar/1.png&expires=[0-9]+&signature=[0-9a-f]{64}");
+                .matches("https://api.example.com/common/file/local\\?key=avatar/1.png\u0026expires=[0-9]+\u0026signature=[0-9a-f]{64}");
     }
 
     @Test
@@ -342,7 +339,15 @@ class LocalStorageServiceTest {
         localConfig.setDirectory(directory.toString());
         StorageProperties properties = new StorageProperties();
         properties.setLocal(localConfig);
-        return new LocalStorageService(properties, signer());
+        return new LocalStorageService(properties, new LonglianProperties(), signer());
+    }
+
+    private LocalStorageService storageService(String serverUrl) {
+        StorageProperties properties = new StorageProperties();
+        properties.setLocal(new StorageProperties.LocalConfig());
+        LonglianProperties longlianProperties = new LonglianProperties();
+        longlianProperties.setServerUrl(serverUrl);
+        return new LocalStorageService(properties, longlianProperties, signer());
     }
 
     private LocalFileWriteParamsBO writeParams(String key, byte[] content, long size, String mimeType) {
@@ -388,6 +393,8 @@ class LocalStorageServiceTest {
     }
 
     private LocalFileUrlSigner signer() {
-        return new LocalFileUrlSigner("test-local-signing-secret-32-bytes", 300, Clock.systemUTC());
+        StorageProperties properties = new StorageProperties();
+        properties.setPresignedUrlTtlSeconds(300);
+        return new LocalFileUrlSigner("test-local-signing-secret-32-bytes", properties, Clock.systemUTC());
     }
 }

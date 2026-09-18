@@ -29,9 +29,11 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
+    private final long presignedUrlTtlMillis;
 
     public CosStorageService(StorageProperties storageProperties) {
         cosConfig = storageProperties.getCos();
+        presignedUrlTtlMillis = Math.multiplyExact(storageProperties.getPresignedUrlTtlSeconds(), 1000L);
         COSCredentials cred = new BasicCOSCredentials(cosConfig.getSecretId(), cosConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(cosConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
@@ -43,8 +45,7 @@ public class CosStorageService implements StorageService, DisposableBean {
     }
 
     private String getPresignUrl(String key, HttpMethodName method) {
-        int EXPIRE_SECONDS = 10 * 60 * 1000;
-        Date expiration = new Date(System.currentTimeMillis() + EXPIRE_SECONDS);
+        Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosConfig.getBucket(),
                 key,

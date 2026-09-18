@@ -8,13 +8,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Data
 public class StorageProperties {
     private StorageType type;
+    private long presignedUrlTtlSeconds = 300;
     private LocalConfig local;
     private OssConfig oss;
     private CosConfig cos;
 
     @Data
     public static class LocalConfig {
-        private String baseUrl;
         private String directory;
     }
 

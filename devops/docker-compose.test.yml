@@ -1,5 +1,5 @@
 # ============================================================
-# longlian-oa-backend API 测试 Docker 运行环境
+# longlian-oa-backend 完整测试 Docker 运行环境
 #
 # 一键运行：
 #   docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
@@ -60,6 +60,7 @@ services:
         echo "等待服务完全就绪..."
         && sleep 15
         && mvn -pl app install -Dmaven.test.skip=true -am --no-transfer-progress
+        && mvn -pl app test jacoco:report -e
         && mvn -pl app test jacoco:report -Papi-test -e
 
 volumes:
