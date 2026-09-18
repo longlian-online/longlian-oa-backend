@@ -22,7 +22,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,9 +56,9 @@ class LocalFileReadApiTest extends BaseApiTest {
         String token = loginAs("user", "123456");
         String url = authRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
-        URI uri = URI.create(url);
-        assertThat(uri.getRawPath()).isEqualTo("/avatar/1.png");
-        assertThat(uri.getRawQuery()).contains("token=", "t=");
+        assertThat(url).contains("expires=", "signature=");
+        byte[] content = request().urlEncodingEnabled(false).get(url).then().statusCode(200).extract().asByteArray();
+        assertThat(content).containsExactly(7);
     }
 
     /** 创建上传返回的本地预签名链接使用统一配置的有效期。 */
@@ -372,10 +371,6 @@ class LocalFileReadApiTest extends BaseApiTest {
         return new LocalUpload(response.path("data.fileId"), response.path("data.key"), uploadUrl);
     }
 
-    private String originPath(String url) {
-        URI uri = URI.create(url);
-        return uri.getRawPath() + "?" + uri.getRawQuery();
-    }
 
     private io.restassured.response.ValidatableResponse putSignedUpload(String uploadUrl, byte[] body) {
         return request().urlEncodingEnabled(false)

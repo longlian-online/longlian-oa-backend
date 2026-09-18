@@ -14,9 +14,7 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.net.URL;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +28,6 @@ import static org.mockito.Mockito.when;
 class CloudStorageServiceProbeTest {
 
     private static final ResourceProbeParamsBO PROBE = new ResourceProbeParamsBO("resource.png", 3L, "image/png");
-    private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(1721029907L), ZoneOffset.UTC);
     private static final long PRESIGNED_URL_TTL_SECONDS = 120;
     @Test
     void shouldGenerateCloudUploadAndReadUrls() throws Exception {
@@ -41,7 +38,10 @@ class CloudStorageServiceProbeTest {
             var upload = cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png"));
             assertThat(upload.getUploadUrl()).isEqualTo(signedUrl.toString());
             assertThat(upload.getKey()).isEqualTo("resource.png");
-
+            assertThat(cloud.storage().getResourceReadUrl("resource.png")).isEqualTo(signedUrl.toString());
+            assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
+                    .containsEntry("first.png", signedUrl.toString())
+                    .containsEntry("second.png", signedUrl.toString());
         }
     }
 

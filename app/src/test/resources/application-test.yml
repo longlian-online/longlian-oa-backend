@@ -74,6 +74,7 @@ storage:
   type: LOCAL
   presigned-url-ttl-seconds: 300
   cdn:
+    enabled: false
     url-prefix: http://localhost
     auth-key: test-cdn-key
   local:

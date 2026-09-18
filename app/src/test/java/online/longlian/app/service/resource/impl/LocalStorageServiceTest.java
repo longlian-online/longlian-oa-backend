@@ -58,6 +58,14 @@ class LocalStorageServiceTest {
     }
 
     @Test
+    void shouldBuildReadableLocalResourceUrl() {
+        LocalStorageService storageService = storageService("https://api.example.com");
+
+        assertThat(storageService.getResourceReadUrl("avatar/1.png"))
+                .matches("https://api.example.com/common/file/local\\?key=avatar/1.png\u0026expires=[0-9]+\u0026signature=[0-9a-f]{64}");
+    }
+
+    @Test
     void shouldStoreAndReadLocalResource(@TempDir Path directory) throws IOException {
         LocalStorageService storageService = storageService(directory);
 

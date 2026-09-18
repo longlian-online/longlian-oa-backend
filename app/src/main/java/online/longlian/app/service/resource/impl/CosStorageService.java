@@ -45,12 +45,12 @@ public class CosStorageService implements StorageService, DisposableBean {
         return StorageType.COS;
     }
 
-    private String getPresignUploadUrl(String key) {
+    private String getPresignUrl(String key, HttpMethodName method) {
         Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosConfig.getBucket(),
                 key,
-                HttpMethodName.PUT
+                method
         );
         request.setExpiration(expiration);
         URL url = cosClient.generatePresignedUrl(request);
@@ -59,9 +59,19 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
-        return new PresignedUploadUrlResultBO(getPresignUploadUrl(params.getKey()), params.getKey());
+        return new PresignedUploadUrlResultBO(getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
     }
 
+
+    @Override
+    public String getResourceReadUrl(String key) {
+        return getPresignUrl(key, HttpMethodName.GET);
+    }
+
+    @Override
+    public Map<String, String> getResourceReadUrls(List<String> keys) {
+        return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
+    }
 
     @Override
     public void probe(ResourceProbeParamsBO params) {

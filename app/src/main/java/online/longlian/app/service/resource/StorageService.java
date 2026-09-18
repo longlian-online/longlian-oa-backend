@@ -33,6 +33,10 @@ public interface StorageService {
      */
     PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params);
 
+    String getResourceReadUrl(String key);
+
+    Map<String, String> getResourceReadUrls(List<String> keys);
+
 
     /**
      * 确认文件已由存储后端完整保存。

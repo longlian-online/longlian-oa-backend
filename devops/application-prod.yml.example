@@ -88,8 +88,9 @@ storage:
   type: LOCAL
   # 存储服务生成的预签名 URL 有效期（秒）
   presigned-url-ttl-seconds: ${STORAGE_PRESIGNED_URL_TTL_SECONDS:300}
-  # 三种存储读取链接统一由 CDN 路径令牌生成；CDN 必须配置对应源站与私有回源。
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
   cdn:
+    enabled: ${STORAGE_CDN_ENABLED:false}
     url-prefix: ${STORAGE_CDN_URL_PREFIX:}
     auth-key: ${STORAGE_CDN_AUTH_KEY:}
   local:

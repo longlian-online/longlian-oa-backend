@@ -38,7 +38,9 @@ public class ResourceServiceTest {
         storageProperties.setType(StorageType.OSS);
         storageProperties.setOss(new StorageProperties.OssConfig());
         resourceService = new ResourceService(resourceMapper, storageServiceFactory,
-                new CdnUrlSigner("https://cdn.example", "test-secret", Clock.systemUTC()), storageProperties, Clock.systemUTC());
+                new CdnUrlSigner("https://cdn.example", "test-secret", Clock.systemUTC()),
+                new LocalFileUrlSigner("test-local-signing-secret-32-bytes", storageProperties, Clock.systemUTC()),
+                storageProperties, Clock.systemUTC());
     }
 
     @Test

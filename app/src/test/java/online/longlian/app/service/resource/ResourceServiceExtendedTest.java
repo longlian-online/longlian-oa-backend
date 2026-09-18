@@ -52,8 +52,14 @@ class ResourceServiceExtendedTest {
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
         props.setOss(new StorageProperties.OssConfig());
+        StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
+        cdn.setEnabled(true);
+        cdn.setUrlPrefix("https://cdn.example");
+        cdn.setAuthKey("test-secret");
+        props.setCdn(cdn);
         resourceService = new ResourceService(resourceMapper, storageFactory,
-                new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK), props, CLOCK);
+                new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
+                new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
     }
 
     @Test
@@ -93,6 +99,41 @@ class ResourceServiceExtendedTest {
 
         assertThat(url).isEqualTo("https://cdn.example/avatar/1.png?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
     }
+    @Test
+    void getResourceReadUrl_localResourceKeepsOriginProof() {
+        Resource resource = Resource.builder()
+                .id(1L).storageKey("avatar/1.png").storageType(StorageType.LOCAL).orgId(10L)
+                .build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+
+        assertThat(resourceService.getResourceReadUrl(1L))
+                .matches("https://cdn.example/common/file/local\\?key=avatar/1.png"
+                        + "&expires=1721030207&signature=[0-9a-f]{64}"
+                        + "&token=[0-9a-f]{32}&t=1721029907");
+    }
+
+    @Test
+    void getResourceReadUrl_cdnDisabledUsesNativeStorageUrl() {
+        StorageProperties props = new StorageProperties();
+        props.setType(StorageType.OSS);
+        StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
+        cdn.setEnabled(false);
+        props.setCdn(cdn);
+        resourceService = new ResourceService(resourceMapper, storageFactory,
+                new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
+                new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
+
+        Resource resource = Resource.builder()
+                .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
+                .build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        when(storageService.getResourceReadUrl("avatar/1.png")).thenReturn("https://cos.example/avatar/1.png?sign=native");
+
+        assertThat(resourceService.getResourceReadUrl(1L))
+                .isEqualTo("https://cos.example/avatar/1.png?sign=native");
+    }
+
 
     @Test
     void getResourceReadUrl_notFound_throws() {

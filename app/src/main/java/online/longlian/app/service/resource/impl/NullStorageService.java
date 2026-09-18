@@ -25,6 +25,16 @@ public class NullStorageService implements StorageService {
         return new PresignedUploadUrlResultBO("", params.getKey());
     }
 
+    @Override
+    public String getResourceReadUrl(String key) {
+        return "";
+    }
+
+    @Override
+    public Map<String, String> getResourceReadUrls(List<String> keys) {
+        return Collections.emptyMap();
+    }
+
 
     @Override
     public void probe(ResourceProbeParamsBO params) {

@@ -20,6 +20,7 @@ import static org.hamcrest.Matchers.equalTo;
         "storage.cos.region=ap-guangzhou",
         "storage.cos.secret-id=test-secret-id",
         "storage.cos.secret-key=test-secret-key",
+        "storage.cdn.enabled=true",
         "storage.cdn.url-prefix=https://static.example.com",
         "storage.cdn.auth-key=test-cdn-key"
 })

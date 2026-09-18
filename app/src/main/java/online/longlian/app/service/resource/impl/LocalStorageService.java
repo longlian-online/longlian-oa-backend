@@ -72,6 +72,17 @@ public class LocalStorageService implements StorageService {
     }
 
 
+    @Override
+    public String getResourceReadUrl(String key) {
+        LocalFileReadParamsBO signed = signer.sign(key);
+        return buildLocalResourceUrl(key) + "&expires=" + signed.expires() + "&signature=" + signed.signature();
+    }
+
+    @Override
+    public Map<String, String> getResourceReadUrls(List<String> keys) {
+        return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
+    }
+
     public void upload(LocalFileWriteParamsBO params) {
         Path target = resolveKey(params.getStorageKey());
         boolean created = false;

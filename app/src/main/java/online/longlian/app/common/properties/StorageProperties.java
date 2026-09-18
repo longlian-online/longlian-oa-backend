@@ -16,6 +16,7 @@ public class StorageProperties {
 
     @Data
     public static class CdnConfig {
+        private boolean enabled;
         private String urlPrefix;
         private String authKey;
     }

@@ -33,6 +33,16 @@ class NullStorageServiceTest {
         assertThat(result.getKey()).isEqualTo("test/file.png");
     }
 
+    @Test
+    void getResourceReadUrl_returnsEmpty() {
+        assertThat(service.getResourceReadUrl("any/key.png")).isEmpty();
+    }
+
+    @Test
+    void getResourceReadUrls_returnsEmptyMap() {
+        assertThat(service.getResourceReadUrls(List.of("a.png", "b.png"))).isEmpty();
+    }
+
 
     @Test
     void probe_rejectsUnsupportedStorage() {

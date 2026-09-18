@@ -63,6 +63,16 @@ public class OssStorageService implements StorageService, DisposableBean {
 
 
     @Override
+    public String getResourceReadUrl(String key) {
+        return getPresignUrl(key, HttpMethodName.GET);
+    }
+
+    @Override
+    public Map<String, String> getResourceReadUrls(List<String> keys) {
+        return keys.stream().collect(Collectors.toMap(key -> key, this::getResourceReadUrl));
+    }
+
+    @Override
     public void probe(ResourceProbeParamsBO params) {
         try {
             if (cosClient.getObjectMetadata(ossConfig.getBucket(), params.storageKey()).getContentLength()
