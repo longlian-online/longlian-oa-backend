@@ -83,6 +83,8 @@ jobs:
             INCLUDE_OTEL=true
           push: true
           platforms: linux/amd64,linux/arm64
+          # CNB Docker 制品库拒绝 Buildx 默认附带的 provenance attestation。
+          provenance: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
@@ -110,6 +112,8 @@ jobs:
           file: ./devops/Dockerfile.migration
           push: true
           platforms: linux/amd64,linux/arm64
+          # 与应用镜像保持一致，避免 CNB 拒绝 provenance attestation。
+          provenance: false
           tags: ${{ steps.meta-migration.outputs.tags }}
           labels: ${{ steps.meta-migration.outputs.labels }}
           annotations: ${{ steps.meta-migration.outputs.annotations }}
