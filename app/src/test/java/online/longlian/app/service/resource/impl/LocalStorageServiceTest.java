@@ -26,6 +26,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -63,6 +64,37 @@ class LocalStorageServiceTest {
 
         assertThat(storageService.getResourceReadUrl("avatar/1.png"))
                 .matches("https://api.example.com/common/file/local\\?key=avatar/1.png\u0026expires=[0-9]+\u0026signature=[0-9a-f]{64}");
+    }
+
+    @Test
+    void shouldReturnNativeReadUrlsForMultipleKeys() {
+        LocalStorageService storageService = storageService("https://api.example.com");
+
+        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
+
+        assertThat(urls).hasSize(2);
+        assertThat(urls.get("avatar/1.png")).contains("key=avatar/1.png", "expires=", "signature=");
+        assertThat(urls.get("cover/2.png")).contains("key=cover/2.png", "expires=", "signature=");
+    }
+
+    @Test
+    void shouldFallbackToTempDirectoryWhenLocalDirectoryBlank() throws IOException {
+        LocalStorageService storageService = storageService("https://api.example.com");
+        String key = "coverage/" + UUID.randomUUID() + ".bin";
+        Path stored = Path.of(System.getProperty("java.io.tmpdir"), "longlian-oa").resolve(key);
+
+        try {
+            storageService.upload(writeParams(key, new byte[]{9, 8, 7}, 3L, null));
+
+            assertThat(stored).exists();
+            assertThat(Files.readAllBytes(stored)).containsExactly(9, 8, 7);
+        } finally {
+            Files.deleteIfExists(stored);
+            Path parent = stored.getParent();
+            if (parent != null) {
+                Files.deleteIfExists(parent);
+            }
+        }
     }
 
     @Test
