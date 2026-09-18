@@ -30,6 +30,7 @@ public class StorageProperties {
     @Data
     public static class CosConfig {
         private String urlPrefix;
+        private String edgeOneAuthKey;
         private String bucket;
         private String secretId;
         private String region;

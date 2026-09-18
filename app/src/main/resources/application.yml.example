@@ -129,7 +129,10 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
+    # 私有资源读取域名。EO 域名须配置 COS 私有桶回源，不能使用 COS 原始域名。
+    url-prefix: ${STORAGE_COS_URL_PREFIX:}
+    # EO URL 鉴权方法 D 的密钥；必须与 EO 控制台的鉴权密钥一致。
+    edgeone-auth-key: ${STORAGE_COS_EDGEONE_AUTH_KEY:}
 
 cors:
   # 浏览器跨域白名单，多个用逗号分隔。必须写前端 Origin，不能写 *

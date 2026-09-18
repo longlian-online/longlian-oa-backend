@@ -7,12 +7,16 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
+import online.longlian.app.service.resource.EdgeOneUrlSigner;
 import online.longlian.app.service.resource.StorageService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.net.URL;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,19 +30,30 @@ import static org.mockito.Mockito.when;
 class CloudStorageServiceProbeTest {
 
     private static final ResourceProbeParamsBO PROBE = new ResourceProbeParamsBO("resource.png", 3L, "image/png");
+    private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(1721029907L), ZoneOffset.UTC);
+
     @Test
     void shouldGenerateCloudUploadAndReadUrls() throws Exception {
-        URL signedUrl = new URL("https://cdn.example/resource.png");
+        URL signedUrl = new URL("https://cos.example/resource.png");
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
 
             var upload = cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png"));
             assertThat(upload.getUploadUrl()).isEqualTo(signedUrl.toString());
             assertThat(upload.getKey()).isEqualTo("resource.png");
-            assertThat(cloud.storage().getResourceReadUrl("resource.png")).isEqualTo(signedUrl.toString());
-            assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
-                    .containsEntry("first.png", signedUrl.toString())
-                    .containsEntry("second.png", signedUrl.toString());
+
+            if (cloud.storage() instanceof CosStorageService) {
+                assertThat(cloud.storage().getResourceReadUrl("resource.png"))
+                        .isEqualTo("https://edge.example/resource.png"
+                                + "?token=3199cf4e4140043b45fd1431e7f31f2f&t=1721029907");
+                assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
+                        .allSatisfy((key, url) -> assertThat(url).startsWith("https://edge.example/"));
+            } else {
+                assertThat(cloud.storage().getResourceReadUrl("resource.png")).isEqualTo(signedUrl.toString());
+                assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
+                        .containsEntry("first.png", signedUrl.toString())
+                        .containsEntry("second.png", signedUrl.toString());
+            }
         }
     }
 
@@ -104,6 +119,8 @@ class CloudStorageServiceProbeTest {
         cosConfig.setBucket("cos-bucket");
         ReflectionTestUtils.setField(cosStorage, "cosClient", cosClient);
         ReflectionTestUtils.setField(cosStorage, "cosConfig", cosConfig);
+        ReflectionTestUtils.setField(cosStorage, "edgeOneUrlSigner",
+                new EdgeOneUrlSigner("https://edge.example", "test-secret", CLOCK));
 
         COSClient ossClient = mock(COSClient.class);
         OssStorageService ossStorage = mock(OssStorageService.class, CALLS_REAL_METHODS);

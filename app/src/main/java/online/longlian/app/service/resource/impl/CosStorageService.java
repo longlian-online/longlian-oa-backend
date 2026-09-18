@@ -15,11 +15,13 @@ import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
+import online.longlian.app.service.resource.EdgeOneUrlSigner;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;
+import java.time.Clock;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,14 +29,18 @@ import java.util.stream.Collectors;
 @Service
 public class CosStorageService implements StorageService, DisposableBean {
 
+    private static final int UPLOAD_URL_EXPIRE_MILLIS = 10 * 60 * 1000;
+
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
+    private final EdgeOneUrlSigner edgeOneUrlSigner;
 
-    public CosStorageService(StorageProperties storageProperties) {
+    public CosStorageService(StorageProperties storageProperties, Clock clock) {
         cosConfig = storageProperties.getCos();
         COSCredentials cred = new BasicCOSCredentials(cosConfig.getSecretId(), cosConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(cosConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
+        edgeOneUrlSigner = new EdgeOneUrlSigner(cosConfig.getUrlPrefix(), cosConfig.getEdgeOneAuthKey(), clock);
     }
 
     @Override
@@ -42,13 +48,12 @@ public class CosStorageService implements StorageService, DisposableBean {
         return StorageType.COS;
     }
 
-    private String getPresignUrl(String key, HttpMethodName method) {
-        int EXPIRE_SECONDS = 10 * 60 * 1000;
-        Date expiration = new Date(System.currentTimeMillis() + EXPIRE_SECONDS);
+    private String getPresignUploadUrl(String key) {
+        Date expiration = new Date(System.currentTimeMillis() + UPLOAD_URL_EXPIRE_MILLIS);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosConfig.getBucket(),
                 key,
-                method
+                HttpMethodName.PUT
         );
         request.setExpiration(expiration);
         URL url = cosClient.generatePresignedUrl(request);
@@ -57,12 +62,12 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
-        return new PresignedUploadUrlResultBO(this.getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
+        return new PresignedUploadUrlResultBO(getPresignUploadUrl(params.getKey()), params.getKey());
     }
 
     @Override
     public String getResourceReadUrl(String key) {
-        return getPresignUrl(key, HttpMethodName.GET);
+        return edgeOneUrlSigner.sign(key);
     }
 
     @Override
@@ -94,7 +99,7 @@ public class CosStorageService implements StorageService, DisposableBean {
     }
 
     @Override
-    public void destroy() throws Exception {
+    public void destroy() {
         this.cosClient.shutdown();
         log.info("COS 客户端已关闭");
     }
