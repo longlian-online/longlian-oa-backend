@@ -86,10 +86,15 @@ springdoc:
 storage:
   # LOCAL | OSS | COS
   type: LOCAL
+  # 存储服务生成的预签名 URL 有效期（秒）
+  presigned-url-ttl-seconds: 300
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
+  cdn:
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
   local:
-    base-url: ""
-    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
-    read-url-ttl-seconds: 300
+    signing-secret: ${jwt.secret}
     directory: /app/data/storage
   oss:
     bucket: ""
@@ -102,7 +107,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
 
 cors:
   allowed-origins: https://oa.longlian.online

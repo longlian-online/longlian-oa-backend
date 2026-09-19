@@ -22,9 +22,8 @@ class SwaggerDefaultsTest {
                 .load(resource, new ClassPathResource(resource));
         assertThat(sources).isNotEmpty();
         PropertySource<?> source = sources.get(0);
-        String expectedValue = "${SPRINGDOC_ENABLED:" + expected + "}";
-        assertThat(source.getProperty("springdoc.api-docs.enabled")).isEqualTo(expectedValue);
-        assertThat(source.getProperty("springdoc.swagger-ui.enabled")).isEqualTo(expectedValue);
+        assertThat(source.getProperty("springdoc.api-docs.enabled")).isEqualTo(expected);
+        assertThat(source.getProperty("springdoc.swagger-ui.enabled")).isEqualTo(expected);
     }
 
     /** 开发 profile 必须显式开启接口文档。 */

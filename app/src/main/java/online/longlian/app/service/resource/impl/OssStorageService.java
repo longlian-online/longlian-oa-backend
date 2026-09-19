@@ -29,9 +29,11 @@ public class OssStorageService implements StorageService, DisposableBean {
 
     private final COSClient cosClient;
     private final StorageProperties.OssConfig ossConfig;
+    private final long presignedUrlTtlMillis;
 
     public OssStorageService(StorageProperties storageProperties) {
         ossConfig = storageProperties.getOss();
+        presignedUrlTtlMillis = Math.multiplyExact(storageProperties.getPresignedUrlTtlSeconds(), 1000L);
         COSCredentials cred = new BasicCOSCredentials(ossConfig.getSecretId(), ossConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(ossConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
@@ -43,8 +45,7 @@ public class OssStorageService implements StorageService, DisposableBean {
     }
 
     private String getPresignUrl(String key, HttpMethodName method) {
-        int EXPIRE_SECONDS = 10 * 60 * 1000;
-        Date expiration = new Date(System.currentTimeMillis() + EXPIRE_SECONDS);
+        Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 ossConfig.getBucket(),
                 key,
@@ -59,6 +60,7 @@ public class OssStorageService implements StorageService, DisposableBean {
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
         return new PresignedUploadUrlResultBO(this.getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
     }
+
 
     @Override
     public String getResourceReadUrl(String key) {

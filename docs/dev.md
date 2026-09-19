@@ -26,6 +26,8 @@ cp devops/application-prod.yml.example devops/application-prod.yml
 
 YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥打进镜像或提交到 git。
 
+存储、CDN 等项直接写在 YAML 中。CDN 接入与 Type D 签名见 [cdn.md](cdn.md)。
+
 ## 运行
 
 `mvn spring-boot:run -pl app`

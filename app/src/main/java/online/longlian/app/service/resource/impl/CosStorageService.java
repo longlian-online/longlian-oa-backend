@@ -27,11 +27,14 @@ import java.util.stream.Collectors;
 @Service
 public class CosStorageService implements StorageService, DisposableBean {
 
+
     private final COSClient cosClient;
     private final StorageProperties.CosConfig cosConfig;
+    private final long presignedUrlTtlMillis;
 
     public CosStorageService(StorageProperties storageProperties) {
         cosConfig = storageProperties.getCos();
+        presignedUrlTtlMillis = Math.multiplyExact(storageProperties.getPresignedUrlTtlSeconds(), 1000L);
         COSCredentials cred = new BasicCOSCredentials(cosConfig.getSecretId(), cosConfig.getSecretKey());
         ClientConfig clientConfig = new ClientConfig(new Region(cosConfig.getRegion()));
         this.cosClient = new COSClient(cred, clientConfig);
@@ -43,8 +46,7 @@ public class CosStorageService implements StorageService, DisposableBean {
     }
 
     private String getPresignUrl(String key, HttpMethodName method) {
-        int EXPIRE_SECONDS = 10 * 60 * 1000;
-        Date expiration = new Date(System.currentTimeMillis() + EXPIRE_SECONDS);
+        Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosConfig.getBucket(),
                 key,
@@ -57,8 +59,9 @@ public class CosStorageService implements StorageService, DisposableBean {
 
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
-        return new PresignedUploadUrlResultBO(this.getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
+        return new PresignedUploadUrlResultBO(getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
     }
+
 
     @Override
     public String getResourceReadUrl(String key) {
@@ -94,7 +97,7 @@ public class CosStorageService implements StorageService, DisposableBean {
     }
 
     @Override
-    public void destroy() throws Exception {
+    public void destroy() {
         this.cosClient.shutdown();
         log.info("COS 客户端已关闭");
     }

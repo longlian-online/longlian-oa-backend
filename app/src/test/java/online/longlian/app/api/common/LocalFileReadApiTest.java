@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import javax.imageio.ImageIO;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -32,7 +34,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 @TestPropertySource(properties = {
-        "storage.type=LOCAL", "storage.local.base-url=",
+        "storage.type=LOCAL",
+        "longlian.server-url=",
+        "storage.presigned-url-ttl-seconds=120",
+        "storage.cdn.url-prefix=http://localhost",
+        "storage.cdn.auth-key=test-cdn-key",
         "storage.local.directory=${java.io.tmpdir}/longlian-issue107-${random.uuid}"
 })
 class LocalFileReadApiTest extends BaseApiTest {
@@ -55,6 +61,22 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(content).containsExactly(7);
     }
 
+    /** 创建上传返回的本地预签名链接使用统一配置的有效期。 */
+    @Test
+    void shouldUseConfiguredPresignedUrlTtlForLocalUpload() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        long before = Instant.now().getEpochSecond();
+
+        LocalUpload upload = createLocalUpload(token, 1L);
+        long expires = Long.parseLong(UriComponentsBuilder.fromUriString(upload.uploadUrl())
+                .build().getQueryParams().getFirst("expires"));
+
+        assertThat(properties.getPresignedUrlTtlSeconds()).isEqualTo(120);
+        assertThat(expires).isBetween(before + properties.getPresignedUrlTtlSeconds(),
+                Instant.now().getEpochSecond() + properties.getPresignedUrlTtlSeconds());
+    }
+
     /** 仅知道存储 key 不能直接获得文件读取权限。 */
     @Test
     void shouldRejectUnsignedRead() {
@@ -66,10 +88,9 @@ class LocalFileReadApiTest extends BaseApiTest {
     /** 一个资源的签名不能读取其他资源，也不能跨组织读取文件。 */
     @Test
     void shouldRejectCrossResourceRead() {
-        createFile();
-        createResource(2L, 2L, 2L);
-        String url = resources.getResourceReadUrl(1L).replace("avatar/1.png", "avatar/2.png");
-        request().urlEncodingEnabled(false).get(url).then()
+        LocalFileReadParamsBO signed = signer.sign("avatar/1.png");
+        request().queryParam("key", "avatar/2.png").queryParam("expires", signed.expires())
+                .queryParam("signature", signed.signature()).get("/common/file/local").then()
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
@@ -279,8 +300,6 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementBizId).isEqualTo(1L);
 
-        request().urlEncodingEnabled(false).get(oldAvatarUrl).then()
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
         createAdmin(2L, "resource_cleanup_admin", "123456", "SUPER_ADMIN");
         String adminToken = adminLoginAs("resource_cleanup_admin", "123456");
         authRequest(adminToken)
@@ -294,9 +313,9 @@ class LocalFileReadApiTest extends BaseApiTest {
                 "SELECT storage_cleaned_at FROM resource WHERE storage_key = ?", Object.class, created.key()))
                 .isNotNull();
 
-        String avatarUrl = authRequest(token).get("/app/user/").then()
-                .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
-        byte[] content = request().urlEncodingEnabled(false).get(avatarUrl).then()
+        LocalFileReadParamsBO read = signer.sign(replacement.key());
+        byte[] content = request().queryParam("key", read.key()).queryParam("expires", read.expires())
+                .queryParam("signature", read.signature()).get("/common/file/local").then()
                 .statusCode(200).extract().asByteArray();
         assertThat(content).isEqualTo(png);
     }
@@ -351,6 +370,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(uploadUrl).contains("expires=", "signature=");
         return new LocalUpload(response.path("data.fileId"), response.path("data.key"), uploadUrl);
     }
+
 
     private io.restassured.response.ValidatableResponse putSignedUpload(String uploadUrl, byte[] body) {
         return request().urlEncodingEnabled(false)

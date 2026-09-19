@@ -8,10 +8,9 @@ import online.longlian.app.service.resource.StorageService;
 import online.longlian.app.service.resource.StorageServiceFactory;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
-
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,9 +40,9 @@ class NullStorageServiceTest {
 
     @Test
     void getResourceReadUrls_returnsEmptyMap() {
-        Map<String, String> result = service.getResourceReadUrls(List.of("a.png", "b.png"));
-        assertThat(result).isEmpty();
+        assertThat(service.getResourceReadUrls(List.of("a.png", "b.png"))).isEmpty();
     }
+
 
     @Test
     void probe_rejectsUnsupportedStorage() {

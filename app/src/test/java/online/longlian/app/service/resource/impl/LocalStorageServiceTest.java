@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.properties.LonglianProperties;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
@@ -25,6 +26,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,12 +43,12 @@ class LocalStorageServiceTest {
         assertThat(storageService(directory).getStorageType()).isEqualTo(StorageType.LOCAL);
     }
 
+
     @Test
-    void shouldBuildLocalUploadAndBatchReadUrls(@TempDir Path directory) {
+    void shouldBuildLocalUploadUrl(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
 
-        assertThat(storageService.generatePresignedUploadUrl(
-                new PresignedUploadUrlParamsBO("avatar/1.png")))
+        assertThat(storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("avatar/1.png")))
                 .satisfies(result -> {
                     assertThat(result.getKey()).isEqualTo("avatar/1.png");
                     assertThat(result.getUploadUrl())
@@ -54,21 +56,45 @@ class LocalStorageServiceTest {
                             .contains("expires=")
                             .matches(".*signature=[0-9a-f]{64}.*");
                 });
-        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
-        assertThat(urls).containsOnlyKeys("avatar/1.png", "cover/2.png");
-        assertThat(urls.values()).allMatch(url -> url.contains("expires=") && url.contains("signature="));
     }
 
     @Test
     void shouldBuildReadableLocalResourceUrl() {
-        StorageProperties.LocalConfig localConfig = new StorageProperties.LocalConfig();
-        localConfig.setBaseUrl("https://api.example.com");
-        StorageProperties properties = new StorageProperties();
-        properties.setLocal(localConfig);
-        LocalStorageService storageService = new LocalStorageService(properties, signer());
+        LocalStorageService storageService = storageService("https://api.example.com");
 
         assertThat(storageService.getResourceReadUrl("avatar/1.png"))
-                .matches("https://api.example.com/common/file/local\\?key=avatar/1.png&expires=[0-9]+&signature=[0-9a-f]{64}");
+                .matches("https://api.example.com/common/file/local\\?key=avatar/1.png\u0026expires=[0-9]+\u0026signature=[0-9a-f]{64}");
+    }
+
+    @Test
+    void shouldReturnNativeReadUrlsForMultipleKeys() {
+        LocalStorageService storageService = storageService("https://api.example.com");
+
+        Map<String, String> urls = storageService.getResourceReadUrls(List.of("avatar/1.png", "cover/2.png"));
+
+        assertThat(urls).hasSize(2);
+        assertThat(urls.get("avatar/1.png")).contains("key=avatar/1.png", "expires=", "signature=");
+        assertThat(urls.get("cover/2.png")).contains("key=cover/2.png", "expires=", "signature=");
+    }
+
+    @Test
+    void shouldFallbackToTempDirectoryWhenLocalDirectoryBlank() throws IOException {
+        LocalStorageService storageService = storageService("https://api.example.com");
+        String key = "coverage/" + UUID.randomUUID() + ".bin";
+        Path stored = Path.of(System.getProperty("java.io.tmpdir"), "longlian-oa").resolve(key);
+
+        try {
+            storageService.upload(writeParams(key, new byte[]{9, 8, 7}, 3L, null));
+
+            assertThat(stored).exists();
+            assertThat(Files.readAllBytes(stored)).containsExactly(9, 8, 7);
+        } finally {
+            Files.deleteIfExists(stored);
+            Path parent = stored.getParent();
+            if (parent != null) {
+                Files.deleteIfExists(parent);
+            }
+        }
     }
 
     @Test
@@ -342,7 +368,17 @@ class LocalStorageServiceTest {
         localConfig.setDirectory(directory.toString());
         StorageProperties properties = new StorageProperties();
         properties.setLocal(localConfig);
-        return new LocalStorageService(properties, signer());
+        properties.setCdn(cdnConfig());
+        return new LocalStorageService(properties, new LonglianProperties(), signer());
+    }
+
+    private LocalStorageService storageService(String serverUrl) {
+        StorageProperties properties = new StorageProperties();
+        properties.setLocal(new StorageProperties.LocalConfig());
+        properties.setCdn(cdnConfig());
+        LonglianProperties longlianProperties = new LonglianProperties();
+        longlianProperties.setServerUrl(serverUrl);
+        return new LocalStorageService(properties, longlianProperties, signer());
     }
 
     private LocalFileWriteParamsBO writeParams(String key, byte[] content, long size, String mimeType) {
@@ -387,7 +423,16 @@ class LocalStorageServiceTest {
         return output.toByteArray();
     }
 
+    private StorageProperties.CdnConfig cdnConfig() {
+        StorageProperties.CdnConfig config = new StorageProperties.CdnConfig();
+        config.setUrlPrefix("https://edge.example.com");
+        config.setAuthKey("test-cdn-key");
+        return config;
+    }
+
     private LocalFileUrlSigner signer() {
-        return new LocalFileUrlSigner("test-local-signing-secret-32-bytes", 300, Clock.systemUTC());
+        StorageProperties properties = new StorageProperties();
+        properties.setPresignedUrlTtlSeconds(300);
+        return new LocalFileUrlSigner("test-local-signing-secret-32-bytes", properties, Clock.systemUTC());
     }
 }

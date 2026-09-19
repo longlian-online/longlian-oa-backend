@@ -21,7 +21,7 @@ import java.util.List;
  *   <li><b>企划详情</b>：返回基本信息、类型、封面、进度统计及当前用户的权限标记
  *       （{@code isCreator} / {@code inWorkshop}）</li>
  *   <li><b>企划类型</b>：获取当前组织下所有启用的企划类型列表</li>
- *   <li><b>个人工坊</b>：添加/移除企划至个人工坊，添加操作幂等</li>
+ *   <li><b>个人工坊</b>：创建时默认加入创建者工坊；也可手动添加/移除，添加操作幂等</li>
  * </ol>
  */
 public interface ProjectService {
@@ -56,7 +56,7 @@ public interface ProjectService {
     List<ProjectTypeInfoVO> getProjectTypes(Long orgId);
 
     /**
-     * 创建企划，默认状态为「进行中」。
+     * 创建企划，默认状态为「进行中」，并自动加入创建者的个人工坊。
      *
      * @param params 包含标题、类型、描述、封面等信息的创建参数
      */
