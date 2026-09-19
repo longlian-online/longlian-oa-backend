@@ -119,3 +119,26 @@ jobs:
           annotations: ${{ steps.meta-migration.outputs.annotations }}
           cache-from: type=gha,scope=migration
           cache-to: type=gha,mode=max,scope=migration
+
+  deploy-production:
+    name: Deploy production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: none
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Trigger server deployment
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          port: ${{ secrets.DEPLOY_SSH_PORT }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
+          command_timeout: 15m
+          script: /opt/longlian-oa-deploy/scripts/deploy.sh ${{ github.ref_name }}
