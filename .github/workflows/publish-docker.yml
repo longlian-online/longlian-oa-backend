@@ -131,9 +131,10 @@ jobs:
       group: production-deploy
       cancel-in-progress: false
     steps:
-      - name: Deploy from production checkout
+      - name: Run production deployment script
         env:
-          DEPLOY_PROJECT_DIR: ${{ secrets.DEPLOY_PROJECT_DIR }}
+          DEPLOY_SCRIPT_PATH: ${{ secrets.DEPLOY_SCRIPT_PATH }}
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
@@ -141,16 +142,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           command_timeout: 15m
-          envs: DEPLOY_PROJECT_DIR
+          envs: DEPLOY_SCRIPT_PATH
           script: |
             set -Eeuo pipefail
-            : "${DEPLOY_PROJECT_DIR:?DEPLOY_PROJECT_DIR is required}"
-            cd "${DEPLOY_PROJECT_DIR}"
-            version='${{ github.ref_name }}'
-            version="${version#v}"
-            APP_TAG="${version}" \
-            MIGRATION_TAG="${version}-migration" \
-              docker compose pull
-            APP_TAG="${version}" \
-            MIGRATION_TAG="${version}-migration" \
-              docker compose up -d
+            : "${DEPLOY_SCRIPT_PATH:?DEPLOY_SCRIPT_PATH is required}"
+            "${DEPLOY_SCRIPT_PATH}"
