@@ -41,6 +41,7 @@ public class OrgAdminOrganizationController {
                 .id(resultBO.getId())
                 .name(resultBO.getName())
                 .avatarUrl(resultBO.getAvatarUrl())
+                .avatarFileId(resultBO.getAvatarFileId())
                 .description(resultBO.getDescription())
                 .build();
     }

@@ -25,6 +25,10 @@ public class OrgAdmintOrganizationInfoVO {
     @Schema(description = "组织头像访问地址")
     private String avatarUrl;
 
+    @JsonLongIdString
+    @Schema(type = "string", description = "组织头像文件ID")
+    private Long avatarFileId;
+
     @Schema(description = "组织简介")
     private String description;
 }

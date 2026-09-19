@@ -23,6 +23,9 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldGetOrganizationInfoSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -32,7 +35,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.id", notNullValue())
-                .body("data.name", notNullValue());
+                .body("data.name", notNullValue())
+                .body("data.avatarFileId", equalTo("12345"));
     }
 
     /**
@@ -202,11 +206,14 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     }
 
     /**
-     * 更新组织信息时avatarFileId为空应失败
+     * 更新组织信息时不传 avatarFileId 应保留原头像
      */
     @Test
-    void shouldFailUpdateOrganizationInfoWithNullAvatarFileId() {
+    void shouldPreserveAvatarWhenUpdateOmitsAvatarFileId() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -217,6 +224,60 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .put("/orgadmin/organizations");
 
         response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT avatar_file_id FROM organization WHERE id = 1", Long.class)).isEqualTo(12345L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
+     * avatarFileId 为 0 时应清空组织头像
+     */
+    @Test
+    void shouldClearAvatarWithZeroAvatarFileId() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of(
+                        "name", "组织名",
+                        "avatarFileId", 0,
+                        "description", "描述"
+                ))
+                .put("/orgadmin/organizations")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT avatar_file_id FROM organization WHERE id = 1", Long.class)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+    }
+
+    /**
+     * avatarFileId 为负数时应校验失败
+     */
+    @Test
+    void shouldFailUpdateOrganizationInfoWithNegativeAvatarFileId() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of(
+                        "name", "组织名",
+                        "avatarFileId", -1,
+                        "description", "描述"
+                ))
+                .put("/orgadmin/organizations")
+                .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
