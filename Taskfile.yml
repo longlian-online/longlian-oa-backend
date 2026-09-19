@@ -28,6 +28,19 @@ tasks:
     desc: "停止生产环境"
     cmd: docker compose -f devops/docker-compose.prod.yml down
 
+  prod-observability:
+    desc: "启动生产环境 + VictoriaLogs + OTel Collector + 日志查询网关（Nginx 外置）"
+    cmds:
+      - test -f devops/application-prod.yml || (echo "缺少 devops/application-prod.yml，请复制 devops/application-prod.yml.example 并填写" && exit 1)
+      - test -n "${LOG_QUERY_AUTH_TOKEN:-}" || (echo "请先设置 LOG_QUERY_AUTH_TOKEN" && exit 1)
+      - mkdir -p devops/data/storage devops/data/victorialogs devops/data/otel-collector
+      - chmod 1777 devops/data/storage devops/data/victorialogs devops/data/otel-collector
+      - docker compose -f devops/docker-compose.prod.yml -f devops/docker-compose.observability.prod.yml up -d --build
+
+  prod-observability-down:
+    desc: "停止生产环境可观测性叠加服务"
+    cmd: docker compose -f devops/docker-compose.prod.yml -f devops/docker-compose.observability.prod.yml down
+
   api-test-docker:
     desc: "在 Docker 中运行 API 测试（自动启动 MySQL + Redis）"
     cmd: |

@@ -1,0 +1,51 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  resource/longlian:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+  batch:
+    send_batch_size: 512
+    timeout: 1s
+
+exporters:
+  otlphttp/victorialogs:
+    logs_endpoint: http://victorialogs:9428/insert/opentelemetry/v1/logs
+    compression: gzip
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 1000
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 5m
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  file_storage:
+    directory: /var/lib/otelcol/file-storage
+    create_directory: true
+
+service:
+  extensions: [health_check, file_storage]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/longlian, batch]
+      exporters: [otlphttp/victorialogs]

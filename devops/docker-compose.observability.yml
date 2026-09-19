@@ -1,0 +1,95 @@
+# 本地可观测性覆盖配置。
+# 用法：
+#   docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml up --build -d
+#
+# 该文件增加 VictoriaLogs、OpenTelemetry Collector 和只读日志查询网关，并覆盖开发应用的配置挂载，
+# 避免依赖被 .gitignore 忽略的 application.yml / application-dev.yml。
+
+services:
+  migrate-dev:
+    # MySQL healthcheck 通过后，服务端监听可能仍在最后初始化阶段；有限重试避免首次启动的瞬时 connection refused。
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for attempt in $(seq 1 10); do
+          /app/db/migrate.sh dev apply && exit 0
+          echo "数据库迁移暂未就绪，$${attempt}/10，3 秒后重试..." >&2
+          sleep 3
+        done
+        exit 1
+
+  longlian-oa-dev:
+    build:
+      args:
+        INCLUDE_OTEL: "true"
+    volumes: !override
+      - ../app/src/main/resources/application.yml.example:/app/config/application.yml:ro
+      - local_storage_data:/app/data/storage
+      - ../data/logs:/app/logs
+    environment:
+      LOG_PATH: /app/logs
+      JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+      OTEL_SERVICE_NAME: longlian-oa
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=dev,service.version=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      # 当前本地链路只验证 traces/logs，避免 Java Agent 默认导出 metrics 但 Collector 未配置 metrics pipeline。
+      OTEL_METRICS_EXPORTER: none
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.52.0
+    container_name: longlian-oa-victorialogs
+    command:
+      - -storageDataPath=/victoria-logs-data
+    ports:
+      - "9428:9428"
+    volumes:
+      - ../data/victorialogs:/victoria-logs-data
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    container_name: longlian-oa-otel-collector
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - victorialogs
+
+  log-query-gateway:
+    build:
+      context: ../
+      dockerfile: devops/Dockerfile.log-query-gateway
+    image: longlian-oa-log-query-gateway:local
+    container_name: longlian-oa-log-query-gateway
+    environment:
+      VICTORIALOGS_QUERY_URL: http://victorialogs:9428/select/logsql/query
+      # 本地默认令牌仅用于开发验证；共享环境请显式设置 LOG_QUERY_AUTH_TOKEN。
+      LOG_QUERY_AUTH_TOKEN: ${LOG_QUERY_AUTH_TOKEN:-local-dev-token}
+      LOG_QUERY_AUTH_REQUIRED: "true"
+      LOG_QUERY_DEFAULT_RANGE: 15m
+      LOG_QUERY_MAX_RANGE: 24h
+      LOG_QUERY_MAX_LIMIT: 200
+      LOG_QUERY_MAX_CONCURRENT: 8
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      victorialogs:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/actuator/health | grep -q 'UP'"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  local_storage_data:

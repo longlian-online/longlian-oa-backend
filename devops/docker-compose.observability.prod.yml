@@ -1,0 +1,75 @@
+# 生产环境可观测性叠加配置。
+# 已有 Nginx 在 Compose 外部负责 HTTPS 和反向代理，本文件不创建 Nginx。
+#
+# 启动：
+#   docker compose -f devops/docker-compose.prod.yml \
+#     -f devops/docker-compose.observability.prod.yml up -d
+
+services:
+  longlian-oa:
+    environment:
+      JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+      OTEL_SERVICE_NAME: longlian-oa
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=prod,service.version=${APP_VERSION:-unknown}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_TRACES_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.52.0
+    container_name: longlian-oa-victorialogs-prod
+    command:
+      - -storageDataPath=/victoria-logs-data
+    ports:
+      - "127.0.0.1:9428:9428"
+    volumes:
+      - ./data/victorialogs:/victoria-logs-data
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    container_name: longlian-oa-otel-collector-prod
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    ports:
+      - "${OTEL_BIND_ADDRESS:-127.0.0.1}:4317:4317"
+      - "${OTEL_BIND_ADDRESS:-127.0.0.1}:4318:4318"
+      - "127.0.0.1:13133:13133"
+    volumes:
+      - ./otel-collector/config.prod.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ./data/otel-collector:/var/lib/otelcol
+    depends_on:
+      - victorialogs
+    restart: unless-stopped
+
+  log-query-gateway:
+    build:
+      context: ../
+      dockerfile: devops/Dockerfile.log-query-gateway
+    image: longlian-oa-log-query-gateway:${APP_VERSION:-local}
+    container_name: longlian-oa-log-query-gateway-prod
+    environment:
+      VICTORIALOGS_QUERY_URL: http://victorialogs:9428/select/logsql/query
+      LOG_QUERY_AUTH_TOKEN: ${LOG_QUERY_AUTH_TOKEN:?LOG_QUERY_AUTH_TOKEN is required}
+      LOG_QUERY_AUTH_REQUIRED: "true"
+      LOG_QUERY_DEFAULT_RANGE: 15m
+      LOG_QUERY_MAX_RANGE: 24h
+      LOG_QUERY_MAX_LIMIT: 200
+      LOG_QUERY_MAX_CONCURRENT: 8
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      - victorialogs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/actuator/health | grep -q 'UP'"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped

@@ -1,0 +1,25 @@
+# Read-only log query gateway image.
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /app
+
+COPY pom.xml .
+COPY log-query-gateway/pom.xml log-query-gateway/pom.xml
+COPY settings.xml /root/.m2/settings.xml
+
+RUN mvn dependency:go-offline -B -pl log-query-gateway -am
+
+COPY log-query-gateway/src log-query-gateway/src
+RUN mvn package -Dmaven.test.skip=true -B -pl log-query-gateway -am
+
+FROM eclipse-temurin:21-jre-alpine AS runtime
+WORKDIR /app
+
+RUN apk add --no-cache wget && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY --from=build /app/log-query-gateway/target/*.jar app.jar
+
+ENV JAVA_OPTS="-Xms128m -Xmx256m -Djava.security.egd=file:/dev/./urandom"
+EXPOSE 8080
+USER appuser
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

@@ -48,4 +48,6 @@ data/
 **/.env
 *.jar
 *.DS_Store
+devops/tools/
+vlogscli-history
 .worktrees/

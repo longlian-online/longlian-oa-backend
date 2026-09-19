@@ -33,6 +33,7 @@
         <module>common</module>
         <module>generator</module>
         <module>app</module>
+        <module>log-query-gateway</module>
     </modules>
     <dependencyManagement>
         <dependencies>

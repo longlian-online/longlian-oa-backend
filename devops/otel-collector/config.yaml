@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  resource/longlian:
+    attributes:
+      - key: service.name
+        value: longlian-oa
+        action: upsert
+      - key: deployment.environment
+        value: dev
+        action: upsert
+      - key: service.version
+        value: local
+        action: upsert
+  batch:
+
+exporters:
+  otlphttp/victorialogs:
+    logs_endpoint: http://victorialogs:9428/insert/opentelemetry/v1/logs
+    compression: gzip
+
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    logs:
+      # Java Agent 已经将 Logback 日志以 OTLP logs 发出；以 OTLP 作为主通道，
+      # 避免同一条应用日志再经 filelog 采集后在 VictoriaLogs 中重复出现。
+      receivers: [otlp]
+      processors: [resource/longlian, batch]
+      exporters: [otlphttp/victorialogs]
+    traces:
+      receivers: [otlp]
+      processors: [resource/longlian, batch]
+      exporters: [debug]

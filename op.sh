@@ -48,10 +48,12 @@ op.sh - 项目操作脚本
 
 可用命令:
   otel-init    初始化 OpenTelemetry Java Agent
+  logs-cli     启动本地 VictoriaLogs CLI（需要先放置 vlogscli-prod）
   help         显示此帮助信息
 
 示例:
   ./op.sh otel-init
+  ./op.sh logs-cli
   ./op.sh help
 
 EOF
@@ -102,6 +104,20 @@ otel_init_command() {
     fi
 }
 
+# 启动本地 VictoriaLogs CLI
+logs_cli_command() {
+    cli_file="devops/tools/vlogscli-prod"
+    if [ ! -f "$cli_file" ] && [ -f "${cli_file}.exe" ]; then
+        cli_file="${cli_file}.exe"
+    fi
+    if [ ! -f "$cli_file" ]; then
+        log_error "未找到 $cli_file，请从 VictoriaLogs vlutils 发布包获取 vlogscli-prod"
+        return 1
+    fi
+
+    "$cli_file" -datasource.url="http://127.0.0.1:9428/select/logsql/query"
+}
+
 # 主函数
 main() {
     # 如果没有参数，显示帮助信息
@@ -116,6 +132,9 @@ main() {
     case "$command" in
         otel-init)
             otel_init_command "$@"
+            ;;
+        logs-cli)
+            logs_cli_command "$@"
             ;;
         help|--help|-h)
             show_help
