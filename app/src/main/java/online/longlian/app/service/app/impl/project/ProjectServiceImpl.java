@@ -95,7 +95,8 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public ProjectDetailResultBO getProjectDetail(Long projectId, Long userId, Long orgId) {
         Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)) {
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
         }
 

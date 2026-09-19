@@ -170,4 +170,17 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
+
+    @Test
+    void getProjectDetail_disabledProject_throwsNotFound() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .resourceStatus(Status.DISABLED)
+                .build());
+
+        assertThatThrownBy(() -> service.getProjectDetail(100L, 2L, 1L))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
 }

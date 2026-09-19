@@ -549,6 +549,26 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 获取已禁用企划详情应失败
+     */
+    @Test
+    void shouldFailGetDisabledProjectDetail() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "禁用企划", 1, 0, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
      * 更新不存在的企划应失败
      */
     @Test
