@@ -57,6 +57,16 @@ class CdnUrlSignerTest {
                         + "?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
     }
 
+    /** 显式时间戳必须是正数，避免签发不符合 Type D 协议的链接。 */
+    @Test
+    void shouldRejectNonPositiveExplicitTimestamp() {
+        CdnUrlSigner signer = new CdnUrlSigner("https://static.example.com", "test-secret", CLOCK);
+
+        assertThatThrownBy(() -> signer.sign("avatar/1.png", 0L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CDN 鉴权时间戳必须为正数");
+    }
+
     /** 存储 key 和 CDN 路径必须保持路径语义，不能注入查询参数或片段。 */
     @Test
     void shouldRejectMalformedStorageKeysAndPaths() {

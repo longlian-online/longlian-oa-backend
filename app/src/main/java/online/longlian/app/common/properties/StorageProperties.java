@@ -19,6 +19,10 @@ public class StorageProperties {
         private boolean enabled;
         private String urlPrefix;
         private String authKey;
+        /** Must match the Type D validity period configured in EdgeOne. */
+        private long authTtlSeconds = 300;
+        /** Portion of the authentication lifetime during which a URL is reused. */
+        private int urlReusePercent = 80;
     }
 
     @Data

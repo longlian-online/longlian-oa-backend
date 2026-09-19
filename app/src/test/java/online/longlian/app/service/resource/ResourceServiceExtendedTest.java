@@ -85,7 +85,7 @@ class ResourceServiceExtendedTest {
 
         assertThat(result).containsKey(1L);
         assertThat(result.get(1L).getUrl())
-                .isEqualTo("https://cdn.example/avatar/1.png?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
+                .matches("https://cdn.example/avatar/1.png\\?token=[0-9a-f]{32}&t=1721029680");
     }
 
     @Test
@@ -97,7 +97,7 @@ class ResourceServiceExtendedTest {
 
         String url = resourceService.getResourceReadUrl(1L);
 
-        assertThat(url).isEqualTo("https://cdn.example/avatar/1.png?token=81a97b30d25b4d66f2978240008a4430&t=1721029907");
+        assertThat(url).matches("https://cdn.example/avatar/1.png\\?token=[0-9a-f]{32}&t=1721029680");
     }
     @Test
     void getResourceReadUrl_localResourceKeepsOriginProof() {
@@ -108,8 +108,64 @@ class ResourceServiceExtendedTest {
 
         assertThat(resourceService.getResourceReadUrl(1L))
                 .matches("https://cdn.example/common/file/local\\?key=avatar/1.png"
-                        + "&expires=1721030207&signature=[0-9a-f]{64}"
-                        + "&token=[0-9a-f]{32}&t=1721029907");
+                        + "&expires=1721029980&signature=[0-9a-f]{64}"
+                        + "&token=[0-9a-f]{32}&t=1721029680");
+    }
+
+    /** 同一复用窗口的 COS 链接保持稳定，跨窗口才更新 Type D 时间戳。 */
+    @Test
+    void getResourceReadUrl_reusesCdnUrlWithinConfiguredWindow() {
+        Resource resource = Resource.builder()
+                .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
+                .build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+
+        String first = resourceServiceAt(1_000L).getResourceReadUrl(1L);
+        String second = resourceServiceAt(1_100L).getResourceReadUrl(1L);
+        String refreshed = resourceServiceAt(1_200L).getResourceReadUrl(1L);
+
+        assertThat(first).isEqualTo(second).endsWith("&t=960");
+        assertThat(refreshed).isNotEqualTo(first).endsWith("&t=1200");
+    }
+
+    /** LOCAL 的内层 HMAC 过期时间与 CDN 时间戳同窗，完整链接才能被浏览器复用。 */
+    @Test
+    void getResourceReadUrl_reusesCompleteLocalCdnUrlWithinConfiguredWindow() {
+        Resource resource = Resource.builder()
+                .id(1L).storageKey("avatar/1.png").storageType(StorageType.LOCAL).orgId(10L)
+                .build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+
+        String first = resourceServiceAt(1_000L).getResourceReadUrl(1L);
+        String second = resourceServiceAt(1_100L).getResourceReadUrl(1L);
+        String refreshed = resourceServiceAt(1_200L).getResourceReadUrl(1L);
+
+        assertThat(first).isEqualTo(second).contains("expires=1260", "&t=960");
+        assertThat(refreshed).isNotEqualTo(first).contains("expires=1500", "&t=1200");
+    }
+
+    /** 无剩余鉴权期的复用窗口会使新链接立即失效，必须在签发前拒绝。 */
+    @Test
+    void getResourceReadUrl_rejectsInvalidCdnReuseConfiguration() {
+        StorageProperties props = new StorageProperties();
+        StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
+        cdn.setEnabled(true);
+        cdn.setUrlPrefix("https://cdn.example");
+        cdn.setAuthKey("test-secret");
+        cdn.setAuthTtlSeconds(300);
+        cdn.setUrlReusePercent(100);
+        props.setCdn(cdn);
+        Resource resource = Resource.builder()
+                .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
+                .build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+        ResourceService invalidService = new ResourceService(resourceMapper, storageFactory,
+                new CdnUrlSigner(cdn, CLOCK), new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK),
+                props, CLOCK);
+
+        assertThatThrownBy(() -> invalidService.getResourceReadUrl(1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("CDN 鉴权有效期和链接复用比例配置无效");
     }
 
     @Test
@@ -302,5 +358,19 @@ class ResourceServiceExtendedTest {
         return Resource.builder().id(id).creatorId(1L).orgId(1L).storageKey("avatar/1.png")
                 .storageType(StorageType.OSS).fileSize(3L).fileMime("image/png")
                 .processStatus(FileProcessStatus.Pending).build();
+    }
+
+    private ResourceService resourceServiceAt(long epochSecond) {
+        Clock clock = Clock.fixed(Instant.ofEpochSecond(epochSecond), ZoneOffset.UTC);
+        StorageProperties props = new StorageProperties();
+        props.setType(StorageType.OSS);
+        StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
+        cdn.setEnabled(true);
+        cdn.setUrlPrefix("https://cdn.example");
+        cdn.setAuthKey("test-secret");
+        props.setCdn(cdn);
+        return new ResourceService(resourceMapper, storageFactory,
+                new CdnUrlSigner(cdn, clock), new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, clock),
+                props, clock);
     }
 }

@@ -40,7 +40,14 @@ public class LocalFileUrlSigner {
     }
 
     public LocalFileReadParamsBO sign(String storageKey) {
-        return sign(storageKey, READ_SIGNATURE_DOMAIN);
+        return sign(storageKey, Math.addExact(clock.instant().getEpochSecond(), ttlSeconds));
+    }
+
+    public LocalFileReadParamsBO sign(String storageKey, long expires) {
+        if (expires <= clock.instant().getEpochSecond()) {
+            throw new IllegalArgumentException("文件链接过期时间必须在未来");
+        }
+        return sign(storageKey, expires, READ_SIGNATURE_DOMAIN);
     }
 
     public void verify(LocalFileReadParamsBO params) {
@@ -48,15 +55,14 @@ public class LocalFileUrlSigner {
     }
 
     public LocalFileReadParamsBO signUpload(String storageKey) {
-        return sign(storageKey, UPLOAD_SIGNATURE_DOMAIN);
+        return sign(storageKey, Math.addExact(clock.instant().getEpochSecond(), ttlSeconds), UPLOAD_SIGNATURE_DOMAIN);
     }
 
     public void verifyUpload(LocalFileReadParamsBO params) {
         verify(params, UPLOAD_SIGNATURE_DOMAIN);
     }
 
-    private LocalFileReadParamsBO sign(String storageKey, String domain) {
-        long expires = Math.addExact(clock.instant().getEpochSecond(), ttlSeconds);
+    private LocalFileReadParamsBO sign(String storageKey, long expires, String domain) {
         return new LocalFileReadParamsBO(storageKey, expires, signature(domain, storageKey, expires));
     }
 

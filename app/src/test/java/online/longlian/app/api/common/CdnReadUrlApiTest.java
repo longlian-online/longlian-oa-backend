@@ -22,7 +22,9 @@ import static org.hamcrest.Matchers.equalTo;
         "storage.cos.secret-key=test-secret-key",
         "storage.cdn.enabled=true",
         "storage.cdn.url-prefix=https://static.example.com",
-        "storage.cdn.auth-key=test-cdn-key"
+        "storage.cdn.auth-key=test-cdn-key",
+        "storage.cdn.auth-ttl-seconds=300",
+        "storage.cdn.url-reuse-percent=80"
 })
 class CdnReadUrlApiTest extends BaseApiTest {
 
@@ -46,6 +48,32 @@ class CdnReadUrlApiTest extends BaseApiTest {
         assertThat(uri.getRawPath()).isEqualTo("/avatar/1.png");
         assertThat(queryValue(uri.getRawQuery(), "token"))
                 .isEqualTo(md5("test-cdn-key" + uri.getRawPath() + timestamp));
+    }
+
+    /** 同一复用窗口内业务接口返回同一 CDN URL，使浏览器可按完整 URL 命中本地缓存。 */
+    @Test
+    void shouldReuseCdnReadUrlWithinAuthenticationWindow() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET storage_type = 3 WHERE id = 1");
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 1 WHERE id = 1");
+
+        String token = loginAs("user", "123456");
+        String first = authRequest(token).get("/app/user/").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .extract().path("data.avatarUrl");
+        String second = authRequest(token).get("/app/user/").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .extract().path("data.avatarUrl");
+        if (!first.equals(second)) {
+            first = second;
+            second = authRequest(token).get("/app/user/").then()
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .extract().path("data.avatarUrl");
+        }
+
+        assertThat(second).isEqualTo(first);
+        assertThat(Long.parseLong(queryValue(URI.create(first).getRawQuery(), "t")) % 240).isZero();
     }
 
     private String queryValue(String query, String name) {
