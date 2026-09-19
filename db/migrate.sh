@@ -299,18 +299,6 @@ bootstrap_base_data() {
   mysql_exec "$DB_URL" "$url_db" < "$base_data_file"
 }
 
-reconcile_post_apply_data() {
-  post_apply_file="${SCRIPT_DIR}/post-apply.sql"
-  if [ ! -f "$post_apply_file" ]; then
-    echo "错误: 部署后数据协调文件不存在: $post_apply_file" >&2
-    exit 1
-  fi
-  parse_mysql_url "$DB_URL"
-  echo "==> 执行部署后数据协调 $post_apply_file"
-  mysql_exec "$DB_URL" "$url_db" < "$post_apply_file"
-}
-
-
 case "$ENVIRONMENT" in
   dev|prod) ;;
   *)
@@ -337,7 +325,6 @@ case "$ACTION" in
     echo "==> [${ENVIRONMENT}] 同步数据库到 schema.sql 声明状态..."
     run_atlas schema apply --env "$ENVIRONMENT" --auto-approve
     echo "==> [${ENVIRONMENT}] 同步完成"
-    reconcile_post_apply_data
     bootstrap_base_data
     seed_if_requested
     ;;

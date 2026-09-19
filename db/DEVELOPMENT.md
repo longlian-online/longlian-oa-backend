@@ -115,7 +115,7 @@ export DB_URL="mysql://user:pass@host:3306/dbname"
 
 不必设 `DEV_DB_URL`（脚本会建 `{dbname}_atlas`）。`apply` 使用 `--auto-approve`，不会交互提示。账号没有 `CREATE DATABASE` 时再显式设置。
 
-每次 `apply` 在结构同步成功后，会先执行 `post-apply.sql` 中幂等的数据兼容协调，再幂等导入 `seed/base_data.sql`。`post-apply.sql` 只用于保证新结构读取历史数据时必须成立的兼容约束，不得包含结构变更；部署所需的管理端账号和后续基础配置统一维护在 `seed/base_data.sql`，当前为 `root / 123456`。如需新增随部署写入数据库的默认配置，必须追加到 `seed/base_data.sql`，并保证可重复执行且不覆盖已有业务数据。已有同名账号不会被覆盖；首次登录后应立即修改默认密码。
+每次 `apply` 在结构同步成功后都会幂等导入 `seed/base_data.sql`。部署所需的管理端账号和后续基础配置统一维护在此文件中；当前为 `root / 123456`。如需新增随部署写入数据库的默认配置，必须追加到 `seed/base_data.sql`，并保证可重复执行且不覆盖已有业务数据。已有同名账号不会被覆盖；首次登录后应立即修改默认密码。
 
 ## API 测试建表
 

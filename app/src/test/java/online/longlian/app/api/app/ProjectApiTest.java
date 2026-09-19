@@ -5,15 +5,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.support.EncodedResource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -576,32 +569,6 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
-     * 历史禁用状态应在部署后转换为独立资源状态，并可由枚举处理器正常读取
-     */
-    @Test
-    void shouldMigrateLegacyDisabledProjectStatus() throws Exception {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                1L, 1L, 1L, "历史禁用企划", 0, 1, 1L);
-
-        executePostApplyDataReconciliation();
-        executePostApplyDataReconciliation();
-
-        assertThat(jdbcTemplate.queryForObject("SELECT status FROM project WHERE id = 1", Integer.class))
-                .isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT resource_status FROM project WHERE id = 1", Integer.class))
-                .isZero();
-        authRequest(token)
-                .get("/app/projects/1")
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
-    }
-
-    /**
      * 已禁用企划不能继续从用户端更新
      */
     @Test
@@ -749,23 +716,4 @@ public class ProjectApiTest extends BaseApiTest {
         return loginAs("orgadmin", "123456");
     }
 
-    private void executePostApplyDataReconciliation() throws Exception {
-        Path currentDirectory = Path.of("").toAbsolutePath();
-        Path script = null;
-        while (currentDirectory != null) {
-            Path candidate = currentDirectory.resolve("db/post-apply.sql");
-            if (Files.isRegularFile(candidate)) {
-                script = candidate;
-                break;
-            }
-            currentDirectory = currentDirectory.getParent();
-        }
-        if (script == null) {
-            throw new IllegalStateException("未找到 db/post-apply.sql");
-        }
-        try (var connection = Objects.requireNonNull(jdbcTemplate.getDataSource()).getConnection()) {
-            ScriptUtils.executeSqlScript(connection,
-                    new EncodedResource(new FileSystemResource(script), StandardCharsets.UTF_8));
-        }
-    }
 }
