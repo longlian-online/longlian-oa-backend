@@ -8,7 +8,6 @@ debug: 关闭logback自身调试日志（生产环境建议false）
     <!-- 1. 全局变量定义 -->
     <!-- 日志输出格式：包含时间、线程、日志级别、类名、日志信息 -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{trace_id}] [spanId:%X{span_id}] %logger{50} - %msg%n" />
-    <property name="LOG_PATH" value="${LOG_PATH:-${user.home}/logs/longlian-oa}" />
     <property name="LOG_CHARSET" value="UTF-8" />
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -20,35 +19,19 @@ debug: 关闭logback自身调试日志（生产环境建议false）
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <immediateFlush>true</immediateFlush>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 日志文件命名规则：app-2025-12-26.log -->
-            <fileNamePattern>${LOG_PATH}/app-%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 日志保留天数：30天（超过自动删除） -->
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>10GB</totalSizeCap>
-        </rollingPolicy>
-        <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
-            <charset>${LOG_CHARSET}</charset>
-        </encoder>
-    </appender>
     <springProfile name="dev">
-        <root level="DEBUG">
+        <root level="INFO">
             <appender-ref ref="CONSOLE" />
-            <appender-ref ref="FILE" />
         </root>
     </springProfile>
     <springProfile name="sit">
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
-            <appender-ref ref="FILE" />
         </root>
     </springProfile>
     <springProfile name="prod">
         <root level="WARN">
-            <appender-ref ref="FILE" />
+            <appender-ref ref="CONSOLE" />
         </root>
     </springProfile>
 
@@ -56,7 +39,6 @@ debug: 关闭logback自身调试日志（生产环境建议false）
     <springProfile name="!dev &amp; !sit &amp; !prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
-            <appender-ref ref="FILE" />
         </root>
     </springProfile>
 </configuration>

@@ -13,15 +13,23 @@ tasks:
     desc: "停止开发环境（保留数据卷）"
     cmd: docker compose -f devops/docker-compose.dev.yml down
 
+  dev-observability:
+    desc: "一键启动开发环境 + VictoriaLogs（Java Agent 直连）"
+    cmd: docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml up --build -d
+
+  dev-observability-down:
+    desc: "停止开发环境和本地可观测性组件（保留数据）"
+    cmd: docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml down
+
   dev-reset:
     desc: "销毁开发环境含数据卷（下次 up 会重建库和种子）"
     cmd: docker compose -f devops/docker-compose.dev.yml down -v
 
   prod:
-    desc: "启动生产环境（仅迁移 + 后端，依赖外部 MySQL/Redis）"
+    desc: "启动生产环境（迁移 + 后端 + VictoriaLogs，依赖外部 MySQL/Redis）"
     cmds:
       - test -f devops/application-prod.yml || (echo "缺少 devops/application-prod.yml，请复制 devops/application-prod.yml.example 并填写" && exit 1)
-      - mkdir -p devops/data/storage && chmod 1777 devops/data/storage
+      - mkdir -p devops/data/storage devops/data/victorialogs && chmod 1777 devops/data/storage
       - docker compose -f devops/docker-compose.prod.yml up -d
 
   prod-down:

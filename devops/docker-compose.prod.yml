@@ -1,6 +1,6 @@
 # 生产环境
 #
-# 仅部署 Atlas 迁移 + 后端。MySQL、Redis、邮件等由外部提供，
+# 部署 Atlas 迁移、后端和 VictoriaLogs。MySQL、Redis、邮件等由外部提供，
 # 本文件不创建这些组件。
 #
 # 准备：
@@ -13,9 +13,9 @@
 #
 # 应用配置挂载为 /app/config/application.yml。
 # 存储、CDN、密钥等项直接写在 YAML 中。
-# 本地上传目录 bind 到 ./data/storage（相对本文件），便于备份和迁移。
+# 本地上传目录和 VictoriaLogs 数据 bind 到 ./data，便于备份和迁移。
 # 不要用 named volume：文件会藏进 Docker 卷目录，down -v 易误删。
-# 容器以非 root 的 appuser 写入；task prod 会先建目录并 chmod 1777。
+# 容器以非 root 的 appuser 写入上传目录；task prod 会先建目录并 chmod 1777。
 # 迁移从同一份 YAML 的 spring.datasource 推导连接，
 # 并在同一实例自动创建 {db}_atlas。
 
@@ -31,6 +31,17 @@ services:
     volumes:
       - ./application-prod.yml:/app/config/application.yml:ro
 
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.52.0
+    container_name: longlian-oa-victorialogs-prod
+    command:
+      - -storageDataPath=/victoria-logs-data
+    ports:
+      - "127.0.0.1:9428:9428"
+    volumes:
+      - ./data/victorialogs:/victoria-logs-data
+    restart: unless-stopped
+
   longlian-oa:
     image: ghcr.io/longlian-online/longlian-oa-backend:latest
     container_name: longlian-oa-prod
@@ -38,6 +49,15 @@ services:
     volumes:
       - ./application-prod.yml:/app/config/application.yml:ro
       - ./data/storage:/app/data/storage
+    environment:
+      JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
+      OTEL_SERVICE_NAME: longlian-oa
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=prod
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://victorialogs:9428/insert/opentelemetry/v1/logs
+      OTEL_EXPORTER_OTLP_LOGS_PROTOCOL: http/protobuf
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_TRACES_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
     ports:
       - "8080:8080"
     extra_hosts:
@@ -45,4 +65,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      victorialogs:
+        condition: service_started
 
