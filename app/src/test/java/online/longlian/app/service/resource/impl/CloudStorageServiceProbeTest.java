@@ -15,7 +15,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.net.URL;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,7 +49,7 @@ class CloudStorageServiceProbeTest {
 
     @Test
     void shouldUseConfiguredPresignedUrlTtlForUploads() throws Exception {
-        Instant before = Instant.now();
+        Instant before = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         URL signedUrl = new URL("https://cdn.example/resource.png");
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
