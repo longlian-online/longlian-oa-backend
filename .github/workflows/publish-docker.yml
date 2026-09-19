@@ -132,7 +132,7 @@ jobs:
       group: production-deploy
       cancel-in-progress: false
     steps:
-      - name: Trigger server deployment
+      - name: Deploy from production checkout
         uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
@@ -141,4 +141,13 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           command_timeout: 15m
-          script: /opt/longlian-oa-deploy/scripts/deploy.sh ${{ github.ref_name }}
+          script: |
+            set -Eeuo pipefail
+            cd /opt/longlian-oa-deploy
+            version='${{ github.ref_name }}'
+            version="${version#v}"
+            [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            sed -i.bak -E "s/^APP_TAG=.*/APP_TAG=${version}/; s/^MIGRATION_TAG=.*/MIGRATION_TAG=${version}-migration/" .env
+            rm -f .env.bak
+            docker compose pull
+            docker compose up -d
