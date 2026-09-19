@@ -146,7 +146,7 @@ public class ResourceService {
         long authTtlSeconds = cdn.getAuthTtlSeconds();
         int urlReusePercent = cdn.getUrlReusePercent();
         long reuseWindowSeconds = authTtlSeconds / 100 * urlReusePercent
-                + authTtlSeconds % 100 * urlReusePercent / 100;
+                + ((authTtlSeconds % 100) * urlReusePercent) / 100;
         if (authTtlSeconds <= 1 || urlReusePercent <= 0 || urlReusePercent >= 100
                 || reuseWindowSeconds <= 0 || reuseWindowSeconds >= authTtlSeconds) {
             throw new IllegalStateException("CDN 鉴权有效期和链接复用比例配置无效");
