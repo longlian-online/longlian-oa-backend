@@ -18,13 +18,15 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 Docker 一键开发环境（`task dev`）挂载本地 `application.yml`，再挂载 `application-dev.yml` 作为开发 profile 覆盖；Spring Boot 按属性优先级合并二者，并用 Compose 环境变量把 MySQL/Redis 指到容器服务名。
 
-生产（`task prod`）只部署迁移 + 后端，MySQL/Redis 用外部实例：
+生产（`task prod`）部署迁移、后端和 VictoriaLogs，MySQL/Redis 用外部实例：
 
 ```
 cp devops/application-prod.yml.example devops/application-prod.yml
 ```
 
 YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥打进镜像或提交到 git。
+
+生产 VictoriaLogs 数据保存在 `devops/data/victorialogs`，查询端口仅绑定 `127.0.0.1:9428`；远程运维通过 SSH 端口转发访问，不要直接暴露到公网。
 
 存储、CDN 等项直接写在 YAML 中。CDN 接入与 Type D 签名见 [cdn.md](cdn.md)。
 

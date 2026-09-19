@@ -56,6 +56,10 @@ environment:
   OTEL_METRICS_EXPORTER: none
 ```
 
+### 生产环境
+
+`devops/docker-compose.prod.yml` 使用同一 OTLP/HTTP endpoint，并设置 `deployment.environment=prod`。发布工作流构建生产镜像时已设置 `INCLUDE_OTEL=true`；不要替换为未包含 Agent 的镜像。
+
 ## 常用 OTel 环境变量
 
 | 变量 | 说明 | 示例 |
