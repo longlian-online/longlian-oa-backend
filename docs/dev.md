@@ -32,6 +32,46 @@ YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥�
 
 `mvn spring-boot:run -pl app`
 
+## 可选本地日志采集
+
+需要 Docker Desktop 和 Task。`task dev-observability` 在开发环境基础上启动 VictoriaLogs；Java Agent 通过 OTLP/HTTP 直接写入，导出配置见 [otel-agent.md](otel-agent.md)。
+
+```bash
+task dev-observability
+docker compose \
+  -f devops/docker-compose.dev.yml \
+  -f devops/docker-compose.observability.yml ps
+```
+
+VictoriaLogs 查询页面：<http://127.0.0.1:9428/select/vmui/>。数据保存在被 Git 忽略的 `data/victorialogs`。
+
+### 查询日志
+
+从 VictoriaLogs `vlutils` 发布包取得 Windows 版本的 `vlogscli-prod.exe`，放到 `devops/tools/vlogscli-prod.exe`；也可使用 `devops/tools/vlutils-extract/vlogscli-windows-amd64-prod.exe`。直接启动：
+
+```powershell
+& .\devops\tools\vlogscli-prod.exe '-datasource.url=http://127.0.0.1:9428/select/logsql/query'
+```
+
+查询须以分号结束：
+
+```text
+_time:15m service.name:longlian-oa | limit 20;
+_time:1h error | limit 50;
+\tail _time:5m error;
+```
+
+脚本可通过标准输入调用官方 CLI：
+
+```powershell
+$query = '_time:15m service.name:longlian-oa | fields _time, _msg, service.name, deployment.environment | limit 20;'
+$query | & .\devops\tools\vlogscli-prod.exe `
+  '-datasource.url=http://127.0.0.1:9428/select/logsql/query' `
+  '-loggerOutput=stdout'
+```
+
+访问开发应用后查询最近日志，确认其中含有 `service.name`、`deployment.environment`、`trace_id` 或 `span_id`。停止服务但保留数据使用 `task dev-observability-down`；需要重建空库时删除 `data/victorialogs`，不要在共享环境执行。
+
 ## ORM 代码生成
 
 本项目依赖 Mybatis-Plus 代码生成器(generator)，默认不覆盖旧代码，在新增功能和表结构字段改动时需用到代码生成

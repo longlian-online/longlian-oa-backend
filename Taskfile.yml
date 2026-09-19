@@ -14,7 +14,7 @@ tasks:
     cmd: docker compose -f devops/docker-compose.dev.yml down
 
   dev-observability:
-    desc: "一键启动开发环境 + VictoriaLogs + OpenTelemetry Collector"
+    desc: "一键启动开发环境 + VictoriaLogs（Java Agent 直连）"
     cmd: docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml up --build -d
 
   dev-observability-down:

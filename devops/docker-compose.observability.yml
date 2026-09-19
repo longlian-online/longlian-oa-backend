@@ -3,8 +3,7 @@
 # 用法：
 #   task dev-observability
 #
-# 应用通过 Java Agent 将 Logback 日志以 OTLP Logs 发送到 Collector，
-# Collector 再写入 VictoriaLogs。查询使用官方 vlogscli，不引入项目内查询服务。
+# 应用通过 Java Agent 将 Logback 日志以 OTLP/HTTP 直接写入 VictoriaLogs。
 
 services:
   migrate-dev:
@@ -32,14 +31,11 @@ services:
       JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
       OTEL_SERVICE_NAME: longlian-oa
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=dev,service.version=local
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://victorialogs:9428/insert/opentelemetry/v1/logs
+      OTEL_EXPORTER_OTLP_LOGS_PROTOCOL: http/protobuf
       OTEL_LOGS_EXPORTER: otlp
       OTEL_TRACES_EXPORTER: none
       OTEL_METRICS_EXPORTER: none
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   victorialogs:
     image: victoriametrics/victoria-logs:v1.52.0
@@ -52,21 +48,6 @@ services:
       - ../data/victorialogs:/victoria-logs-data
     restart: unless-stopped
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.123.0
-    container_name: longlian-oa-otel-collector
-    command:
-      - --config=/etc/otelcol-contrib/config.yaml
-    ports:
-      - "127.0.0.1:4317:4317"
-      - "127.0.0.1:4318:4318"
-      - "127.0.0.1:13133:13133"
-    volumes:
-      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
-    depends_on:
-      victorialogs:
-        condition: service_started
-    restart: unless-stopped
 
 volumes:
   local_storage_data:
