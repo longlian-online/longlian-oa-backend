@@ -184,7 +184,7 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
-     * 创建企划成功
+     * 创建企划成功，并默认加入创建者工坊
      */
     @Test
     void shouldCreateProjectSuccessfully() {
@@ -214,7 +214,30 @@ public class ProjectApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM `project` WHERE title = ? AND creator_id = ?",
+                Long.class, "测试企划", 1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project_workshop` WHERE project_id = ? AND user_id = ?",
+                Long.class, projectId, 1L)).isEqualTo(1L);
+
+        authRequest(token)
+                .get("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.inWorkshop", equalTo(true));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].title", equalTo("测试企划"));
     }
 
     /**

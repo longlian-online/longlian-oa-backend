@@ -167,6 +167,11 @@ public class ProjectServiceImpl implements ProjectService {
                 .creatorId(params.getCreatorId())
                 .orgId(params.getOrgId())
                 .build());
+        projectProgressHandler.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
+                .projectId(project.getId())
+                .userId(params.getCreatorId())
+                .orgId(params.getOrgId())
+                .build());
     }
 
     @Override
