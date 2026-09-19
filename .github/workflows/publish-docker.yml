@@ -132,7 +132,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Deploy from production checkout
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        env:
+          DEPLOY_PROJECT_DIR: ${{ secrets.DEPLOY_PROJECT_DIR }}
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
@@ -140,9 +141,11 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           command_timeout: 15m
+          envs: DEPLOY_PROJECT_DIR
           script: |
             set -Eeuo pipefail
-            cd /opt/longlian-oa-deploy
+            : "${DEPLOY_PROJECT_DIR:?DEPLOY_PROJECT_DIR is required}"
+            cd "${DEPLOY_PROJECT_DIR}"
             version='${{ github.ref_name }}'
             version="${version#v}"
             APP_TAG="${version}" \
