@@ -299,7 +299,6 @@ bootstrap_base_data() {
   mysql_exec "$DB_URL" "$url_db" < "$base_data_file"
 }
 
-
 case "$ENVIRONMENT" in
   dev|prod) ;;
   *)

@@ -885,6 +885,34 @@ public class TaskApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
+    /**
+     * 禁用企划后，任务实例查询与操作接口均不可访问
+     */
+    @Test
+    void shouldRejectAllTaskInstanceOperationsForDisabledProject() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertBaseTaskData();
+        jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO task_instance " +
+                        "(id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, 1L, 1L, 1L, 2);
+
+        assertTaskNotFound(authRequest(token).get("/app/task/instance/item/1"));
+        assertTaskNotFound(authRequest(token).get("/app/task/instance/1/detail"));
+        assertTaskNotFound(authRequest(token).post("/app/task/instance/1/claim"));
+        assertTaskNotFound(authRequest(token).post("/app/task/instance/1/abandon"));
+        assertTaskNotFound(authRequest(token)
+                .body(Map.of("metadata", "{}"))
+                .post("/app/task/instance/1/submit"));
+        assertTaskNotFound(authRequest(token).post("/app/task/instance/1/reset"));
+        assertTaskNotFound(authRequest(token)
+                .body(Map.of("reviewComment", "需要修改"))
+                .post("/app/task/instance/1/reject"));
+    }
+
     // ========== 私有辅助方法 ==========
 
     /**
@@ -922,5 +950,11 @@ public class TaskApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
         );
+    }
+
+    private void assertTaskNotFound(Response response) {
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 }

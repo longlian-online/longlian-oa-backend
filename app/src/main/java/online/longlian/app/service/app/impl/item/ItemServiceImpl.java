@@ -61,7 +61,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params) {
         Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
 
@@ -214,7 +215,8 @@ public class ItemServiceImpl implements ItemService {
 
     private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
         Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)) {
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
         if (!project.getCreatorId().equals(userId)) {

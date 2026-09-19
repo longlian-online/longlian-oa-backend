@@ -549,6 +549,80 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 获取已禁用企划详情应失败
+     */
+    @Test
+    void shouldFailGetDisabledProjectDetail() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "禁用企划", 1, 0, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
+     * 已禁用企划不能继续从用户端更新
+     */
+    @Test
+    void shouldFailUpdateDisabledProject() {
+        String token = createDisabledProjectAndLogin();
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "更新后的企划",
+                        "alias", "new_alias",
+                        "metadata", "{}",
+                        "description", "描述",
+                        "coverFileId", "1"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
+     * 已禁用企划不能继续加入用户工坊
+     */
+    @Test
+    void shouldFailAddDisabledProjectToWorkshop() {
+        String token = createDisabledProjectAndLogin();
+
+        authRequest(token)
+                .post("/app/projects/1/workshop")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
+     * 已禁用企划不能继续从用户工坊移除
+     */
+    @Test
+    void shouldFailRemoveDisabledProjectFromWorkshop() {
+        String token = createDisabledProjectAndLogin();
+        jdbcTemplate.update(
+                "INSERT INTO project_workshop (id, project_id, user_id) VALUES (?, ?, ?)",
+                1L, 1L, 1L);
+
+        authRequest(token)
+                .delete("/app/projects/1/workshop")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM project_workshop WHERE id = 1 AND deleted_at IS NULL", Integer.class))
+                .isEqualTo(1);
+    }
+
+    /**
      * 更新不存在的企划应失败
      */
     @Test
@@ -632,4 +706,14 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("data.list", hasSize(0))
                 .body("data.total", equalTo(0));
     }
+
+    private String createDisabledProjectAndLogin() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "禁用企划", 1, 0, 1L);
+        return loginAs("orgadmin", "123456");
+    }
+
 }

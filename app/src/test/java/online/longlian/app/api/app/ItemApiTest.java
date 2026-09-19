@@ -556,4 +556,38 @@ public class ItemApiTest extends BaseApiTest {
                 .body("data.list", hasSize(0))
                 .body("data.total", equalTo(0));
     }
+
+    /**
+     * 禁用企划后，项目及任务流接口均不可访问
+     */
+    @Test
+    void shouldRejectAllItemOperationsForDisabledProject() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO project (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "禁用企划", 1, 0, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?)",
+                1L, 1L, "测试项目", 1L, 1, 1L);
+
+        assertProjectNotFound(authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .get("/app/projects/1/items"));
+        assertProjectNotFound(authRequest(token)
+                .body(Map.of("title", "新项目", "taskTemplateId", "1"))
+                .post("/app/projects/1/items"));
+        assertProjectNotFound(authRequest(token).delete("/app/projects/1/items/1"));
+        assertProjectNotFound(authRequest(token).patch("/app/projects/1/items/1/publish"));
+        assertProjectNotFound(authRequest(token).get("/app/item/1/flow"));
+    }
+
+    private void assertProjectNotFound(Response response) {
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
 }
