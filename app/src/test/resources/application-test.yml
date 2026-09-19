@@ -77,6 +77,8 @@ storage:
     enabled: false
     url-prefix: http://localhost
     auth-key: test-cdn-key
+    auth-ttl-seconds: 300
+    url-reuse-percent: 80
   local:
     directory: ${java.io.tmpdir}/longlian-oa-test
   # CosStorageService / OssStorageService 启动时就会读这些字段，即使 type=LOCAL 也不能缺

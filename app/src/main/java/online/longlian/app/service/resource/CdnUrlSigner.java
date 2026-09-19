@@ -39,26 +39,36 @@ public final class CdnUrlSigner {
     }
 
     public String sign(String storageKey) {
+        return sign(storageKey, clock.instant().getEpochSecond());
+    }
+
+    public String sign(String storageKey, long timestamp) {
         if (!StringUtils.hasText(storageKey) || storageKey.startsWith("/")) {
             throw new IllegalArgumentException("非法文件 key");
         }
-        return signPath("/" + UriUtils.encodePath(storageKey, StandardCharsets.UTF_8), "");
+        return signPath("/" + UriUtils.encodePath(storageKey, StandardCharsets.UTF_8), "", timestamp);
     }
 
     /**
      * 签名 CDN 回源路径。查询参数不参与路径令牌计算，调用方必须自行保护可篡改参数。
      */
     public String signPath(String path, String query) {
+        return signPath(path, query, clock.instant().getEpochSecond());
+    }
+
+    public String signPath(String path, String query, long timestamp) {
         if (!StringUtils.hasText(urlPrefix) || !StringUtils.hasText(authKey)) {
             throw new IllegalStateException("CDN 读取域名和鉴权密钥必须配置");
         }
         if (!StringUtils.hasText(path) || !path.startsWith("/") || path.contains("?") || path.contains("#")) {
             throw new IllegalArgumentException("非法读取路径");
         }
+        if (timestamp <= 0) {
+            throw new IllegalArgumentException("CDN 鉴权时间戳必须为正数");
+        }
 
         URI baseUri = parseBaseUri();
         String requestPath = buildPath(baseUri, path);
-        long timestamp = clock.instant().getEpochSecond();
         String token = md5(authKey + requestPath + timestamp);
         String queryPrefix = StringUtils.hasText(query) ? query + "&" : "";
         return baseUri.getScheme() + "://" + baseUri.getRawAuthority() + requestPath

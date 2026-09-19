@@ -93,6 +93,10 @@ storage:
     enabled: false
     url-prefix: ""
     auth-key: ""
+    # 与 EdgeOne Type D 控制台有效期必须一致。
+    auth-ttl-seconds: 300
+    # 同一 URL 在鉴权期内的复用比例；必须介于 1 和 99 之间。
+    url-reuse-percent: 80
   local:
     signing-secret: ${jwt.secret}
     directory: /app/data/storage

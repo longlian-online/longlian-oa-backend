@@ -24,6 +24,10 @@ storage:
     enabled: false
     url-prefix: ""
     auth-key: ""
+    # Must exactly match the EdgeOne Type D validity period.
+    auth-ttl-seconds: 300
+    # Percentage of that period during which a signed URL is reused.
+    url-reuse-percent: 80
 ```
 
 | 项 | 含义 |
@@ -31,6 +35,8 @@ storage:
 | `enabled` | `false`：原生读取链接。`true`：签发 CDN 路径令牌 |
 | `url-prefix` | EdgeOne 对外访问前缀，必须是无查询参数的绝对 URL，不要尾斜杠。可带路径前缀，例如 `https://static.example.com/private` |
 | `auth-key` | 与 EdgeOne 控制台 Type D 鉴权密钥一致 |
+| `auth-ttl-seconds` | Type D 鉴权有效期（秒），必须与 EdgeOne 控制台配置完全一致，默认 `300` |
+| `url-reuse-percent` | 同一 URL 在鉴权期内的复用比例，范围 `1`–`99`，默认 `80` |
 
 在 `application.yml` / `application-prod.yml` 中直接填写上述项。
 
@@ -39,7 +45,7 @@ storage:
 ## EdgeOne 控制台
 
 1. 源站选 COS 私有桶，打开源站鉴权，让节点用服务角色回源，客户端不能直连 COS。
-2. URL 鉴权选 **方法 D**，密钥与 `storage.cdn.auth-key` 相同，有效期与 `storage.presigned-url-ttl-seconds` 对齐（默认 300 秒）。
+2. URL 鉴权选 **方法 D**，密钥与 `storage.cdn.auth-key` 相同，有效期必须与 `storage.cdn.auth-ttl-seconds` 一致。
 3. 缓存键忽略 `token`、`t`，否则每个签名都是新对象，CDN 没有命中。
 4. 不要把 COS 预签名 URL 的查询参数带进 CDN。
 5. LOCAL 存储走 CDN 时，回源路径是应用的 `GET /common/file/local`，不是对象 key。
@@ -123,13 +129,15 @@ https://static.example.com/common/file/local
 `ResourceService.getCdnReadUrl`：
 
 1. `storage.cdn.enabled=false`：调用对应 `StorageService.getResourceReadUrl`。
-2. OSS/COS 且 CDN 开启：`cdnUrlSigner.sign(storageKey)`，CDN 回源对象 key。
-3. LOCAL 且 CDN 开启：先用 `LocalFileUrlSigner` 生成 `key`、`expires`、`signature`，再 `cdnUrlSigner.signPath("/common/file/local", query)`。CDN 只保护回源路径，文件权限仍由本地 HMAC 约束。
+2. OSS/COS 且 CDN 开启：按复用窗口的时间戳调用 `cdnUrlSigner.sign(storageKey, timestamp)`，CDN 回源对象 key。
+3. LOCAL 且 CDN 开启：以同一时间戳加 `auth-ttl-seconds` 生成 `key`、`expires`、`signature`，再调用 `cdnUrlSigner.signPath("/common/file/local", query, timestamp)`。CDN 只保护回源路径，文件权限仍由本地 HMAC 约束。
 
 上传始终走存储后端预签名，与 CDN 开关无关。
 
 ## 缓存
 
 - 缓存键必须忽略 `token`、`t`。
+- 服务端按 `reuseWindow = authTtlSeconds × urlReusePercent / 100` 对 Unix 秒时间戳分桶；同一资源在同一窗口返回完全相同的 URL。窗口结束后签发新 URL，且新 URL 至少剩余 `authTtlSeconds - reuseWindow` 的有效期。
+- LOCAL 回源响应会返回不超过当前 URL 剩余鉴权期的 `Cache-Control: max-age=..., must-revalidate`。COS/OSS 需在 EdgeOne 响应头规则中设置同样上限；不要设置超过最短剩余鉴权期的浏览器缓存时间。
 - 对象 key 使用 UUID/内容版本，覆盖写时路径会变，避免旧缓存。
 - 删除或覆盖后应主动刷新对应 EdgeOne 路径，否则 TTL 内节点可能继续返回旧对象。

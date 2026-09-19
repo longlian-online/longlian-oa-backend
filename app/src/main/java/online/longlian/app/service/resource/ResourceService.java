@@ -112,12 +112,13 @@ public class ResourceService {
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
         List<Resource> resources = resourceMapper.selectList(query);
+        long cdnTimestamp = isCdnEnabled() && !resources.isEmpty() ? currentCdnTimestamp() : 0;
 
         Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));
 
         Stream<ResourceReadUrlGetResultBO> resourceReadUrlResultStream = resources.stream().map(resource ->
                 new ResourceReadUrlGetResultBO(
-                        getCdnReadUrl(resource),
+                        getCdnReadUrl(resource, cdnTimestamp),
                         resource.getOrgId(),
                         resource.getStorageKey()
                 )
@@ -125,18 +126,32 @@ public class ResourceService {
         return resourceReadUrlResultStream.collect(Collectors.toMap((org) -> resourceIdKeyMap.get(org.getKey()), org -> org));
     }
 
-    private String getCdnReadUrl(Resource resource) {
+    private String getCdnReadUrl(Resource resource, long cdnTimestamp) {
         if (!isCdnEnabled()) {
             return storageFactory.get(resource.getStorageType()).getResourceReadUrl(resource.getStorageKey());
         }
         if (resource.getStorageType() != StorageType.LOCAL) {
-            return cdnUrlSigner.sign(resource.getStorageKey());
+            return cdnUrlSigner.sign(resource.getStorageKey(), cdnTimestamp);
         }
-        LocalFileReadParamsBO signed = localFileUrlSigner.sign(resource.getStorageKey());
+        LocalFileReadParamsBO signed = localFileUrlSigner.sign(resource.getStorageKey(),
+                Math.addExact(cdnTimestamp, storageProperties.getCdn().getAuthTtlSeconds()));
         String query = "key=" + UriUtils.encodeQueryParam(signed.key(), StandardCharsets.UTF_8)
                 + "&expires=" + signed.expires()
                 + "&signature=" + signed.signature();
-        return cdnUrlSigner.signPath("/common/file/local", query);
+        return cdnUrlSigner.signPath("/common/file/local", query, cdnTimestamp);
+    }
+
+    private long currentCdnTimestamp() {
+        StorageProperties.CdnConfig cdn = storageProperties.getCdn();
+        long authTtlSeconds = cdn.getAuthTtlSeconds();
+        int urlReusePercent = cdn.getUrlReusePercent();
+        long reuseWindowSeconds = authTtlSeconds / 100 * urlReusePercent
+                + authTtlSeconds % 100 * urlReusePercent / 100;
+        if (authTtlSeconds <= 1 || urlReusePercent <= 0 || urlReusePercent >= 100
+                || reuseWindowSeconds <= 0 || reuseWindowSeconds >= authTtlSeconds) {
+            throw new IllegalStateException("CDN 鉴权有效期和链接复用比例配置无效");
+        }
+        return Math.multiplyExact(Math.floorDiv(clock.instant().getEpochSecond(), reuseWindowSeconds), reuseWindowSeconds);
     }
 
     private boolean isCdnEnabled() {
