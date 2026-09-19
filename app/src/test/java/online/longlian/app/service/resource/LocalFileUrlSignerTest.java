@@ -77,6 +77,14 @@ class LocalFileUrlSignerTest {
         assertThat(signed.expires()).isEqualTo(clock.instant().getEpochSecond() + 120);
     }
 
+    /** 指定过期时间签发用于 CDN 分桶，过期值不能重新授权本地文件。 */
+    @Test
+    void shouldRejectExpiredExplicitReadExpiry() {
+        assertThatThrownBy(() -> signer.sign("avatar/1.png", clock.instant().getEpochSecond()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("文件链接过期时间必须在未来");
+    }
+
     private LocalFileUrlSigner signer(long ttlSeconds, Clock signerClock) {
         return signer(SECRET, ttlSeconds, signerClock);
     }

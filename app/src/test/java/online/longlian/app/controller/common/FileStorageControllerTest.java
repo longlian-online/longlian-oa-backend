@@ -63,6 +63,22 @@ class FileStorageControllerTest {
         assertThat(response.getHeaders().getCacheControl()).contains("max-age=260", "must-revalidate");
     }
 
+    /** 已到 CDN 鉴权边界的回源响应不得被浏览器继续缓存。 */
+    @Test
+    void shouldNotCacheExpiredCdnLocalRead() {
+        StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
+        cdn.setEnabled(true);
+        cdn.setAuthTtlSeconds(300);
+        storageProperties.setCdn(cdn);
+        LocalFileReadDTO dto = signedDto();
+        dto.setExpires(1_260L);
+        when(ingress.read(anyParams())).thenReturn(new ByteArrayResource(new byte[]{7}));
+
+        ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, 700L);
+
+        assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
+    }
+
     @Test
     void shouldForwardUploadMetadataAndSession() {
         CreateFileReqDTO request = new CreateFileReqDTO("avatar.png", "png", 7L, "image/png", "avatar");
