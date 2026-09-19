@@ -13,6 +13,14 @@ tasks:
     desc: "停止开发环境（保留数据卷）"
     cmd: docker compose -f devops/docker-compose.dev.yml down
 
+  dev-observability:
+    desc: "一键启动开发环境 + VictoriaLogs + OpenTelemetry Collector"
+    cmd: docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml up --build -d
+
+  dev-observability-down:
+    desc: "停止开发环境和本地可观测性组件（保留数据）"
+    cmd: docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml down
+
   dev-reset:
     desc: "销毁开发环境含数据卷（下次 up 会重建库和种子）"
     cmd: docker compose -f devops/docker-compose.dev.yml down -v

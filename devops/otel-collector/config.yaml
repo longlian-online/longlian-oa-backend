@@ -1,0 +1,38 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  resource/longlian:
+    attributes:
+      - key: service.name
+        value: longlian-oa
+        action: upsert
+      - key: deployment.environment
+        value: dev
+        action: upsert
+      - key: service.version
+        value: local
+        action: upsert
+  batch:
+
+exporters:
+  otlphttp/victorialogs:
+    logs_endpoint: http://victorialogs:9428/insert/opentelemetry/v1/logs
+    compression: gzip
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [resource/longlian, batch]
+      exporters: [otlphttp/victorialogs]

@@ -46,6 +46,8 @@ build/
 
 data/
 .ci-cache/
+devops/tools/
+vlogscli-history
 
 **/.env
 *.jar
