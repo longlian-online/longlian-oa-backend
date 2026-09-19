@@ -34,7 +34,8 @@ WORKDIR /app
 
 # 创建非 root 用户，并提前准备持久化目录的写权限
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
-    mkdir -p /app/data/storage && chown -R appuser:appgroup /app/data
+    mkdir -p /app/data/storage /app/logs && \
+    chown -R appuser:appgroup /app/data /app/logs
 
 # 从构建阶段复制打好的 jar 包
 COPY --from=build /app/app/target/*.jar app.jar

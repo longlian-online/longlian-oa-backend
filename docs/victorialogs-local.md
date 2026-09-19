@@ -29,7 +29,8 @@ task dev-observability
 - OpenTelemetry Collector；
 - VictoriaLogs。
 
-VictoriaLogs 数据保存在 `data/victorialogs`，应用日志暂存于 `data/logs`。这些目录已被 Git 忽略。
+VictoriaLogs 数据保存在 `data/victorialogs`，应用文件日志保存在 Docker 具名卷
+`devops_app_logs`。VictoriaLogs 数据目录已被 Git 忽略。
 
 查看服务状态：
 
@@ -124,4 +125,5 @@ Java Agent 通过 OTLP Logs 将 Logback 日志发送到 Collector，Collector �
 
 ## 清理
 
-停止服务后，如需重新验证空库，可以删除本地 `data/victorialogs` 和 `data/logs`；不要在共享环境执行此操作。
+停止服务后，如需重新验证空库，可以删除本地 `data/victorialogs`，
+并删除 Docker 具名卷 `devops_app_logs`；不要在共享环境执行此操作。
