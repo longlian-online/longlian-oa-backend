@@ -1,6 +1,7 @@
 package online.longlian.logquery.service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -17,17 +18,33 @@ public class LogSanitizer {
             "(?i)(password|passwd|token|secret|authorization|cookie|api[_-]?key)(\\s*[:=]\\s*)[^\\s,;]+");
 
     public Map<String, Object> sanitize(Map<String, Object> source) {
+        return sanitizeMap(source);
+    }
+
+    private static Map<String, Object> sanitizeMap(Map<?, ?> source) {
         Map<String, Object> sanitized = new LinkedHashMap<>();
-        source.forEach((key, value) -> {
+        source.forEach((rawKey, value) -> {
+            String key = String.valueOf(rawKey);
             if (isSensitiveKey(key)) {
                 sanitized.put(key, "[REDACTED]");
-            } else if (value instanceof String text && "_msg".equals(key)) {
-                sanitized.put(key, SENSITIVE_MESSAGE.matcher(text).replaceAll("$1$2[REDACTED]"));
             } else {
-                sanitized.put(key, value);
+                sanitized.put(key, sanitizeValue(value));
             }
         });
         return sanitized;
+    }
+
+    private static Object sanitizeValue(Object value) {
+        if (value instanceof Map<?, ?> nestedMap) {
+            return sanitizeMap(nestedMap);
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(LogSanitizer::sanitizeValue).toList();
+        }
+        if (value instanceof String text) {
+            return SENSITIVE_MESSAGE.matcher(text).replaceAll("$1$2[REDACTED]");
+        }
+        return value;
     }
 
     private static boolean isSensitiveKey(String key) {

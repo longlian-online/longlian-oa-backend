@@ -33,6 +33,13 @@ services:
       - ./data/victorialogs:/victoria-logs-data
     restart: unless-stopped
 
+  otel-collector-permissions:
+    image: alpine:3.20
+    user: "0:0"
+    command: ["chown", "10001:10001", "/var/lib/otelcol"]
+    volumes:
+      - ./data/otel-collector:/var/lib/otelcol
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.123.0
     container_name: longlian-oa-otel-collector-prod
@@ -46,7 +53,10 @@ services:
       - ./otel-collector/config.prod.yaml:/etc/otelcol-contrib/config.yaml:ro
       - ./data/otel-collector:/var/lib/otelcol
     depends_on:
-      - victorialogs
+      victorialogs:
+        condition: service_started
+      otel-collector-permissions:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   log-query-gateway:

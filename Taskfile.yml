@@ -34,7 +34,8 @@ tasks:
       - test -f devops/application-prod.yml || (echo "缺少 devops/application-prod.yml，请复制 devops/application-prod.yml.example 并填写" && exit 1)
       - test -n "${LOG_QUERY_AUTH_TOKEN:-}" || (echo "请先设置 LOG_QUERY_AUTH_TOKEN" && exit 1)
       - mkdir -p devops/data/storage devops/data/victorialogs devops/data/otel-collector
-      - chmod 1777 devops/data/storage devops/data/victorialogs devops/data/otel-collector
+      - chmod 1777 devops/data/storage
+      - chmod 0700 devops/data/victorialogs devops/data/otel-collector
       - docker compose -f devops/docker-compose.prod.yml -f devops/docker-compose.observability.prod.yml up -d --build
 
   prod-observability-down:

@@ -42,7 +42,7 @@ curl http://127.0.0.1:18080/actuator/health
 - `log-query-gateway`：构建 `devops/Dockerfile.log-query-gateway`，监听宿主机回环地址 `18080`；
 - `longlian-oa`：通过 Java Agent 将 OTLP 日志发送至 Collector。
 
-Collector 的队列落盘在 `devops/data/otel-collector`。备份 VictoriaLogs 数据目录和 Collector 队列目录时，应一并纳入服务器备份策略。
+Collector 的队列落盘在 `devops/data/otel-collector`。生产 Compose 会先用一次性权限初始化容器将该目录交给 Collector 的 `10001:10001` 运行用户，并保持目录为 `0700`，避免本机普通用户绕过网关读取日志或重试队列。备份 VictoriaLogs 数据目录和 Collector 队列目录时，应一并纳入服务器备份策略。
 
 ## AI CLI
 
