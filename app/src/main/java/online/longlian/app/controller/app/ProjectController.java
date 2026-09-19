@@ -91,7 +91,7 @@ public class ProjectController {
         return projectService.getProjectTypes(sessionContext.orgId());
     }
 
-    @Operation(summary = "创建企划")
+    @Operation(summary = "创建企划", description = "创建后自动加入当前用户的个人工坊")
     @PostMapping("")
     @ResponseMessage("创建成功")
     public void createProject(@UserSession SessionContext sessionContext,
