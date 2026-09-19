@@ -30,7 +30,7 @@ class LogSanitizerTest {
     void redactsNestedFieldsAndBodyFragments() {
         Map<String, Object> nested = new LinkedHashMap<>();
         nested.put("authorization", "Bearer do-not-return");
-        nested.put("body", "request password=secret123");
+        nested.put("body", "request password=secret123 private_key=secret456");
 
         Map<String, Object> source = new LinkedHashMap<>();
         source.put("context", nested);
@@ -44,7 +44,8 @@ class LogSanitizerTest {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> sanitizedContext = (Map<String, Object>) value;
                     assertThat(sanitizedContext).containsEntry("authorization", "[REDACTED]");
-                    assertThat(sanitizedContext).containsEntry("body", "request password=[REDACTED]");
+                    assertThat(sanitizedContext).containsEntry("body",
+                            "request password=[REDACTED] private_key=[REDACTED]");
                 });
         assertThat(result).extractingByKey("events")
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)

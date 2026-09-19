@@ -15,7 +15,7 @@ public class LogSanitizer {
     private static final Set<String> SENSITIVE_KEY_PARTS = Set.of(
             "password", "passwd", "token", "secret", "authorization", "cookie", "private_key", "apikey", "api_key");
     private static final Pattern SENSITIVE_MESSAGE = Pattern.compile(
-            "(?i)(password|passwd|token|secret|authorization|cookie|api[_-]?key)(\\s*[:=]\\s*)[^\\s,;]+");
+            "(?i)(password|passwd|token|secret|authorization|cookie|private[_-]?key|api[_-]?key)(\\s*[:=]\\s*)[^\\s,;]+");
 
     public Map<String, Object> sanitize(Map<String, Object> source) {
         return sanitizeMap(source);
