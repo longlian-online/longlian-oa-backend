@@ -56,6 +56,21 @@ class OrgAdminOrganizationServiceImplTest {
     }
 
     @Test
+    void getOrganizationInfo_withoutAvatar_returnsNullUrl() {
+        when(organizationMapper.selectById(1L)).thenReturn(Organization.builder()
+                .id(1L)
+                .name("组织")
+                .description("描述")
+                .build());
+
+        OrgAdminGetOrganizationInfoResultBO result = service.getOrganizationInfo(1L);
+
+        assertThat(result.getAvatarFileId()).isNull();
+        assertThat(result.getAvatarUrl()).isNull();
+        verifyNoInteractions(resourceService);
+    }
+
+    @Test
     void updateOrganizationInfo_withoutAvatarFileId_preservesAvatar() {
         when(organizationMapper.selectById(1L)).thenReturn(
                 Organization.builder().id(1L).avatarFileId(12345L).build());
