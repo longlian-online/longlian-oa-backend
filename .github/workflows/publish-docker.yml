@@ -1,5 +1,4 @@
-# 推送 semver tag 时构建应用镜像与 migration 镜像，同时推送到
-# GitHub Container Registry 与 CNB Docker 制品库。
+# 推送 semver tag 时构建、发布并部署应用与 migration 镜像。
 # 镜像:
 #   ghcr.io/<owner>/<repo>
 #   docker.cnb.cool/longlian.online/longlian-oa-backend
@@ -10,7 +9,7 @@
 #   任意 semver tag → :<version>-migration :<major>.<minor>-migration :migration-latest
 #
 # CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
-name: Publish Docker images
+name: Publish and deploy Docker images
 
 on:
   push:
@@ -142,12 +141,10 @@ jobs:
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           command_timeout: 15m
           script: |
-            set -Eeuo pipefail
-            cd /opt/longlian-oa-deploy
-            version='${{ github.ref_name }}'
-            version="${version#v}"
-            [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-            sed -i.bak -E "s/^APP_TAG=.*/APP_TAG=${version}/; s/^MIGRATION_TAG=.*/MIGRATION_TAG=${version}-migration/" .env
-            rm -f .env.bak
-            docker compose pull
-            docker compose up -d
+            version="${GITHUB_REF_NAME#v}"
+            APP_TAG="${version}" \
+            MIGRATION_TAG="${version}-migration" \
+              docker compose pull
+            APP_TAG="${version}" \
+            MIGRATION_TAG="${version}-migration" \
+              docker compose up -d
