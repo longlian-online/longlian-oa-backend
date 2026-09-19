@@ -1,5 +1,4 @@
-# 推送 semver tag 时构建应用镜像与 migration 镜像，同时推送到
-# GitHub Container Registry 与 CNB Docker 制品库。
+# 推送 semver tag 时构建、发布并部署应用与 migration 镜像。
 # 镜像:
 #   ghcr.io/<owner>/<repo>
 #   docker.cnb.cool/longlian.online/longlian-oa-backend
@@ -10,7 +9,7 @@
 #   任意 semver tag → :<version>-migration :<major>.<minor>-migration :migration-latest
 #
 # CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
-name: Publish Docker images
+name: Publish and deploy Docker images
 
 on:
   push:
@@ -119,3 +118,32 @@ jobs:
           annotations: ${{ steps.meta-migration.outputs.annotations }}
           cache-from: type=gha,scope=migration
           cache-to: type=gha,mode=max,scope=migration
+
+  deploy-production:
+    name: Deploy production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: none
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Run production deployment script
+        env:
+          DEPLOY_SCRIPT_PATH: ${{ secrets.DEPLOY_SCRIPT_PATH }}
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          port: ${{ secrets.DEPLOY_SSH_PORT }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
+          command_timeout: 15m
+          envs: DEPLOY_SCRIPT_PATH
+          script: |
+            set -Eeuo pipefail
+            : "${DEPLOY_SCRIPT_PATH:?DEPLOY_SCRIPT_PATH is required}"
+            "${DEPLOY_SCRIPT_PATH}"
