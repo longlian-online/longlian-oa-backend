@@ -128,6 +128,7 @@ class ProjectServiceImplTest {
                 .id(100L)
                 .orgId(1L)
                 .creatorId(3L)
+                .resourceStatus(Status.ENABLED)
                 .build());
 
         assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
@@ -182,5 +183,60 @@ class ProjectServiceImplTest {
         assertThatThrownBy(() -> service.getProjectDetail(100L, 2L, 1L))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void updateProject_disabledProject_throwsNotFound() {
+        when(projectMapper.selectById(100L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L)
+                .orgId(1L)
+                .userId(2L)
+                .title("新标题")
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void addToWorkshop_disabledProject_throwsNotFound() {
+        when(projectMapper.selectById(100L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
+                .projectId(100L)
+                .userId(2L)
+                .orgId(1L)
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        verify(projectProgressHandler, never()).addToWorkshop(any());
+    }
+
+    @Test
+    void removeFromWorkshop_disabledProject_throwsNotFound() {
+        when(projectMapper.selectById(100L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.removeFromWorkshop(ProjectWorkshopRemoveParamsBO.builder()
+                .projectId(100L)
+                .userId(2L)
+                .orgId(1L)
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        verify(projectWorkshopMapper, never()).update(any(), any());
+    }
+
+    private Project disabledProject() {
+        return Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(2L)
+                .resourceStatus(Status.DISABLED)
+                .build();
     }
 }

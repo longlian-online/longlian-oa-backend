@@ -94,11 +94,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public ProjectDetailResultBO getProjectDetail(Long projectId, Long userId, Long orgId) {
-        Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)
-                || project.getResourceStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        Project project = getVisibleProject(projectId, orgId);
 
         String coverUrl = null;
         if (project.getCoverFileId() != null && project.getCoverFileId() > 0) {
@@ -179,10 +175,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateProject(ProjectUpdateParamsBO params) {
-        Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
         if (!project.getCreatorId().equals(params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑企划");
         }
@@ -208,10 +201,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public void addToWorkshop(ProjectWorkshopAddParamsBO params) {
-        Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        getVisibleProject(params.getProjectId(), params.getOrgId());
 
         String lockKey = "workshop:add:" + params.getProjectId() + ":" + params.getUserId();
         try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
@@ -222,10 +212,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params) {
-        Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        getVisibleProject(params.getProjectId(), params.getOrgId());
 
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
@@ -233,5 +220,14 @@ public class ProjectServiceImpl implements ProjectService {
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
+    }
+
+    private Project getVisibleProject(Long projectId, Long orgId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
+        }
+        return project;
     }
 }
