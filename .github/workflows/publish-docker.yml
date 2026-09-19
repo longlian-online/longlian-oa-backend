@@ -141,7 +141,10 @@ jobs:
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           command_timeout: 15m
           script: |
-            version="${GITHUB_REF_NAME#v}"
+            set -Eeuo pipefail
+            cd /opt/longlian-oa-deploy
+            version='${{ github.ref_name }}'
+            version="${version#v}"
             APP_TAG="${version}" \
             MIGRATION_TAG="${version}-migration" \
               docker compose pull
