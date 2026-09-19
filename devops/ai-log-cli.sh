@@ -33,20 +33,25 @@ if [ -z "$token" ] || [ -z "$service" ] || [ -z "$environment" ]; then
   exit 2
 fi
 
-service_json=$(printf '"%s"' "$service" | sed 's/\\/\\\\/g; s/"/\\"/g')
-environment_json=$(printf '"%s"' "$environment" | sed 's/\\/\\\\/g; s/"/\\"/g')
-since_json=$(printf '"%s"' "$since" | sed 's/\\/\\\\/g; s/"/\\"/g')
-keyword_json=null
-trace_id_json=null
-if [ -n "$keyword" ]; then
-  keyword_json=$(printf '"%s"' "$keyword" | sed 's/\\/\\\\/g; s/"/\\"/g')
-fi
-if [ -n "$trace_id" ]; then
-  trace_id_json=$(printf '"%s"' "$trace_id" | sed 's/\\/\\\\/g; s/"/\\"/g')
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required to encode the JSON request safely" >&2
+  exit 2
 fi
 
-payload=$(printf '{"service":%s,"environment":%s,"since":%s,"keyword":%s,"traceId":%s,"limit":%s}' \
-  "$service_json" "$environment_json" "$since_json" "$keyword_json" "$trace_id_json" "$limit")
+if ! payload=$(jq -n \
+  --arg service "$service" \
+  --arg environment "$environment" \
+  --arg since "$since" \
+  --arg keyword "$keyword" \
+  --arg trace_id "$trace_id" \
+  --arg limit "$limit" \
+  '{service: $service, environment: $environment, since: $since,
+    keyword: (if $keyword == "" then null else $keyword end),
+    traceId: (if $trace_id == "" then null else $trace_id end),
+    limit: ($limit | tonumber)}'); then
+  echo "limit must be a number" >&2
+  exit 2
+fi
 
 curl -fsS --fail-with-body -X POST "$gateway_url" \
   -H "Authorization: Bearer $token" \

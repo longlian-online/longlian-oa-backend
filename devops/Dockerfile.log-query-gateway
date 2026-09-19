@@ -3,6 +3,9 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 
 COPY pom.xml .
+COPY common/pom.xml common/pom.xml
+COPY generator/pom.xml generator/pom.xml
+COPY app/pom.xml app/pom.xml
 COPY log-query-gateway/pom.xml log-query-gateway/pom.xml
 COPY settings.xml /root/.m2/settings.xml
 

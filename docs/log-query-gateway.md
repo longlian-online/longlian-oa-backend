@@ -63,6 +63,7 @@ Windows PowerShell：
 Linux/macOS：
 
 ```bash
+# 依赖 jq，用于安全编码包含引号、换行等字符的 JSON 参数
 ./devops/ai-log-cli.sh \
   --token "$LOG_QUERY_AUTH_TOKEN" \
   --service longlian-oa \
