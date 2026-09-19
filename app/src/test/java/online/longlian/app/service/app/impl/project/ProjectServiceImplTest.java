@@ -6,7 +6,9 @@ import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.service.common.LockService;
@@ -118,5 +120,54 @@ class ProjectServiceImplTest {
 
         verify(projectMapper, never()).insert(any(Project.class));
         verify(projectProgressHandler, never()).addToWorkshop(any());
+    }
+
+    @Test
+    void updateProject_nonCreator_throwsUnauthorized() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(3L)
+                .build());
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L)
+                .orgId(1L)
+                .userId(2L)
+                .title("新标题")
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void addToWorkshop_projectFromAnotherOrganization_throwsNotFound() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L)
+                .orgId(2L)
+                .build());
+
+        assertThatThrownBy(() -> service.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
+                .projectId(100L)
+                .userId(2L)
+                .orgId(1L)
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        verify(projectProgressHandler, never()).addToWorkshop(any());
+    }
+
+    @Test
+    void removeFromWorkshop_missingProject_throwsNotFound() {
+        when(projectMapper.selectById(100L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.removeFromWorkshop(ProjectWorkshopRemoveParamsBO.builder()
+                .projectId(100L)
+                .userId(2L)
+                .orgId(1L)
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 }
