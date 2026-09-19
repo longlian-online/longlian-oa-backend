@@ -28,9 +28,7 @@ services:
       - ../app/src/main/resources/application.yml.example:/app/config/application.yml:ro
       - ../app/src/main/resources/application-dev.yml:/app/config/application-dev.yml:ro
       - local_storage_data:/app/data/storage
-      - app_logs:/app/logs
     environment:
-      LOG_PATH: /app/logs
       JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar"
       OTEL_SERVICE_NAME: longlian-oa
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=dev,service.version=local
@@ -72,4 +70,3 @@ services:
 
 volumes:
   local_storage_data:
-  app_logs:

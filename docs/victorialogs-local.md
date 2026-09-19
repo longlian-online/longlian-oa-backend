@@ -29,8 +29,7 @@ task dev-observability
 - OpenTelemetry Collector；
 - VictoriaLogs。
 
-VictoriaLogs 数据保存在 `data/victorialogs`，应用文件日志保存在 Docker 具名卷
-`devops_app_logs`。VictoriaLogs 数据目录已被 Git 忽略。
+VictoriaLogs 数据保存在 `data/victorialogs`，该目录已被 Git 忽略。
 
 查看服务状态：
 
@@ -62,10 +61,10 @@ devops/tools/vlogscli-prod.exe
 
 也可以使用 `devops/tools/vlutils-extract/vlogscli-windows-amd64-prod.exe`。
 
-启动 CLI：
+使用官方 CLI 直接启动：
 
 ```powershell
-.\devops\vlogscli.ps1
+& .\devops\tools\vlogscli-prod.exe '-datasource.url=http://127.0.0.1:9428/select/logsql/query'
 ```
 
 CLI 默认连接：
@@ -117,7 +116,7 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 docker compose -f devops/docker-compose.dev.yml -f devops/docker-compose.observability.yml logs otel-collector
 ```
 
-4. 执行 `.\devops\vlogscli.ps1`。
+4. 使用上面的官方 CLI 命令启动查询。
 5. 查询最近日志，并确认包含 `service.name`、`deployment.environment`、`trace_id` 或 `span_id` 字段。
 
 Java Agent 通过 OTLP Logs 将 Logback 日志发送到 Collector，Collector 再通过
@@ -125,5 +124,4 @@ Java Agent 通过 OTLP Logs 将 Logback 日志发送到 Collector，Collector �
 
 ## 清理
 
-停止服务后，如需重新验证空库，可以删除本地 `data/victorialogs`，
-并删除 Docker 具名卷 `devops_app_logs`；不要在共享环境执行此操作。
+停止服务后，如需重新验证空库，可以删除本地 `data/victorialogs`；不要在共享环境执行此操作。
