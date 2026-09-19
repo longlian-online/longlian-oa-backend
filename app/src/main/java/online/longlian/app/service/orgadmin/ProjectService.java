@@ -11,8 +11,7 @@ import online.longlian.app.pojo.entity.Project;
  * 组织管理端企划服务接口。
  * <p>
  * 提供组织管理员视角的企划管理能力，包括分页查询和状态变更。
- * 组织管理员可查看本组织下所有企划（不限创建者），并可变更企划至
- * {@link online.longlian.common.enumeration.ProjectStatus} 中的任意状态。
+ * 组织管理员可查看本组织下所有企划（不限创建者），并可启用或禁用企划。
  */
 public interface ProjectService extends IService<Project> {
 
@@ -28,7 +27,7 @@ public interface ProjectService extends IService<Project> {
      * 变更企划状态。
      * <p>
      * 仅组织管理员可操作，且仅允许操作本组织的企划。
-     * 可设置状态为 {@link online.longlian.common.enumeration.ProjectStatus} 中的任意值。
+     * 该操作仅变更资源启停状态，不影响企划业务进度。
      *
      * @param params 包含企划 ID、目标状态及组织 ID 的变更参数
      */

@@ -156,6 +156,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .coverFileId(params.getCoverFileId())
                 .description(params.getDescription())
                 .status(ProjectStatus.IN_PROGRESS)
+                .resourceStatus(Status.ENABLED)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
                 .updatedAt(now)

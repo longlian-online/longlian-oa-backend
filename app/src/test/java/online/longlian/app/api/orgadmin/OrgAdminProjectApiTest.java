@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class OrgAdminProjectApiTest extends BaseApiTest {
@@ -41,9 +42,9 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, title, description, type_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试企划", "描述", 0L, 1, 1L
+                "INSERT INTO `project` (id, org_id, title, description, type_id, status, resource_status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试企划", "描述", 0L, 2, 0, 1L
         );
 
         Response response = authRequest(token)
@@ -53,6 +54,10 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM project WHERE id = 1", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT resource_status FROM project WHERE id = 1", Integer.class)).isEqualTo(1);
     }
 
     /**
@@ -64,9 +69,9 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, title, description, type_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试企划", "描述", 0L, 1, 1L
+                "INSERT INTO `project` (id, org_id, title, description, type_id, status, resource_status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试企划", "描述", 0L, 2, 1, 1L
         );
 
         Response response = authRequest(token)
@@ -76,6 +81,28 @@ public class OrgAdminProjectApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM project WHERE id = 1", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT resource_status FROM project WHERE id = 1", Integer.class)).isZero();
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[0].status", equalTo("已完成"))
+                .body("data.list[0].resourceStatus", equalTo("DISABLED"));
+
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(0));
     }
 
     // ========== 认证失败 ==========

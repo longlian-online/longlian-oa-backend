@@ -45,6 +45,7 @@ public class ProjectAssembler {
                             .typeId(project.getTypeId())
                             .typeName(projectType != null ? projectType.getName() : null)
                             .status(project.getStatus())
+                            .resourceStatus(project.getResourceStatus())
                             .creatorId(project.getCreatorId())
                             .creatorNickname(creator != null ? creator.getNickname() : null)
                             .createdAt(project.getCreatedAt())

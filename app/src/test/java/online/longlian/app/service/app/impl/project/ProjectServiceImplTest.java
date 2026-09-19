@@ -90,6 +90,9 @@ class ProjectServiceImplTest {
 
         ArgumentCaptor<ProjectWorkshopAddParamsBO> workshopCaptor =
                 ArgumentCaptor.forClass(ProjectWorkshopAddParamsBO.class);
+        ArgumentCaptor<Project> projectCaptor = ArgumentCaptor.forClass(Project.class);
+        verify(projectMapper).insert(projectCaptor.capture());
+        assertThat(projectCaptor.getValue().getResourceStatus()).isEqualTo(Status.ENABLED);
         verify(projectProgressHandler).addToWorkshop(workshopCaptor.capture());
         assertThat(workshopCaptor.getValue().getProjectId()).isEqualTo(100L);
         assertThat(workshopCaptor.getValue().getUserId()).isEqualTo(2L);
