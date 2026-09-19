@@ -140,7 +140,6 @@ jobs:
           port: ${{ secrets.DEPLOY_SSH_PORT }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           command_timeout: 15m
           envs: DEPLOY_SCRIPT_PATH
           script: |
