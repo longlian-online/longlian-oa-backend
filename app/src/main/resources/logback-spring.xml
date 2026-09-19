@@ -20,7 +20,7 @@ debug: 关闭logback自身调试日志（生产环境建议false）
     </appender>
 
     <springProfile name="dev">
-        <root level="DEBUG">
+        <root level="INFO">
             <appender-ref ref="CONSOLE" />
         </root>
     </springProfile>
