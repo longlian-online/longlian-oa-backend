@@ -65,6 +65,29 @@ public class SessionApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 
+    /**
+     * 禁用用户存在待审批入组申请时，登录应明确提示审批状态。
+     */
+    @Test
+    void shouldReportPendingGroupApplicationWhenDisabledUserLogsIn() {
+        createTestUser(1L, "pendinguser", "123456", "pending@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 0, 0, "pendinguser", "待审批用户", "pending@example.com");
+
+        Response response = request()
+                .body(Map.of("username", "pendinguser", "password", "123456"))
+                .post("/app/session/pwd");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("入组申请审批中，请耐心等待"));
+    }
+
     // ========== 验证码登录 ==========
 
     /**
