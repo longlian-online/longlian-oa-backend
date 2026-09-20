@@ -85,7 +85,7 @@ public class SessionApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("入组申请审批中，请耐心等待"));
+                .body("msg", equalTo("操作失败,入组申请审批中，请耐心等待"));
     }
 
     // ========== 验证码登录 ==========
