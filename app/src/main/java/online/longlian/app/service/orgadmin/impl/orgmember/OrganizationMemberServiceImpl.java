@@ -155,7 +155,17 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         } else {
             updateMemberRole(member.getId(), params.getOrgRole());
         }
-        sessionService.clearUserSessionCache(member.getUserId());
+        Long userId = member.getUserId();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sessionService.clearUserSessionCache(userId);
+                }
+            });
+        } else {
+            sessionService.clearUserSessionCache(userId);
+        }
     }
 
     @Override

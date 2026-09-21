@@ -75,6 +75,22 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
+    void shouldClearRoleSessionOnlyAfterCommit() {
+        OrganizationMember member = member(InviteConstants.ROLE_ORG_USER, Status.ENABLED);
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN));
+
+            verify(sessionService, never()).clearUserSessionCache(anyLong());
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+            verify(sessionService).clearUserSessionCache(20L);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void shouldUpdateRoleWithinOrganizationAndClearSession() {
         OrganizationMember member = member(InviteConstants.ROLE_ORG_USER, Status.ENABLED);
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member);
