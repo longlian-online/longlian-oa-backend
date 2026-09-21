@@ -1,6 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -126,7 +127,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         if (InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
                 && InviteConstants.ROLE_ORG_USER.equals(params.getOrgRole())) {
             DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
-                    "org:member:role:" + params.getOrgId(), 0, 5, TimeUnit.SECONDS);
+                    "org:member:role:" + params.getOrgId(), 0, TimeUnit.SECONDS);
             boolean releaseOnCompletion = false;
             try {
                 if (TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -178,10 +179,12 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         }
 
         String password = generateResetPassword();
-        int current = user.getAuthVersion() == null ? 0 : user.getAuthVersion();
-        user.setAuthVersion(current + 1);
-        user.setPassword(passwordEncoder.encode(password));
-        userMapper.updateById(user);
+        String encodedPassword = passwordEncoder.encode(password);
+        user.setPassword(encodedPassword);
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, user.getId())
+                .set(User::getPassword, encodedPassword)
+                .setSql("auth_version = auth_version + 1"));
         sessionService.clearUserSessionCache(user.getId());
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             Long userId = user.getId();

@@ -1,6 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
@@ -40,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -107,7 +109,7 @@ class OrganizationMemberServiceImplTest {
         OrganizationMember member = member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member);
-        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, 5, TimeUnit.SECONDS)).thenReturn(lock);
+        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
         when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
 
         assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
@@ -126,7 +128,7 @@ class OrganizationMemberServiceImplTest {
         OrganizationMember member = member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member);
-        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, 5, TimeUnit.SECONDS)).thenReturn(lock);
+        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
         when(organizationMemberMapper.selectCount(any())).thenReturn(2L);
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -172,8 +174,11 @@ class OrganizationMemberServiceImplTest {
         verify(passwordEncoder).encode(passwordCaptor.capture());
         assertThat(passwordCaptor.getValue()).matches("[A-Za-z0-9]{12}").isEqualTo(result.getPassword());
         assertThat(user.getPassword()).isEqualTo("encoded-password").doesNotContain(result.getPassword());
-        verify(userMapper).updateById(user);
-        assertThat(user.getAuthVersion()).isEqualTo(1);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("auth_version = auth_version + 1");
+        verify(userMapper, never()).updateById(any(User.class));
         verify(sessionService).clearUserSessionCache(20L);
         assertThat(member.getStatus()).isEqualTo(Status.DISABLED);
     }

@@ -423,10 +423,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     private void replacePassword(User user, String encodedPassword) {
-        int current = user.getAuthVersion() == null ? 0 : user.getAuthVersion();
-        user.setAuthVersion(current + 1);
         user.setPassword(encodedPassword);
-        userMapper.updateById(user);
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, user.getId())
+                .set(User::getPassword, encodedPassword)
+                .setSql("auth_version = auth_version + 1"));
     }
 
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {

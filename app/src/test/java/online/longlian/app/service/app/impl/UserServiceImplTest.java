@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
@@ -43,6 +44,7 @@ import java.time.Clock;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -111,8 +113,7 @@ class UserServiceImplTest {
         assertThat(validateCaptor.getValue().getCode()).isEqualTo("A1B2C3");
         assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.FORGOT_PASSWORD);
         assertThat(user.getPassword()).isEqualTo("new-hash");
-        assertThat(user.getAuthVersion()).isEqualTo(1);
-        verify(userMapper).updateById(user);
+        assertAtomicAuthVersionIncrement();
         verify(sessionService).clearUserSessionCache(1L);
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
@@ -144,8 +145,7 @@ class UserServiceImplTest {
                 .userId(1L).oldPassword("123456").newPassword("new-password").build());
 
         assertThat(user.getPassword()).isEqualTo("new-hash");
-        assertThat(user.getAuthVersion()).isEqualTo(5);
-        verify(userMapper).updateById(user);
+        assertAtomicAuthVersionIncrement();
         verify(sessionService).clearUserSessionCache(1L);
         verify(otpServiceFactory, never()).get(any());
     }
@@ -304,6 +304,14 @@ class UserServiceImplTest {
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+    }
+
+    private void assertAtomicAuthVersionIncrement() {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("auth_version = auth_version + 1");
+        verify(userMapper, never()).updateById(any(User.class));
     }
 
     private void stubRegisterValidation() {

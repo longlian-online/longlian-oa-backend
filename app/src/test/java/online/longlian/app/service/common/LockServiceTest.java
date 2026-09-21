@@ -39,6 +39,15 @@ class LockServiceTest {
     }
 
     @Test
+    void tryAcquireOrThrow_watchdogLockAcquired_returnsLock() {
+        when(distributedLockService.tryAcquire("key", 0, TimeUnit.SECONDS)).thenReturn(lock);
+
+        DistributedLockService.Lock result = lockService.tryAcquireOrThrow("key", 0, TimeUnit.SECONDS);
+
+        assertThat(result).isEqualTo(lock);
+    }
+
+    @Test
     void tryAcquireOrThrow_lockFailed_throws() {
         when(distributedLockService.tryAcquire("key", 0, 5, TimeUnit.SECONDS)).thenReturn(null);
 

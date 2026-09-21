@@ -1,5 +1,8 @@
 package online.longlian.app.api.session;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
@@ -12,6 +15,8 @@ import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,5 +96,26 @@ class TokenRevocationApiTest extends BaseApiTest {
         })).isInstanceOf(IllegalStateException.class);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM token_blacklist", Integer.class)).isZero();
         authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /** 没有认证版本声明的用户凭证按版本 0 接受，并覆盖令牌辅助方法的失败分支。 */
+    @Test
+    void shouldAcceptUserTokenWithoutAuthVersionAndRejectUnusableTokens() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        assertThat(jwt.generateToken(1L)).isNotBlank();
+        String token = jwt.generateToken(1L, "user");
+        authRequest(token).get("/app/user/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        String expired = Jwts.builder()
+                .setSubject("1")
+                .setExpiration(new Date(System.currentTimeMillis() - 60_000))
+                .signWith(Keys.hmacShaKeyFor(
+                        "test-jwt-secret-key-must-be-at-least-32-bytes-long".getBytes(StandardCharsets.UTF_8)),
+                        SignatureAlgorithm.HS256)
+                .compact();
+        assertThat(jwt.validateToken(expired)).isFalse();
+        assertThat(jwt.parseTokenIfValid(expired)).isNull();
+        assertThat(jwt.parseTokenIfValid("not-a-token")).isNull();
+        assertThat(jwt.getRemainingTimeSeconds("not-a-token")).isZero();
     }
 }
