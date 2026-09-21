@@ -149,6 +149,20 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldRejectPasswordChangeWhenUserDoesNotExist() {
+        when(userMapper.selectById(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+
+        verify(sessionService, never()).revokeUserSessions(any(), any());
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
     void shouldRejectPasswordChangeWhenOldPasswordDoesNotMatch() {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).password("old-hash").build());
         when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);

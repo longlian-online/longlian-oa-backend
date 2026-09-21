@@ -104,6 +104,21 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
+    void shouldRejectPasswordResetWhenUserDoesNotExist() {
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
+        when(userMapper.selectById(20L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.resetMemberPassword(
+                OrgMemberResetPasswordParamsBO.builder().orgId(1L).memberId(2L).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+
+        verify(sessionService, never()).revokeUserSessions(any(), any());
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
     void shouldEncodeGeneratedPasswordWithoutPersistingPlaintext() {
         OrganizationMember member = member(InviteConstants.ROLE_ORG_USER, Status.DISABLED);
         User user = User.builder().id(20L).password("old-hash").build();

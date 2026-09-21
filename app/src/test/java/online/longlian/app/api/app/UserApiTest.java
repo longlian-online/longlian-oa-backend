@@ -450,6 +450,19 @@ public class UserApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldRejectPasswordChangeWhenUserRecordIsGone() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
+
+        authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
+    @Test
     void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("testuser", "123456");

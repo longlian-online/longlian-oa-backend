@@ -303,4 +303,16 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 "SELECT password FROM `user` WHERE id = 2", String.class)).doesNotContain(password);
     }
 
+    @Test
+    void shouldRejectMemberPasswordResetWhenUserRecordIsGone() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 2L);
+
+        authRequest(token).post("/orgadmin/members/2/password/reset")
+                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
 }
