@@ -148,7 +148,7 @@ public class ResourceService {
                             .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
                             .set(Resource::getBizId, params.getBizId())
                             .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                            .set(Resource::getUpdatedAt, LocalDateTime.now()));
+                            .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
             if (updated == 0) {
                 throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
             }
@@ -179,7 +179,7 @@ public class ResourceService {
                     .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
                     .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
                     .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                    .set(Resource::getUpdatedAt, LocalDateTime.now()));
+                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
             if (updated == 1) {
                 return;
             }

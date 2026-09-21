@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
@@ -16,6 +17,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,6 +25,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +37,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ResourceServiceExtendedTest {
+
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
 
     @Mock
     private ResourceMapper resourceMapper;
@@ -48,7 +55,7 @@ class ResourceServiceExtendedTest {
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
         props.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageFactory, props, Clock.systemUTC());
+        resourceService = new ResourceService(resourceMapper, storageFactory, props, CLOCK);
     }
 
     @Test
@@ -151,6 +158,22 @@ class ResourceServiceExtendedTest {
 
         verify(storageService).probe(new ResourceProbeParamsBO("avatar/1.png", 3L, "image/png"));
         verify(resourceMapper, times(2)).update(isNull(), any());
+    }
+
+    @Test
+    void bindBizResource_usesConfiguredClockForStatusUpdates() {
+        when(resourceMapper.selectOne(any())).thenReturn(pendingResource(1L));
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        when(resourceMapper.update(isNull(), any())).thenReturn(1, 1);
+
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+
+        LocalDateTime expected = LocalDateTime.ofInstant(CLOCK.instant(), ZoneOffset.UTC);
+        ArgumentCaptor<LambdaUpdateWrapper<Resource>> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(resourceMapper, times(2)).update(isNull(), updateCaptor.capture());
+        assertThat(updateCaptor.getAllValues())
+                .allSatisfy(update -> assertThat(update.getParamNameValuePairs().values()).contains(expected));
     }
 
     @Test
