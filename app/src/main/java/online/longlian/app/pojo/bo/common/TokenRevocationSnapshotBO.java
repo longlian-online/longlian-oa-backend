@@ -55,6 +55,6 @@ public class TokenRevocationSnapshotBO {
         return entries.stream().anyMatch(entry -> entry.getExpiredAtMillis() > nowMillis
                 && (entry.getKey().equals(digest)
                 || entry.getKey().startsWith("before:")
-                && issuedAtMillis <= Long.parseLong(entry.getKey().substring("before:".length()))));
+                && issuedAtMillis < Long.parseLong(entry.getKey().substring("before:".length()))));
     }
 }

@@ -70,14 +70,36 @@ class TokenBlacklistServiceImplTest {
         assertThat(service.isBlacklisted("token")).isFalse();
     }
 
-    /** 全量吊销截止时间之后签发的 token 仍然有效，同一秒内也一样。 */
+    /** 全量吊销只拒绝截止毫秒之前签发的 token，同一毫秒重新登录仍然有效。 */
     @Test
-    void shouldOnlyRevokeTokensIssuedAtOrBeforeCutoff() {
-        claims("old", "user", clock.millis());
-        claims("new", "user", clock.millis() + 1);
+    void shouldAllowTokenIssuedInTheSameMillisecondAsCutoff() {
+        claims("previous", "user", clock.millis() - 1);
+        claims("sameMillisecond", "user", clock.millis());
+        claims("later", "user", clock.millis() + 1);
         when(store.entries(TokenType.User, 1L)).thenReturn(snapshot("before:" + clock.millis(), clock.millis() + 60_000));
-        assertThat(service.isBlacklisted("old")).isTrue();
-        assertThat(service.isBlacklisted("new")).isFalse();
+        assertThat(service.isBlacklisted("previous")).isTrue();
+        assertThat(service.isBlacklisted("sameMillisecond")).isFalse();
+        assertThat(service.isBlacklisted("later")).isFalse();
+    }
+
+    /** 密码变更写入的截止毫秒上重新登录不会被拒绝。 */
+    @Test
+    void shouldAllowReloginIssuedAtTheGlobalRevocationMillisecond() {
+        when(jwt.getExpirationSeconds()).thenReturn(3600L);
+        service.blacklistAllUserTokens(TokenType.User, 1L, "用户修改密码");
+        ArgumentCaptor<TokenBlacklist> captor = ArgumentCaptor.forClass(TokenBlacklist.class);
+        verify(store).save(captor.capture());
+        String stored = captor.getValue().getToken();
+        String cutoffKey = stored.substring(stored.indexOf("before:"));
+        long cutoff = Long.parseLong(cutoffKey.substring("before:".length()));
+        long expiredAt = captor.getValue().getExpiredAt().atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+        when(store.entries(TokenType.User, 1L)).thenReturn(snapshot(cutoffKey, expiredAt));
+        claims("previous", "user", cutoff - 1);
+        claims("relogin", "user", cutoff);
+
+        assertThat(cutoff).isEqualTo(clock.millis());
+        assertThat(service.isBlacklisted("previous")).isTrue();
+        assertThat(service.isBlacklisted("relogin")).isFalse();
     }
 
     /** 用户和管理员身份域中的相同数字 ID 仍然相互隔离。 */

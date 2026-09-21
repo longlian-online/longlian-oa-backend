@@ -59,6 +59,14 @@ class TokenRevocationApiTest extends BaseApiTest {
         createAdmin(1L, "admin", "123456", "root");
         String adminToken = adminLoginAs("admin", "123456");
         String userToken = jwt.generateToken(1L, "user");
+        long issuedAt = jwt.parseToken(userToken).get("issuedAtMillis", Long.class);
+        long deadline = System.nanoTime() + 50_000_000L;
+        while (System.currentTimeMillis() <= issuedAt) {
+            if (System.nanoTime() > deadline) {
+                throw new IllegalStateException("clock did not advance past the issued token");
+            }
+            Thread.onSpinWait();
+        }
         blacklist.blacklistAllUserTokens(TokenType.User, 1L, "test kick");
         assertThat(blacklist.isBlacklisted(userToken)).isTrue();
         authRequest(adminToken).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
