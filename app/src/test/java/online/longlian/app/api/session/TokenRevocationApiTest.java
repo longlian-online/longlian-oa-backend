@@ -104,6 +104,7 @@ class TokenRevocationApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         assertThat(jwt.generateToken(1L)).isNotBlank();
         String token = jwt.generateToken(1L, "user");
+        assertThat(jwt.validateToken(token)).isTrue();
         authRequest(token).get("/app/user/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
         String expired = Jwts.builder()
