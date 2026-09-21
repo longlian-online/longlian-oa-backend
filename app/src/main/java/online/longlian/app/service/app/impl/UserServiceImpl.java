@@ -35,6 +35,7 @@ import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.UserService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
@@ -66,6 +67,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final CurrentOrganizationService currentOrganizationService;
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
+    private final SessionService sessionService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -89,6 +91,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         user.setPassword(passwordEncoder.encode(params.getPassword()));
         userMapper.updateById(user);
+        sessionService.revokeUserSessions(user.getId(), "用户重置密码");
         emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
     }
 
@@ -105,6 +108,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         user.setPassword(passwordEncoder.encode(params.getNewPassword()));
         userMapper.updateById(user);
+        sessionService.revokeUserSessions(user.getId(), "用户修改密码");
     }
 
     @Override

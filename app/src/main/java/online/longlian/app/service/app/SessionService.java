@@ -64,4 +64,15 @@ public interface SessionService {
      * @param userId 用户 ID
      */
     void clearUserSessionCache(Long userId);
+
+    /**
+     * 吊销用户当前全部登录凭证，并清除会话缓存。
+     * <p>
+     * 写入该用户的全局吊销截止时间。截止时间及以前签发的 JWT 会被拒绝，
+     * 之后重新登录签发的凭证不受影响。密码变更时调用，避免旧 Token 在过期前继续访问。
+     *
+     * @param userId 用户 ID
+     * @param reason 吊销原因
+     */
+    void revokeUserSessions(Long userId, String reason);
 }

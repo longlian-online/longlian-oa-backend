@@ -6,6 +6,7 @@ import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,5 +67,14 @@ class SessionServiceImplTest {
 
         assertThatThrownBy(() -> service.refreshCurrentUserOrg(7L, 11L, List.of()))
                 .isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void revokeUserSessionsBlacklistsIssuedTokensAndClearsCache() {
+        service.revokeUserSessions(7L, "用户修改密码");
+
+        verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, 7L, "用户修改密码");
+        verify(redisTemplate).delete(RedisConstants.LOGIN_USER + 7L);
+        verify(currentOrganizationService).clearCurrentOrg(7L);
     }
 }

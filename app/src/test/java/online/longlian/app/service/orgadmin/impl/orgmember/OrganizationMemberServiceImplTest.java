@@ -119,6 +119,7 @@ class OrganizationMemberServiceImplTest {
         assertThat(passwordCaptor.getValue()).matches("[A-Za-z0-9]{12}").isEqualTo(result.getPassword());
         assertThat(user.getPassword()).isEqualTo("encoded-password").doesNotContain(result.getPassword());
         verify(userMapper).updateById(user);
+        verify(sessionService).revokeUserSessions(20L, "管理员重置成员密码");
         assertThat(member.getStatus()).isEqualTo(Status.DISABLED);
     }
 

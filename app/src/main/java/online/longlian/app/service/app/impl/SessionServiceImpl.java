@@ -96,6 +96,12 @@ public class SessionServiceImpl implements SessionService {
         currentOrganizationService.clearCurrentOrg(userId);
     }
 
+    @Override
+    public void revokeUserSessions(Long userId, String reason) {
+        tokenBlacklistService.blacklistAllUserTokens(TokenType.User, userId, reason);
+        clearUserSessionCache(userId);
+    }
+
     private SessionLoginResultBO doLogin(Authentication authentication) {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();

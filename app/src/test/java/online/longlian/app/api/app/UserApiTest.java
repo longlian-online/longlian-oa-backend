@@ -366,6 +366,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldResetPasswordSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
         Response response = request()
@@ -375,6 +376,8 @@ public class UserApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
 
         request()
                 .body(Map.of("username", "testuser", "password", "123456"))
@@ -438,6 +441,8 @@ public class UserApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
         request().body(Map.of("username", "testuser", "password", "654321")).post("/app/session/pwd")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         request().body(Map.of("username", "testuser", "password", "123456")).post("/app/session/pwd")
@@ -452,7 +457,7 @@ public class UserApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("原密码错误"));
+                .body("msg", equalTo("操作失败,原密码错误"));
         request().body(Map.of("oldPassword", "123456", "newPassword", "654321"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));

@@ -22,6 +22,7 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
@@ -69,6 +70,8 @@ class UserServiceImplTest {
     private OTPStrategyService emailVerifyService;
     @Mock
     private OTPStrategyService joinInviteService;
+    @Mock
+    private SessionService sessionService;
 
     private UserServiceImpl service;
 
@@ -85,7 +88,8 @@ class UserServiceImplTest {
                 userMapper,
                 currentOrganizationService,
                 otpServiceFactory,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                sessionService
         );
     }
 
@@ -108,6 +112,7 @@ class UserServiceImplTest {
         assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.FORGOT_PASSWORD);
         assertThat(user.getPassword()).isEqualTo("new-hash");
         verify(userMapper).updateById(user);
+        verify(sessionService).revokeUserSessions(1L, "用户重置密码");
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
 
@@ -125,6 +130,7 @@ class UserServiceImplTest {
 
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
+        verify(sessionService, never()).revokeUserSessions(any(), any());
     }
     @Test
     void shouldChangePasswordWhenOldPasswordMatches() {
@@ -138,6 +144,7 @@ class UserServiceImplTest {
 
         assertThat(user.getPassword()).isEqualTo("new-hash");
         verify(userMapper).updateById(user);
+        verify(sessionService).revokeUserSessions(1L, "用户修改密码");
         verify(otpServiceFactory, never()).get(any());
     }
 
@@ -155,6 +162,7 @@ class UserServiceImplTest {
 
         verify(passwordEncoder, never()).encode(anyString());
         verify(userMapper, never()).updateById(any(User.class));
+        verify(sessionService, never()).revokeUserSessions(any(), any());
     }
 
 

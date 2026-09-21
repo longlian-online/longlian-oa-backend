@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class OrgAdminMemberApiTest extends BaseApiTest {
@@ -270,10 +270,12 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("组织至少保留一名管理员"));
+                .body("msg", equalTo("操作失败,组织至少保留一名管理员"));
 
-        assertThat(jdbcTemplate.queryForObject("SELECT org_role FROM organization_member WHERE id = 2", String.class), equalTo("ORG_USER"));
-        assertThat(jdbcTemplate.queryForObject("SELECT org_role FROM organization_member WHERE id = 3", String.class), equalTo("ORG_ADMIN"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 3", String.class)).isEqualTo("ORG_ADMIN");
     }
 
     @Test
@@ -282,17 +284,23 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         String token = loginAs("orgadmin", "123456");
+        String memberToken = loginAs("member", "123456");
 
         Response response = authRequest(token).post("/orgadmin/members/2/password/reset");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.password", matchesPattern("[A-Za-z0-9]{12}"));
         String password = response.jsonPath().getString("data.password");
 
+        authRequest(memberToken).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         request().body(Map.of("username", "member", "password", "123456")).post("/app/session/pwd")
                 .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
         request().body(Map.of("username", "member", "password", password)).post("/app/session/pwd")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat(jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 2", String.class), not(containsString(password)));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT password FROM `user` WHERE id = 2", String.class)).doesNotContain(password);
     }
 
 }

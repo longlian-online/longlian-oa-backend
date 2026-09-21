@@ -153,6 +153,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         String password = generateResetPassword();
         user.setPassword(passwordEncoder.encode(password));
         userMapper.updateById(user);
+        sessionService.revokeUserSessions(user.getId(), "管理员重置成员密码");
         return OrgMemberResetPasswordResultBO.builder().password(password).build();
     }
 
