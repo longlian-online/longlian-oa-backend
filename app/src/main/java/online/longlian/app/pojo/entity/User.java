@@ -88,6 +88,13 @@ public class User implements Serializable {
     @ApiModelProperty("状态 1-启用 0-禁用")
     private Status status;
 
+    /**
+     * 认证版本。密码变更后递增，旧 JWT 因版本不一致而失效。
+     */
+    @TableField("auth_version")
+    @ApiModelProperty("认证版本")
+    private Integer authVersion;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 

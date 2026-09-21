@@ -45,6 +45,8 @@ import online.longlian.common.enumeration.Status;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -89,9 +91,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
 
-        user.setPassword(passwordEncoder.encode(params.getPassword()));
-        userMapper.updateById(user);
-        sessionService.revokeUserSessions(user.getId(), "用户重置密码");
+        replacePassword(user, passwordEncoder.encode(params.getPassword()));
+        clearSessionNowAndAfterCommit(user.getId());
         emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
     }
 
@@ -106,9 +107,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "原密码错误");
         }
 
-        user.setPassword(passwordEncoder.encode(params.getNewPassword()));
-        userMapper.updateById(user);
-        sessionService.revokeUserSessions(user.getId(), "用户修改密码");
+        replacePassword(user, passwordEncoder.encode(params.getNewPassword()));
+        clearSessionNowAndAfterCommit(user.getId());
+    }
+
+    private void clearSessionNowAndAfterCommit(Long userId) {
+        sessionService.clearUserSessionCache(userId);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sessionService.clearUserSessionCache(userId);
+                }
+            });
+        }
     }
 
     @Override
@@ -408,6 +420,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "组织已被禁用");
         }
         return organization;
+    }
+
+    private void replacePassword(User user, String encodedPassword) {
+        int current = user.getAuthVersion() == null ? 0 : user.getAuthVersion();
+        user.setAuthVersion(current + 1);
+        user.setPassword(encodedPassword);
+        userMapper.updateById(user);
     }
 
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {

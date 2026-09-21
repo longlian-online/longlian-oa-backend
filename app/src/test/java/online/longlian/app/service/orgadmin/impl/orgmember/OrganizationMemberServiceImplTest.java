@@ -26,6 +26,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -104,6 +106,27 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
+    void shouldKeepRoleLockUntilTheTransactionCompletes() {
+        OrganizationMember member = member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED);
+        DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member);
+        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, 5, TimeUnit.SECONDS)).thenReturn(lock);
+        when(organizationMemberMapper.selectCount(any())).thenReturn(2L);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
+
+            verify(lock, never()).close();
+            verify(organizationMemberMapper).update(eq(null), any());
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
+            verify(lock).close();
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void shouldRejectPasswordResetWhenUserDoesNotExist() {
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
         when(userMapper.selectById(20L)).thenReturn(null);
@@ -114,7 +137,7 @@ class OrganizationMemberServiceImplTest {
                 .extracting("code")
                 .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
 
-        verify(sessionService, never()).revokeUserSessions(any(), any());
+        verify(sessionService, never()).clearUserSessionCache(any());
         verify(userMapper, never()).updateById(any(User.class));
     }
 
@@ -134,7 +157,8 @@ class OrganizationMemberServiceImplTest {
         assertThat(passwordCaptor.getValue()).matches("[A-Za-z0-9]{12}").isEqualTo(result.getPassword());
         assertThat(user.getPassword()).isEqualTo("encoded-password").doesNotContain(result.getPassword());
         verify(userMapper).updateById(user);
-        verify(sessionService).revokeUserSessions(20L, "管理员重置成员密码");
+        assertThat(user.getAuthVersion()).isEqualTo(1);
+        verify(sessionService).clearUserSessionCache(20L);
         assertThat(member.getStatus()).isEqualTo(Status.DISABLED);
     }
 

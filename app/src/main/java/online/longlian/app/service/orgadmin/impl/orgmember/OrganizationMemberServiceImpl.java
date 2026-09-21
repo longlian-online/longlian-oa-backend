@@ -34,6 +34,8 @@ import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -123,8 +125,19 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
         if (InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
                 && InviteConstants.ROLE_ORG_USER.equals(params.getOrgRole())) {
-            try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
-                    "org:member:role:" + params.getOrgId(), 0, 5, TimeUnit.SECONDS)) {
+            DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
+                    "org:member:role:" + params.getOrgId(), 0, 5, TimeUnit.SECONDS);
+            boolean releaseOnCompletion = false;
+            try {
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            lock.close();
+                        }
+                    });
+                    releaseOnCompletion = true;
+                }
                 member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
                 if (InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
                         && organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
@@ -134,6 +147,10 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                     throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
                 }
                 updateMemberRole(member.getId(), params.getOrgRole());
+            } finally {
+                if (!releaseOnCompletion) {
+                    lock.close();
+                }
             }
         } else {
             updateMemberRole(member.getId(), params.getOrgRole());
@@ -151,9 +168,20 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         }
 
         String password = generateResetPassword();
+        int current = user.getAuthVersion() == null ? 0 : user.getAuthVersion();
+        user.setAuthVersion(current + 1);
         user.setPassword(passwordEncoder.encode(password));
         userMapper.updateById(user);
-        sessionService.revokeUserSessions(user.getId(), "管理员重置成员密码");
+        sessionService.clearUserSessionCache(user.getId());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            Long userId = user.getId();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sessionService.clearUserSessionCache(userId);
+                }
+            });
+        }
         return OrgMemberResetPasswordResultBO.builder().password(password).build();
     }
 

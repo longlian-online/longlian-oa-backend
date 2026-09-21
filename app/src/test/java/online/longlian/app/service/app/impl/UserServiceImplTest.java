@@ -111,8 +111,9 @@ class UserServiceImplTest {
         assertThat(validateCaptor.getValue().getCode()).isEqualTo("A1B2C3");
         assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.FORGOT_PASSWORD);
         assertThat(user.getPassword()).isEqualTo("new-hash");
+        assertThat(user.getAuthVersion()).isEqualTo(1);
         verify(userMapper).updateById(user);
-        verify(sessionService).revokeUserSessions(1L, "用户重置密码");
+        verify(sessionService).clearUserSessionCache(1L);
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
 
@@ -130,11 +131,11 @@ class UserServiceImplTest {
 
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
-        verify(sessionService, never()).revokeUserSessions(any(), any());
+        verify(sessionService, never()).clearUserSessionCache(any());
     }
     @Test
     void shouldChangePasswordWhenOldPasswordMatches() {
-        User user = User.builder().id(1L).password("old-hash").build();
+        User user = User.builder().id(1L).password("old-hash").authVersion(4).build();
         when(userMapper.selectById(1L)).thenReturn(user);
         when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
@@ -143,8 +144,9 @@ class UserServiceImplTest {
                 .userId(1L).oldPassword("123456").newPassword("new-password").build());
 
         assertThat(user.getPassword()).isEqualTo("new-hash");
+        assertThat(user.getAuthVersion()).isEqualTo(5);
         verify(userMapper).updateById(user);
-        verify(sessionService).revokeUserSessions(1L, "用户修改密码");
+        verify(sessionService).clearUserSessionCache(1L);
         verify(otpServiceFactory, never()).get(any());
     }
 
@@ -158,7 +160,7 @@ class UserServiceImplTest {
                 .extracting("code")
                 .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
 
-        verify(sessionService, never()).revokeUserSessions(any(), any());
+        verify(sessionService, never()).clearUserSessionCache(any());
         verify(userMapper, never()).updateById(any(User.class));
     }
 
@@ -176,7 +178,7 @@ class UserServiceImplTest {
 
         verify(passwordEncoder, never()).encode(anyString());
         verify(userMapper, never()).updateById(any(User.class));
-        verify(sessionService, never()).revokeUserSessions(any(), any());
+        verify(sessionService, never()).clearUserSessionCache(any());
     }
 
 

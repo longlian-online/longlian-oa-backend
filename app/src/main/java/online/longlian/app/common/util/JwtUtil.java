@@ -35,10 +35,14 @@ public class JwtUtil {
     }
 
     public String generateToken(Long userId) {
-        return generateToken(userId, null);
+        return generateToken(userId, null, null);
     }
 
     public String generateToken(Long id, String type) {
+        return generateToken(id, type, null);
+    }
+
+    public String generateToken(Long id, String type, Integer authVersion) {
         long issuedAt = clock.millis();
         var builder = Jwts.builder()
                 .setSubject(id.toString())
@@ -48,6 +52,9 @@ public class JwtUtil {
                 .setExpiration(new Date(issuedAt + expiration * 1000L));
         if (type != null && !type.isEmpty()) {
             builder.claim("type", type);
+        }
+        if (authVersion != null) {
+            builder.claim("authVersion", authVersion);
         }
         return builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
     }

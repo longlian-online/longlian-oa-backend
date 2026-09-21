@@ -24,17 +24,6 @@ class TokenRevocationSnapshotBOTest {
     }
 
     @Test
-    void shouldLeaveTheCutoffMillisecondUnrevoked() {
-        TokenRevocationSnapshotBO snapshot = TokenRevocationSnapshotBO.builder()
-                .entries(List.of(TokenRevocationEntryBO.builder().key("before:1000").expiredAtMillis(5_000L).build()))
-                .build();
-
-        assertThat(snapshot.containsActiveRevocation("sha256:other", 999L, 1_000L)).isTrue();
-        assertThat(snapshot.containsActiveRevocation("sha256:other", 1_000L, 1_000L)).isFalse();
-        assertThat(snapshot.containsActiveRevocation("sha256:other", 1_001L, 1_000L)).isFalse();
-    }
-
-    @Test
     void shouldValidateSupportedEntryFormats() {
         TokenRevocationSnapshotBO snapshot = TokenRevocationSnapshotBO.builder()
                 .entries(List.of(

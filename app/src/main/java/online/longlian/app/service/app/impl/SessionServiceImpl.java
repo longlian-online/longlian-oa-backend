@@ -96,17 +96,12 @@ public class SessionServiceImpl implements SessionService {
         currentOrganizationService.clearCurrentOrg(userId);
     }
 
-    @Override
-    public void revokeUserSessions(Long userId, String reason) {
-        tokenBlacklistService.blacklistAllUserTokens(TokenType.User, userId, reason);
-        clearUserSessionCache(userId);
-    }
-
     private SessionLoginResultBO doLogin(Authentication authentication) {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();
 
-        String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase());
+        Integer authVersion = userDetail.getAuthVersion() == null ? 0 : userDetail.getAuthVersion();
+        String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase(), authVersion);
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
         currentOrganizationService.refreshCurrentOrgTtl(userId, userDetail.getCurrentOrgId(), sessionTtlSeconds);
