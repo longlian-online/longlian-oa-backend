@@ -9,7 +9,9 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
-import online.longlian.app.common.security.UserDetailImpl;
+import online.longlian.app.common.security.UserAuthenticationStrategy;
+import online.longlian.app.common.security.UserDetailsServiceImpl;
+import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.common.enumeration.Status;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
@@ -18,6 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -158,46 +162,29 @@ class JwtAuthenticationFilterTest {
         assertThat(failure.getMessage()).doesNotContain("sql secret");
     }
 
-    /** 密码变更后的旧用户凭证即使签发时间相同也会被拒绝。 */
+    /** Redis 仍是旧认证版本时，过滤器走真实用户策略并按数据库版本拒绝旧 JWT。 */
     @Test
-    void shouldRejectUserTokenWhenAuthVersionDoesNotMatch() throws Exception {
-        AuthenticationStrategy userStrategy = mock(AuthenticationStrategy.class);
-        when(userStrategy.supportedType()).thenReturn("user");
+    void shouldRejectUserTokenWhenRedisVersionIsOlderThanDatabase() throws Exception {
+        RedisTemplate<String, Object> redis = mock(RedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, Object> values = mock(ValueOperations.class);
+        UserDetailsServiceImpl userDetails = mock(UserDetailsServiceImpl.class);
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get("login:user:1")).thenReturn(LoginSessionCacheBO.builder()
+                .userId(1L).status(Status.ENABLED).authVersion(4).build());
+        when(userDetails.currentAuthVersion(1L)).thenReturn(5);
+        UserAuthenticationStrategy userStrategy = new UserAuthenticationStrategy(redis, userDetails);
         JwtAuthenticationFilter userFilter = new JwtAuthenticationFilter(jwt, entryPoint, blacklist, List.of(userStrategy));
         userFilter.init();
         Claims claims = Jwts.claims().setSubject("1");
         claims.put("type", "user");
-        claims.put("authVersion", 1);
+        claims.put("authVersion", 4);
         when(jwt.parseToken("token")).thenReturn(claims);
-        UserDetailImpl user = UserDetailImpl.builder().id(1L).status(Status.ENABLED).authVersion(2).build();
-        when(userStrategy.authenticate(1L)).thenReturn(new UsernamePasswordAuthenticationToken(user, null, List.of()));
 
         userFilter.doFilter(request, response, chain);
 
         assertThat(failure().getMessage()).isEqualTo("登录凭证已撤销，请重新登录");
         verifyNoInteractions(chain);
-    }
-
-    /** 认证版本一致时用户请求继续。 */
-    @Test
-    void shouldContinueWhenUserAuthVersionMatches() throws Exception {
-        AuthenticationStrategy userStrategy = mock(AuthenticationStrategy.class);
-        when(userStrategy.supportedType()).thenReturn("user");
-        JwtAuthenticationFilter userFilter = new JwtAuthenticationFilter(jwt, entryPoint, blacklist, List.of(userStrategy));
-        userFilter.init();
-        Claims claims = Jwts.claims().setSubject("1");
-        claims.put("type", "user");
-        claims.put("authVersion", 2);
-        when(jwt.parseToken("token")).thenReturn(claims);
-        UserDetailImpl user = UserDetailImpl.builder().id(1L).status(Status.ENABLED).authVersion(2).build();
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null, List.of());
-        when(userStrategy.authenticate(1L)).thenReturn(authentication);
-
-        userFilter.doFilter(request, response, chain);
-
-        assertThat(SecurityContextHolder.getContext().getAuthentication()).isSameAs(authentication);
-        verify(chain).doFilter(request, response);
-        verifyNoInteractions(entryPoint);
     }
 
     /** 认证成功后请求只继续执行一次。 */

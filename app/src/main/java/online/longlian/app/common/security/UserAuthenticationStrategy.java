@@ -42,6 +42,21 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
         return new UsernamePasswordAuthenticationToken(userDetail, null, userDetail.getAuthorities());
     }
 
+    /**
+     * 用数据库中的认证版本校验 JWT。Redis 登录快照可能在事务提交后被旧读结果写回。
+     */
+    public Authentication authenticate(long subjectId, int presentedAuthVersion) {
+        Authentication authentication = authenticate(subjectId);
+        int current = userDetailsService.currentAuthVersion(subjectId);
+        if (authentication.getPrincipal() instanceof UserDetailImpl user) {
+            user.setAuthVersion(current);
+        }
+        if (presentedAuthVersion != current) {
+            throw new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证已撤销，请重新登录", null);
+        }
+        return authentication;
+    }
+
     private UserDetailImpl getCachedUserDetail(Long userId) {
         try {
             Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId);

@@ -1,6 +1,7 @@
 package online.longlian.app.common.security;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.Assertions;
@@ -12,6 +13,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.core.Authentication;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -78,6 +81,22 @@ class UserAuthenticationStrategyTest {
         when(userDetailsService.loadUserById(1L)).thenReturn(userDetail);
 
         Assertions.assertThrows(AppException.class, () -> strategy.authenticate(1L));
+    }
+
+    @Test
+    void shouldRejectClaimWhenDatabaseVersionIsNewerThanRedis() {
+        UserAuthenticationStrategy strategy = createStrategy();
+        LoginSessionCacheBO cacheBO = LoginSessionCacheBO.builder()
+                .userId(1L).username("user").status(Status.ENABLED).authVersion(4).build();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("login:user:1")).thenReturn(cacheBO);
+        when(userDetailsService.currentAuthVersion(1L)).thenReturn(5);
+
+        RequestAuthenticationException failure = Assertions.assertThrows(
+                RequestAuthenticationException.class, () -> strategy.authenticate(1L, 4));
+
+        assertThat(failure.getCode()).isEqualTo(ResultCode.UNAUTHORIZED.getCode());
+        verify(userDetailsService).currentAuthVersion(1L);
     }
 
     @Test

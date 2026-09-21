@@ -1,5 +1,6 @@
 package online.longlian.app.pojo.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -91,7 +92,7 @@ public class User implements Serializable {
     /**
      * 认证版本。密码变更后递增，旧 JWT 因版本不一致而失效。
      */
-    @TableField("auth_version")
+    @TableField(value = "auth_version", updateStrategy = FieldStrategy.NEVER)
     @ApiModelProperty("认证版本")
     private Integer authVersion;
 

@@ -14,7 +14,7 @@ import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
-import online.longlian.app.common.security.UserDetailImpl;
+import online.longlian.app.common.security.UserAuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
@@ -101,19 +101,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (strategy == null) {
             throw invalidToken(null);
         }
-        Authentication authentication = strategy.authenticate(subjectId);
-        rejectStaleUserCredential(claims, type, authentication);
-        return authentication;
-    }
-
-    private void rejectStaleUserCredential(Claims claims, String type, Authentication authentication) {
-        if (!"user".equals(type) || !(authentication.getPrincipal() instanceof UserDetailImpl user)) {
-            return;
+        if ("user".equals(type) && strategy instanceof UserAuthenticationStrategy userStrategy) {
+            return userStrategy.authenticate(subjectId, claimAuthVersion(claims));
         }
-        int current = user.getAuthVersion() == null ? 0 : user.getAuthVersion();
-        if (claimAuthVersion(claims) != current) {
-            throw new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证已撤销，请重新登录", null);
-        }
+        return strategy.authenticate(subjectId);
     }
 
     private int claimAuthVersion(Claims claims) {

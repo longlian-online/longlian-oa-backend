@@ -92,7 +92,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         replacePassword(user, passwordEncoder.encode(params.getPassword()));
-        clearSessionNowAndAfterCommit(user.getId());
+        clearSessionAfterCommit(user.getId());
         emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
     }
 
@@ -108,11 +108,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         replacePassword(user, passwordEncoder.encode(params.getNewPassword()));
-        clearSessionNowAndAfterCommit(user.getId());
+        clearSessionAfterCommit(user.getId());
     }
 
-    private void clearSessionNowAndAfterCommit(Long userId) {
-        sessionService.clearUserSessionCache(userId);
+    private void clearSessionAfterCommit(Long userId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -120,7 +119,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     sessionService.clearUserSessionCache(userId);
                 }
             });
+            return;
         }
+        sessionService.clearUserSessionCache(userId);
     }
 
     @Override

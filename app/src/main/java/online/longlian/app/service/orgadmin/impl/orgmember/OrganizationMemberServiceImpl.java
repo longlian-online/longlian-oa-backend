@@ -185,15 +185,16 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 .eq(User::getId, user.getId())
                 .set(User::getPassword, encodedPassword)
                 .setSql("auth_version = auth_version + 1"));
-        sessionService.clearUserSessionCache(user.getId());
+        Long userId = user.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            Long userId = user.getId();
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
                     sessionService.clearUserSessionCache(userId);
                 }
             });
+        } else {
+            sessionService.clearUserSessionCache(userId);
         }
         return OrgMemberResetPasswordResultBO.builder().password(password).build();
     }
