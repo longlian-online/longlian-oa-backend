@@ -281,7 +281,7 @@ public class UserApiTest extends BaseApiTest {
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
                 "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
-                3L, 1L, 2L, "MEMBER"
+                3L, 1L, 2L, "ORG_USER"
         );
         String token2 = loginAs("user2", "123456");
 
@@ -313,7 +313,7 @@ public class UserApiTest extends BaseApiTest {
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
                 "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 0)",
-                3L, 1L, 2L, "MEMBER"
+                3L, 1L, 2L, "ORG_USER"
         );
         String token2 = loginAs("user2", "123456");
 
@@ -429,6 +429,37 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 
+
+    @Test
+    void shouldChangePasswordWithCurrentPassword() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+
+        authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        request().body(Map.of("username", "testuser", "password", "654321")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        request().body(Map.of("username", "testuser", "password", "123456")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
+    @Test
+    void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+
+        authRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("原密码错误"));
+        request().body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "123"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
 
     // ========== 认证失败 ==========
 

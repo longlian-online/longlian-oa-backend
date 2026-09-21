@@ -11,6 +11,7 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
@@ -125,6 +126,37 @@ class UserServiceImplTest {
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
     }
+    @Test
+    void shouldChangePasswordWhenOldPasswordMatches() {
+        User user = User.builder().id(1L).password("old-hash").build();
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+
+        service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build());
+
+        assertThat(user.getPassword()).isEqualTo("new-hash");
+        verify(userMapper).updateById(user);
+        verify(otpServiceFactory, never()).get(any());
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenOldPasswordDoesNotMatch() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).password("old-hash").build());
+        when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("wrong-password").newPassword("new-password").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("原密码错误")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
 
     @Test
     void shouldFailRegisterWhenUsernameAlreadyExists() {

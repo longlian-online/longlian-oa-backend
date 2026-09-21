@@ -8,6 +8,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeRes
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
@@ -58,6 +61,21 @@ public interface OrganizationMemberService {
      * @param params 包含成员 ID、目标状态及组织 ID 的变更参数
      */
     void changeMemberStatus(@NonNull OrgMemberChangeStatusParamsBO params);
+
+    /**
+     * 变更当前组织内成员的组织角色。
+     *
+     * @param params 包含成员、组织和目标角色的参数
+     */
+    void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params);
+
+    /**
+     * 为当前组织内成员生成并重置密码。
+     *
+     * @param params 包含成员和组织的参数
+     * @return 仅在本次响应中返回的随机密码
+     */
+    OrgMemberResetPasswordResultBO resetMemberPassword(@NonNull OrgMemberResetPasswordParamsBO params);
 
     /**
      * 查询指定成员在各基础任务上的提交数量统计。

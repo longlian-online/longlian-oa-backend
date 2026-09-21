@@ -14,12 +14,14 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.app.ResetPasswordDTO;
+import online.longlian.app.pojo.dto.app.ChangePasswordDTO;
 import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
@@ -54,6 +56,19 @@ public class UserController {
                         .password(resetPasswordDTO.getPassword())
                         .build()
         );
+    }
+
+    @Operation(summary = "修改密码", description = "使用原密码修改当前登录用户密码")
+    @PatchMapping("/password")
+    @ResponseMessage("密码已修改")
+    public void changePassword(@UserSession SessionContext sessionContext,
+                               @RequestBody @Valid ChangePasswordDTO changePasswordDTO) {
+        userService.changePassword(
+                UserChangePasswordParamsBO.builder()
+                        .userId(sessionContext.userId())
+                        .oldPassword(changePasswordDTO.getOldPassword())
+                        .newPassword(changePasswordDTO.getNewPassword())
+                        .build());
     }
 
     @Operation(

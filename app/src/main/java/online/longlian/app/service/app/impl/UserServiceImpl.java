@@ -19,6 +19,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
@@ -89,6 +90,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setPassword(passwordEncoder.encode(params.getPassword()));
         userMapper.updateById(user);
         emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changePassword(UserChangePasswordParamsBO params) {
+        User user = userMapper.selectById(params.getUserId());
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        if (!passwordEncoder.matches(params.getOldPassword(), user.getPassword())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "原密码错误");
+        }
+
+        user.setPassword(passwordEncoder.encode(params.getNewPassword()));
+        userMapper.updateById(user);
     }
 
     @Override
