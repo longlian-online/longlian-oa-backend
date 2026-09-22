@@ -1,19 +1,14 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordResultBO;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.otp.OTPServiceFactory;
@@ -23,10 +18,8 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -35,13 +28,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -54,8 +45,6 @@ class OrganizationMemberServiceImplTest {
     @Mock private GroupApplicationMapper groupApplicationMapper;
     @Mock private OrganizationMemberMapper organizationMemberMapper;
     @Mock private OTPServiceFactory otpServiceFactory;
-    @Mock private UserMapper userMapper;
-    @Mock private PasswordEncoder passwordEncoder;
     @Mock private MemberQueryBuilder memberQueryBuilder;
     @Mock private MemberAssembler memberAssembler;
     @Mock private ApplicationReviewHandler applicationReviewHandler;
@@ -71,7 +60,7 @@ class OrganizationMemberServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
         service = new OrganizationMemberServiceImpl(
                 clock, groupApplicationMapper, organizationMemberMapper, otpServiceFactory,
-                userMapper, passwordEncoder, memberQueryBuilder, memberAssembler,
+                memberQueryBuilder, memberAssembler,
                 applicationReviewHandler, memberStatusHandler, memberSubmissionHandler,
                 lockService, sessionService);
     }
@@ -142,45 +131,6 @@ class OrganizationMemberServiceImplTest {
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
-    }
-
-    @Test
-    void shouldRejectPasswordResetWhenUserDoesNotExist() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-        when(userMapper.selectById(20L)).thenReturn(null);
-
-        assertThatThrownBy(() -> service.resetMemberPassword(
-                OrgMemberResetPasswordParamsBO.builder().orgId(1L).memberId(2L).build()))
-                .isInstanceOf(AppException.class)
-                .extracting("code")
-                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
-
-        verify(sessionService, never()).clearUserSessionCache(any());
-        verify(userMapper, never()).updateById(any(User.class));
-    }
-
-    @Test
-    void shouldEncodeGeneratedPasswordWithoutPersistingPlaintext() {
-        OrganizationMember member = member(InviteConstants.ROLE_ORG_USER, Status.DISABLED);
-        User user = User.builder().id(20L).password("old-hash").build();
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member);
-        when(userMapper.selectById(20L)).thenReturn(user);
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded-password");
-
-        OrgMemberResetPasswordResultBO result = service.resetMemberPassword(
-                OrgMemberResetPasswordParamsBO.builder().orgId(1L).memberId(2L).build());
-
-        ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
-        verify(passwordEncoder).encode(passwordCaptor.capture());
-        assertThat(passwordCaptor.getValue()).matches("[A-Za-z0-9]{12}").isEqualTo(result.getPassword());
-        assertThat(user.getPassword()).isEqualTo("encoded-password").doesNotContain(result.getPassword());
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
-        verify(userMapper).update(isNull(), captor.capture());
-        assertThat(captor.getValue().getSqlSet()).contains("auth_version = auth_version + 1");
-        verify(userMapper, never()).updateById(any(User.class));
-        verify(sessionService).clearUserSessionCache(20L);
-        assertThat(member.getStatus()).isEqualTo(Status.DISABLED);
     }
 
     private OrganizationMember member(String role, Status status) {

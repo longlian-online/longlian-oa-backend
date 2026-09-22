@@ -11,8 +11,6 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
@@ -36,7 +34,6 @@ import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.pojo.vo.orgadmin.OrgMemberResetPasswordVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -194,19 +191,6 @@ public class OrganizationMemberController {
                         .memberId(memberId)
                         .orgRole(changeRoleDTO.getOrgRole())
                         .build());
-    }
-
-    @Operation(summary = "重置成员密码")
-    @PostMapping("/{memberId}/password/reset")
-    @ResponseMessage("密码重置成功")
-    public OrgMemberResetPasswordVO resetMemberPassword(@UserSession(required = true) SessionContext sessionContext,
-                                                         @PathVariable Long memberId) {
-        OrgMemberResetPasswordResultBO resultBO = organizationMemberService.resetMemberPassword(
-                OrgMemberResetPasswordParamsBO.builder()
-                        .orgId(sessionContext.orgId())
-                        .memberId(memberId)
-                        .build());
-        return OrgMemberResetPasswordVO.builder().password(resultBO.getPassword()).build();
     }
 
     @Operation(

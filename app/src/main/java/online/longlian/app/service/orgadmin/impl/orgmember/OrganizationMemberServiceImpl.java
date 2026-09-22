@@ -1,7 +1,6 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +19,6 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberResetPasswordResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
@@ -33,12 +30,10 @@ import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -52,9 +47,6 @@ import java.util.concurrent.TimeUnit;
 public class OrganizationMemberServiceImpl implements OrganizationMemberService {
 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
-    private static final SecureRandom PASSWORD_RANDOM = new SecureRandom();
-    private static final char[] PASSWORD_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
-    private static final int RESET_PASSWORD_LENGTH = 12;
 
 
     private final Clock clock;
@@ -62,8 +54,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final OrganizationMemberMapper organizationMemberMapper;
     private final OTPServiceFactory otpServiceFactory;
 
-    private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
     private final MemberQueryBuilder memberQueryBuilder;
     private final MemberAssembler memberAssembler;
     private final ApplicationReviewHandler applicationReviewHandler;
@@ -170,36 +160,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public OrgMemberResetPasswordResultBO resetMemberPassword(@NonNull OrgMemberResetPasswordParamsBO params) {
-        OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-        User user = userMapper.selectById(member.getUserId());
-        if (user == null) {
-            throw new AppException(ResultCode.USER_NOT_EXIT);
-        }
-
-        String password = generateResetPassword();
-        String encodedPassword = passwordEncoder.encode(password);
-        user.setPassword(encodedPassword);
-        userMapper.update(null, new LambdaUpdateWrapper<User>()
-                .eq(User::getId, user.getId())
-                .set(User::getPassword, encodedPassword)
-                .setSql("auth_version = auth_version + 1"));
-        Long userId = user.getId();
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    sessionService.clearUserSessionCache(userId);
-                }
-            });
-        } else {
-            sessionService.clearUserSessionCache(userId);
-        }
-        return OrgMemberResetPasswordResultBO.builder().password(password).build();
-    }
-
-    @Override
     public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params) {
         OrganizationMember member = organizationMemberMapper.selectById(params.getMemberId());
         if (member == null) {
@@ -231,14 +191,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                         .eq(OrganizationMember::getId, memberId)
                         .set(OrganizationMember::getOrgRole, orgRole)
                         .set(OrganizationMember::getUpdatedAt, LocalDateTime.now(clock)));
-    }
-
-    private String generateResetPassword() {
-        char[] password = new char[RESET_PASSWORD_LENGTH];
-        for (int i = 0; i < password.length; i++) {
-            password[i] = PASSWORD_CHARACTERS[PASSWORD_RANDOM.nextInt(PASSWORD_CHARACTERS.length)];
-        }
-        return new String(password);
     }
 
 }
