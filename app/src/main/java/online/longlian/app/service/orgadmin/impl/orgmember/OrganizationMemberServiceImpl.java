@@ -180,16 +180,12 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
      * 并发请求可能用旧角色把缓存重新填满，而提交后不会再被清第二次。
      */
     private void clearRoleSessionCacheAfterCommit(Long userId) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    sessionService.clearUserSessionCache(userId);
-                }
-            });
-            return;
-        }
-        sessionService.clearUserSessionCache(userId);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sessionService.clearUserSessionCache(userId);
+            }
+        });
     }
 
     @Override
