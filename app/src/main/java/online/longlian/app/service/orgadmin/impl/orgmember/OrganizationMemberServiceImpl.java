@@ -110,43 +110,90 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         }
     }
 
+    /**
+     * 调整成员在当前组织内的角色。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params) {
         OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-        if (InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
-                && InviteConstants.ROLE_ORG_USER.equals(params.getOrgRole())) {
-            DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
-                    "org:member:role:" + params.getOrgId(), 0, TimeUnit.SECONDS);
-            boolean releaseOnCompletion = false;
-            try {
-                if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                        @Override
-                        public void afterCompletion(int status) {
-                            lock.close();
-                        }
-                    });
-                    releaseOnCompletion = true;
-                }
-                member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-                if (InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
-                        && organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getOrgId, params.getOrgId())
-                        .eq(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_ADMIN)
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)) <= 1) {
-                    throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
-                }
-                updateMemberRole(member.getId(), params.getOrgRole());
-            } finally {
-                if (!releaseOnCompletion) {
-                    lock.close();
-                }
-            }
+        if (isDemotingAdmin(member, params)) {
+            demoteAdminWithLock(params);
         } else {
             updateMemberRole(member.getId(), params.getOrgRole());
         }
-        Long userId = member.getUserId();
+        clearRoleSessionCacheAfterCommit(member.getUserId());
+    }
+
+    /**
+     * 只有「管理员 → 普通用户」会减少管理员数量，也只有这条路径需要额外的最后一名管理员校验。
+     */
+    private boolean isDemotingAdmin(OrganizationMember member, OrgMemberChangeRoleParamsBO params) {
+        return InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
+                && InviteConstants.ROLE_ORG_USER.equals(params.getOrgRole());
+    }
+
+    /**
+     * 持锁执行降级，锁必须覆盖「复核 → 更新 → 事务提交」全过程：
+     * 若锁在事务提交前就释放，两个并发降级会各自在未提交的事务里看到多名管理员，
+     * 双双通过校验并提交，最终组织一名启用管理员都不剩。
+     */
+    private void demoteAdminWithLock(OrgMemberChangeRoleParamsBO params) {
+        DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
+                "org:member:role:" + params.getOrgId(), 0, TimeUnit.SECONDS);
+        boolean releaseAfterCompletion = deferLockReleaseUntilCompletion(lock);
+        try {
+            // 等锁期间角色可能已被并发请求改掉，拿锁后必须重读一次再判定
+            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
+            validateNotLastEnabledAdmin(member, params.getOrgId());
+            updateMemberRole(member.getId(), params.getOrgRole());
+        } finally {
+            // 事务存在时由 afterCompletion 负责放锁，这里再关会提前释放
+            if (!releaseAfterCompletion) {
+                lock.close();
+            }
+        }
+    }
+
+    /**
+     * 把锁的释放推迟到事务结束后，返回是否注册成功。
+     * 无事务上下文（如单元测试直接调用）时返回 false，交由调用方立即释放。
+     */
+    private boolean deferLockReleaseUntilCompletion(DistributedLockService.Lock lock) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return false;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                lock.close();
+            }
+        });
+        return true;
+    }
+
+    /**
+     * 组织必须至少保留一名启用状态的管理员，否则成员会失去全部管理入口。
+     */
+    private void validateNotLastEnabledAdmin(OrganizationMember member, Long orgId) {
+        // 复核后已不是管理员（并发场景下被抢先降级），无需再校验数量
+        if (!InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())) {
+            return;
+        }
+        long enabledAdminCount = organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_ADMIN)
+                .eq(OrganizationMember::getStatus, Status.ENABLED));
+        if (enabledAdminCount <= 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
+        }
+    }
+
+    /**
+     * 角色缓存在登录会话里，必须等事务提交后再清：提交前清缓存的话，
+     * 并发请求可能用旧角色把缓存重新填满，而提交后不会再被清第二次。
+     */
+    private void clearRoleSessionCacheAfterCommit(Long userId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -154,9 +201,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                     sessionService.clearUserSessionCache(userId);
                 }
             });
-        } else {
-            sessionService.clearUserSessionCache(userId);
+            return;
         }
+        sessionService.clearUserSessionCache(userId);
     }
 
     @Override
