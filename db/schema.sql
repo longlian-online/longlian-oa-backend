@@ -387,7 +387,6 @@ CREATE TABLE `user` (
   `avatar_file_id` bigint NULL COMMENT "用户头像",
   `default_org_id` bigint NOT NULL DEFAULT 0 COMMENT "默认组织ID",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
-  `auth_version` int NOT NULL DEFAULT 0 COMMENT "认证版本，密码变更后递增以使此前签发的登录凭证失效",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,

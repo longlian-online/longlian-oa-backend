@@ -17,7 +17,6 @@ public class LoginSessionCacheBO {
     private String username;
     private String email;
     private Status status;
-    private Integer authVersion;
     private Long currentOrgId;
     private List<String> roles;
     private List<String> permissions;

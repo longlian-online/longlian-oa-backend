@@ -64,17 +64,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return buildUserDetails(user);
     }
 
-    /**
-     * 读取数据库中的认证版本。登录缓存可能仍是密码变更前的快照，不能用来判断 JWT 是否失效。
-     */
-    public int currentAuthVersion(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null || user.getAuthVersion() == null) {
-            return 0;
-        }
-        return user.getAuthVersion();
-    }
-
     private UserDetailImpl buildUserDetails(User user) {
         CurrentOrganizationContextBO currentOrgContext = currentOrganizationService.resolveCurrentOrgContext(
                 user.getId(),

@@ -14,7 +14,6 @@ import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
-import online.longlian.app.common.security.UserAuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
@@ -101,18 +100,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (strategy == null) {
             throw invalidToken(null);
         }
-        if ("user".equals(type) && strategy instanceof UserAuthenticationStrategy userStrategy) {
-            return userStrategy.authenticate(subjectId, claimAuthVersion(claims));
-        }
         return strategy.authenticate(subjectId);
-    }
-
-    private int claimAuthVersion(Claims claims) {
-        Object raw = claims.get("authVersion");
-        if (raw instanceof Number number) {
-            return number.intValue();
-        }
-        return 0;
     }
 
     private Claims parseClaims(String token) {

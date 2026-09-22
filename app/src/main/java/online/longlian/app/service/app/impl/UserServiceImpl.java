@@ -35,6 +35,7 @@ import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.UserService;
 import online.longlian.common.enumeration.ApplicationStatus;
@@ -42,6 +43,7 @@ import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +72,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
     private final SessionService sessionService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -427,8 +430,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setPassword(encodedPassword);
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, user.getId())
-                .set(User::getPassword, encodedPassword)
-                .setSql("auth_version = auth_version + 1"));
+                .set(User::getPassword, encodedPassword));
+        // 密码一变，此前签发的 token 全部作废；黑名单是鉴权链上的统一校验入口
+        tokenBlacklistService.blacklistAllUserTokens(TokenType.User, user.getId(), "密码变更");
     }
 
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {

@@ -100,8 +100,7 @@ public class SessionServiceImpl implements SessionService {
         UserDetailImpl userDetail = (UserDetailImpl) authentication.getPrincipal();
         Long userId = userDetail.getId();
 
-        Integer authVersion = userDetail.getAuthVersion() == null ? 0 : userDetail.getAuthVersion();
-        String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase(), authVersion);
+        String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase());
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
         currentOrganizationService.refreshCurrentOrgTtl(userId, userDetail.getCurrentOrgId(), sessionTtlSeconds);

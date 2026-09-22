@@ -98,9 +98,9 @@ class TokenRevocationApiTest extends BaseApiTest {
         authRequest(token).get("/admin/admins/").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
-    /** 没有认证版本声明的用户凭证按版本 0 接受，并覆盖令牌辅助方法的失败分支。 */
+    /** 新签发的用户凭证可用，过期或格式非法的令牌一律拒绝。 */
     @Test
-    void shouldAcceptUserTokenWithoutAuthVersionAndRejectUnusableTokens() {
+    void shouldAcceptFreshUserTokenAndRejectUnusableTokens() {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         assertThat(jwt.generateToken(1L)).isNotBlank();
         String token = jwt.generateToken(1L, "user");
