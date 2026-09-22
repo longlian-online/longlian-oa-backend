@@ -173,6 +173,7 @@ public class OrganizationMemberController {
         organizationMemberService.changeMemberStatus(
                 OrgMemberChangeStatusParamsBO.builder()
                         .orgId(sessionContext.orgId())
+                        .operatorUserId(sessionContext.userId())
                         .memberId(memberId)
                         .status(changeStatusDTO.getStatus())
                         .build()
@@ -188,6 +189,7 @@ public class OrganizationMemberController {
         organizationMemberService.changeMemberRole(
                 OrgMemberChangeRoleParamsBO.builder()
                         .orgId(sessionContext.orgId())
+                        .operatorUserId(sessionContext.userId())
                         .memberId(memberId)
                         .orgRole(changeRoleDTO.getOrgRole())
                         .build());

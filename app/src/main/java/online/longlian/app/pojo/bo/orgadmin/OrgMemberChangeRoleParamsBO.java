@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OrgMemberChangeRoleParamsBO {
     private Long orgId;
+    private Long operatorUserId;
     private Long memberId;
     private String orgRole;
 }

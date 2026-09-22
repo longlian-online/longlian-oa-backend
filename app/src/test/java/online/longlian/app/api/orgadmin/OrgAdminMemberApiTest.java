@@ -278,4 +278,37 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 "SELECT org_role FROM organization_member WHERE id = 3", String.class)).isEqualTo("ORG_ADMIN");
     }
 
+    @Test
+    void shouldRejectInvalidRoleRequest() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token).body(Map.of("orgRole", "SUPER_ADMIN"))
+                .patch("/orgadmin/members/2/role")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
+    }
+
+    @Test
+    void shouldRejectOrdinaryMemberChangingRole() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        String token = loginAs("member", "123456");
+
+        authRequest(token).body(Map.of("orgRole", "ORG_ADMIN"))
+                .patch("/orgadmin/members/2/role")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
+    }
+
 }
