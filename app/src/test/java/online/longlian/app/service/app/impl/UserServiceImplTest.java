@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
@@ -11,6 +12,7 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
@@ -21,6 +23,8 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
@@ -28,6 +32,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,12 +40,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +76,10 @@ class UserServiceImplTest {
     private OTPStrategyService emailVerifyService;
     @Mock
     private OTPStrategyService joinInviteService;
+    @Mock
+    private SessionService sessionService;
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
 
     private UserServiceImpl service;
 
@@ -84,7 +96,9 @@ class UserServiceImplTest {
                 userMapper,
                 currentOrganizationService,
                 otpServiceFactory,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                sessionService,
+                tokenBlacklistService
         );
     }
 
@@ -106,7 +120,8 @@ class UserServiceImplTest {
         assertThat(validateCaptor.getValue().getCode()).isEqualTo("A1B2C3");
         assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.FORGOT_PASSWORD);
         assertThat(user.getPassword()).isEqualTo("new-hash");
-        verify(userMapper).updateById(user);
+        assertPasswordUpdatedAndRevokedTokens(1L);
+        verify(sessionService).clearUserSessionCache(1L);
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
 
@@ -124,7 +139,80 @@ class UserServiceImplTest {
 
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
     }
+
+    @Test
+    void shouldChangePasswordWhenOldPasswordMatches() {
+        User user = User.builder().id(1L).password("old-hash").build();
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+
+        service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build());
+
+        assertThat(user.getPassword()).isEqualTo("new-hash");
+        assertPasswordUpdatedAndRevokedTokens(1L);
+        verify(sessionService).clearUserSessionCache(1L);
+        verify(otpServiceFactory, never()).get(any());
+    }
+
+    /** 登录缓存必须等事务提交后再清，否则并发请求会用旧数据把缓存填回。 */
+    @Test
+    void shouldClearLoginCacheOnlyAfterPasswordChangeCommit() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).password("old-hash").build());
+        when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.changePassword(UserChangePasswordParamsBO.builder()
+                    .userId(1L).oldPassword("123456").newPassword("new-password").build());
+
+            verify(sessionService, never()).clearUserSessionCache(anyLong());
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+            verify(sessionService).clearUserSessionCache(1L);
+            verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, 1L, "密码变更");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenUserDoesNotExist() {
+        when(userMapper.selectById(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(userMapper, never()).updateById(any(User.class));
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenOldPasswordDoesNotMatch() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).password("old-hash").build());
+        when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("wrong-password").newPassword("new-password").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("原密码错误")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userMapper, never()).updateById(any(User.class));
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
 
     @Test
     void shouldFailRegisterWhenUsernameAlreadyExists() {
@@ -248,6 +336,15 @@ class UserServiceImplTest {
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+    }
+
+    private void assertPasswordUpdatedAndRevokedTokens(long userId) {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("password");
+        verify(userMapper, never()).updateById(any(User.class));
+        verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
     }
 
     private void stubRegisterValidation() {

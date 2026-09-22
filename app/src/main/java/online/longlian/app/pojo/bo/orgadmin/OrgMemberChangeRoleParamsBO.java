@@ -4,15 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.common.enumeration.Status;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrgMemberChangeStatusParamsBO {
+public class OrgMemberChangeRoleParamsBO {
     private Long orgId;
     private Long operatorUserId;
     private Long memberId;
-    private Status status;
+    private String orgRole;
 }

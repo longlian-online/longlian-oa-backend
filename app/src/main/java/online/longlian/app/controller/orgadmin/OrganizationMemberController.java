@@ -10,6 +10,7 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
@@ -25,6 +26,7 @@ import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgMemberListDTO;
+import online.longlian.app.pojo.dto.orgadmin.OrgMemberChangeRoleDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
@@ -171,10 +173,26 @@ public class OrganizationMemberController {
         organizationMemberService.changeMemberStatus(
                 OrgMemberChangeStatusParamsBO.builder()
                         .orgId(sessionContext.orgId())
+                        .operatorUserId(sessionContext.userId())
                         .memberId(memberId)
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
+    }
+
+    @Operation(summary = "调整成员组织角色")
+    @PatchMapping("/{memberId}/role")
+    @ResponseMessage("角色修改成功")
+    public void changeMemberRole(@UserSession(required = true) SessionContext sessionContext,
+                                 @PathVariable Long memberId,
+                                 @RequestBody @Valid OrgMemberChangeRoleDTO changeRoleDTO) {
+        organizationMemberService.changeMemberRole(
+                OrgMemberChangeRoleParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .operatorUserId(sessionContext.userId())
+                        .memberId(memberId)
+                        .orgRole(changeRoleDTO.getOrgRole())
+                        .build());
     }
 
     @Operation(

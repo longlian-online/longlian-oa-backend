@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
@@ -29,7 +30,11 @@ import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -45,6 +50,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
+
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
@@ -57,6 +63,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final MemberSubmissionHandler memberSubmissionHandler;
     private final LockService lockService;
     private final SessionService sessionService;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -96,14 +103,89 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void changeMemberStatus(@NonNull OrgMemberChangeStatusParamsBO params) {
-        OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-        memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
-        memberStatusHandler.updateMemberStatus(member, params.getStatus());
-        if (params.getStatus() == Status.DISABLED) {
-            sessionService.clearUserSessionCache(member.getUserId());
+        changeMemberUnderLock(params.getOrgId(), () -> {
+            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
+            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
+            memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
+            memberStatusHandler.updateMemberStatus(member, params.getStatus());
+            if (params.getStatus() == Status.DISABLED) {
+                clearRoleSessionCacheAfterCommit(member.getUserId());
+            }
+        });
+    }
+
+    /**
+     * 调整成员在当前组织内的角色。
+     */
+    @Override
+    public void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params) {
+        changeMemberUnderLock(params.getOrgId(), () -> {
+            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
+            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
+            if (isDemotingEnabledAdmin(member, params.getOrgRole())) {
+                validateNotLastEnabledAdmin(params.getOrgId());
+            }
+            updateMemberRole(member.getId(), params.getOrgRole());
+            clearRoleSessionCacheAfterCommit(member.getUserId());
+        });
+    }
+
+    /**
+     * 锁必须先于事务内的首次读取，并保持到事务提交；否则并发请求可能沿用锁前建立的旧快照。
+     */
+    private void changeMemberUnderLock(Long orgId, Runnable mutation) {
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
+                "org:member:role:" + orgId, 0, TimeUnit.SECONDS)) {
+            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            transaction.executeWithoutResult(status -> mutation.run());
         }
+    }
+
+    /**
+     * 入口鉴权可能早于另一管理员的降级操作，修改前必须按数据库中的当前身份重新授权。
+     */
+    private void validateRoleOperator(Long orgId, Long operatorUserId) {
+        OrganizationMember operator = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getUserId, operatorUserId));
+        if (operator == null || operator.getStatus() != Status.ENABLED
+                || !InviteConstants.ROLE_ORG_ADMIN.equals(operator.getOrgRole())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "当前用户无权调整组织成员");
+        }
+    }
+
+    private boolean isDemotingEnabledAdmin(OrganizationMember member, String targetRole) {
+        return InviteConstants.ROLE_ORG_USER.equals(targetRole)
+                && InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
+                && member.getStatus() == Status.ENABLED;
+    }
+
+    /**
+     * 组织必须至少保留一名启用状态的管理员，否则成员会失去全部管理入口。
+     */
+    private void validateNotLastEnabledAdmin(Long orgId) {
+        long enabledAdminCount = organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_ADMIN)
+                .eq(OrganizationMember::getStatus, Status.ENABLED));
+        if (enabledAdminCount <= 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
+        }
+    }
+
+    /**
+     * 角色缓存在登录会话里，必须等事务提交后再清：提交前清缓存的话，
+     * 并发请求可能用旧角色把缓存重新填满，而提交后不会再被清第二次。
+     */
+    private void clearRoleSessionCacheAfterCommit(Long userId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sessionService.clearUserSessionCache(userId);
+            }
+        });
     }
 
     @Override
@@ -131,4 +213,13 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 .expireAt(oneTimePassword.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
                 .build();
     }
+
+    private void updateMemberRole(Long memberId, String orgRole) {
+        organizationMemberMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getId, memberId)
+                        .set(OrganizationMember::getOrgRole, orgRole)
+                        .set(OrganizationMember::getUpdatedAt, LocalDateTime.now(clock)));
+    }
+
 }
