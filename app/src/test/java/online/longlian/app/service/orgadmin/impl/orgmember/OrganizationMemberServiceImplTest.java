@@ -133,6 +133,26 @@ class OrganizationMemberServiceImplTest {
         }
     }
 
+    /**
+     * 等锁期间成员已被并发请求降级，复核后不再是管理员，
+     * 此时直接更新即可，不再统计管理员数量。
+     */
+    @Test
+    void shouldSkipAdminCountCheckWhenMemberIsNoLongerAdminAfterLock() {
+        OrganizationMember admin = member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED);
+        OrganizationMember demoted = member(InviteConstants.ROLE_ORG_USER, Status.ENABLED);
+        DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(admin).thenReturn(demoted);
+        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
+
+        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
+
+        verify(organizationMemberMapper, never()).selectCount(any());
+        verify(organizationMemberMapper).update(eq(null), any());
+        verify(lock).close();
+        verify(sessionService).clearUserSessionCache(20L);
+    }
+
     private OrganizationMember member(String role, Status status) {
         return OrganizationMember.builder().id(2L).orgId(1L).userId(20L).orgRole(role).status(status).build();
     }
