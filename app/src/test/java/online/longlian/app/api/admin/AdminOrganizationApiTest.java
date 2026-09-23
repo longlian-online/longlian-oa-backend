@@ -359,4 +359,17 @@ public class AdminOrganizationApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
+    @Test
+    void shouldRejectCachedOrgAdminAfterOrganizationDisabled() {
+        createAdmin(40L, "root40", "123456", "root");
+        createUserWithOrganization(41L, "owner41", "123456", "owner41@example.com", 41L, 41L, "ORG_OWNER");
+        String rootToken = adminLoginAs("root40", "123456");
+        String ownerToken = loginAs("owner41", "123456");
+
+        authRequest(rootToken).body(Map.of("status", "DISABLED")).patch("/admin/organizations/41/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(ownerToken).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
 }

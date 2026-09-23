@@ -63,6 +63,7 @@ class OrganizationMemberServiceImplTest {
         MybatisConfiguration configuration = new MybatisConfiguration();
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), Organization.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), OrganizationMember.class);
+        lenient().when(organizationMapper.selectById(anyLong())).thenReturn(organization(10L));
         lock = mock(DistributedLockService.Lock.class);
         when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMapper,

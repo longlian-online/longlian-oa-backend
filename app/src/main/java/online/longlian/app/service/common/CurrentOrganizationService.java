@@ -13,4 +13,6 @@ public interface CurrentOrganizationService {
     CurrentOrganizationContextBO resolveCurrentOrgContext(Long userId, Long defaultOrgId);
 
     CurrentOrganizationContextBO switchCurrentOrg(Long userId, Long targetOrgId);
+
+    CurrentOrganizationContextBO requireAccessibleOrgContext(Long userId, Long orgId);
 }

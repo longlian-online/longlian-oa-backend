@@ -45,6 +45,11 @@ public class CurrentOrganizationServiceImpl implements CurrentOrganizationServic
         return toCurrentOrganizationContext(requireAccessibleOrgMember(userId, targetOrgId));
     }
 
+    @Override
+    public CurrentOrganizationContextBO requireAccessibleOrgContext(Long userId, Long orgId) {
+        return toCurrentOrganizationContext(requireAccessibleOrgMember(userId, orgId));
+    }
+
     private OrganizationMember resolveFallbackOrgMember(Long userId, Long defaultOrgId) {
         if (defaultOrgId == null || defaultOrgId <= 0) {
             User user = userMapper.selectById(userId);

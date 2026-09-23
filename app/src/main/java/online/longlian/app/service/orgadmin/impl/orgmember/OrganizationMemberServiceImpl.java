@@ -237,6 +237,10 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     private OrganizationMember requireManager(Long orgId, Long userId) {
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在或已被禁用");
+        }
         OrganizationMember operator = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
                 .eq(OrganizationMember::getOrgId, orgId)
                 .eq(OrganizationMember::getUserId, userId)
