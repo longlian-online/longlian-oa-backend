@@ -90,10 +90,14 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     public void reviewApplication(@NonNull OrgAdminReviewApplicationParamsBO params) {
         String lockKey = "org:application:review:" + params.getApplicationId();
         try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
-            requireManager(params.getOrgId(), params.getReviewerId());
-            GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
-            applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
-                    params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
+            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            transaction.executeWithoutResult(status -> {
+                requireManager(params.getOrgId(), params.getReviewerId());
+                GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
+                applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
+                        params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
+            });
         }
     }
 

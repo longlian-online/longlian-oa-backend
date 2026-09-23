@@ -129,7 +129,7 @@ CREATE TABLE `organization` (
   `description` varchar(500) NULL DEFAULT "" COMMENT "组织简介",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `creator_id` bigint NOT NULL COMMENT "创建人ID（审计字段）",
-  `owner_user_id` bigint NOT NULL COMMENT "当前组织所有者用户ID",
+  `owner_user_id` bigint NULL COMMENT "当前组织所有者用户ID（历史组织回填后收紧为非空）",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
