@@ -87,7 +87,7 @@ class FileStorageControllerTest {
                 && params.getOrgId().equals(6L)
                 && params.getFileName().equals("avatar.png")))).thenReturn(expected);
 
-        assertThat(controller.createFileUpload(request, new SessionContext(5L, 6L))).isSameAs(expected);
+        assertThat(controller.createFileUpload(request, new SessionContext(5L, 6L, "session-1"))).isSameAs(expected);
     }
 
     @Test

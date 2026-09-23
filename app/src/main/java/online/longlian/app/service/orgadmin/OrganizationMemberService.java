@@ -9,6 +9,8 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberRemoveParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberTransferOwnershipParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
@@ -66,6 +68,12 @@ public interface OrganizationMemberService {
      * @param params 包含成员、组织和目标角色的参数
      */
     void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params);
+
+    void removeMember(@NonNull OrgMemberRemoveParamsBO params);
+
+    void exitOrganization(@NonNull OrgMemberRemoveParamsBO params);
+
+    void transferOwnership(@NonNull OrgMemberTransferOwnershipParamsBO params);
 
     /**
      * 查询指定成员在各基础任务上的提交数量统计。

@@ -75,6 +75,9 @@ public class ApplicationReviewHandler {
         if (application == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "入组申请不存在");
         }
+        if (application.getApplicationType() == ApplicationType.REGISTER) {
+            userMapper.deletePhysicallyById(application.getUserId());
+        }
     }
 
     /**

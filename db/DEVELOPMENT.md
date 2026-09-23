@@ -81,6 +81,62 @@ curl -sSf https://atlasgo.sh | sh
 
 生产环境会跳过删除 Schema、表、字段、索引和外键的操作。即使对象已从 `schema.sql` 移除，它们也会继续保留在生产数据库中；需要删除时应走单独、经审核的人工变更流程。
 
+### 组织所有者数据回填（经审核运维操作）
+
+`owner_user_id` 首次新增时保持可空，以便既有组织在线完成结构升级。生产执行 `prod apply` 后，运维必须在同一事务中执行以下回填并审核最终查询结果；发现异常组织时必须 `ROLLBACK`，由业务负责人确定所有者后再处理，禁止任意挑选成员。
+
+```sql
+START TRANSACTION;
+
+-- 优先使用仍为有效成员的创建人；creator_id 仅在此一次性回填中作为候选，不参与之后授权。
+UPDATE organization o
+JOIN organization_member m
+  ON m.org_id = o.id
+ AND m.user_id = o.creator_id
+ AND m.status = 1
+ AND m.deleted_at IS NULL
+SET o.owner_user_id = m.user_id,
+    m.org_role = 'ORG_OWNER'
+WHERE o.owner_user_id IS NULL
+  AND o.deleted_at IS NULL;
+
+-- 创建人不可用时，仅自动处理恰好有一名有效 ORG_ADMIN 的组织。
+UPDATE organization o
+JOIN (
+  SELECT org_id, MIN(user_id) AS owner_user_id
+  FROM organization_member
+  WHERE status = 1
+    AND deleted_at IS NULL
+    AND org_role = 'ORG_ADMIN'
+  GROUP BY org_id
+  HAVING COUNT(*) = 1
+) candidate ON candidate.org_id = o.id
+JOIN organization_member m
+  ON m.org_id = o.id
+ AND m.user_id = candidate.owner_user_id
+ AND m.deleted_at IS NULL
+SET o.owner_user_id = candidate.owner_user_id,
+    m.org_role = 'ORG_OWNER'
+WHERE o.owner_user_id IS NULL
+  AND o.deleted_at IS NULL;
+
+-- 此查询必须返回 0 行，才允许 COMMIT；否则记录待人工处理清单后 ROLLBACK。
+SELECT o.id, o.name, o.creator_id, o.owner_user_id
+FROM organization o
+LEFT JOIN organization_member owner_member
+  ON owner_member.org_id = o.id
+ AND owner_member.user_id = o.owner_user_id
+ AND owner_member.status = 1
+ AND owner_member.deleted_at IS NULL
+WHERE o.deleted_at IS NULL
+  AND (o.owner_user_id IS NULL OR owner_member.id IS NULL OR owner_member.org_role <> 'ORG_OWNER');
+
+-- COMMIT;
+-- ROLLBACK;
+```
+
+所有组织回填且验证完成后，在后续独立 schema 变更中把 `owner_user_id` 收紧为 `NOT NULL`。
+
 ## 命令说明
 
 | 命令 | 说明 |

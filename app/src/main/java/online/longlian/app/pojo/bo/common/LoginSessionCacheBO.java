@@ -13,6 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginSessionCacheBO {
+    private String sessionId;
     private Long userId;
     private String username;
     private String email;

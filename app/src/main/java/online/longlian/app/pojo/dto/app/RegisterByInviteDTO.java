@@ -40,6 +40,6 @@ public class RegisterByInviteDTO {
     @Schema(description = "6位字母或数字邮箱验证码", example = "A1B2C3", requiredMode = Schema.RequiredMode.REQUIRED)
     private String code;
 
-    @Schema(description = "组织名称。仅当邀请码类型为 SUPER_ADMIN_CREATE_ORG 时必填")
+    @Schema(description = "组织名称。仅当使用创建组织邀请码时必填")
     private String orgName;
 }

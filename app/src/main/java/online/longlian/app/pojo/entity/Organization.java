@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since
  */
 @Data
 @Builder
@@ -68,11 +68,18 @@ public class Organization implements Serializable {
     private Status status;
 
     /**
-     * 创建人ID
+     * 创建人ID（审计字段）
      */
     @TableField("creator_id")
-    @ApiModelProperty("创建人ID")
+    @ApiModelProperty("创建人ID（审计字段）")
     private Long creatorId;
+
+    /**
+     * 当前组织所有者用户ID
+     */
+    @TableField("owner_user_id")
+    @ApiModelProperty("当前组织所有者用户ID")
+    private Long ownerUserId;
 
     @TableField("created_at")
     private LocalDateTime createdAt;

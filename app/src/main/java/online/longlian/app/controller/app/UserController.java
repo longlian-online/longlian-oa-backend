@@ -175,7 +175,7 @@ public class UserController {
                         .orgId(orgIdDTO.getOrgId())
                         .build()
         );
-        sessionService.refreshCurrentUserOrg(sessionContext.userId(), resultBO.getId(), resultBO.getRoles());
+        sessionService.refreshCurrentUserOrg(sessionContext.sessionId(), sessionContext.userId(), resultBO.getId(), resultBO.getRoles());
         UserOrgSwitchVO userOrgSwitchVO = new UserOrgSwitchVO();
         BeanUtils.copyProperties(resultBO, userOrgSwitchVO);
         return userOrgSwitchVO;

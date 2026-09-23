@@ -2,6 +2,7 @@ package online.longlian.app.common.constants;
 
 public class InviteConstants {
 
+    public static final String ROLE_ORG_OWNER = "ORG_OWNER";
     public static final String ROLE_ORG_ADMIN = "ORG_ADMIN";
     public static final String ROLE_ORG_USER = "ORG_USER";
 

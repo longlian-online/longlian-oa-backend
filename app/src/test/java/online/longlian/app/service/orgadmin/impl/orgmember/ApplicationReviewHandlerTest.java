@@ -281,4 +281,15 @@ class ApplicationReviewHandlerTest {
                 .doesNotContain("IS NULL");
         verify(organizationJoinOtpMapper).update(isNull(), any());
     }
+    @Test
+    void shouldDeletePendingRegistrationUserWhenApplicationRejected() {
+        GroupApplication app = GroupApplication.builder().id(1L).orgId(10L).userId(5L)
+                .applicationType(ApplicationType.REGISTER).status(ApplicationStatus.PENDING).build();
+
+        handler.review(app, 10L, ApplicationStatus.REJECTED, 2L, "重复注册可重试", LocalDateTime.now(clock));
+
+        verify(userMapper).deletePhysicallyById(5L);
+        verify(groupApplicationMapper).update(isNull(), any());
+    }
+
 }
