@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
 class AdminPrincipalApiTest extends BaseApiTest {
@@ -29,7 +30,7 @@ class AdminPrincipalApiTest extends BaseApiTest {
             Authentication authentication = (Authentication) invocation.callRealMethod();
             captured.set(authentication);
             return authentication;
-        }).when(strategy).authenticate(1L, anyString());
+        }).when(strategy).authenticate(eq(1L), anyString());
 
         authRequest(token).get("/admin/admins/").then()
                 .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
