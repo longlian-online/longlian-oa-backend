@@ -5,12 +5,17 @@ import online.longlian.common.annotation.ModelEnums;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 public class EnumProcessor {
 
@@ -43,18 +48,36 @@ public class EnumProcessor {
 
     private static List<Class<?>> getClasses() throws ClassNotFoundException, IOException {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        String path = EnumProcessor.ENUM_PACKAGE.replace('.', '/');
+        String path = ENUM_PACKAGE.replace('.', '/');
         Enumeration<URL> resources = classLoader.getResources(path);
-        List<File> dirs = new ArrayList<>();
+        Set<String> classNames = new LinkedHashSet<>();
         while (resources.hasMoreElements()) {
             URL resource = resources.nextElement();
-            dirs.add(new File(resource.getFile()));
+            if ("jar".equals(resource.getProtocol())) {
+                collectJarClasses((JarURLConnection) resource.openConnection(), path, classNames);
+            } else {
+                for (Class<?> clazz : findClasses(new File(resource.getFile()), ENUM_PACKAGE)) {
+                    classNames.add(clazz.getName());
+                }
+            }
         }
         List<Class<?>> classes = new ArrayList<>();
-        for (File directory : dirs) {
-            classes.addAll(findClasses(directory, EnumProcessor.ENUM_PACKAGE));
+        for (String className : classNames) {
+            classes.add(Class.forName(className));
         }
         return classes;
+    }
+
+    private static void collectJarClasses(JarURLConnection connection, String path, Set<String> classNames) throws IOException {
+        try (JarFile jarFile = connection.getJarFile()) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries.nextElement().getName();
+                if (name.startsWith(path + "/") && name.endsWith(".class") && !name.contains("$")) {
+                    classNames.add(name.substring(0, name.length() - 6).replace('/', '.'));
+                }
+            }
+        }
     }
 
     private static List<Class<?>> findClasses(File directory, String packageName) throws ClassNotFoundException {

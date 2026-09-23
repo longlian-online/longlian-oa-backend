@@ -33,11 +33,11 @@ class UserAuthenticationStrategyTest {
     void shouldReturnCachedUserWhenEnabled() {
         UserAuthenticationStrategy strategy = createStrategy();
         LoginSessionCacheBO cacheBO = LoginSessionCacheBO.builder()
-                .userId(1L).username("user").status(Status.ENABLED).build();
+                .sessionId("session-1").userId(1L).username("user").status(Status.ENABLED).build();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("login:user:1")).thenReturn(cacheBO);
+        when(valueOperations.get("login:user:session:session-1")).thenReturn(cacheBO);
 
-        Authentication authentication = strategy.authenticate(1L);
+        Authentication authentication = strategy.authenticate(1L, "session-1");
 
         Assertions.assertNotNull(authentication.getPrincipal());
         verifyNoInteractions(userDetailsService);
@@ -47,11 +47,11 @@ class UserAuthenticationStrategyTest {
     void shouldRejectCachedUserWhenDisabled() {
         UserAuthenticationStrategy strategy = createStrategy();
         LoginSessionCacheBO cacheBO = LoginSessionCacheBO.builder()
-                .userId(1L).username("user").status(Status.DISABLED).build();
+                .sessionId("session-1").userId(1L).username("user").status(Status.DISABLED).build();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("login:user:1")).thenReturn(cacheBO);
+        when(valueOperations.get("login:user:session:session-1")).thenReturn(cacheBO);
 
-        Assertions.assertThrows(AppException.class, () -> strategy.authenticate(1L));
+        Assertions.assertThrows(AppException.class, () -> strategy.authenticate(1L, "session-1"));
         verifyNoInteractions(userDetailsService);
     }
 
@@ -60,10 +60,10 @@ class UserAuthenticationStrategyTest {
         UserAuthenticationStrategy strategy = createStrategy();
         UserDetailImpl userDetail = UserDetailImpl.builder().id(1L).username("user").status(Status.ENABLED).build();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("login:user:1")).thenReturn(null);
+        when(valueOperations.get("login:user:session:session-1")).thenReturn(null);
         when(userDetailsService.loadUserById(1L)).thenReturn(userDetail);
 
-        Authentication authentication = strategy.authenticate(1L);
+        Authentication authentication = strategy.authenticate(1L, "session-1");
 
         Assertions.assertSame(userDetail, authentication.getPrincipal());
         verify(userDetailsService).loadUserById(1L);
@@ -74,10 +74,10 @@ class UserAuthenticationStrategyTest {
         UserAuthenticationStrategy strategy = createStrategy();
         UserDetailImpl userDetail = UserDetailImpl.builder().id(1L).username("user").status(Status.DISABLED).build();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("login:user:1")).thenReturn(null);
+        when(valueOperations.get("login:user:session:session-1")).thenReturn(null);
         when(userDetailsService.loadUserById(1L)).thenReturn(userDetail);
 
-        Assertions.assertThrows(AppException.class, () -> strategy.authenticate(1L));
+        Assertions.assertThrows(AppException.class, () -> strategy.authenticate(1L, "session-1"));
     }
 
     @Test
@@ -87,7 +87,7 @@ class UserAuthenticationStrategyTest {
         doThrow(new IllegalStateException("redis unavailable")).when(redisTemplate).opsForValue();
         when(userDetailsService.loadUserById(1L)).thenReturn(userDetail);
 
-        Authentication authentication = strategy.authenticate(1L);
+        Authentication authentication = strategy.authenticate(1L, "session-1");
 
         Assertions.assertSame(userDetail, authentication.getPrincipal());
         verify(userDetailsService).loadUserById(1L);

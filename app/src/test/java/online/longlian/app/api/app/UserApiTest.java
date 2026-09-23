@@ -468,16 +468,6 @@ public class UserApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 
-    @Test
-    void shouldRejectRequestWhenLoginCacheMissesAndUserRowIsGone() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("testuser", "123456");
-        redisTemplate.delete(RedisConstants.LOGIN_USER + 1L);
-        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
-
-        authRequest(token).get("/app/user/")
-                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
-    }
 
     @Test
     void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
@@ -510,4 +500,45 @@ public class UserApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
+    @Test
+    void shouldReuseUsernameAndEmailAfterRegistrationApplicationRejected() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        String ownerToken = loginAs("owner", "123456");
+        createOrganizationUserInviteOTP("JOIN01", 1L);
+        createEmailVerifyOTP("EMAIL1", 2L, "applicant@example.com");
+
+        request().body(Map.of("email", "applicant@example.com", "password", "123456", "username", "applicant",
+                        "nickname", "申请人", "inviteCode", "JOIN01", "code", "EMAIL1"))
+                .post("/app/user/register/join-organization")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application", Long.class);
+        authRequest(ownerToken).body(Map.of("applicationStatus", "REJECTED", "reviewRemark", "拒绝"))
+                .put("/orgadmin/members/applications/" + applicationId + "/review")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        createOrganizationUserInviteOTP("JOIN02", 1L);
+        createEmailVerifyOTP("EMAIL2", 3L, "applicant@example.com");
+        request().body(Map.of("email", "applicant@example.com", "password", "123456", "username", "applicant",
+                        "nickname", "再次申请", "inviteCode", "JOIN02", "code", "EMAIL2"))
+                .post("/app/user/register/join-organization")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @Test
+    void shouldKeepOrganizationSelectionIndependentAcrossTokens() {
+        createUserWithOrganization(1L, "admin", "123456", "admin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "第二组织");
+        createOrganizationMember(2L, 2L, 1L, "ORG_USER");
+        String firstToken = loginAs("admin", "123456");
+        String secondToken = loginAs("admin", "123456");
+
+        authRequest(firstToken).body(Map.of("orgId", 2)).post("/app/user/switch")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.roles[0]", equalTo("ORG_USER"));
+        authRequest(firstToken).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(secondToken).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
 }

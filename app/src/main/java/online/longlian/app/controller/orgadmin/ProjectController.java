@@ -29,7 +29,7 @@ import java.util.List;
 @RequestMapping("/orgadmin/projects")
 @RestController("orgAdminProjectController")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
 public class ProjectController {
 
     private final ProjectService projectService;

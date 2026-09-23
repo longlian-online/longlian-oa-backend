@@ -31,21 +31,27 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
     }
 
     @Override
-    public Authentication authenticate(long subjectId) {
-        UserDetailImpl userDetail = getCachedUserDetail(subjectId);
+    public Authentication authenticate(long subjectId, String sessionId) {
+        UserDetailImpl userDetail = getCachedUserDetail(subjectId, sessionId);
         if (userDetail == null) {
             userDetail = (UserDetailImpl) userDetailsService.loadUserById(subjectId);
+            if (userDetail == null) {
+                throw new AppException(ResultCode.UNAUTHORIZED);
+            }
+            userDetail.setSessionId(sessionId);
         }
-        if (userDetail == null || !userDetail.isEnabled()) {
+        if (!userDetail.isEnabled()) {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
         return new UsernamePasswordAuthenticationToken(userDetail, null, userDetail.getAuthorities());
     }
 
-    private UserDetailImpl getCachedUserDetail(Long userId) {
+    private UserDetailImpl getCachedUserDetail(Long userId, String sessionId) {
         try {
-            Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + userId);
-            if (!(cached instanceof LoginSessionCacheBO sessionCacheBO)) {
+            Object cached = redisTemplate.opsForValue().get(RedisConstants.LOGIN_USER + sessionId);
+            if (!(cached instanceof LoginSessionCacheBO sessionCacheBO)
+                    || !userId.equals(sessionCacheBO.getUserId())
+                    || !sessionId.equals(sessionCacheBO.getSessionId())) {
                 return null;
             }
             return buildUserDetail(sessionCacheBO);
@@ -59,17 +65,13 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
         UserDetailImpl userDetail = new UserDetailImpl();
         BeanUtils.copyProperties(sessionCacheBO, userDetail);
         userDetail.setId(sessionCacheBO.getUserId());
-
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         if (sessionCacheBO.getPermissions() != null) {
-            authorities.addAll(sessionCacheBO.getPermissions().stream()
-                    .map(SimpleGrantedAuthority::new)
-                    .toList());
+            authorities.addAll(sessionCacheBO.getPermissions().stream().map(SimpleGrantedAuthority::new).toList());
         }
         if (sessionCacheBO.getRoles() != null) {
             authorities.addAll(sessionCacheBO.getRoles().stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                    .toList());
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList());
         }
         userDetail.setAuthorities(new ArrayList<>(authorities));
         return userDetail;

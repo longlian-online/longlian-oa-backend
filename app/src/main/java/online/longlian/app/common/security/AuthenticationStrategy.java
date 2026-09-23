@@ -6,5 +6,5 @@ public interface AuthenticationStrategy {
 
     String supportedType();
 
-    Authentication authenticate(long subjectId);
+    Authentication authenticate(long subjectId, String sessionId);
 }

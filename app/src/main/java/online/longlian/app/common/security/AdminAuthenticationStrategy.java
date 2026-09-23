@@ -23,7 +23,7 @@ public class AdminAuthenticationStrategy implements AuthenticationStrategy {
     }
 
     @Override
-    public Authentication authenticate(long subjectId) {
+    public Authentication authenticate(long subjectId, String sessionId) {
         Admin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>()
                         .select(Admin::getId, Admin::getUsername, Admin::getRole)

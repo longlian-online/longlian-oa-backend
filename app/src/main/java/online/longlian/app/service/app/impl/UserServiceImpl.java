@@ -200,29 +200,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params) {
-        currentOrganizationService.switchCurrentOrg(params.getUserId(), params.getOrgId());
-
+        var currentOrgContext = currentOrganizationService.switchCurrentOrg(params.getUserId(), params.getOrgId());
         Organization organization = organizationMapper.selectById(params.getOrgId());
-        OrganizationMember organizationMember = organizationMemberMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getUserId, params.getUserId())
-                        .eq(OrganizationMember::getOrgId, params.getOrgId())
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)
-                        .last("LIMIT 1")
-        );
-
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
             avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
         }
-
         return UserSwitchOrgResultBO.builder()
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .roles(organizationMember == null || organizationMember.getOrgRole() == null
-                        ? List.of()
-                        : List.of(organizationMember.getOrgRole()))
+                .roles(currentOrgContext.getRoles())
                 .build();
     }
 
@@ -238,11 +226,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         LocalDateTime now = LocalDateTime.now(clock);
         User user = createUser(params, now);
-
         Organization organization = Organization.builder()
                 .name(params.getOrgName().trim())
                 .status(Status.ENABLED)
                 .creatorId(user.getId())
+                .ownerUserId(user.getId())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -251,7 +239,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(organization.getId())
                 .userId(user.getId())
-                .orgRole(InviteConstants.ROLE_ORG_ADMIN)
+                .orgRole(InviteConstants.ROLE_ORG_OWNER)
                 .joinedAt(now)
                 .submitCount(0)
                 .status(Status.ENABLED)
@@ -262,15 +250,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         user.setDefaultOrgId(organization.getId());
         userMapper.updateById(user);
-
-        otpServiceFactory.get(OTPType.EmailVerify).use(
-                OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
-        otpServiceFactory.get(OTPType.OrganizationInvite).use(
-                OTPUseContextBO.builder()
-                        .otpId(inviteOtp.getId())
-                        .userId(user.getId())
-                        .orgId(organization.getId())
-                        .build());
+        otpServiceFactory.get(OTPType.EmailVerify).use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+        otpServiceFactory.get(OTPType.OrganizationInvite).use(OTPUseContextBO.builder()
+                .otpId(inviteOtp.getId()).userId(user.getId()).orgId(organization.getId()).build());
     }
 
     @Override

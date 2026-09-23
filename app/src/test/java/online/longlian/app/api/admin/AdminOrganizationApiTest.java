@@ -16,7 +16,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldListOrganizationsSuccessfully() {
-        createAdmin(1L, "superadmin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "superadmin", "123456", "root");
         String token = adminLoginAs("superadmin", "123456");
 
         createOrganization(1L, "测试组织1");
@@ -40,7 +40,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldListOrganizationsWithNameFilter() {
-        createAdmin(2L, "superadmin2", "123456", "SUPER_ADMIN");
+        createAdmin(2L, "superadmin2", "123456", "root");
         String token = adminLoginAs("superadmin2", "123456");
 
         createOrganization(3L, "筛选测试组织");
@@ -61,7 +61,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
     @Test
     void shouldReturnNoOrganizationsForNonmatchingNameFilter() {
-        createAdmin(25L, "superadmin25", "123456", "SUPER_ADMIN");
+        createAdmin(25L, "superadmin25", "123456", "root");
         String token = adminLoginAs("superadmin25", "123456");
         createOrganization(25L, "存在的组织");
 
@@ -84,7 +84,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldGenerateCreateOrgInviteCode() {
-        createAdmin(3L, "superadmin3", "123456", "SUPER_ADMIN");
+        createAdmin(3L, "superadmin3", "123456", "root");
         String token = adminLoginAs("superadmin3", "123456");
 
         Response response = authRequest(token)
@@ -118,7 +118,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldChangeOrgStatusToDisabled() {
-        createAdmin(4L, "superadmin4", "123456", "SUPER_ADMIN");
+        createAdmin(4L, "superadmin4", "123456", "root");
         String token = adminLoginAs("superadmin4", "123456");
 
         createOrganization(5L, "状态测试组织");
@@ -139,7 +139,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldChangeOrgStatusToEnabled() {
-        createAdmin(5L, "superadmin5", "123456", "SUPER_ADMIN");
+        createAdmin(5L, "superadmin5", "123456", "root");
         String token = adminLoginAs("superadmin5", "123456");
 
         createOrganization(6L, "状态测试组织2");
@@ -177,7 +177,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldFailChangeOrgStatusWithUserToken() {
         createUserWithOrganization(30L, "regularuser", "123456", "regular@example.com",
-                30L, 30L, "MEMBER");
+                30L, 30L, "ORG_USER");
         String userToken = loginAs("regularuser", "123456");
         createOrganization(31L, "目标组织");
 
@@ -196,7 +196,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeNonexistentOrgStatus() {
-        createAdmin(6L, "superadmin6", "123456", "SUPER_ADMIN");
+        createAdmin(6L, "superadmin6", "123456", "root");
         String token = adminLoginAs("superadmin6", "123456");
 
         Response response = authRequest(token)
@@ -214,7 +214,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeOrgStatusWithInvalidStatus() {
-        createAdmin(7L, "superadmin7", "123456", "SUPER_ADMIN");
+        createAdmin(7L, "superadmin7", "123456", "root");
         String token = adminLoginAs("superadmin7", "123456");
 
         createOrganization(7L, "测试组织7");
@@ -234,7 +234,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeOrgStatusWithNullStatus() {
-        createAdmin(8L, "superadmin8", "123456", "SUPER_ADMIN");
+        createAdmin(8L, "superadmin8", "123456", "root");
         String token = adminLoginAs("superadmin8", "123456");
 
         createOrganization(8L, "测试组织8");
@@ -257,7 +257,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithInvalidPageNum() {
-        createAdmin(18L, "superadmin18", "123456", "SUPER_ADMIN");
+        createAdmin(18L, "superadmin18", "123456", "root");
         String token = adminLoginAs("superadmin18", "123456");
 
         Response response = authRequest(token)
@@ -273,7 +273,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithNegativePageNum() {
-        createAdmin(19L, "superadmin19", "123456", "SUPER_ADMIN");
+        createAdmin(19L, "superadmin19", "123456", "root");
         String token = adminLoginAs("superadmin19", "123456");
 
         Response response = authRequest(token)
@@ -289,7 +289,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithZeroPageSize() {
-        createAdmin(20L, "superadmin20", "123456", "SUPER_ADMIN");
+        createAdmin(20L, "superadmin20", "123456", "root");
         String token = adminLoginAs("superadmin20", "123456");
 
         Response response = authRequest(token)
@@ -305,7 +305,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithTooLongOrgName() {
-        createAdmin(22L, "superadmin22", "123456", "SUPER_ADMIN");
+        createAdmin(22L, "superadmin22", "123456", "root");
         String token = adminLoginAs("superadmin22", "123456");
 
         Response response = authRequest(token)
@@ -320,7 +320,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldListOrganizationsWithSqlInjectionAttempt() {
-        createAdmin(15L, "superadmin15", "123456", "SUPER_ADMIN");
+        createAdmin(15L, "superadmin15", "123456", "root");
         String token = adminLoginAs("superadmin15", "123456");
 
         createOrganization(15L, "正常组织");
@@ -339,7 +339,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldListOrganizationsWithDefaultPagination() {
-        createAdmin(23L, "superadmin23", "123456", "SUPER_ADMIN");
+        createAdmin(23L, "superadmin23", "123456", "root");
         String token = adminLoginAs("superadmin23", "123456");
 
         Response response = authRequest(token)
@@ -347,4 +347,16 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
         response.then().statusCode(200).body("code", equalTo(0)).body("data.list", notNullValue());
     }
+    @Test
+    void shouldRejectNormalAdminPlatformOrganizationGovernance() {
+        createAdmin(30L, "normaladmin", "123456", "normal");
+        createOrganization(30L, "目标组织");
+        String token = adminLoginAs("normaladmin", "123456");
+
+        authRequest(token).post("/admin/organizations/invite-codes/create-org")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(token).body(Map.of("status", "DISABLED")).patch("/admin/organizations/30/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
 }
