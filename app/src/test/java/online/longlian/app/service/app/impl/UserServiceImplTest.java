@@ -112,7 +112,7 @@ class UserServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(user);
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
 
-        service.resetPassword(params);
+        runWithTransactionCommit(() -> service.resetPassword(params));
 
         ArgumentCaptor<OTPValidateContextBO> validateCaptor = ArgumentCaptor.forClass(OTPValidateContextBO.class);
         verify(emailVerifyService).getValid(validateCaptor.capture());
@@ -150,8 +150,8 @@ class UserServiceImplTest {
         when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
 
-        service.changePassword(UserChangePasswordParamsBO.builder()
-                .userId(1L).oldPassword("123456").newPassword("new-password").build());
+        runWithTransactionCommit(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build()));
 
         assertThat(user.getPassword()).isEqualTo("new-hash");
         assertPasswordUpdatedAndRevokedTokens(1L);
@@ -345,6 +345,17 @@ class UserServiceImplTest {
         assertThat(captor.getValue().getSqlSet()).contains("password");
         verify(userMapper, never()).updateById(any(User.class));
         verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
+    }
+
+    private void runWithTransactionCommit(Runnable action) {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            action.run();
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     private void stubRegisterValidation() {

@@ -27,6 +27,8 @@
 1. Service 层入参和出参须使用 BO 类，入参：XXXXParamsBO,出参：XXXXResultBO
 2. Service 层方法应保持环境无关性。凡涉及用户会话信息（如 userId、orgId），应通过方法参数显式传递，严禁在 Service 内部直接访问 ThreadLocal 或 Session 上下文。此举旨在确保业务逻辑在 Controller、定时任务 (Cron)、消息处理 (MQ) 及单元测试 等多场景下的高度可复用性。
 3. 以 MySQL 作为唯一可靠数据源，Redis 仅做性能缓存加速，查询时优先走 Redis，一旦缓存查询异常、超时或宕机则自动降级直查 MySQL，保证业务不受缓存故障影响。
+4. 依赖事务提交后执行的缓存失效、通知发送等操作，调用链已明确保证事务同步时应直接注册 `afterCommit` 回调；禁止增加“无事务则立即执行”的兜底分支。缺少事务属于调用约束被破坏，应快速失败，避免产生与正常路径不同的提交、回滚语义。
+5. 仅当组件的明确职责包含“既可加入现有事务，也可独立调用”时，才允许处理无事务场景；此时必须显式建立事务并测试两种调用路径。
 
 ## Mapper
 1. 数据库操作调用 Mapper 方法操作（参考https://baomidou.com/guides/data-interface/#mapper-interface），以 Lambda 操作优先，以保证类型安全
