@@ -1,0 +1,9 @@
+# =============================================================================
+# longlian-oa 专属命名空间
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: longlian-oa
+  labels:
+    app.kubernetes.io/part-of: longlian-oa

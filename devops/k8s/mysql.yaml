@@ -1,0 +1,132 @@
+# =============================================================================
+# 集群内 MySQL 8.0（默认全量部署，与 docker-compose.dev.yml 的 mysql-dev 等价）
+#
+# 初始化（仅数据卷为空时执行一次）：
+#   - 镜像 entrypoint 创建业务库 longlian_oa（由 MYSQL_DATABASE 指定）
+#   - 挂载的 mysql-init.sql（Secret longlian-oa-config 的 key）创建应用账号
+#     longlian、Atlas 影子库 longlian_oa_atlas 并授权
+#
+# 说明：
+#   - 应用账号与 root 分离；应用/迁移连接走 longlian。
+#   - 不想用集群内 MySQL（已有外部实例）时：删除本文件与 kustomization.yaml
+#     中对应条目，并把 Secret 的 spring.datasource 改回外部地址。
+#   - MySQL 官方镜像默认以 mysql 用户运行（uid/gid 999），fsGroup 保证
+#     持久卷可写；Recreate 策略避免新旧实例同时写同一份数据目录。
+#   - 备份：kubectl exec -it deploy/mysql -n longlian-oa -- \
+#       mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" longlian_oa
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data-pvc
+  namespace: longlian-oa
+  labels:
+    app: mysql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: longlian-oa
+  labels:
+    app: mysql
+spec:
+  # 单实例数据库：滚动更新会造成双写，必须 Recreate
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      securityContext:
+        # MySQL 官方镜像内 mysql 用户 uid/gid 均为 999；
+        # fsGroup 让新 PVC 根目录归属组可写（kubelet 会自动 chown）
+        fsGroup: 999
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_0900_ai_ci
+            - --default-time-zone=+08:00
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: longlian-oa-config
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: longlian_oa
+          ports:
+            - name: mysql
+              containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+            initialDelaySeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-data-pvc
+        - name: mysql-init
+          secret:
+            secretName: longlian-oa-config
+            items:
+              - key: mysql-init.sql
+                path: init.sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: longlian-oa
+  labels:
+    app: mysql
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
