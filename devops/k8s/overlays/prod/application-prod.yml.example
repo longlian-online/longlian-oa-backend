@@ -1,0 +1,119 @@
+# =============================================================================
+# 生产配置模板（overlays/prod）
+#
+# 使用：复制为同目录 application-prod.yml 后填写真实值。
+# application-prod.yml 已被 .gitignore 忽略，不会提交到仓库，也不会被 git pull 覆盖。
+#
+# 注意：
+#   - spring.datasource.password 必须与 mysql-init.sql 中 IDENTIFIED BY 的密码一致
+#   - jwt.secret 必须换成 ≥32 字节的高强度随机串
+#   - mysql-init.sql 只在 MySQL 数据卷首次初始化时执行
+# =============================================================================
+# longlian-oa 生产配置（存放于 k8s Secret: longlian-oa-config）
+server:
+  shutdown: graceful
+
+longlian:
+  display-name: "longlian-oa"
+  datasource:
+    type: mysql
+  cache:
+    type: redis
+
+spring:
+  application:
+    name: longlian-oa
+  profiles:
+    active: prod
+  main:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    # 集群内 MySQL（见 base/mysql.yaml）；mysql-init.sql 会创建 longlian 账号
+    url: jdbc:mysql://mysql:3306/longlian_oa?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    username: longlian
+    # 必须与 mysql-init.sql 中 IDENTIFIED BY 的密码一致
+    password: CHANGE_ME_DB_PASSWORD
+
+  data:
+    redis:
+      # 集群内 Redis（见 base/redis.yaml）
+      host: redis
+      port: 6379
+      # 集群内 Redis 默认不设密码（仅集群网络可达），如启用密码需同时改 Redis args
+      password: ""
+      database: 1
+  mail:
+    host: ""
+    username: ""
+    password: ""
+    # 465 配 ssl.enable=true；587 配 starttls.enable=true
+    port: 465
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: false
+          ssl:
+            enable: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deletedAt
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
+
+debug: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    enabled: false
+  api-docs:
+    enabled: false
+
+storage:
+  # LOCAL | OSS | COS
+  type: LOCAL
+  local:
+    base-url: ""
+    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
+    read-url-ttl-seconds: 300
+    directory: /app/data/storage
+  oss:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    base-url: ""
+  cos:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    url-prefix: ""
+
+cors:
+  # 必须包含前端实际 Origin（Ingress 域名或 CDN 域名）
+  allowed-origins: https://oa.longlian.online
+
+notify:
+  type: EMAIL
+  email:
+    template:
+      path: classpath:templates/verify-code.html
+
+jwt:
+  # HS256 至少 32 字节。生产必须换成高强度随机串，泄露等于可伪造登录
+  secret: CHANGE_ME_JWT_SECRET_AT_LEAST_32_BYTES_LONG_RANDOM_STRING
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer

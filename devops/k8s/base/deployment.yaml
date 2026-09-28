@@ -1,0 +1,126 @@
+# =============================================================================
+# longlian-oa 应用 Deployment
+#
+# 与 docker-compose.prod.yml 中 longlian-oa 服务等价：
+#   - 配置：Secret longlian-oa-config 挂载为 /app/config/application.yml
+#   - 存储：PVC storage-pvc 挂载为 /app/data/storage（storage.type=LOCAL 时）
+#
+# 副本数：
+#   - 默认 1（LOCAL 存储 + ReadWriteOnce PVC 只能挂一个节点）。
+#   - 多副本前先做存储改造（OSS/COS 或 RWX 卷，见 storage.yaml），
+#     再上调 replicas；缓存配置 longlian.cache.type=redis 已支持多实例。
+#
+# 探针：
+#   - /actuator/health 不在 SecurityConstants 免鉴权白名单内，会返回 401，
+#     因此用 TCP 探针探测 8080 端口（Tomcat 监听后即视为就绪）。
+#     若后续放开 actuator 的 health 访问，可改为 HTTP 探针。
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: longlian-oa
+  namespace: longlian-oa
+  labels:
+    app: longlian-oa
+spec:
+  replicas: 1
+  strategy:
+    # 滚动更新：先起新 Pod 再撤旧 Pod，避免单副本期间出现空窗
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: longlian-oa
+  template:
+    metadata:
+      labels:
+        app: longlian-oa
+    spec:
+      # 大于应用优雅停机上限（lifecycle.timeout-per-shutdown-phase: 30s），
+      # 留出 SIGTERM 后等待存量请求结束的时间
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        # 镜像内以非 root appuser 运行（见 devops/Dockerfile）
+        runAsNonRoot: true
+        # 让 PVC 根目录归属组可写（kubelet 会 chown 卷根目录到该 GID 并把
+        # 该组注入容器补充组）。若存储卷仍不可写，请 exec 查看容器内
+        # `id appuser` 的实际 GID 并同步调整。
+        fsGroup: 100
+      containers:
+        - name: longlian-oa
+          # 发布版本对应镜像 tag：v1.2.3 → :1.2.3；非预发布同时打 :latest
+          # （见 .github/workflows/publish-docker.yml）
+          image: ghcr.io/longlian-online/longlian-oa-backend:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # 与数据库 serverTimezone=Asia/Shanghai 保持一致
+            - name: TZ
+              value: Asia/Shanghai
+            # ----- OpenTelemetry（发布镜像已内置 agent）-----
+            # 不需要链路追踪时，删除 JAVA_TOOL_OPTIONS 与 OTEL_* 整段即可；
+            # 使用不含 agent 的镜像时，Dockerfile ENTRYPOINT 会自动剔除
+            # -javaagent 参数，不会导致 JVM 启动失败
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/app/opentelemetry-javaagent.jar"
+            - name: OTEL_SERVICE_NAME
+              value: longlian-oa
+            # 按集群内实际 collector 地址修改（示例：observability 命名空间的
+            # otel-collector 服务）
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability:4317
+            - name: OTEL_TRACES_SAMPLER
+              value: traceidratio
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.5"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=prod
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config/application.yml
+              subPath: application-prod.yml
+              readOnly: true
+            - name: storage
+              mountPath: /app/data/storage
+          startupProbe:
+            # Spring Boot + Druid 冷启动较慢（含 DB/Redis 连接初始化），
+            # 5s × 40 = 200s 启动预算；成功后探针自动失效
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            # 与镜像默认 JVM 参数（-Xms256m -Xmx512m）配套；
+            # 增大副本或并发前先评估 heap 设置（可用 JAVA_OPTS 覆盖）
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: app-config
+          secret:
+            secretName: longlian-oa-config
+            items:
+              - key: application-prod.yml
+                path: application-prod.yml
+        - name: storage
+          persistentVolumeClaim:
+            claimName: storage-pvc
