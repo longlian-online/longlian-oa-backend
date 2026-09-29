@@ -30,6 +30,8 @@ spring:
   profiles:
     active: prod
   main:
+    # 现有部分 Bean 存在环依赖，关闭会导致启动失败
+    allow-circular-references: true
   lifecycle:
     timeout-per-shutdown-phase: 30s
 

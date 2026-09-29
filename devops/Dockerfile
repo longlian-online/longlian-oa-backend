@@ -32,8 +32,9 @@ RUN mvn package -Dmaven.test.skip=true -B -pl app -am
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
-# 创建非 root 用户，并提前准备持久化目录的写权限
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
+# 创建非 root 用户，并提前准备持久化目录的写权限。
+# 固定 uid/gid：k8s runAsNonRoot 只能校验数字 UID（USER appuser 会被拒绝）。
+RUN addgroup -S -g 101 appgroup && adduser -S -u 100 -G appgroup appuser && \
     mkdir -p /app/data/storage && chown -R appuser:appgroup /app/data
 
 # 从构建阶段复制打好的 jar 包
@@ -48,7 +49,7 @@ ENV JAVA_OPTS="-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
 EXPOSE 8080
 
 # 切换到非 root 用户
-USER appuser
+USER 100
 
 # 启动命令（agent 文件不存在时自动剔除 -javaagent 参数，避免 JVM 启动失败）
 ENTRYPOINT ["sh", "-c", "if [ ! -f /app/opentelemetry-javaagent.jar ] && [ -n \"$JAVA_TOOL_OPTIONS\" ]; then export JAVA_TOOL_OPTIONS=$(echo \"$JAVA_TOOL_OPTIONS\" | sed 's/-javaagent:[^ ]* *//g'); fi; exec java $JAVA_OPTS -jar /app/app.jar"]

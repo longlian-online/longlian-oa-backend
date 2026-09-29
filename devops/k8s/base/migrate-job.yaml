@@ -2,7 +2,7 @@
 # longlian-oa 数据库迁移 Job（Atlas 声明式同步）
 #
 # 对应 docker-compose.prod.yml 中 migrate 服务：
-#   - 镜像 ghcr.io/longlian-online/longlian-oa-backend:migration-latest
+#   - 镜像 docker.cnb.cool/longlian.online/longlian-oa-backend:migration-latest
 #   - 从挂载的 /app/config/application.yml 的 spring.datasource 推导 DB_URL
 #   - 在同一 MySQL 实例自动创建 {db}_atlas 影子库（需 CREATE DATABASE 权限，
 #     没有该权限时先预建影子库并在本 Job 设置 DEV_DB_URL 环境变量）
@@ -10,7 +10,7 @@
 # 发布新版本（有 schema 变更）时重跑本 Job：
 #   kubectl delete job migrate -n longlian-oa --ignore-not-found
 #   # 把 image tag 改为对应版本（如 1.2.3-migration）
-#   kubectl apply -k devops/k8s
+#   kubectl apply -k devops/k8s/overlays/prod
 #   kubectl wait --for=condition=complete job/migrate -n longlian-oa --timeout=300s
 # =============================================================================
 apiVersion: batch/v1
@@ -34,13 +34,16 @@ spec:
     spec:
       restartPolicy: OnFailure
       securityContext:
-        # 镜像内以非 root 的 appuser 运行（见 devops/Dockerfile.migration）
+        # kubelet 校验 runAsNonRoot 要求数字 UID；镜像 USER 是 appuser
+        # （alpine:3.20: uid=998 gid=998，见 devops/Dockerfile.migration）
         runAsNonRoot: true
+        runAsUser: 998
+        runAsGroup: 998
       containers:
         - name: migrate
           # 迁移镜像 tag 与发布版本对应：v1.2.3 → :1.2.3-migration，
           # 非预发布同时打 :migration-latest（见 .github/workflows/publish-docker.yml）
-          image: ghcr.io/longlian-online/longlian-oa-backend:migration-latest
+          image: docker.cnb.cool/longlian.online/longlian-oa-backend:migration-latest
           args: ["prod", "apply"]
           volumeMounts:
             - name: app-config

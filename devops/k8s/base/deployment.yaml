@@ -42,17 +42,19 @@ spec:
       # 留出 SIGTERM 后等待存量请求结束的时间
       terminationGracePeriodSeconds: 60
       securityContext:
-        # 镜像内以非 root appuser 运行（见 devops/Dockerfile）
+        # kubelet 校验 runAsNonRoot 要求数字 UID；镜像 USER 是 appuser
+        # （eclipse-temurin alpine: uid=100 gid=101，见 devops/Dockerfile）
         runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
         # 让 PVC 根目录归属组可写（kubelet 会 chown 卷根目录到该 GID 并把
-        # 该组注入容器补充组）。若存储卷仍不可写，请 exec 查看容器内
-        # `id appuser` 的实际 GID 并同步调整。
-        fsGroup: 100
+        # 该组注入容器补充组）
+        fsGroup: 101
       containers:
         - name: longlian-oa
           # 发布版本对应镜像 tag：v1.2.3 → :1.2.3；非预发布同时打 :latest
-          # （见 .github/workflows/publish-docker.yml）
-          image: ghcr.io/longlian-online/longlian-oa-backend:latest
+          # （见 .github/workflows/publish-docker.yml，推送到 docker.cnb.cool）
+          image: docker.cnb.cool/longlian.online/longlian-oa-backend:latest
           ports:
             - name: http
               containerPort: 8080

@@ -74,7 +74,7 @@ migrate Job（prod apply，读同一份配置，先于/伴随应用执行）
 ## 部署前置条件
 
 1. 可用的 k8s 集群与 `kubectl`（命名空间内资源 + Secret 权限）。
-2. 镜像已发布：`ghcr.io/longlian-online/longlian-oa-backend`
+2. 镜像已发布：`docker.cnb.cool/longlian.online/longlian-oa-backend`
    （应用 `:latest` / `:1.2.3`；迁移 `:migration-latest` / `:1.2.3-migration`，
    由 `.github/workflows/publish-docker.yml` 在打 tag 时推送）。
 3. 服务器有 git 访问权限（用于拉取仓库更新）。
@@ -152,7 +152,7 @@ kubectl apply -k devops/k8s/overlays/prod
 
 ```bash
 kubectl set image deployment/longlian-oa \
-  longlian-oa=ghcr.io/longlian-online/longlian-oa-backend:1.2.3 -n longlian-oa
+  longlian-oa=docker.cnb.cool/longlian.online/longlian-oa-backend:1.2.3 -n longlian-oa
 kubectl rollout status deployment/longlian-oa -n longlian-oa
 ```
 
@@ -166,7 +166,7 @@ kubectl apply -k devops/k8s/overlays/prod
 # 2. 等迁移成功后再滚动应用
 kubectl wait --for=condition=complete job/migrate -n longlian-oa --timeout=300s
 kubectl set image deployment/longlian-oa \
-  longlian-oa=ghcr.io/longlian-online/longlian-oa-backend:1.2.3 -n longlian-oa
+  longlian-oa=docker.cnb.cool/longlian.online/longlian-oa-backend:1.2.3 -n longlian-oa
 ```
 
 > 生产迁移是声明式同步，`atlas.hcl` 的 `prod` 环境跳过删除表/字段等危险操作；
@@ -254,6 +254,8 @@ kubectl exec -it deploy/mysql -n longlian-oa -- \
 | 问题 | 处理 |
 |---|---|
 | 迁移 Job 失败 | `kubectl logs job/migrate -n longlian-oa` 查看。全量部署时常见原因：MySQL 尚未就绪（等 Job 自动重试即可）；外部模式则需给账号 `CREATE DATABASE` 权限或预建影子库 + `DEV_DB_URL` |
+| Job `spec.template` field is immutable | Job 模板不可变。改镜像或 securityContext 后必须先 `kubectl delete job migrate -n longlian-oa --ignore-not-found` 再 `kubectl apply -k devops/k8s/overlays/prod` |
+| CreateContainerConfigError / runAsNonRoot | 镜像 USER 是名字 `appuser` 时 kubelet 无法校验非 root。Deployment 需 `runAsUser: 100`/`runAsGroup: 101`，migrate Job 需 `runAsUser: 998`/`runAsGroup: 998` |
 | 应用 CrashLoopBackOff | `kubectl logs deploy/longlian-oa -n longlian-oa` 查看。常见原因：本地配置仍是占位值、DB/Redis 密码不一致、邮箱未配置（`notify.type` 可临时改 `NOOP`） |
 | 修改数据库密码不生效 | `mysql-init.sql` 只在数据卷首次初始化时执行；`kubectl exec` 进去手动 `ALTER USER 'longlian'@'%' IDENTIFIED BY '新密码'`，同时同步本地两个文件 |
 | MySQL root 密码带换行 | `mysql-root-password` 文件末尾不能有换行（kustomize 原样读入），用 `printf 'xxx' > mysql-root-password` 写入 |
@@ -261,7 +263,7 @@ kubectl exec -it deploy/mysql -n longlian-oa -- \
 | PVC `Pending` | 集群无默认 StorageClass；在对应 PVC 指定 `storageClassName` 或由管理员预建 PV |
 | IngressRoute apply 报 CRD 不存在 | 集群未部署 Traefik；注释掉 `overlays/prod/kustomization.yaml` 的 ingress 引用或先部署 Traefik 再 apply |
 | 为什么探针用 TCP 而不是 `/actuator/health` | `/actuator/**` 不在 `SecurityConstants` 免鉴权白名单，健康检查会返回 401；后续若放开可改 HTTP 探针 |
-| 镜像拉取失败 | ghcr.io 公共镜像无需凭据；若为私有仓库，需要为 `longlian-oa` 命名空间配置 `imagePullSecret` 并加到 Deployment 的 `imagePullSecrets` |
+| 镜像拉取失败 | docker.cnb.cool 私有制品库需凭据：为 `longlian-oa` 命名空间创建 `imagePullSecret`（`docker login docker.cnb.cool -u cnb -p $CNB_TOKEN`），并加到 Deployment / Job 的 `imagePullSecrets` |
 | 旧的 Secret 残留 | kustomize 内容哈希会生成新 Secret 名，旧 Secret 不会自动删除：`kubectl get secrets -n longlian-oa` 确认后手动清理 |
 | Redis 未设密码是否安全 | 仅集群网络可达；如需鉴权，Redis args 加 `--requirepass` 并从 Secret 注入，同时改应用配置的密码 |
 | 删除整个部署 | `kubectl delete -k devops/k8s/overlays/prod`（所有 Secret、PVC 会一并删除，注意先备份 MySQL 数据与上传文件） |
