@@ -29,6 +29,6 @@ public class HeartbeatTask implements ScheduledTask {
 
     @Override
     public void execute(LocalDateTime executeTime) {
-        log.info("心跳检测 | executeTime={}", executeTime);
+        log.info("已完成定时任务调度链路心跳检测 | 业务执行时间={}", executeTime);
     }
 }
