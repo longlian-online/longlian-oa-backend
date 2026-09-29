@@ -47,7 +47,7 @@ spring:
 
   # MariaDB。仅 longlian.datasource.type=mariadb 时生效
   datasource:
-    url: jdbc:mariadb://localhost:10001/longlian_oa_dev?sslMode=disable&timezone=%2B08:00
+    url: jdbc:mariadb://localhost:10001/longlian_oa_dev?sslMode=disable&timezone=+08:00
     username: root
     password: dev
 

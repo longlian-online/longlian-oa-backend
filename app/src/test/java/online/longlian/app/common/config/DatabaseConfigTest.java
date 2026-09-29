@@ -4,6 +4,7 @@ import com.alibaba.druid.pool.DruidDataSource;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
+import org.mariadb.jdbc.Configuration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
@@ -12,16 +13,19 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DatabaseConfigTest {
 
     /** 已提交的运行模板必须显式选择 MariaDB，避免环境间仍使用旧 MySQL 协议。 */
     @Test
-    void shouldUseMariaDbInApplicationConfigurations() throws IOException {
+    void shouldUseMariaDbInApplicationConfigurations() throws IOException, SQLException {
         for (String resource : new String[]{"application.yml.example", "application-test.yml"}) {
             List<PropertySource<?>> sources = new YamlPropertySourceLoader()
                     .load(resource, new ClassPathResource(resource));
@@ -29,8 +33,14 @@ class DatabaseConfigTest {
             assertThat(sources).isNotEmpty();
             PropertySource<?> source = sources.getFirst();
             assertThat(source.getProperty("longlian.datasource.type")).isEqualTo("mariadb");
-            assertThat(source.getProperty("spring.datasource.url").toString())
-                    .startsWith("jdbc:mariadb://");
+            String jdbcUrl = source.getProperty("spring.datasource.url").toString();
+            assertThat(jdbcUrl)
+                    .startsWith("jdbc:mariadb://")
+                    .contains("timezone=+08:00")
+                    .doesNotContain("timezone=%2B08:00");
+            String timezone = Configuration.parse(jdbcUrl).timezone();
+            assertThat(timezone).isEqualTo("+08:00");
+            assertThatCode(() -> ZoneId.of(timezone)).doesNotThrowAnyException();
         }
     }
 

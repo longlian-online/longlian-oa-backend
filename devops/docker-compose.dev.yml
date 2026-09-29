@@ -71,7 +71,7 @@ services:
       - local_storage_data:/app/data/storage
     environment:
       # 覆盖基础配置中的 localhost:10001/10002，改走 compose 网络
-      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb-dev:3306/longlian_oa_dev?sslMode=disable&timezone=%2B08:00
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb-dev:3306/longlian_oa_dev?sslMode=disable&timezone=+08:00
       SPRING_DATA_REDIS_HOST: redis-dev
       SPRING_DATA_REDIS_PORT: "6379"
       STORAGE_LOCAL_DIRECTORY: /app/data/storage

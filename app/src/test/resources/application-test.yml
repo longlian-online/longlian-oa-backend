@@ -24,7 +24,7 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
   datasource:
-    url: jdbc:mariadb://mariadb-test:3306/longlian_oa_test?sslMode=disable&timezone=%2B08:00
+    url: jdbc:mariadb://mariadb-test:3306/longlian_oa_test?sslMode=disable&timezone=+08:00
     username: root
     password: testpass
   sql:
