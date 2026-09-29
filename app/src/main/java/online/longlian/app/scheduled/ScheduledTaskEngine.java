@@ -307,6 +307,10 @@ public class ScheduledTaskEngine implements SmartLifecycle {
                 throw new IllegalStateException("定时任务注册失败：必须填写中文任务描述，任务标识="
                         + definition.getTaskName());
             }
+            if (!containsChineseCharacter(definition.getDescription())) {
+                throw new IllegalStateException("定时任务注册失败：任务描述必须包含中文字符，任务标识="
+                        + definition.getTaskName());
+            }
             TaskRegistration registration = new TaskRegistration(entry.getValue(), definition);
             if (registrations.putIfAbsent(definition.getTaskName(), registration) != null) {
                 throw new IllegalStateException("定时任务注册失败：任务标识重复，任务标识="
@@ -314,6 +318,11 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             }
         }
         return registrations;
+    }
+
+    private static boolean containsChineseCharacter(String description) {
+        return description.codePoints()
+                .anyMatch(codePoint -> Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN);
     }
 
     private String registeredTaskLabel(String taskName) {
