@@ -4,7 +4,7 @@ version: '3'
 
 tasks:
   dev:
-    desc: "一键启动开发环境（MySQL + Redis + 迁移 + 种子数据 + 应用）"
+    desc: "一键启动开发环境（MariaDB + Redis + 迁移 + 种子数据 + 应用）"
     cmds:
       - test -f app/src/main/resources/application.yml || cp app/src/main/resources/application.yml.example app/src/main/resources/application.yml
       - docker compose -f devops/docker-compose.dev.yml up --build -d
@@ -26,7 +26,7 @@ tasks:
     cmd: docker compose -f devops/docker-compose.dev.yml down -v
 
   prod:
-    desc: "启动生产环境（迁移 + 后端 + VictoriaLogs，依赖外部 MySQL/Redis）"
+    desc: "启动生产环境（迁移 + 后端 + VictoriaLogs，依赖外部 MariaDB/Redis）"
     cmds:
       - test -f devops/application-prod.yml || (echo "缺少 devops/application-prod.yml，请复制 devops/application-prod.yml.example 并填写" && exit 1)
       - mkdir -p devops/data/storage devops/data/victorialogs && chmod 1777 devops/data/storage
@@ -37,7 +37,7 @@ tasks:
     cmd: docker compose -f devops/docker-compose.prod.yml down
 
   test-docker:
-    desc: "在 Docker 中运行全部测试（自动启动 MySQL + Redis）"
+    desc: "在 Docker 中运行全部测试（自动启动 MariaDB + Redis）"
     cmd: |
       docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
 

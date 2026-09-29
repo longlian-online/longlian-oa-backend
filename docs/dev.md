@@ -16,9 +16,9 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 2. 按本机环境改数据库、Redis、JWT、邮件等。每个字段的含义和取值见模板内注释。
 
-Docker 一键开发环境（`task dev`）挂载本地 `application.yml`，再挂载 `application-dev.yml` 作为开发 profile 覆盖；Spring Boot 按属性优先级合并二者，并用 Compose 环境变量把 MySQL/Redis 指到容器服务名。
+Docker 一键开发环境（`task dev`）挂载本地 `application.yml`，再挂载 `application-dev.yml` 作为开发 profile 覆盖；Spring Boot 按属性优先级合并二者，并用 Compose 环境变量把 MariaDB/Redis 指到容器服务名。
 
-生产（`task prod`）部署迁移、后端和 VictoriaLogs，MySQL/Redis 用外部实例：
+生产（`task prod`）部署迁移、后端和 VictoriaLogs，MariaDB/Redis 用外部实例：
 
 ```
 cp devops/application-prod.yml.example devops/application-prod.yml
@@ -82,4 +82,4 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 
 2. 当表结构发生变动时，由于默认不覆盖旧代码，所以需要删除原有的 entity 文件夹（或对应的实体类代码文件），重新生成即可，其他代码不受影响
 
-3. 数据库中枚举统一使用 TINYINT 类型，生成代码前，应在 app\src\main\java\online\longlian\app\common\enumeration 中定义枚举类型，并使用 ModelEnum 注解声明对应的表和字段，以便代码生成器为枚举字段生成正确的类型声明 
+3. 数据库中枚举统一使用 TINYINT 类型，生成代码前，应在 app\src\main\java\online\longlian\app\common\enumeration 中定义枚举类型，并使用 ModelEnum 注解声明对应的表和字段，以便代码生成器为枚举字段生成正确的类型声明
