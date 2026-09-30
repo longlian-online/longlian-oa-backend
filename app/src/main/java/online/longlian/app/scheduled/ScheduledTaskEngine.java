@@ -60,11 +60,6 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     private final Map<String, ScheduledTask> taskMap = new ConcurrentHashMap<>();
 
     /**
-     * 注册时校验通过的任务定义，避免运行期间重复构造或读取发生变化的定义。
-     */
-    private final Map<String, ScheduledTaskDefinition> definitionMap = new ConcurrentHashMap<>();
-
-    /**
      * SmartLifecycle 运行状态
      */
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -97,7 +92,6 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             ScheduledTask task = registration.task();
             ScheduledTaskDefinition def = registration.definition();
             taskMap.put(def.getTaskName(), task);
-            definitionMap.put(def.getTaskName(), def);
             if (def.isEnabled()) {
                 scheduleCron(task, def);
                 log.info("已注册定时任务：{} | 自动调度=已启用 | Cron表达式={}",
@@ -203,7 +197,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             return;
         }
         ScheduledTask task = getTask(taskName);
-        ScheduledTaskDefinition definition = definitionMap.get(taskName);
+        ScheduledTaskDefinition definition = task.getDefinition();
         LocalDateTime execTime = executeTime != null ? executeTime : LocalDateTime.now(clock);
         Long userId = getCurrentUserIdSafely();
 
@@ -309,8 +303,8 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     }
 
     private String registeredTaskLabel(String taskName) {
-        ScheduledTaskDefinition definition = definitionMap.get(taskName);
-        return definition == null ? taskName : definition.getLabel();
+        ScheduledTask task = taskMap.get(taskName);
+        return task == null ? taskName : task.getDefinition().getLabel();
     }
 
     private record TaskRegistration(ScheduledTask task, ScheduledTaskDefinition definition) {

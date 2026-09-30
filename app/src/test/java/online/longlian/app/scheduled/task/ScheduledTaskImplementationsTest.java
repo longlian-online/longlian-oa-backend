@@ -22,6 +22,7 @@ class ScheduledTaskImplementationsTest {
 
         assertThat(task.getDefinition().getTaskName()).isEqualTo("heartbeat");
         assertThat(task.getDefinition().getDescription()).contains("心跳检测");
+        assertThat(task.getDefinition()).isSameAs(task.getDefinition());
         task.execute(executeTime);
 
         assertThat(output).contains("已完成定时任务调度链路心跳检测")
@@ -35,6 +36,7 @@ class ScheduledTaskImplementationsTest {
         LocalDateTime executeTime = LocalDateTime.of(2026, 9, 30, 12, 0);
 
         assertThat(task.getDefinition().getTaskName()).isEqualTo("resource-cleanup");
+        assertThat(task.getDefinition()).isSameAs(task.getDefinition());
         task.execute(executeTime);
 
         verify(cleanupService).cleanup(executeTime);

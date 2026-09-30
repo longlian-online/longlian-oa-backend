@@ -72,6 +72,7 @@ class ScheduledTaskEngineTest {
         engine.trigger("long-running", LocalDateTime.now(CLOCK));
 
         verify(lockService).tryAcquire("scheduled-task:long-running", 0, TimeUnit.SECONDS);
+        verify(task, times(2)).getDefinition();
     }
 
     @Test

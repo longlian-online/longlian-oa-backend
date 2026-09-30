@@ -16,11 +16,12 @@ import java.time.LocalDateTime;
 @Slf4j
 @Component
 public class HeartbeatTask implements ScheduledTask {
+    private static final ScheduledTaskDefinition DEFINITION = new ScheduledTaskDefinition(
+            "heartbeat", "心跳检测任务，每 5 分钟执行一次，用于验证调度链路", "0 0/5 * * * ?", false);
 
     @Override
     public ScheduledTaskDefinition getDefinition() {
-        return new ScheduledTaskDefinition(
-                "heartbeat", "心跳检测任务，每 5 分钟执行一次，用于验证调度链路", "0 0/5 * * * ?", false);
+        return DEFINITION;
     }
 
     @Override
