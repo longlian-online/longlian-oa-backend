@@ -15,12 +15,8 @@ public class DeprecatedResourceCleanupTask implements ScheduledTask {
 
     @Override
     public ScheduledTaskDefinition getDefinition() {
-        return ScheduledTaskDefinition.builder()
-                .taskName("resource-cleanup")
-                .description("清理已废弃资源的实际存储文件")
-                .cronExpression("0 0/5 * * * ?")
-                .enabled(true)
-                .build();
+        return new ScheduledTaskDefinition(
+                "resource-cleanup", "清理已废弃资源的实际存储文件", "0 0/5 * * * ?", true);
     }
 
     @Override

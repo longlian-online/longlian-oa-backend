@@ -57,11 +57,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldUseWatchdogLockForScheduledTask() {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("long-running")
-                .description("执行长时间运行任务")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "long-running", "执行长时间运行任务", null, false);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("longRunningTask", task));
@@ -78,49 +75,7 @@ class ScheduledTaskEngineTest {
     }
 
     @Test
-    void shouldRejectTaskWithoutChineseDescription() {
-        ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("missing-description")
-                .description(" ")
-                .enabled(false)
-                .build();
-        when(task.getDefinition()).thenReturn(definition);
-        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("missingDescriptionTask", task));
-        ScheduledTaskEngine engine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
-
-        assertThatThrownBy(engine::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("必须填写中文任务描述")
-                .hasMessageContaining("missing-description");
-        assertThat(engine.isRunning()).isFalse();
-        verify(taskScheduler, never()).schedule(any(Runnable.class), any(CronTrigger.class));
-    }
-
-    @Test
-    void shouldRejectTaskWithEnglishOnlyDescription() {
-        ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("english-description")
-                .description("Clean up deprecated resources")
-                .enabled(false)
-                .build();
-        when(task.getDefinition()).thenReturn(definition);
-        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("englishTask", task));
-        ScheduledTaskEngine engine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
-
-        assertThatThrownBy(engine::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("任务描述必须包含中文字符")
-                .hasMessageContaining("english-description");
-        assertThat(engine.isRunning()).isFalse();
-        verify(taskScheduler, never()).schedule(any(Runnable.class), any(CronTrigger.class));
-    }
-
-    @Test
-    void shouldRejectMissingDefinitionAndBlankTaskName() {
+    void shouldRejectMissingDefinition() {
         ScheduledTask missingDefinitionTask = mock(ScheduledTask.class);
         when(applicationContext.getBeansOfType(ScheduledTask.class))
                 .thenReturn(Map.of("missingDefinitionTask", missingDefinitionTask));
@@ -131,23 +86,6 @@ class ScheduledTaskEngineTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("任务定义不能为空")
                 .hasMessageContaining("missingDefinitionTask");
-
-        ScheduledTask blankNameTask = mock(ScheduledTask.class);
-        ScheduledTaskDefinition blankNameDefinition = ScheduledTaskDefinition.builder()
-                .taskName(" ")
-                .description("无效任务")
-                .enabled(false)
-                .build();
-        when(blankNameTask.getDefinition()).thenReturn(blankNameDefinition);
-        when(applicationContext.getBeansOfType(ScheduledTask.class))
-                .thenReturn(Map.of("blankNameTask", blankNameTask));
-        ScheduledTaskEngine blankNameEngine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
-
-        assertThatThrownBy(blankNameEngine::start)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("任务标识不能为空")
-                .hasMessageContaining("blankNameTask");
         verify(taskScheduler, never()).schedule(any(Runnable.class), any(CronTrigger.class));
     }
 
@@ -155,17 +93,10 @@ class ScheduledTaskEngineTest {
     void shouldRejectDuplicateTaskNameBeforeScheduling() {
         ScheduledTask firstTask = mock(ScheduledTask.class);
         ScheduledTask secondTask = mock(ScheduledTask.class);
-        ScheduledTaskDefinition firstDefinition = ScheduledTaskDefinition.builder()
-                .taskName("duplicate-task")
-                .description("第一个重复任务")
-                .cronExpression("0 0/5 * * * ?")
-                .enabled(true)
-                .build();
-        ScheduledTaskDefinition secondDefinition = ScheduledTaskDefinition.builder()
-                .taskName("duplicate-task")
-                .description("第二个重复任务")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition firstDefinition = new ScheduledTaskDefinition(
+                "duplicate-task", "第一个重复任务", "0 0/5 * * * ?", true);
+        ScheduledTaskDefinition secondDefinition = new ScheduledTaskDefinition(
+                "duplicate-task", "第二个重复任务", null, false);
         when(firstTask.getDefinition()).thenReturn(firstDefinition);
         when(secondTask.getDefinition()).thenReturn(secondDefinition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of(
@@ -185,11 +116,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldWriteDetailedChineseExecutionLog(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("resource-cleanup")
-                .description("清理已废弃资源的实际存储文件")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "resource-cleanup", "清理已废弃资源的实际存储文件", null, false);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         LocalDateTime executeTime = LocalDateTime.now(CLOCK);
         when(task.getDefinition()).thenReturn(definition);
@@ -215,12 +143,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldRegisterAndExecuteEnabledCronTask() {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("cron-task")
-                .description("执行自动调度任务")
-                .cronExpression("0 0/5 * * * ?")
-                .enabled(true)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "cron-task", "执行自动调度任务", "0 0/5 * * * ?", true);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
         when(task.getDefinition()).thenReturn(definition);
@@ -247,11 +171,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldSkipTaskWhenDistributedLockIsUnavailable(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("locked-task")
-                .description("执行互斥任务")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "locked-task", "执行互斥任务", null, false);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("lockedTask", task));
         when(lockService.tryAcquire("scheduled-task:locked-task", 0, TimeUnit.SECONDS)).thenReturn(null);
@@ -269,11 +190,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldRecordFailedExecutionWithoutCurrentUser(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("failed-task")
-                .description("执行失败任务")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "failed-task", "执行失败任务", null, false);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         LocalDateTime executeTime = LocalDateTime.now(CLOCK);
         when(task.getDefinition()).thenReturn(definition);
@@ -299,11 +217,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldRejectManualTriggerAfterShutdown(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("shutdown-task")
-                .description("执行停机测试任务")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "shutdown-task", "执行停机测试任务", null, false);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("shutdownTask", task));
         ScheduledTaskEngine engine = new ScheduledTaskEngine(

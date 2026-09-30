@@ -16,7 +16,6 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import org.springframework.beans.factory.annotation.Value;
 
@@ -92,26 +91,26 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     @Override
     public void start() {
         Map<String, ScheduledTask> beans = applicationContext.getBeansOfType(ScheduledTask.class);
-        Map<String, TaskRegistration> registrations = validateDefinitions(beans);
+        Map<String, TaskRegistration> registrations = collectRegistrations(beans);
 
         for (TaskRegistration registration : registrations.values()) {
             ScheduledTask task = registration.task();
             ScheduledTaskDefinition def = registration.definition();
             taskMap.put(def.getTaskName(), task);
             definitionMap.put(def.getTaskName(), def);
-            if (def.isEnabled() && StringUtils.hasText(def.getCronExpression())) {
+            if (def.isEnabled()) {
                 scheduleCron(task, def);
                 log.info("已注册定时任务：{} | 自动调度=已启用 | Cron表达式={}",
-                        taskLabel(def), def.getCronExpression());
+                        def.getLabel(), def.getCronExpression());
             } else {
-                log.info("已注册定时任务：{} | 自动调度=未启用，可手动触发", taskLabel(def));
+                log.info("已注册定时任务：{} | 自动调度=未启用，可手动触发", def.getLabel());
             }
         }
         running.set(true);
         log.info("定时任务注册完成，共注册 {} 个任务，其中 {} 个已启用自动调度",
                 registrations.size(), registrations.values().stream()
                         .map(TaskRegistration::definition)
-                        .filter(def -> def.isEnabled() && StringUtils.hasText(def.getCronExpression()))
+                        .filter(ScheduledTaskDefinition::isEnabled)
                         .count());
     }
 
@@ -218,7 +217,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
         taskScheduler.schedule(
                 () -> {
                     if (shutdown) {
-                        log.info("系统正在关闭，跳过定时任务：{}", taskLabel(definition));
+                        log.info("系统正在关闭，跳过定时任务：{}", definition.getLabel());
                         return;
                     }
                     executeAndLog(task, definition, LocalDateTime.now(clock), TriggerSource.SCHEDULED, null);
@@ -237,7 +236,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
         try (var lock = lockService.tryAcquire(lockKey, 0, TimeUnit.SECONDS)) {
             if (lock == null) {
                 log.warn("跳过定时任务：{} | 原因=其他实例可能正在执行，未获得分布式锁 | 触发方式={} | 业务执行时间={}",
-                        taskLabel(definition), source.getDesc(), executeTime);
+                        definition.getLabel(), source.getDesc(), executeTime);
                 return;
             }
             Thread currentThread = Thread.currentThread();
@@ -267,7 +266,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
         Exception executionException = null;
         try {
             log.info("开始执行定时任务：{} | 触发方式={} | 业务执行时间={} | 触发人ID={}",
-                    taskLabel(definition), source.getDesc(), executeTime, triggeredBy);
+                    definition.getLabel(), source.getDesc(), executeTime, triggeredBy);
 
             task.execute(executeTime);
 
@@ -281,35 +280,24 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             long durationMs = java.time.Duration.between(startedAt, endedAt).toMillis();
             if (finalStatus == ScheduledTaskStatus.SUCCESS) {
                 log.info("定时任务执行成功：{} | 触发方式={} | 耗时={}毫秒",
-                        taskLabel(definition), source.getDesc(), durationMs);
+                        definition.getLabel(), source.getDesc(), durationMs);
             } else {
                 log.error("定时任务执行失败：{} | 触发方式={} | 耗时={}毫秒",
-                        taskLabel(definition), source.getDesc(), durationMs, executionException);
+                        definition.getLabel(), source.getDesc(), durationMs, executionException);
             }
             taskLogService.updateLog(logId, finalStatus, errorMessage, endedAt, durationMs);
         }
     }
 
     /**
-     * 在创建任何调度前校验全部任务，避免配置错误导致部分任务已经注册。
+     * 在创建任何调度前收集任务并检查名称冲突，避免重复名称导致部分任务已经注册。
      */
-    private Map<String, TaskRegistration> validateDefinitions(Map<String, ScheduledTask> beans) {
+    private Map<String, TaskRegistration> collectRegistrations(Map<String, ScheduledTask> beans) {
         Map<String, TaskRegistration> registrations = new LinkedHashMap<>();
         for (Map.Entry<String, ScheduledTask> entry : beans.entrySet()) {
             ScheduledTaskDefinition definition = entry.getValue().getDefinition();
             if (definition == null) {
                 throw new IllegalStateException("定时任务注册失败：任务定义不能为空，Bean名称=" + entry.getKey());
-            }
-            if (!StringUtils.hasText(definition.getTaskName())) {
-                throw new IllegalStateException("定时任务注册失败：任务标识不能为空，Bean名称=" + entry.getKey());
-            }
-            if (!StringUtils.hasText(definition.getDescription())) {
-                throw new IllegalStateException("定时任务注册失败：必须填写中文任务描述，任务标识="
-                        + definition.getTaskName());
-            }
-            if (!containsChineseCharacter(definition.getDescription())) {
-                throw new IllegalStateException("定时任务注册失败：任务描述必须包含中文字符，任务标识="
-                        + definition.getTaskName());
             }
             TaskRegistration registration = new TaskRegistration(entry.getValue(), definition);
             if (registrations.putIfAbsent(definition.getTaskName(), registration) != null) {
@@ -320,18 +308,9 @@ public class ScheduledTaskEngine implements SmartLifecycle {
         return registrations;
     }
 
-    private static boolean containsChineseCharacter(String description) {
-        return description.codePoints()
-                .anyMatch(codePoint -> Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN);
-    }
-
     private String registeredTaskLabel(String taskName) {
         ScheduledTaskDefinition definition = definitionMap.get(taskName);
-        return definition == null ? taskName : taskLabel(definition);
-    }
-
-    private String taskLabel(ScheduledTaskDefinition definition) {
-        return definition.getDescription() + "（" + definition.getTaskName() + "）";
+        return definition == null ? taskName : definition.getLabel();
     }
 
     private record TaskRegistration(ScheduledTask task, ScheduledTaskDefinition definition) {
