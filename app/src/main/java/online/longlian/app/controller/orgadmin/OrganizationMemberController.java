@@ -11,6 +11,8 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberRemoveParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberTransferOwnershipParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
@@ -45,7 +47,7 @@ import java.util.List;
 @RequestMapping("/orgadmin/members")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
@@ -161,38 +163,53 @@ public class OrganizationMemberController {
                 .build();
     }
 
-    @Operation(
-            summary = "启用/禁用组员",
-            description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
-    )
+    @Operation(summary = "启用或禁用当前组织成员", description = "仅改变组织成员状态，不改变用户全局账号状态")
     @PatchMapping("/{memberId}/status")
     @ResponseMessage("状态修改成功")
     public void changeMemberStatus(@UserSession(required = true) SessionContext sessionContext,
-                                            @PathVariable Long memberId,
-                                            @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
-        organizationMemberService.changeMemberStatus(
-                OrgMemberChangeStatusParamsBO.builder()
-                        .orgId(sessionContext.orgId())
-                        .operatorUserId(sessionContext.userId())
-                        .memberId(memberId)
-                        .status(changeStatusDTO.getStatus())
-                        .build()
-        );
+                                   @PathVariable Long memberId,
+                                   @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
+        organizationMemberService.changeMemberStatus(OrgMemberChangeStatusParamsBO.builder()
+                .orgId(sessionContext.orgId()).operatorUserId(sessionContext.userId()).memberId(memberId)
+                .status(changeStatusDTO.getStatus()).build());
     }
 
-    @Operation(summary = "调整成员组织角色")
+    @Operation(summary = "调整成员组织角色", description = "仅组织所有者可提升或降级管理员")
     @PatchMapping("/{memberId}/role")
     @ResponseMessage("角色修改成功")
     public void changeMemberRole(@UserSession(required = true) SessionContext sessionContext,
                                  @PathVariable Long memberId,
                                  @RequestBody @Valid OrgMemberChangeRoleDTO changeRoleDTO) {
-        organizationMemberService.changeMemberRole(
-                OrgMemberChangeRoleParamsBO.builder()
-                        .orgId(sessionContext.orgId())
-                        .operatorUserId(sessionContext.userId())
-                        .memberId(memberId)
-                        .orgRole(changeRoleDTO.getOrgRole())
-                        .build());
+        organizationMemberService.changeMemberRole(OrgMemberChangeRoleParamsBO.builder()
+                .orgId(sessionContext.orgId()).operatorUserId(sessionContext.userId()).memberId(memberId)
+                .orgRole(changeRoleDTO.getOrgRole()).build());
+    }
+
+    @Operation(summary = "移除成员")
+    @DeleteMapping("/{memberId}")
+    @ResponseMessage("移除成功")
+    public void removeMember(@UserSession(required = true) SessionContext sessionContext,
+                             @PathVariable Long memberId) {
+        organizationMemberService.removeMember(OrgMemberRemoveParamsBO.builder()
+                .orgId(sessionContext.orgId()).operatorUserId(sessionContext.userId()).memberId(memberId).build());
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "退出当前组织")
+    @DeleteMapping("/me")
+    @ResponseMessage("退出成功")
+    public void exitOrganization(@UserSession(required = true) SessionContext sessionContext) {
+        organizationMemberService.exitOrganization(OrgMemberRemoveParamsBO.builder()
+                .orgId(sessionContext.orgId()).operatorUserId(sessionContext.userId()).build());
+    }
+
+    @Operation(summary = "转让组织所有权")
+    @PutMapping("/{memberId}/ownership")
+    @ResponseMessage("转让成功")
+    public void transferOwnership(@UserSession(required = true) SessionContext sessionContext,
+                                  @PathVariable Long memberId) {
+        organizationMemberService.transferOwnership(OrgMemberTransferOwnershipParamsBO.builder()
+                .orgId(sessionContext.orgId()).operatorUserId(sessionContext.userId()).memberId(memberId).build());
     }
 
     @Operation(

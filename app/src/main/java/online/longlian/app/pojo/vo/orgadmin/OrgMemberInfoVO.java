@@ -38,7 +38,7 @@ public class OrgMemberInfoVO {
     @Schema(description = "任务提交总数")
     private Integer submitCount;
 
-    @Schema(description = "组织内角色：ORG_ADMIN-管理员，ORG_USER-普通组员")
+    @Schema(description = "组织内角色：ORG_OWNER-所有者，ORG_ADMIN-管理员，ORG_USER-普通成员")
     private String orgRole;
 
     @Schema(description = "成员状态：ENABLED-启用，DISABLED-禁用")

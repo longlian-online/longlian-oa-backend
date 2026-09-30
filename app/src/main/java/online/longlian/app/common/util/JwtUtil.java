@@ -91,6 +91,14 @@ public class JwtUtil {
         }
     }
 
+    public String getTokenId(String token) {
+        try {
+            return parseToken(token).getId();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public long getExpirationSeconds() {
         return expiration == null ? 0 : expiration.longValue();
     }

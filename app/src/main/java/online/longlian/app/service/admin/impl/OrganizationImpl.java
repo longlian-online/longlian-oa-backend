@@ -8,11 +8,13 @@ import lombok.NonNull;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.AdminMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.pojo.entity.Admin;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.admin.OrganizationService;
@@ -35,6 +37,7 @@ public class OrganizationImpl implements OrganizationService {
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
     private final OrganizationMapper organizationMapper;
+    private final AdminMapper adminMapper;
     private final ResourceService resourceService;
     private final OTPServiceFactory otpServiceFactory;
 
@@ -75,11 +78,9 @@ public class OrganizationImpl implements OrganizationService {
 
     @Override
     public AdminGenerateInviteCodeResultBO generateCreateOrgInviteCode(@NonNull AdminGenerateCreateOrgInviteCodeParamsBO params) {
+        requireRoot(params.getCreatorId());
         OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationInvite).generate(
-                OTPGenerateContextBO.builder()
-                        .creatorId(params.getCreatorId())
-                        .build()
-        );
+                OTPGenerateContextBO.builder().creatorId(params.getCreatorId()).build());
         return AdminGenerateInviteCodeResultBO.builder()
                 .inviteCode(otp.getCode())
                 .expireAt(otp.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
@@ -87,13 +88,21 @@ public class OrganizationImpl implements OrganizationService {
     }
 
     public void updateOrgStatus(@NonNull AdminOrganizationUpdateStatusParamsBO params) {
+        requireRoot(params.getOperatorId());
         LambdaQueryWrapper<Organization> queryWrapper = lambdaQuery(Organization.class)
                 .select(Organization::getId)
                 .eq(Organization::getId, params.getOrganizationId());
         if (organizationMapper.selectCount(queryWrapper) == 0) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在");
         }
-        LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getStatus, params.getStatus());
-        organizationMapper.update(null, wrapper);
+        organizationMapper.update(null, lambdaUpdate(Organization.class)
+                .eq(Organization::getId, params.getOrganizationId()).set(Organization::getStatus, params.getStatus()));
+    }
+
+    private void requireRoot(Long operatorId) {
+        Admin operator = adminMapper.selectById(operatorId);
+        if (operator == null || !"root".equals(operator.getRole())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "只有root管理员可以管理平台组织");
+        }
     }
 }

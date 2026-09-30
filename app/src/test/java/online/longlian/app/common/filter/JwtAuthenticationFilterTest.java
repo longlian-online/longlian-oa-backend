@@ -88,7 +88,7 @@ class JwtAuthenticationFilterTest {
     /** subject 不是数字时只按无效凭证处理，不应访问黑名单存储。 */
     @Test
     void shouldRejectMalformedSubjectWithoutBlacklistLookup() throws Exception {
-        var claims = Jwts.claims().setSubject("not-a-number");
+        var claims = Jwts.claims().setSubject("not-a-number").setId("session-1");
         claims.put("type", "admin");
         when(jwt.parseToken("token")).thenReturn(claims);
         filter.doFilter(request, response, chain);
@@ -106,13 +106,13 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, chain);
         assertThat(failure().getMessage()).isEqualTo("登录凭证无效");
         verifyNoInteractions(blacklist, chain);
-        verify(strategy, never()).authenticate(anyLong());
+        verify(strategy, never()).authenticate(anyLong(), anyString());
     }
 
     /** 未配置的 Token 类型必须被拒绝，避免绕过认证策略。 */
     @Test
     void shouldRejectUnsupportedType() throws Exception {
-        var claims = Jwts.claims().setSubject("1");
+        var claims = Jwts.claims().setSubject("1").setId("session-1");
         claims.put("type", "unsupported");
         when(jwt.parseToken("token")).thenReturn(claims);
         filter.doFilter(request, response, chain);
@@ -126,7 +126,7 @@ class JwtAuthenticationFilterTest {
     void shouldPreserveBusinessFailure() throws Exception {
         validClaims();
         AppException cause = new AppException(ResultCode.UNAUTHORIZED_OPERATION);
-        when(strategy.authenticate(1L)).thenThrow(cause);
+        when(strategy.authenticate(1L, "session-1")).thenThrow(cause);
         filter.doFilter(request, response, chain);
         RequestAuthenticationException failure = (RequestAuthenticationException) failure();
         assertThat(failure.getCode()).isEqualTo(cause.getCode());
@@ -139,7 +139,7 @@ class JwtAuthenticationFilterTest {
     void shouldPreserveAuthenticationFailure() throws Exception {
         validClaims();
         AuthenticationException cause = new BadCredentialsException("凭证无效");
-        when(strategy.authenticate(1L)).thenThrow(cause);
+        when(strategy.authenticate(1L, "session-1")).thenThrow(cause);
         filter.doFilter(request, response, chain);
         assertThat(failure()).isSameAs(cause);
     }
@@ -161,7 +161,7 @@ class JwtAuthenticationFilterTest {
     void shouldContinueAuthenticatedRequest() throws Exception {
         validClaims();
         var authentication = new UsernamePasswordAuthenticationToken("admin", null, List.of());
-        when(strategy.authenticate(1L)).thenReturn(authentication);
+        when(strategy.authenticate(1L, "session-1")).thenReturn(authentication);
         filter.doFilter(request, response, chain);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isSameAs(authentication);
         verify(chain).doFilter(request, response);
@@ -169,7 +169,7 @@ class JwtAuthenticationFilterTest {
     }
 
     private void validClaims() {
-        var claims = Jwts.claims().setSubject("1");
+        var claims = Jwts.claims().setSubject("1").setId("session-1");
         claims.put("type", "admin");
         when(jwt.parseToken("token")).thenReturn(claims);
     }

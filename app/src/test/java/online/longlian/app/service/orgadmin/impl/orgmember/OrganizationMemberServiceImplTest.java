@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
+import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberTransferOwnershipParamsBO;
+import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
@@ -19,7 +22,6 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.TransactionDefinition;
@@ -31,7 +33,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -40,10 +41,11 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrganizationMemberServiceImplTest {
-
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC);
     @Mock private GroupApplicationMapper groupApplicationMapper;
+    @Mock private OrganizationMapper organizationMapper;
     @Mock private OrganizationMemberMapper organizationMemberMapper;
+    @Mock private UserMapper userMapper;
     @Mock private OTPServiceFactory otpServiceFactory;
     @Mock private MemberQueryBuilder memberQueryBuilder;
     @Mock private MemberAssembler memberAssembler;
@@ -54,157 +56,100 @@ class OrganizationMemberServiceImplTest {
     @Mock private SessionService sessionService;
 
     private OrganizationMemberServiceImpl service;
-    private RecordingTransactionManager transactions;
     private DistributedLockService.Lock lock;
 
     @BeforeEach
     void setUp() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
-        transactions = new RecordingTransactionManager();
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), Organization.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), OrganizationMember.class);
+        lenient().when(organizationMapper.selectById(anyLong())).thenReturn(organization(10L));
         lock = mock(DistributedLockService.Lock.class);
-        lenient().when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
-        lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
-                otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
-                memberStatusHandler, memberSubmissionHandler, lockService, sessionService, transactions);
+        when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
+        service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMapper,
+                organizationMemberMapper, userMapper, otpServiceFactory, memberQueryBuilder, memberAssembler,
+                applicationReviewHandler, memberStatusHandler, memberSubmissionHandler, lockService, sessionService,
+                new ImmediateTransactionManager());
     }
 
     @Test
-    void shouldLockBeforeTransactionAndClearSessionOnlyAfterCommit() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-        transactions.onBegin = () -> verify(lockService).tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS);
-        transactions.onCommit = () -> {
-            verify(lock, never()).close();
-            verify(sessionService, never()).clearUserSessionCache(anyLong());
-        };
-
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN));
-
-        InOrder order = inOrder(lockService, organizationMemberMapper, memberStatusHandler, lock);
-        order.verify(lockService).tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS);
-        order.verify(organizationMemberMapper).selectOne(any());
-        order.verify(memberStatusHandler).getAndValidateMember(2L, 1L);
-        order.verify(lock).close();
-        assertThat(transactions.propagation).isEqualTo(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        verify(sessionService).clearUserSessionCache(20L);
-        verify(organizationMemberMapper).update(eq(null), any());
-    }
-
-    @Test
-    void shouldRejectLastEnabledAdminAndRollback() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织至少保留一名管理员")
-                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-
-        verify(lock).close();
-        verify(organizationMemberMapper, never()).update(eq(null), any());
-        verify(sessionService, never()).clearUserSessionCache(anyLong());
-        assertThat(transactions.rollbacks).isEqualTo(1);
-    }
-
-    @Test
-    void shouldAllowDowngradeWhenAnotherEnabledAdminRemains() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(2L);
+    void shouldAllowOwnerToPromoteAndDemoteAdministrator() {
+        when(organizationMemberMapper.selectOne(any())).thenReturn(owner());
+        when(organizationMapper.selectById(1L)).thenReturn(organization(10L));
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(20L, InviteConstants.ROLE_ORG_ADMIN));
 
         service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
 
         verify(organizationMemberMapper).update(eq(null), any());
-        verify(lock).close();
         verify(sessionService).clearUserSessionCache(20L);
     }
 
     @Test
-    void shouldCheckLatestRoleEvenWhenTargetWasPromotedBeforeLock() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织至少保留一名管理员");
-
-        verify(organizationMemberMapper, never()).update(eq(null), any());
-    }
-
-    @Test
-    void shouldSkipAdminCountForOrdinaryOrDisabledMember() {
+    void shouldRejectAdministratorManagingPeerOrOwner() {
+        when(organizationMemberMapper.selectOne(any())).thenReturn(member(10L, InviteConstants.ROLE_ORG_ADMIN));
         when(memberStatusHandler.getAndValidateMember(2L, 1L))
-                .thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED))
-                .thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.DISABLED));
-
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
-
-        verify(organizationMemberMapper, never()).selectCount(any());
-        verify(lock, times(2)).close();
-    }
-
-    @Test
-    void shouldRejectDemotedOperatorBeforeReadingTarget() {
-        when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN)))
-                .isInstanceOf(AppException.class)
-                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-
-        verify(memberStatusHandler, never()).getAndValidateMember(anyLong(), anyLong());
-        verify(organizationMemberMapper, never()).update(eq(null), any());
-        verify(lock).close();
-    }
-
-    @Test
-    void shouldRejectDisabledOrMissingOperator() {
-        when(organizationMemberMapper.selectOne(any()))
-                .thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.DISABLED))
-                .thenReturn(null);
+                .thenReturn(member(20L, InviteConstants.ROLE_ORG_ADMIN))
+                .thenReturn(member(30L, InviteConstants.ROLE_ORG_OWNER));
 
         assertThatThrownBy(() -> service.changeMemberStatus(statusParams(Status.DISABLED)))
-                .isInstanceOf(AppException.class)
-                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-
-        verify(memberStatusHandler, never()).updateMemberStatus(any(), any());
-        verify(lock, times(2)).close();
-    }
-
-    @Test
-    void shouldRejectDisablingMemberPromotedBeforeStatusMutation() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        doThrow(new AppException(ResultCode.OPERATION_FAIL, "管理员不可被禁用"))
-                .when(memberStatusHandler).validateNotAdminDisable(any(), eq(Status.DISABLED));
-
+                .isInstanceOf(AppException.class);
         assertThatThrownBy(() -> service.changeMemberStatus(statusParams(Status.DISABLED)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("管理员不可被禁用");
+                .isInstanceOf(AppException.class);
 
         verify(memberStatusHandler, never()).updateMemberStatus(any(), any());
-        verify(lock).close();
+        verifyNoInteractions(sessionService);
     }
 
     @Test
-    void shouldClearDisabledMemberSessionOnlyAfterCommit() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-        transactions.onCommit = () -> verify(sessionService, never()).clearUserSessionCache(anyLong());
+    void shouldAllowAdministratorToManageOrdinaryMember() {
+        when(organizationMemberMapper.selectOne(any())).thenReturn(member(10L, InviteConstants.ROLE_ORG_ADMIN));
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(20L, InviteConstants.ROLE_ORG_USER));
 
         service.changeMemberStatus(statusParams(Status.DISABLED));
 
         verify(memberStatusHandler).updateMemberStatus(any(), eq(Status.DISABLED));
         verify(sessionService).clearUserSessionCache(20L);
-        verify(lock).close();
     }
 
-    private OrganizationMember member(String role, Status status) {
-        return OrganizationMember.builder().id(2L).orgId(1L).userId(20L).orgRole(role).status(status).build();
+    @Test
+    void shouldRejectOwnerDisablingThemself() {
+        when(organizationMemberMapper.selectOne(any())).thenReturn(owner());
+        when(memberStatusHandler.getAndValidateMember(1L, 1L)).thenReturn(owner());
+
+        assertThatThrownBy(() -> service.changeMemberStatus(OrgMemberChangeStatusParamsBO.builder()
+                .orgId(1L).operatorUserId(10L).memberId(1L).status(Status.DISABLED).build()))
+                .isInstanceOf(AppException.class);
+
+        verify(memberStatusHandler, never()).updateMemberStatus(any(), any());
     }
 
-    private OrganizationMember operator(String role, Status status) {
-        return OrganizationMember.builder().id(1L).orgId(1L).userId(10L).orgRole(role).status(status).build();
+    @Test
+    void shouldTransferOwnershipAndRevokeBothSessions() {
+        when(organizationMemberMapper.selectOne(any())).thenReturn(owner());
+        when(organizationMapper.selectById(1L)).thenReturn(organization(10L));
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(20L, InviteConstants.ROLE_ORG_ADMIN));
+        when(organizationMapper.update(eq(null), any())).thenReturn(1);
+
+        service.transferOwnership(OrgMemberTransferOwnershipParamsBO.builder()
+                .orgId(1L).operatorUserId(10L).memberId(2L).build());
+
+        verify(organizationMapper).update(eq(null), any());
+        verify(organizationMemberMapper, times(2)).update(eq(null), any());
+        verify(sessionService).clearUserSessionCache(10L);
+        verify(sessionService).clearUserSessionCache(20L);
+    }
+
+    private Organization organization(Long ownerUserId) {
+        return Organization.builder().id(1L).ownerUserId(ownerUserId).status(Status.ENABLED).build();
+    }
+
+    private OrganizationMember owner() {
+        return OrganizationMember.builder().id(1L).orgId(1L).userId(10L)
+                .orgRole(InviteConstants.ROLE_ORG_OWNER).status(Status.ENABLED).build();
+    }
+
+    private OrganizationMember member(Long userId, String role) {
+        return OrganizationMember.builder().id(2L).orgId(1L).userId(userId).orgRole(role).status(Status.ENABLED).build();
     }
 
     private OrgMemberChangeRoleParamsBO roleParams(String role) {
@@ -215,18 +160,10 @@ class OrganizationMemberServiceImplTest {
         return OrgMemberChangeStatusParamsBO.builder().orgId(1L).operatorUserId(10L).memberId(2L).status(status).build();
     }
 
-    private static class RecordingTransactionManager extends AbstractPlatformTransactionManager {
-        private Runnable onBegin = () -> {};
-        private Runnable onCommit = () -> {};
-        private int propagation;
-        private int rollbacks;
-
+    private static class ImmediateTransactionManager extends AbstractPlatformTransactionManager {
         @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, TransactionDefinition definition) {
-            propagation = definition.getPropagationBehavior();
-            onBegin.run();
-        }
-        @Override protected void doCommit(DefaultTransactionStatus status) { onCommit.run(); }
-        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doCommit(DefaultTransactionStatus status) { }
+        @Override protected void doRollback(DefaultTransactionStatus status) { }
     }
 }

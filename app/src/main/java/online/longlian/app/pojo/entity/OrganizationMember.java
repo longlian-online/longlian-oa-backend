@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since
  */
 @Data
 @Builder
@@ -50,10 +50,10 @@ public class OrganizationMember implements Serializable {
     private Long userId;
 
     /**
-     * 组织内角色：ORG_ADMIN/ORG_USER
+     * 组织内角色：ORG_OWNER/ORG_ADMIN/ORG_USER
      */
     @TableField("org_role")
-    @ApiModelProperty("组织内角色：ORG_ADMIN/ORG_USER")
+    @ApiModelProperty("组织内角色：ORG_OWNER/ORG_ADMIN/ORG_USER")
     private String orgRole;
 
     /**

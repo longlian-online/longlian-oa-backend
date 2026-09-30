@@ -247,7 +247,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     }
     @Test
     void shouldPromoteAndDemoteMemberWithinOrganization() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
@@ -269,8 +269,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
         authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,组织至少保留一名管理员"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
@@ -285,7 +284,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         String token = loginAs("orgadmin", "123456");
 
-        authRequest(token).body(Map.of("orgRole", "SUPER_ADMIN"))
+        authRequest(token).body(Map.of("orgRole", "root"))
                 .patch("/orgadmin/members/2/role")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
@@ -309,6 +308,94 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
+    }
+
+
+    @Test
+    void shouldEnforceMemberGovernanceBoundaries() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        createTestUser(2L, "admin", "123456", "admin@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createTestUser(3L, "peer", "123456", "peer@example.com");
+        createOrganizationMember(3L, 1L, 3L, "ORG_ADMIN");
+        createTestUser(4L, "member", "123456", "member@example.com");
+        createOrganizationMember(4L, 1L, 4L, "ORG_USER");
+
+        String ownerToken = loginAs("owner", "123456");
+        String adminToken = loginAs("admin", "123456");
+        String peerToken = loginAs("peer", "123456");
+
+        authRequest(adminToken).body(Map.of("status", "DISABLED")).patch("/orgadmin/members/3/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(adminToken).body(Map.of("status", "DISABLED")).patch("/orgadmin/members/1/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(adminToken).body(Map.of("status", "DISABLED")).patch("/orgadmin/members/4/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(ownerToken).body(Map.of("status", "DISABLED")).patch("/orgadmin/members/1/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(ownerToken).body(Map.of("status", "DISABLED")).patch("/orgadmin/members/3/status")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(ownerToken).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/3/role")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(peerToken).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldTransferOwnershipAndRejectFormerOwnerExitUntilTransfer() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        createTestUser(2L, "admin", "123456", "admin@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        String ownerToken = loginAs("owner", "123456");
+
+        authRequest(ownerToken).delete("/orgadmin/members/me")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        authRequest(ownerToken).put("/orgadmin/members/2/ownership")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT owner_user_id FROM organization WHERE id = 1", Long.class)).isEqualTo(2L);
+        assertThat(jdbcTemplate.queryForObject("SELECT org_role FROM organization_member WHERE id = 1", String.class))
+                .isEqualTo("ORG_ADMIN");
+        assertThat(jdbcTemplate.queryForObject("SELECT org_role FROM organization_member WHERE id = 2", String.class))
+                .isEqualTo("ORG_OWNER");
+
+        String newOwnerToken = loginAs("admin", "123456");
+        authRequest(newOwnerToken).delete("/orgadmin/members/1")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE id = 1 AND deleted_at IS NULL", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void shouldRemoveOrdinaryMemberAndClearDefaultOrganization() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        String ownerToken = loginAs("owner", "123456");
+
+        authRequest(ownerToken).delete("/orgadmin/members/2")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT default_org_id FROM `user` WHERE id = 2", Long.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE id = 2 AND deleted_at IS NULL", Integer.class)).isZero();
+    }
+    @Test
+    void shouldAllowOrdinaryMemberToExitOrganization() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        String memberToken = loginAs("member", "123456");
+
+        authRequest(memberToken).delete("/orgadmin/members/me")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT default_org_id FROM `user` WHERE id = 2", Long.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE id = 2 AND deleted_at IS NULL", Integer.class))
+                .isZero();
     }
 
 }

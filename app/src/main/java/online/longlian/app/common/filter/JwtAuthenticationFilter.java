@@ -91,7 +91,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Claims claims = parseClaims(token);
         long subjectId = parseSubject(claims);
         String type = readTokenType(claims);
+        String sessionId = claims.getId();
 
+        if (sessionId == null || sessionId.isBlank()) {
+            throw invalidToken(null);
+        }
         if (tokenBlacklistService.isBlacklisted(token)) {
             throw new RequestAuthenticationException(ResultCode.UNAUTHORIZED.getCode(), "登录凭证已撤销，请重新登录", null);
         }
@@ -100,7 +104,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (strategy == null) {
             throw invalidToken(null);
         }
-        return strategy.authenticate(subjectId);
+        return strategy.authenticate(subjectId, sessionId);
     }
 
     private Claims parseClaims(String token) {

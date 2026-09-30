@@ -9,4 +9,5 @@ import online.longlian.common.enumeration.Status;
 public class AdminOrganizationUpdateStatusParamsBO {
     private Long organizationId;
     private Status status;
+    private Long operatorId;
 }

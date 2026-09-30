@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/orgadmin/organizations")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
 public class OrgAdminOrganizationController {
 
     private final OrgAdminOrganizationService orgAdminOrganizationService;

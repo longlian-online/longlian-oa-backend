@@ -14,7 +14,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldListAllScheduledTasks() {
-        createAdmin(1L, "superadmin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "superadmin", "123456", "root");
         String token = adminLoginAs("superadmin", "123456");
 
         Response response = authRequest(token)
@@ -47,7 +47,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldTriggerScheduledTask() {
-        createAdmin(2L, "superadmin2", "123456", "SUPER_ADMIN");
+        createAdmin(2L, "superadmin2", "123456", "root");
         String token = adminLoginAs("superadmin2", "123456");
 
         Response triggerResponse = authRequest(token)
@@ -66,7 +66,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailTriggerNonexistentTask() {
-        createAdmin(3L, "superadmin3", "123456", "SUPER_ADMIN");
+        createAdmin(3L, "superadmin3", "123456", "root");
         String token = adminLoginAs("superadmin3", "123456");
 
         Response response = authRequest(token)

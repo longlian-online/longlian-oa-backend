@@ -29,6 +29,8 @@ public class UserDetailImpl implements UserDetails {
 
     private Status status;
 
+    private String sessionId;
+
     private Long currentOrgId;
 
     private List<String> roles;

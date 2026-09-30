@@ -46,7 +46,7 @@ public class TaskTemplateController {
         description = "支持名称模糊搜索、状态筛选、创建时间区间；支持按创建时间或引用次数排序，默认按引用次数倒序"
     )
     @PostMapping("/list")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
     @ResponseMessage("查询成功")
     public PageResultVO<TaskTemplateListVO> listTaskTemplates(
             @UserSession(required = true) SessionContext sessionContext,
@@ -79,7 +79,7 @@ public class TaskTemplateController {
     )
     @Parameter(name = "templateId", description = "任务模板ID")
     @GetMapping("/{templateId}")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
     @ResponseMessage("查询成功")
     public TaskTemplateDetailVO getTaskTemplateDetail(
             @UserSession(required = true) SessionContext sessionContext,
@@ -103,7 +103,7 @@ public class TaskTemplateController {
 
     @Operation(summary = "创建任务模板", description = "同时创建模板基本信息与节点列表")
     @PostMapping
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
     @ResponseMessage("创建成功")
     public void createTaskTemplate(@UserSession(required = true) SessionContext sessionContext,
                                     @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
@@ -132,7 +132,7 @@ public class TaskTemplateController {
     )
     @Parameter(name = "templateId", description = "任务模板ID")
     @PutMapping("/{templateId}")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
     @ResponseMessage("更新成功")
     public void updateTaskTemplate(@UserSession(required = true) SessionContext sessionContext,
                                     @PathVariable Long templateId,
@@ -161,7 +161,7 @@ public class TaskTemplateController {
             description = "禁用后无法基于该模板创建新任务流，已有任务流不受影响。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{templateId}/status")
-    @PreAuthorize("hasRole('ORG_ADMIN')")
+    @PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
     @ResponseMessage("状态修改成功")
     public void changeTaskTemplateStatus(@UserSession(required = true) SessionContext sessionContext,
                                                   @PathVariable Long templateId,

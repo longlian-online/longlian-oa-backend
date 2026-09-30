@@ -401,7 +401,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailListProjectTypesWithoutAdminRole() {
-        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "MEMBER");
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("regular", "123456");
 
         Response response = authRequest(token)

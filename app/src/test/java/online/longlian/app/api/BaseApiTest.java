@@ -145,7 +145,7 @@ public abstract class BaseApiTest {
      */
     protected void createOrganization(long orgId, String name) {
         jdbcTemplate.update(
-                "INSERT INTO `organization` (id, name, creator_id, status) VALUES (?, ?, 0, 1)",
+                "INSERT INTO `organization` (id, name, creator_id, owner_user_id, status) VALUES (?, ?, 0, 0, 1)",
                 orgId, name
         );
     }
@@ -178,6 +178,9 @@ public abstract class BaseApiTest {
         createTestUser(userId, username, password, email);
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", orgId, userId);
         createOrganizationMember(orgMemberId, orgId, userId, orgRole);
+        if ("ORG_OWNER".equals(orgRole)) {
+            jdbcTemplate.update("UPDATE `organization` SET owner_user_id = ? WHERE id = ?", userId, orgId);
+        }
     }
 
     /**
@@ -204,7 +207,7 @@ public abstract class BaseApiTest {
 
     protected String createNormalAdmin() {
         long id = System.currentTimeMillis();
-        createAdmin(id, "admin_" + id, "123456", "ADMIN");
+        createAdmin(id, "admin_" + id, "123456", "normal");
         return adminLoginAs("admin_" + id, "123456");
     }
 

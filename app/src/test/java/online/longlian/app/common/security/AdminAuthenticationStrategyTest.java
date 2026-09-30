@@ -28,7 +28,7 @@ class AdminAuthenticationStrategyTest {
     void shouldAuthenticateWithoutRetainingPassword() {
         when(mapper.selectOne(any())).thenReturn(Admin.builder()
                 .id(1L).username("admin").password("stored-hash").role("root").build());
-        Authentication authentication = strategy.authenticate(1L);
+        Authentication authentication = strategy.authenticate(1L, "session-1");
         AdminUserDetails principal = (AdminUserDetails) authentication.getPrincipal();
         assertThat(principal.getPassword()).isNull();
         assertThat(authentication.getCredentials()).isNull();
@@ -39,6 +39,6 @@ class AdminAuthenticationStrategyTest {
     /** 逻辑删除的管理员仍不得通过认证。 */
     @Test
     void shouldRejectMissingAdmin() {
-        assertThatThrownBy(() -> strategy.authenticate(1L)).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> strategy.authenticate(1L, "session-1")).isInstanceOf(AppException.class);
     }
 }
