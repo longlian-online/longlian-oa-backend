@@ -1,10 +1,9 @@
 FROM arigaio/atlas:1.2.3 AS atlas
 
-FROM mysql:8.0.46
+FROM mariadb:10.11.19
 WORKDIR /app/db
 
-# 官方 MySQL 客户端支持 MySQL 8 默认的 caching_sha2_password，
-# 用于同实例自动创建 {db}_atlas 和导入种子。
+# MariaDB 客户端用于同实例自动创建 {db}_atlas 和导入种子。
 RUN groupadd --system appgroup \
   && useradd --system --gid appgroup --no-create-home --home-dir /nonexistent appuser
 

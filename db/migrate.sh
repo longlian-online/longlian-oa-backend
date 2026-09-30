@@ -3,14 +3,14 @@
 # 用法: ./migrate.sh <dev|prod> [apply|plan|inspect]
 #
 # 连接:
-#   DB_URL            目标库 mysql://user:pass@host:3306/db
+#   DB_URL            目标库 maria://user:pass@host:3306/db
 #                     可省略：缺省时从 APPLICATION_YML 的 spring.datasource 推导
 #   APPLICATION_YML   Spring YAML 路径，默认 /app/config/application.yml
-#   DEV_DB_URL        可选。不设则在同一 MySQL 实例自动创建 {db}_atlas
+#   DEV_DB_URL        可选。不设则在同一 MariaDB 实例自动创建 {db}_atlas
 #   SEED_FILE         可选。apply 成功后导入种子数据
 #
 # 示例:
-#   export DB_URL="mysql://root:pass@127.0.0.1:3306/longlian_oa_dev"
+#   export DB_URL="maria://root:pass@127.0.0.1:3306/longlian_oa_dev"
 #   ./db/migrate.sh dev plan
 #   ./db/migrate.sh dev apply
 
@@ -94,9 +94,9 @@ jdbc_to_atlas_url() {
   jdbc=$1
   user=$2
   pass=$3
-  rest=${jdbc#jdbc:mysql://}
+  rest=${jdbc#jdbc:mariadb://}
   if [ "$rest" = "$jdbc" ]; then
-    echo "错误: 只支持 jdbc:mysql:// 数据源，收到: $jdbc" >&2
+    echo "错误: 只支持 jdbc:mariadb:// 数据源，收到: $jdbc" >&2
     return 1
   fi
   rest=${rest%%\?*}
@@ -116,7 +116,7 @@ jdbc_to_atlas_url() {
       port=3306
       ;;
   esac
-  printf 'mysql://%s:%s@%s:%s/%s\n' "$(urlencode "$user")" "$(urlencode "$pass")" "$host" "$port" "$dbname"
+  printf 'maria://%s:%s@%s:%s/%s\n' "$(urlencode "$user")" "$(urlencode "$pass")" "$host" "$port" "$dbname"
 }
 
 field_from() {
@@ -144,13 +144,13 @@ resolve_db_url() {
   export DB_URL
 }
 
-# 拆 mysql://user:pass@host:port/db ，凭据解码后放入 url_* 变量
-parse_mysql_url() {
+# 拆 maria://user:pass@host:port/db ，凭据解码后放入 url_* 变量
+parse_maria_url() {
   raw=$1
   noquery=${raw%%\?*}
-  body=${noquery#mysql://}
+  body=${noquery#maria://}
   if [ "$body" = "$noquery" ]; then
-    echo "错误: 不是 mysql:// URL" >&2
+    echo "错误: 不是 maria:// URL" >&2
     return 1
   fi
   case "$body" in
@@ -164,14 +164,14 @@ parse_mysql_url() {
       esac
       ;;
     *)
-      echo "错误: mysql:// URL 缺少用户信息" >&2
+      echo "错误: maria:// URL 缺少用户信息" >&2
       return 1
       ;;
   esac
   url_db=${hostpart#*/}
   hostport=${hostpart%%/*}
   if [ -z "$url_db" ] || [ "$url_db" = "$hostpart" ]; then
-    echo "错误: mysql:// URL 缺少数据库名" >&2
+    echo "错误: maria:// URL 缺少数据库名" >&2
     return 1
   fi
   case "$hostport" in
@@ -186,28 +186,28 @@ parse_mysql_url() {
   esac
 }
 
-mysql_exec() {
-  if ! command -v mysql >/dev/null 2>&1; then
-    echo "错误: 需要支持 caching_sha2_password 的 MySQL 客户端才能连接数据库" >&2
+mariadb_exec() {
+  if ! command -v mariadb >/dev/null 2>&1; then
+    echo "错误: 需要 MariaDB 客户端才能连接数据库" >&2
     return 1
   fi
-  parse_mysql_url "$1"
+  parse_maria_url "$1"
   shift
-  MYSQL_PWD="$url_pass" mysql --protocol=TCP --get-server-public-key \
+  MYSQL_PWD="$url_pass" mariadb --protocol=TCP \
     -h "$url_host" -P "$url_port" -u "$url_user" \
     --connect-timeout=10 "$@"
 }
 
-ensure_mysql_database() {
-  if ! command -v mysql >/dev/null 2>&1; then
+ensure_mariadb_database() {
+  if ! command -v mariadb >/dev/null 2>&1; then
     return 1
   fi
-  parse_mysql_url "$1"
+  parse_maria_url "$1"
   echo "==> 确保影子库 \`$url_db\` 存在于 $url_host:$url_port"
-  MYSQL_PWD="$url_pass" mysql --protocol=TCP --get-server-public-key \
+  MYSQL_PWD="$url_pass" mariadb --protocol=TCP \
     -h "$url_host" -P "$url_port" -u "$url_user" \
     --connect-timeout=10 \
-    -e "CREATE DATABASE IF NOT EXISTS \`$url_db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
+    -e "CREATE DATABASE IF NOT EXISTS \`$url_db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci"
 }
 
 derive_shadow_url() {
@@ -225,8 +225,8 @@ derive_shadow_url() {
 resolve_dev_url() {
   if [ -n "${DEV_DB_URL:-}" ]; then
     case "$DEV_DB_URL" in
-      mysql://*)
-        if ! ensure_mysql_database "$DEV_DB_URL"; then
+      maria://*)
+        if ! ensure_mariadb_database "$DEV_DB_URL"; then
           echo "错误: DEV_DB_URL 指向的库不存在且无法自动创建" >&2
           exit 1
         fi
@@ -237,13 +237,13 @@ resolve_dev_url() {
   fi
 
   derived=$(derive_shadow_url "$DB_URL")
-  if ensure_mysql_database "$derived"; then
+  if ensure_mariadb_database "$derived"; then
     DEV_DB_URL=$derived
     export DEV_DB_URL
     return 0
   fi
 
-  parse_mysql_url "$derived"
+  parse_maria_url "$derived"
   echo "错误: 无法自动创建影子库 \`$url_db\`。" >&2
   echo "请授予 CREATE DATABASE，或预先建好该库并设置 DEV_DB_URL。" >&2
   exit 1
@@ -284,9 +284,9 @@ seed_if_requested() {
     echo "错误: SEED_FILE 不存在: $SEED_FILE" >&2
     exit 1
   fi
-  parse_mysql_url "$DB_URL"
+  parse_maria_url "$DB_URL"
   echo "==> 导入种子数据 $SEED_FILE"
-  mysql_exec "$DB_URL" "$url_db" < "$SEED_FILE"
+  mariadb_exec "$DB_URL" "$url_db" < "$SEED_FILE"
 }
 bootstrap_base_data() {
   base_data_file="${SCRIPT_DIR}/seed/base_data.sql"
@@ -294,9 +294,9 @@ bootstrap_base_data() {
     echo "错误: 部署基础数据文件不存在: $base_data_file" >&2
     exit 1
   fi
-  parse_mysql_url "$DB_URL"
+  parse_maria_url "$DB_URL"
   echo "==> 导入部署基础数据 $base_data_file"
-  mysql_exec "$DB_URL" "$url_db" < "$base_data_file"
+  mariadb_exec "$DB_URL" "$url_db" < "$base_data_file"
 }
 
 case "$ENVIRONMENT" in

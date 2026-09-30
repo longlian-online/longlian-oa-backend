@@ -30,16 +30,16 @@ public class DataSourceConfig {
     @ConditionalOnProperty(
             prefix = "longlian.datasource",
             name = "type",
-            havingValue = "mysql",
+            havingValue = "mariadb",
             matchIfMissing = true
     )
-    public DataSource mysqlDataSource(
+    public DataSource mariadbDataSource(
             @Value("${spring.datasource.url}") String url,
             @Value("${spring.datasource.username}") String username,
             @Value("${spring.datasource.password:}") String password
     ) {
         DruidDataSource ds = new DruidDataSource();
-        ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        ds.setDriverClassName("org.mariadb.jdbc.Driver");
         ds.setUrl(url);
         ds.setUsername(username);
         ds.setPassword(password);

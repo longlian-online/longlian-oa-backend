@@ -43,7 +43,7 @@ Atlas 声明式模式没有版本化的应用迁移文件，唯一的结构来�
 4. 通过 Spring SQL 脚本工具在测试数据库中执行该文件。
 5. 保留每个 API 测试方法执行前清空全部表数据的隔离机制。
 
-测试进程不直接调用 Atlas CLI。这样 `mvn -pl app test` 无需依赖本地 Atlas CLI 或 Docker 守护进程，同时仍会在 MySQL 上执行仓库中的唯一结构来源。
+测试进程不直接调用 Atlas CLI。这样 `mvn -pl app test` 无需依赖本地 Atlas CLI 或 Docker 守护进程，同时仍会在 MariaDB 上执行仓库中的唯一结构来源。
 
 ## 文档与注释
 
