@@ -82,7 +82,7 @@ public class DatabaseCleanupUtil {
                 }
             }
         }
-        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 MySQL 和 Redis 服务是否正常运行");
+        throw new RuntimeException("数据库连接验证失败，已重试 " + maxRetries + " 次，请检查 MariaDB 和 Redis 服务是否正常运行");
     }
 
     public void truncateAllTables() {
