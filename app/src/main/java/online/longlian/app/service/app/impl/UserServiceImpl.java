@@ -115,16 +115,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     private void clearSessionAfterCommit(Long userId) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    sessionService.clearUserSessionCache(userId);
-                }
-            });
-            return;
-        }
-        sessionService.clearUserSessionCache(userId);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sessionService.clearUserSessionCache(userId);
+            }
+        });
     }
 
     @Override
