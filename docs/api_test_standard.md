@@ -179,13 +179,18 @@ response
 
 | 场景 | 断言 |
 |------|------|
-| 成功响应 | `statusCode(200)`, `code", equalTo(0)` |
-| 失败响应 | `code", equalTo(ResultCode.XXX.getCode())` |
-| 未认证 | `statusCode(401)` |
-| 参数错误 | `statusCode(400)` 或 `code", equalTo(ResultCode.PARAM_ERROR.getCode())` |
+| 成功响应 | `statusCode(200)`, `code", equalTo(ResultCode.SUCCESS.getCode())` |
+| 业务失败 | `statusCode(200)`, `code", equalTo(ResultCode.XXX.getCode())` |
+| 未认证 | `statusCode(200)`, `code", equalTo(ResultCode.UNAUTHORIZED.getCode())` |
+| 权限不足 | `statusCode(200)`, `code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode())` |
+| 参数错误 | `statusCode(200)`, `code", equalTo(ResultCode.PARAM_ERROR.getCode())` |
 | 数据存在 | `body("data", notNullValue())` |
 | 列表非空 | `body("data.list", hasSize(greaterThan(0)))` |
 | 分页 | `body("data.total", greaterThanOrEqualTo(n))` |
+
+业务 Controller、认证和业务授权处理产生的失败统一返回 HTTP 200，具体结果由
+`Result.code` 表达。CORS 拒绝、HTTP 防火墙、容器解析、反向代理、连接错误和响应
+已经提交后的错误属于协议或基础设施失败，不适用这一约定。
 
 ### 5.3 断言禁止项
 
@@ -315,7 +320,8 @@ public class XxxApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 业务规则失败 ==========
@@ -348,7 +354,8 @@ public class XxxApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(400);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 }
 ```
