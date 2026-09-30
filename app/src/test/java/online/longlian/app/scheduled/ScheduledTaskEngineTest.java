@@ -22,6 +22,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -112,6 +113,29 @@ class ScheduledTaskEngineTest {
                 .hasMessageContaining("duplicate-task");
         assertThat(engine.isRunning()).isFalse();
         verify(taskScheduler, never()).schedule(any(Runnable.class), any(CronTrigger.class));
+    }
+
+    @Test
+    void shouldRejectInvalidCronBeforeRegisteringAnyTask() {
+        ScheduledTask validTask = mock(ScheduledTask.class);
+        ScheduledTask invalidTask = mock(ScheduledTask.class);
+        when(validTask.getDefinition()).thenReturn(new ScheduledTaskDefinition(
+                "valid-task", "有效任务", "0 0/5 * * * ?", true));
+        when(invalidTask.getDefinition()).thenAnswer(invocation -> new ScheduledTaskDefinition(
+                "invalid-task", "无效任务", "invalid", true));
+        Map<String, ScheduledTask> beans = new LinkedHashMap<>();
+        beans.put("validTask", validTask);
+        beans.put("invalidTask", invalidTask);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(beans);
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        assertThatThrownBy(engine::start)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Cron 表达式无效")
+                .hasMessageContaining("invalid-task");
+        assertThat(engine.getRegisteredTasks()).isEmpty();
+        verifyNoInteractions(taskScheduler);
     }
 
     @Test

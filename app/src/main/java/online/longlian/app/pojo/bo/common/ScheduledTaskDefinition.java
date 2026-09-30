@@ -1,6 +1,7 @@
 package online.longlian.app.pojo.bo.common;
 
 import lombok.Getter;
+import org.springframework.scheduling.support.CronExpression;
 
 /**
  * 定时任务元数据定义，包含任务名称、cron 表达式、是否启用等信息。
@@ -26,6 +27,9 @@ public final class ScheduledTaskDefinition {
         }
         if (enabled && (cronExpression == null || cronExpression.isBlank())) {
             throw new IllegalArgumentException("启用自动调度的定时任务必须填写 Cron 表达式，任务标识=" + taskName);
+        }
+        if (enabled && !CronExpression.isValidExpression(cronExpression)) {
+            throw new IllegalArgumentException("定时任务的 Cron 表达式无效，任务标识=" + taskName);
         }
         this.taskName = taskName;
         this.description = description;

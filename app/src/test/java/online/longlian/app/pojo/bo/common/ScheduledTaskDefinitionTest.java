@@ -46,6 +46,14 @@ class ScheduledTaskDefinitionTest {
     }
 
     @Test
+    void shouldRejectInvalidCronWhenAutomaticSchedulingIsEnabled() {
+        assertThatThrownBy(() -> new ScheduledTaskDefinition("cleanup", "清理资源", "invalid", true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Cron 表达式无效")
+                .hasMessageContaining("cleanup");
+    }
+
+    @Test
     void shouldProvideReadableLabelForManualOnlyTask() {
         ScheduledTaskDefinition definition = new ScheduledTaskDefinition("cleanup", "清理资源", null, false);
 
