@@ -22,11 +22,7 @@ public final class ScheduledTaskDefinition {
             throw new IllegalArgumentException("定时任务标识不能为空");
         }
         if (description == null || description.isBlank()) {
-            throw new IllegalArgumentException("定时任务必须填写中文描述，任务标识=" + taskName);
-        }
-        if (description.codePoints()
-                .noneMatch(codePoint -> Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN)) {
-            throw new IllegalArgumentException("定时任务描述必须包含中文字符，任务标识=" + taskName);
+            throw new IllegalArgumentException("定时任务必须填写描述，任务标识=" + taskName);
         }
         if (enabled && (cronExpression == null || cronExpression.isBlank())) {
             throw new IllegalArgumentException("启用自动调度的定时任务必须填写 Cron 表达式，任务标识=" + taskName);

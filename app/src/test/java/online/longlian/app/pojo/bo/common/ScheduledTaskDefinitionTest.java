@@ -18,16 +18,21 @@ class ScheduledTaskDefinitionTest {
     }
 
     @Test
-    void shouldRejectMissingOrEnglishOnlyDescription() {
+    void shouldRejectMissingDescription() {
         assertThatThrownBy(() -> new ScheduledTaskDefinition("cleanup", null, null, false))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("必须填写中文描述");
+                .hasMessageContaining("必须填写描述");
         assertThatThrownBy(() -> new ScheduledTaskDefinition("cleanup", " ", null, false))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("必须填写中文描述");
-        assertThatThrownBy(() -> new ScheduledTaskDefinition("cleanup", "resource cleanup", null, false))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("描述必须包含中文字符");
+                .hasMessageContaining("必须填写描述");
+    }
+
+    @Test
+    void shouldAllowEnglishDescription() {
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "cleanup", "resource cleanup", null, false);
+
+        assertThat(definition.getLabel()).isEqualTo("resource cleanup（cleanup）");
     }
 
     @Test
