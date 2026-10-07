@@ -73,9 +73,6 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
      * 默认组织当前不可用时返回 null。调用方不得因此改选其他组织。
      */
     private OrganizationMember findEnabledMember(Long userId, Long orgId) {
-        if (orgId == null || orgId <= 0) {
-            return null;
-        }
         Organization organization = organizationMapper.selectById(orgId);
         if (organization == null || organization.getStatus() != Status.ENABLED) {
             return null;
