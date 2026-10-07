@@ -3,12 +3,12 @@
 #
 # 使用方法：
 #   cp devops/application-prod.yml.example devops/application-prod.yml
-#   按外部 MySQL / Redis / 邮件 / 存储填写真实值。
+#   按外部 MariaDB / Redis / 邮件 / 存储填写真实值。
 #
 # 重要：
 #   - application-prod.yml 已被 gitignore，禁止提交
 #   - compose 把它挂到应用和迁移容器的 /app/config/application.yml
-#   - MySQL、Redis、邮件不由 compose 启动，必须指向已有外部实例
+#   - MariaDB、Redis、邮件不由 compose 启动，必须指向已有外部实例
 #   - 迁移从下方 spring.datasource 推导连接，不必再配 DB_URL
 #   - 会在同一实例自动创建 `{数据库名}_atlas` 空库作暂存；
 #     账号没有 CREATE DATABASE 时需预先建好，或设 DEV_DB_URL
@@ -19,8 +19,10 @@ server:
 
 longlian:
   display-name: "longlian-oa"
+  # 对外部署地址；部署时替换为当前环境域名。
+  server-url: https://api.example.com
   datasource:
-    type: mysql
+    type: mariadb
   cache:
     type: redis
 
@@ -36,7 +38,7 @@ spring:
     timeout-per-shutdown-phase: 30s
 
   datasource:
-    url: jdbc:mysql://mysql.example.com:3306/longlian_oa?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=true&allowPublicKeyRetrieval=true
+    url: jdbc:mariadb://mariadb.example.com:3306/longlian_oa?sslMode=verify-full&timezone=+08:00
     username: user
     password: pass
 
@@ -78,17 +80,26 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
-    enabled: false
+    enabled: true
   api-docs:
-    enabled: false
+    enabled: true
 
 storage:
   # LOCAL | OSS | COS
   type: LOCAL
+  # 存储服务生成的预签名 URL 有效期（秒）
+  presigned-url-ttl-seconds: 300
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
+  cdn:
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
+    # 与 EdgeOne Type D 控制台有效期必须一致。
+    auth-ttl-seconds: 300
+    # 同一 URL 在鉴权期内的复用比例；必须介于 1 和 99 之间。
+    url-reuse-percent: 80
   local:
-    base-url: ""
-    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
-    read-url-ttl-seconds: 300
+    signing-secret: ${jwt.secret}
     directory: /app/data/storage
   oss:
     bucket: ""
@@ -101,7 +112,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
 
 cors:
   allowed-origins: https://oa.longlian.online

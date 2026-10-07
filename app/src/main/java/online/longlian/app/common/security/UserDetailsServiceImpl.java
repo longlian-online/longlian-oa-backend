@@ -4,10 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.CurrentOrganizationContextBO;
+import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.common.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.Status;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -24,6 +28,7 @@ import java.util.List;
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserMapper userMapper;
+    private final GroupApplicationMapper groupApplicationMapper;
     private final CurrentOrganizationService currentOrganizationService;
 
     @Override
@@ -65,6 +70,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     private UserDetailImpl buildUserDetails(User user) {
+        if (user.getStatus() == Status.DISABLED && hasPendingGroupApplication(user.getId())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "入组申请审批中，请耐心等待");
+        }
+
         CurrentOrganizationContextBO currentOrgContext = currentOrganizationService.resolveCurrentOrgContext(
                 user.getId(),
                 user.getDefaultOrgId()
@@ -84,4 +93,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         userDetailImpl.setRoles(roles);
         return userDetailImpl;
     }
+
+    private boolean hasPendingGroupApplication(Long userId) {
+        return groupApplicationMapper.selectCount(new LambdaQueryWrapper<GroupApplication>()
+                .eq(GroupApplication::getUserId, userId)
+                .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)) > 0;
+    }
+
 }

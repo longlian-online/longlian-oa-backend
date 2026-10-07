@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.NotWrap;
+import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.resolver.SessionContext;
@@ -18,11 +19,14 @@ import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.app.service.resource.LocalFileIngress;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
 
 @Slf4j
 @Tag(name = "文件上传接口", description = "文件预签名上传(用户端/管理端共用)，支持本地存储/OSS/COS")
@@ -33,6 +37,8 @@ public class FileStorageController {
 
     private final ResourceService resourceService;
     private final LocalFileIngress localFileIngress;
+    private final StorageProperties storageProperties;
+    private final Clock clock;
 
     @Operation(
         summary = "创建文件上传",
@@ -78,8 +84,28 @@ public class FileStorageController {
     )
     @NotWrap
     @GetMapping(value = "/local", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto) {
-        return ResponseEntity.ok(localFileIngress.read(
+    public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
+                                                  @RequestParam(value = "t", required = false) Long cdnTimestamp) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        CacheControl cacheControl = browserCacheControl(dto, cdnTimestamp);
+        if (cacheControl != null) {
+            response.cacheControl(cacheControl);
+        }
+        return response.body(localFileIngress.read(
                 new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
+    }
+
+    private CacheControl browserCacheControl(LocalFileReadDTO dto, Long cdnTimestamp) {
+        StorageProperties.CdnConfig cdn = storageProperties.getCdn();
+        if (cdn == null || !cdn.isEnabled() || cdnTimestamp == null || cdnTimestamp <= 0
+                || cdn.getAuthTtlSeconds() <= 0 || cdnTimestamp > Long.MAX_VALUE - cdn.getAuthTtlSeconds()) {
+            return null;
+        }
+        long now = clock.instant().getEpochSecond();
+        long remainingSeconds = Math.min(dto.getExpires() - now, cdnTimestamp + cdn.getAuthTtlSeconds() - now);
+        if (remainingSeconds <= 0) {
+            return CacheControl.noStore();
+        }
+        return CacheControl.maxAge(Duration.ofSeconds(remainingSeconds)).mustRevalidate();
     }
 }

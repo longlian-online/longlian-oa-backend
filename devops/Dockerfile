@@ -32,10 +32,11 @@ RUN mvn package -Dmaven.test.skip=true -B -pl app -am
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
-# 创建非 root 用户，并提前准备持久化目录的写权限。
+# 创建非 root 用户，并提前准备持久化存储目录的写权限。
 # 固定 uid/gid：k8s runAsNonRoot 只能校验数字 UID（USER appuser 会被拒绝）。
 RUN addgroup -S -g 101 appgroup && adduser -S -u 100 -G appgroup appuser && \
-    mkdir -p /app/data/storage && chown -R appuser:appgroup /app/data
+    mkdir -p /app/data/storage && \
+    chown -R appuser:appgroup /app/data
 
 # 从构建阶段复制打好的 jar 包
 COPY --from=build /app/app/target/*.jar app.jar

@@ -4,7 +4,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -17,9 +17,9 @@ public class OrgAdminUpdateOrganizationInfoDTO {
     @Schema(description = "组织名称", requiredMode = Schema.RequiredMode.REQUIRED)
     private String name;
 
-    @NotNull(message = "组织头像文件ID不能为空")
+    @PositiveOrZero(message = "组织头像文件ID不能为负数")
     @JsonLongIdString
-    @Schema(type = "string", description = "组织头像文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "组织头像文件ID；不传表示保持原头像，0 表示清空头像")
     private Long avatarFileId;
 
     @NotBlank(message = "组织简介不能为空")

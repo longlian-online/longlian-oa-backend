@@ -16,6 +16,7 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.service.app.ItemTaskFlowService;
+import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -40,7 +41,8 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
         }
 
         Project project = projectMapper.selectById(item.getProjectId());
-        if (project == null || !project.getOrgId().equals(orgId)) {
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 

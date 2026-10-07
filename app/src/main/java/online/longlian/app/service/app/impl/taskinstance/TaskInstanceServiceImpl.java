@@ -23,6 +23,7 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
+import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +55,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         }
 
         Project project = projectMapper.selectById(item.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 
@@ -129,7 +131,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
         Item item = itemMapper.selectById(instance.getItemId());
         Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
 
@@ -152,7 +155,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
         Project project = projectMapper.selectById(instance.getProjectId());
-        if (project == null) {
+        if (project == null || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
         if (!project.getOrgId().equals(orgId)) {

@@ -8,8 +8,8 @@
 #
 # 重要：
 #   - application.yml 已被 gitignore，禁止提交（避免把密钥、内网地址推上去）
-#   - 本模板面向「应用跑在宿主机、MySQL/Redis 由 task dev 映射到本机端口」
-#     MySQL = localhost:10001，Redis = localhost:10002
+#   - 本模板面向「应用跑在宿主机、MariaDB/Redis 由 task dev 映射到本机端口」
+#     MariaDB = localhost:10001，Redis = localhost:10002
 #   - Docker 一键开发环境（task dev）挂载本文件，并用 SPRING_DATASOURCE_URL /
 #     SPRING_DATA_REDIS_* 覆盖为 compose 服务名
 #   - 生产/预发把改好的 YAML 挂到容器工作目录的 config/application.yml
@@ -23,9 +23,11 @@ server:
 longlian:
   # 邮件发件显示名、对外展示用的系统名称
   display-name: "longlian-oa"
+  # 对外部署地址；用于 OpenAPI 文档及需生成绝对地址的业务代码。
+  server-url: http://localhost:10003
   datasource:
-    # mysql | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
-    type: mysql
+    # mariadb | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
+    type: mariadb
   cache:
     # redis | local。local 仅适合单机，多实例必须 redis
     type: redis
@@ -37,15 +39,15 @@ spring:
     # 本地默认 dev。测试由 @ActiveProfiles("test") 加载 application-test.yml，不必改这里
     active: dev
   main:
-    # 现有部分 Bean 存在环依赖，关闭会导致启动失败
+    # 现有部分 Bean 存在环依赖，关闭会导致启动失败。
     allow-circular-references: true
   lifecycle:
     # 优雅停机等待上限，需大于最慢接口的可接受耗时
     timeout-per-shutdown-phase: 30s
 
-  # MySQL。仅 longlian.datasource.type=mysql 时生效
+  # MariaDB。仅 longlian.datasource.type=mariadb 时生效
   datasource:
-    url: jdbc:mysql://localhost:10001/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mariadb://localhost:10001/longlian_oa_dev?sslMode=disable&timezone=+08:00
     username: root
     password: dev
 
@@ -99,23 +101,31 @@ springdoc:
     tagsSorter: alpha
     # 生产建议 false，避免接口文档暴露
     # 默认关闭，开发环境由 application-dev.yml 显式开启
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: false
   api-docs:
     # 默认关闭，开发环境由 application-dev.yml 显式开启
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: false
 
 storage:
   # LOCAL | OSS | COS。LOCAL 走本机目录；OSS/COS 必须填对应子项
   type: LOCAL
+  # 存储服务生成的预签名 URL 有效期（秒）
+  presigned-url-ttl-seconds: 300
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
+  cdn:
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
+    # 与 EdgeOne Type D 控制台有效期必须一致。
+    auth-ttl-seconds: 300
+    # 同一 URL 在鉴权期内的复用比例；必须介于 1 和 99 之间。
+    url-reuse-percent: 80
   local:
-    # 返回给前端的访问前缀，可空（由网关拼）
-    base-url: ""
-    # 本地文件短时读取签名密钥，默认复用 JWT 密钥；多实例必须保持一致
-    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
-    # 签名链接有效期（秒），过短会增加重新获取链接的频率
-    read-url-ttl-seconds: ${STORAGE_LOCAL_READ_URL_TTL_SECONDS:300}
+    # 本地文件访问地址复用 longlian.server-url，避免出现两个服务端地址配置
+    # 本地文件签名密钥，默认复用 JWT 密钥；多实例必须保持一致
+    signing-secret: ${jwt.secret}
     # 实际落盘目录。${java.io.tmpdir} 是 JVM 临时目录，重启可能被清
-    directory: ${STORAGE_LOCAL_DIRECTORY:${java.io.tmpdir}/longlian-oa}
+    directory: ${java.io.tmpdir}/longlian-oa
   oss:
     bucket: ""
     region: ""
@@ -127,7 +137,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
 
 cors:
   # 浏览器跨域白名单，多个用逗号分隔。必须写前端 Origin，不能写 *

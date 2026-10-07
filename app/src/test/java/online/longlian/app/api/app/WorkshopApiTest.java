@@ -35,6 +35,40 @@ public class WorkshopApiTest extends BaseApiTest {
     }
 
     /**
+     * 查询工坊企划列表时不应返回已禁用企划
+     */
+    @Test
+    void shouldExcludeDisabledProjectsFromWorkshopList() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "启用企划", 1, 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                2L, 1L, 1L, "禁用企划", 1, 0, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_workshop` (id, project_id, user_id) VALUES (?, ?, ?)",
+                1L, 1L, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_workshop` (id, project_id, user_id) VALUES (?, ?, ?)",
+                2L, 2L, 1L);
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].title", equalTo("启用企划"))
+                .body("data.total", equalTo(1));
+    }
+
+    /**
      * 按关键词筛选工坊企划列表成功
      */
     @Test

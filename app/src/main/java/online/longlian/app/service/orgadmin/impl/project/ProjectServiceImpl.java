@@ -56,8 +56,8 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()
                         .eq(Project::getId, params.getProjectId())
-                        .ne(Project::getStatus, params.getStatus())
-                        .set(Project::getStatus, params.getStatus())
+                        .ne(Project::getResourceStatus, params.getStatus())
+                        .set(Project::getResourceStatus, params.getStatus())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
     }

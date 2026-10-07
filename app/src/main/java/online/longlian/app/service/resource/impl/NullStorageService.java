@@ -35,6 +35,7 @@ public class NullStorageService implements StorageService {
         return Collections.emptyMap();
     }
 
+
     @Override
     public void probe(ResourceProbeParamsBO params) {
         throw new AppException(ResultCode.OPERATION_FAIL, "当前存储不支持文件上传");

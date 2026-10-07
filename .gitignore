@@ -25,6 +25,8 @@ target/
 app/src/main/resources/application.yml
 app/src/main/resources/application-*.yml
 !app/src/main/resources/application.yml.example
+!app/src/main/resources/application-dev.yml
+!app/src/main/resources/application-local.yml
 devops/application-prod.yml
 
 # K8s overlay 本地真实配置（从 *.example 复制，禁止提交；git pull 不受影响）
@@ -49,6 +51,8 @@ build/
 
 data/
 .ci-cache/
+devops/tools/
+vlogscli-history
 
 **/.env
 *.jar

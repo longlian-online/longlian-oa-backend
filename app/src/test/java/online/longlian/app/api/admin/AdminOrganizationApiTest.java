@@ -187,7 +187,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(403)
+                .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 

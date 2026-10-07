@@ -23,8 +23,9 @@ db/
 ├── atlas.hcl               # Atlas 配置（dev/prod；连接由 migrate.sh 注入）
 ├── schema.sql              # 期望 schema 状态（唯一真实来源）
 ├── migrate.sh              # 同步脚本（本地 / CI 共用）
-└── seed/                   # 开发环境种子数据
-    └── dev_data.sql
+├── seed/                   # 初始化数据
+│   ├── base_data.sql       # 每次 apply 均幂等导入的部署基础数据
+│   └── dev_data.sql        # 仅本地开发的用户端与组织种子
 ```
 
 ## 配置连接
@@ -32,16 +33,16 @@ db/
 `migrate.sh` 是唯一入口。目标库二选一：
 
 ```bash
-export DB_URL="mysql://root:pass@localhost:3306/longlian_oa"
+export DB_URL="maria://root:pass@localhost:3306/longlian_oa"
 # 或把 Spring YAML 挂到 /app/config/application.yml（compose 默认如此）
 ./db/migrate.sh dev apply
 ```
 
-`DEV_DB_URL` 可选。不设时在同一 MySQL 实例自动创建 `{业务库}_atlas`。
+`DEV_DB_URL` 可选。不设时在同一 MariaDB 实例自动创建 `{业务库}_atlas`。
 
 ### 关于暂存库
 
-Atlas 声明式模式需要一个「暂存库」来推导期望状态：它把 `schema.sql` 真的在 MySQL 上执行一遍，再 inspect 结果，从而让数据库自己解析类型归一化、默认 collation、索引顺序等细节，同时顺带校验生成的 DDL 合法。
+Atlas 声明式模式需要一个「暂存库」来推导期望状态：它把 `schema.sql` 真的在 MariaDB 上执行一遍，再 inspect 结果，从而让数据库自己解析类型归一化、默认 collation、索引顺序等细节，同时顺带校验生成的 DDL 合法。
 
 这个库会被**反复清空重建**，必须是专用空库，绝不能指向有真实数据的库。账号没有 `CREATE DATABASE` 时，预先建好 `{业务库}_atlas` 并设置 `DEV_DB_URL`。
 
@@ -108,15 +109,30 @@ atlas schema inspect --env prod           # 查看生产环境结构
 ## CI 集成
 
 ```bash
-export DB_URL="mysql://user:pass@host:3306/dbname"
+export DB_URL="maria://user:pass@host:3306/dbname"
 ./db/migrate.sh prod apply
 ```
 
 不必设 `DEV_DB_URL`（脚本会建 `{dbname}_atlas`）。`apply` 使用 `--auto-approve`，不会交互提示。账号没有 `CREATE DATABASE` 时再显式设置。
 
+每次 `apply` 在结构同步成功后都会幂等导入 `seed/base_data.sql`。部署所需的管理端账号和后续基础配置统一维护在此文件中；当前为 `root / 123456`。如需新增随部署写入数据库的默认配置，必须追加到 `seed/base_data.sql`，并保证可重复执行且不覆盖已有业务数据。已有同名账号不会被覆盖；首次登录后应立即修改默认密码。
+
 ## API 测试建表
 
 API 测试在测试数据库为空时会直接执行根目录的 `db/schema.sql` 建表。Atlas 声明式模式不再维护独立的 `manifest/migrate/*.sql` 版本化迁移文件，因此不要新增第二份测试建表脚本。
+
+## 从 MySQL 迁移现有数据
+
+MySQL 与 MariaDB 的数据目录格式不作为迁移接口，禁止把原 MySQL 的 `/var/lib/mysql` 数据卷直接挂载给 MariaDB。已有环境按以下顺序做逻辑迁移：
+
+1. 完整备份 MySQL，并停止业务写入。
+2. 启动空的 MariaDB 10.11 实例，使用 `./db/migrate.sh prod apply` 从 `schema.sql` 创建目标结构。
+3. 使用 MySQL 自带的 `mysqldump --single-transaction --no-create-info` 导出业务数据。
+4. 使用 MariaDB 的 `mariadb` 客户端导入数据。
+5. 比对所有业务表行数、唯一键、JSON 字段与时间字段，并运行完整 API 测试。
+6. 将应用 JDBC 地址切换为 `jdbc:mariadb://`；确认稳定前保留原 MySQL 只读实例用于回滚。
+
+排序规则已从 MySQL 8 专用的 `utf8mb4_0900_ai_ci` 调整为 MariaDB 10.11 支持的 `utf8mb4_unicode_520_ci`。正式导入前必须检查唯一索引字段在新排序规则下是否产生等价值冲突。
 
 ## 注意事项
 

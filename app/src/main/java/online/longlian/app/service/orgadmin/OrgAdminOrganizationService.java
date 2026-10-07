@@ -20,7 +20,7 @@ public interface OrgAdminOrganizationService {
     OrgAdminGetOrganizationInfoResultBO getOrganizationInfo(Long orgId);
 
     /**
-     * 更新组织基本信息（名称、头像、描述）。
+     * 更新组织基本信息（名称、头像、描述）；头像文件 ID 为空时保持原头像。
      *
      * @param params 包含组织 ID 及待更新字段的参数
      */

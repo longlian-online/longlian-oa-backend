@@ -9,6 +9,7 @@ import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
@@ -17,8 +18,11 @@ import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.common.enumeration.FileProcessStatus;
+import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -37,6 +41,8 @@ public class ResourceService {
 
     private final ResourceMapper resourceMapper;
     private final StorageServiceFactory storageFactory;
+    private final CdnUrlSigner cdnUrlSigner;
+    private final LocalFileUrlSigner localFileUrlSigner;
 
     private final StorageProperties storageProperties;
     private final Clock clock;
@@ -106,21 +112,50 @@ public class ResourceService {
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
         List<Resource> resources = resourceMapper.selectList(query);
+        long cdnTimestamp = isCdnEnabled() && !resources.isEmpty() ? currentCdnTimestamp() : 0;
 
         Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));
 
-        Stream<ResourceReadUrlGetResultBO> resourceReadUrlResultStream = resources.stream().map(resource -> {
-            StorageService storageService = storageFactory.get(resource.getStorageType());
-            String resourceReadUrl = storageService.getResourceReadUrl(resource.getStorageKey());
-
-            return new ResourceReadUrlGetResultBO(
-                    resourceReadUrl,
-                    resource.getOrgId(),
-                    resource.getStorageKey()
-            );
-        });
-
+        Stream<ResourceReadUrlGetResultBO> resourceReadUrlResultStream = resources.stream().map(resource ->
+                new ResourceReadUrlGetResultBO(
+                        getCdnReadUrl(resource, cdnTimestamp),
+                        resource.getOrgId(),
+                        resource.getStorageKey()
+                )
+        );
         return resourceReadUrlResultStream.collect(Collectors.toMap((org) -> resourceIdKeyMap.get(org.getKey()), org -> org));
+    }
+
+    private String getCdnReadUrl(Resource resource, long cdnTimestamp) {
+        if (!isCdnEnabled()) {
+            return storageFactory.get(resource.getStorageType()).getResourceReadUrl(resource.getStorageKey());
+        }
+        if (resource.getStorageType() != StorageType.LOCAL) {
+            return cdnUrlSigner.sign(resource.getStorageKey(), cdnTimestamp);
+        }
+        LocalFileReadParamsBO signed = localFileUrlSigner.sign(resource.getStorageKey(),
+                Math.addExact(cdnTimestamp, storageProperties.getCdn().getAuthTtlSeconds()));
+        String query = "key=" + UriUtils.encodeQueryParam(signed.key(), StandardCharsets.UTF_8)
+                + "&expires=" + signed.expires()
+                + "&signature=" + signed.signature();
+        return cdnUrlSigner.signPath("/common/file/local", query, cdnTimestamp);
+    }
+
+    private long currentCdnTimestamp() {
+        StorageProperties.CdnConfig cdn = storageProperties.getCdn();
+        long authTtlSeconds = cdn.getAuthTtlSeconds();
+        int urlReusePercent = cdn.getUrlReusePercent();
+        long reuseWindowSeconds = authTtlSeconds / 100 * urlReusePercent
+                + ((authTtlSeconds % 100) * urlReusePercent) / 100;
+        if (authTtlSeconds <= 1 || urlReusePercent <= 0 || urlReusePercent >= 100
+                || reuseWindowSeconds <= 0 || reuseWindowSeconds >= authTtlSeconds) {
+            throw new IllegalStateException("CDN 鉴权有效期和链接复用比例配置无效");
+        }
+        return Math.multiplyExact(Math.floorDiv(clock.instant().getEpochSecond(), reuseWindowSeconds), reuseWindowSeconds);
+    }
+
+    private boolean isCdnEnabled() {
+        return storageProperties.getCdn() != null && storageProperties.getCdn().isEnabled();
     }
 
     /**

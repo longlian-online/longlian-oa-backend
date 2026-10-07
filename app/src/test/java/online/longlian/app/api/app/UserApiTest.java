@@ -2,9 +2,12 @@ package online.longlian.app.api.app;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -12,6 +15,9 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 
 public class UserApiTest extends BaseApiTest {
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // ========== 注册与创建组织 ==========
 
@@ -281,7 +287,7 @@ public class UserApiTest extends BaseApiTest {
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
                 "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
-                3L, 1L, 2L, "MEMBER"
+                3L, 1L, 2L, "ORG_USER"
         );
         String token2 = loginAs("user2", "123456");
 
@@ -313,7 +319,7 @@ public class UserApiTest extends BaseApiTest {
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
                 "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 0)",
-                3L, 1L, 2L, "MEMBER"
+                3L, 1L, 2L, "ORG_USER"
         );
         String token2 = loginAs("user2", "123456");
 
@@ -366,6 +372,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldResetPasswordSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
         Response response = request()
@@ -375,6 +382,8 @@ public class UserApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
 
         request()
                 .body(Map.of("username", "testuser", "password", "123456"))
@@ -429,6 +438,63 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 
+
+    @Test
+    void shouldChangePasswordWithCurrentPassword() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+
+        authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        request().body(Map.of("username", "testuser", "password", "654321")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        request().body(Map.of("username", "testuser", "password", "123456")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenUserRecordIsGone() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
+
+        authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldRejectRequestWhenLoginCacheMissesAndUserRowIsGone() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        redisTemplate.delete(RedisConstants.LOGIN_USER + 1L);
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
+
+        authRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+
+        authRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,原密码错误"));
+        request().body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        authRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "123"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
 
     // ========== 认证失败 ==========
 

@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
@@ -124,10 +125,12 @@ class LocalFileIngressTest {
 
     @Test
     void read_invalidSignature_rejectsBeforeLookup() {
+        StorageProperties properties = new StorageProperties();
+        properties.setPresignedUrlTtlSeconds(60);
         LocalFileIngress ingressWithRealSigner = new LocalFileIngress(
                 resourceService,
                 localStorageService,
-                new LocalFileUrlSigner("a".repeat(32), 60L, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))
+                new LocalFileUrlSigner("a".repeat(32), properties, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))
         );
 
         assertThatThrownBy(() -> ingressWithRealSigner.read(SIGNED))

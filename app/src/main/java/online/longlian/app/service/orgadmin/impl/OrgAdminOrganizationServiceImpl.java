@@ -45,20 +45,24 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
     @Transactional(rollbackFor = Exception.class)
     public void updateOrganizationInfo(OrgAdminUpdateOrganizationInfoParamsBO params) {
         Organization organization = organizationMapper.selectById(params.getOrgId());
-        Long oldAvatarFileId = organization.getAvatarFileId();
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(params.getAvatarFileId())
-                .replacedResourceId(oldAvatarFileId)
-                .bizId(params.getOrgId())
-                .creatorId(params.getUserId())
-                .orgId(params.getOrgId())
-                .build());
-        organizationMapper.update(null,
-                new LambdaUpdateWrapper<Organization>()
-                        .eq(Organization::getId, params.getOrgId())
-                        .set(Organization::getName, params.getName())
-                        .set(Organization::getAvatarFileId, params.getAvatarFileId())
-                        .set(Organization::getDescription, params.getDescription())
-        );
+        LambdaUpdateWrapper<Organization> updateWrapper = new LambdaUpdateWrapper<Organization>()
+                .eq(Organization::getId, params.getOrgId())
+                .set(Organization::getName, params.getName())
+                .set(Organization::getDescription, params.getDescription());
+
+        if (params.getAvatarFileId() != null) {
+            Long oldAvatarFileId = organization.getAvatarFileId();
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getAvatarFileId())
+                    .replacedResourceId(oldAvatarFileId)
+                    .bizId(params.getOrgId())
+                    .creatorId(params.getUserId())
+                    .orgId(params.getOrgId())
+                    .build());
+            updateWrapper.set(Organization::getAvatarFileId,
+                    params.getAvatarFileId() > 0 ? params.getAvatarFileId() : null);
+        }
+
+        organizationMapper.update(null, updateWrapper);
     }
 }
