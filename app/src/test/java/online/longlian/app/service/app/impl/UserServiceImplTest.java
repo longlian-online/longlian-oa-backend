@@ -20,12 +20,15 @@ import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
+import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
-import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -69,7 +72,7 @@ class UserServiceImplTest {
     @Mock
     private UserMapper userMapper;
     @Mock
-    private CurrentOrganizationService currentOrganizationService;
+    private OrganizationMembershipService organizationMembershipService;
     @Mock
     private OTPServiceFactory otpServiceFactory;
     @Mock
@@ -94,7 +97,7 @@ class UserServiceImplTest {
                 groupApplicationMapper,
                 resourceService,
                 userMapper,
-                currentOrganizationService,
+                organizationMembershipService,
                 otpServiceFactory,
                 Clock.systemUTC(),
                 sessionService,
@@ -337,6 +340,39 @@ class UserServiceImplTest {
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
+    @Test
+    void shouldNotUpdateDefaultOrgWhenMembershipRejected() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L))
+                .thenThrow(new AppException(ResultCode.OPERATION_FAIL, "您不是该组织成员"));
+
+        assertThatThrownBy(() -> service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("您不是该组织成员");
+
+        verify(userMapper, never()).update(any(), any());
+        verifyNoInteractions(sessionService);
+    }
+
+    @Test
+    void shouldUpdateDefaultOrgOnceWhenMembershipEnabled() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
+        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+
+        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+
+        assertThat(result.getId()).isEqualTo(2L);
+        assertThat(result.getRoles()).containsExactly("ORG_ADMIN");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        String sqlSet = captor.getValue().getSqlSet();
+        if (sqlSet != null) {
+            assertThat(sqlSet).contains("default_org_id");
+        }
+        verifyNoInteractions(sessionService);
+    }
+
 
     private void assertPasswordUpdatedAndRevokedTokens(long userId) {
         @SuppressWarnings("unchecked")

@@ -439,7 +439,6 @@ public class TaskApiTest extends BaseApiTest {
     void shouldRejectTaskSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "reviewer", "123456", "reviewer@example.com");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
         createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
         String token = loginAs("reviewer", "123456");
 

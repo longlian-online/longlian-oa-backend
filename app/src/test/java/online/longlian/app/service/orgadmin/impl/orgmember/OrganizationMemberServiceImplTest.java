@@ -10,7 +10,6 @@ import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.Status;
@@ -51,7 +50,6 @@ class OrganizationMemberServiceImplTest {
     @Mock private MemberStatusHandler memberStatusHandler;
     @Mock private MemberSubmissionHandler memberSubmissionHandler;
     @Mock private LockService lockService;
-    @Mock private SessionService sessionService;
 
     private OrganizationMemberServiceImpl service;
     private RecordingTransactionManager transactions;
@@ -66,17 +64,14 @@ class OrganizationMemberServiceImplTest {
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
                 otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
-                memberStatusHandler, memberSubmissionHandler, lockService, sessionService, transactions);
+                memberStatusHandler, memberSubmissionHandler, lockService, transactions);
     }
 
     @Test
     void shouldLockBeforeTransactionAndClearSessionOnlyAfterCommit() {
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
         transactions.onBegin = () -> verify(lockService).tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS);
-        transactions.onCommit = () -> {
-            verify(lock, never()).close();
-            verify(sessionService, never()).clearUserSessionCache(anyLong());
-        };
+        transactions.onCommit = () -> verify(lock, never()).close();
 
         service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN));
 
@@ -86,7 +81,6 @@ class OrganizationMemberServiceImplTest {
         order.verify(memberStatusHandler).getAndValidateMember(2L, 1L);
         order.verify(lock).close();
         assertThat(transactions.propagation).isEqualTo(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        verify(sessionService).clearUserSessionCache(20L);
         verify(organizationMemberMapper).update(eq(null), any());
     }
 
@@ -102,7 +96,6 @@ class OrganizationMemberServiceImplTest {
 
         verify(lock).close();
         verify(organizationMemberMapper, never()).update(eq(null), any());
-        verify(sessionService, never()).clearUserSessionCache(anyLong());
         assertThat(transactions.rollbacks).isEqualTo(1);
     }
 
@@ -115,7 +108,6 @@ class OrganizationMemberServiceImplTest {
 
         verify(organizationMemberMapper).update(eq(null), any());
         verify(lock).close();
-        verify(sessionService).clearUserSessionCache(20L);
     }
 
     @Test
@@ -188,14 +180,12 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
-    void shouldClearDisabledMemberSessionOnlyAfterCommit() {
+    void shouldDisableMemberUnderLock() {
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-        transactions.onCommit = () -> verify(sessionService, never()).clearUserSessionCache(anyLong());
 
         service.changeMemberStatus(statusParams(Status.DISABLED));
 
         verify(memberStatusHandler).updateMemberStatus(any(), eq(Status.DISABLED));
-        verify(sessionService).clearUserSessionCache(20L);
         verify(lock).close();
     }
 

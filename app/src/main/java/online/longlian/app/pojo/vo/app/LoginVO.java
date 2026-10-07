@@ -22,12 +22,12 @@ public class LoginVO {
     private Long userId;
 
     @JsonLongIdString
-    @Schema(type = "string", description = "当前组织ID")
+    @Schema(type = "string", description = "建议打开的组织ID，不参与后续鉴权")
     private Long currentOrgId;
 
     @Schema(description = "用户认证token")
     private String token;
 
-    @Schema(description = "当前组织内用户角色列表")
+    @Schema(description = "建议组织内的角色，仅供展示")
     private List<String> roles;
 }

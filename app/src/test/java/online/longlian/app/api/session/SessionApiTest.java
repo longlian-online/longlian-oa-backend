@@ -295,7 +295,7 @@ public class SessionApiTest extends BaseApiTest {
 
         authRequest(token).delete("/app/session/");
 
-        Response response = authRequest(token).get("/app/user/");
+        Response response = userRequest(token).get("/app/user/");
         response.then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
@@ -304,7 +304,7 @@ public class SessionApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithInvalidToken() {
-        Response response = authRequest("invalid.token.here")
+        Response response = userRequest("invalid.token.here")
                 .get("/app/user/");
 
         response

@@ -29,12 +29,6 @@ public class UserDetailImpl implements UserDetails {
 
     private Status status;
 
-    private Long currentOrgId;
-
-    private List<String> roles;
-
-    private List<String> permissions;
-
     private List<GrantedAuthority> authorities;
 
     @Override

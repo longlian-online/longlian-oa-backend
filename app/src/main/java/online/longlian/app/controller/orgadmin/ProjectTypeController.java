@@ -43,7 +43,7 @@ public class ProjectTypeController {
     @GetMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectTypeAdminVO> listProjectTypes(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession SessionContext sessionContext,
             @ModelAttribute @Valid ProjectTypeListDTO projectTypeListDTO) {
         PageResultBO<ProjectTypeListResultBO> resultBO = projectTypeService.listProjectTypes(
                 ProjectTypeListParamsBO.builder()
@@ -66,7 +66,7 @@ public class ProjectTypeController {
     @Operation(summary = "创建企划类型")
     @PostMapping("")
     @ResponseMessage("创建成功")
-    public void createProjectType(@UserSession(required = true) SessionContext sessionContext,
+    public void createProjectType(@UserSession SessionContext sessionContext,
                                    @RequestBody @Valid ProjectTypeCreateDTO projectTypeCreateDTO) {
         projectTypeService.createProjectType(
                 ProjectTypeCreateParamsBO.builder()
@@ -80,7 +80,7 @@ public class ProjectTypeController {
     @Operation(summary = "修改企划类型名称")
     @PutMapping("/{typeId}")
     @ResponseMessage("修改成功")
-    public void updateProjectType(@UserSession(required = true) SessionContext sessionContext,
+    public void updateProjectType(@UserSession SessionContext sessionContext,
                                   @PathVariable Long typeId,
                                   @RequestBody @Valid ProjectTypeUpdateDTO projectTypeUpdateDTO) {
         projectTypeService.updateProjectType(ProjectTypeUpdateParamsBO.builder()
@@ -90,7 +90,7 @@ public class ProjectTypeController {
     @Operation(summary = "删除企划类型", description = "仅允许删除未被企划引用的类型")
     @DeleteMapping("/{typeId}")
     @ResponseMessage("删除成功")
-    public void deleteProjectType(@UserSession(required = true) SessionContext sessionContext,
+    public void deleteProjectType(@UserSession SessionContext sessionContext,
                                   @PathVariable Long typeId) {
         projectTypeService.deleteProjectType(ProjectTypeDeleteParamsBO.builder()
                 .typeId(typeId)
@@ -101,7 +101,7 @@ public class ProjectTypeController {
     @Operation(summary = "启用/禁用企划类型", description = "禁用后用户端不展示该类型，但已有数据保留。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{typeId}/status")
     @ResponseMessage("状态修改成功")
-    public void changeProjectTypeStatus(@UserSession(required = true) SessionContext sessionContext,
+    public void changeProjectTypeStatus(@UserSession SessionContext sessionContext,
                                                  @PathVariable Long typeId,
                                                  @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         projectTypeService.changeProjectTypeStatus(

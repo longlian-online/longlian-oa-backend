@@ -83,7 +83,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 99L, 2L, 1, "avatar/99.png", "avatar.png", "png", 1L, "avatar", 2L, 1, 2L
         );
 
-        Response response = authRequest(token)
+        Response response = authRequest(token, 1L)
                 .body(Map.of(
                         "name", "组织一",
                         "description", "组织描述",
@@ -338,7 +338,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailGetOrganizationInfoWithoutAdminRole() {
-        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "MEMBER");
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("regular", "123456");
 
         Response response = authRequest(token)

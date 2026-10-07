@@ -6,21 +6,16 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.common.CurrentOrganizationContextBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.CurrentOrganizationService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.Status;
 import org.springframework.beans.BeanUtils;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -29,7 +24,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserMapper userMapper;
     private final GroupApplicationMapper groupApplicationMapper;
-    private final CurrentOrganizationService currentOrganizationService;
 
     @Override
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
@@ -74,23 +68,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             throw new AppException(ResultCode.OPERATION_FAIL, "入组申请审批中，请耐心等待");
         }
 
-        CurrentOrganizationContextBO currentOrgContext = currentOrganizationService.resolveCurrentOrgContext(
-                user.getId(),
-                user.getDefaultOrgId()
-        );
-        List<String> roles = currentOrgContext.getRoles() == null ? List.of() : currentOrgContext.getRoles();
-        List<String> permissions = List.of();
-        List<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.addAll(roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                .toList());
-
         UserDetailImpl userDetailImpl = new UserDetailImpl();
         BeanUtils.copyProperties(user, userDetailImpl);
-        userDetailImpl.setAuthorities(authorities);
-        userDetailImpl.setPermissions(permissions);
-        userDetailImpl.setCurrentOrgId(currentOrgContext.getOrgId());
-        userDetailImpl.setRoles(roles);
+        userDetailImpl.setAuthorities(List.of());
         return userDetailImpl;
     }
 

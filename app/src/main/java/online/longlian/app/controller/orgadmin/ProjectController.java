@@ -38,7 +38,7 @@ public class ProjectController {
     @PostMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectAdminInfoVO> getAdminProjectList(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession SessionContext sessionContext,
             @RequestBody @Valid ProjectAdminListDTO projectAdminListDTO) {
         PageResultBO<ProjectAdminListResultBO> resultBO = projectService.getAdminProjectList(
                 ProjectAdminListParamsBO.builder()
@@ -64,7 +64,7 @@ public class ProjectController {
     @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{projectId}/status")
     @ResponseMessage("状态修改成功")
-    public void changeProjectStatus(@UserSession(required = true) SessionContext sessionContext,
+    public void changeProjectStatus(@UserSession SessionContext sessionContext,
                                              @PathVariable Long projectId,
                                              @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         projectService.changeProjectStatus(

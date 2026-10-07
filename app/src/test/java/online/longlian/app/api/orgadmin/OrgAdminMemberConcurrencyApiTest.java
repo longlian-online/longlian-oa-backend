@@ -31,7 +31,6 @@ public class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "firstadmin", "123456", "first@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "secondadmin", "123456", "second@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
         String firstToken = loginAs("firstadmin", "123456");
         String secondToken = loginAs("secondadmin", "123456");
 
