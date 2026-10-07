@@ -131,6 +131,22 @@ class OrganizationMembershipServiceImplTest {
     }
 
     @Test
+    void shouldSkipInvalidOrgIdsAndMissingOrganizationsWhileSuggesting() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(10L).build());
+        when(organizationMapper.selectById(10L)).thenReturn(null);
+        when(organizationMapper.selectById(20L)).thenReturn(enabledOrg(20L));
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().id(1L).userId(1L).orgRole("ORG_USER").status(Status.ENABLED).build(),
+                member(2L, 0L, Status.ENABLED, "ORG_USER"),
+                member(3L, 20L, Status.ENABLED, "ORG_ADMIN")
+        ));
+        when(organizationMemberMapper.selectOne(any())).thenReturn(member(3L, 20L, Status.ENABLED, "ORG_ADMIN"));
+
+        assertThat(service.suggestForLogin(1L).getOrgId()).isEqualTo(20L);
+        verify(organizationMapper, never()).selectById(0L);
+    }
+
+    @Test
     void shouldRejectLoginSuggestionWhenNoEnabledOrganizationRemains() {
         when(userMapper.selectById(1L)).thenReturn(null);
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of());

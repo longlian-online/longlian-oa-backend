@@ -372,6 +372,17 @@ class UserServiceImplTest {
         }
         verifyNoInteractions(sessionService);
     }
+    @Test
+    void shouldReturnNoRolesWhenMembershipRoleIsBlank() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole(" ").status(Status.ENABLED).build());
+        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+
+        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+
+        assertThat(result.getRoles()).isEmpty();
+    }
+
 
 
     private void assertPasswordUpdatedAndRevokedTokens(long userId) {

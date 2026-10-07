@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -144,6 +145,62 @@ class OrganizationScopeFilterTest {
     private UsernamePasswordAuthenticationToken authentication() {
         return new UsernamePasswordAuthenticationToken(
                 user(1L), null, List.of(new SimpleGrantedAuthority("ROLE_ORG_ADMIN")));
+    }
+
+    @Test
+    void shouldRejectInvalidOrgRole() throws Exception {
+        authenticateUser();
+        request.addHeader(OrganizationScopeFilter.ORG_ID_HEADER, "8");
+        when(organizationMembershipService.requireEnabledMember(1L, 8L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(8L).userId(1L).orgRole("MEMBER").status(Status.ENABLED).build());
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThat(JSON.parseObject(response.getContentAsString()).getIntValue("code"))
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void shouldFailWhenMembershipQueryHitsTheDatabase() throws Exception {
+        authenticateUser();
+        request.addHeader(OrganizationScopeFilter.ORG_ID_HEADER, "8");
+        when(organizationMembershipService.requireEnabledMember(1L, 8L))
+                .thenThrow(new DataRetrievalFailureException("db"));
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThat(JSON.parseObject(response.getContentAsString()).getIntValue("code"))
+                .isEqualTo(ResultCode.FAIL.getCode());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void shouldRejectOrgIdThatOverflowsLong() throws Exception {
+        authenticateUser();
+        request.addHeader(OrganizationScopeFilter.ORG_ID_HEADER, "9".repeat(30));
+
+        filter.doFilter(request, response, filterChain);
+
+        verifyNoInteractions(organizationMembershipService);
+        verify(filterChain, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThat(JSON.parseObject(response.getContentAsString()).getIntValue("code"))
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+    }
+
+    @Test
+    void shouldLeaveCommittedResponseUntouched() throws Exception {
+        authenticateUser();
+        request.addHeader(OrganizationScopeFilter.ORG_ID_HEADER, " ");
+        response.getWriter().write("already");
+        response.flushBuffer();
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(response.getContentAsString()).isEqualTo("already");
+        verify(filterChain, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     private UserDetailImpl user(long id) {

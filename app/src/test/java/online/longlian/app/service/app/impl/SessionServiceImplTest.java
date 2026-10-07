@@ -84,6 +84,24 @@ class SessionServiceImplTest {
                 .doesNotContain("roles", "permissions", "currentOrgId");
         verify(organizationMembershipService).suggestForLogin(7L);
     }
+    @Test
+    void loginByPwdOmitsBlankSuggestedRole() {
+        UserDetailImpl user = UserDetailImpl.builder().id(7L).username("user").status(Status.ENABLED).build();
+        when(authenticationManager.authenticate(any())).thenReturn(
+                new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+        when(jwtUtil.generateToken(7L, TokenType.User.name().toLowerCase())).thenReturn("token");
+        when(jwtUtil.getRemainingTimeSeconds("token")).thenReturn(120L);
+        when(organizationMembershipService.suggestForLogin(7L)).thenReturn(
+                OrganizationMember.builder().id(3L).orgId(11L).orgRole(" ").build());
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
+                .username("user").password("123456").build());
+
+        assertThat(result.getRoles()).isEmpty();
+        assertThat(result.getCurrentOrgId()).isEqualTo(11L);
+    }
+
 
     @Test
     void logoutDeletesOnlyLoginCache() {
