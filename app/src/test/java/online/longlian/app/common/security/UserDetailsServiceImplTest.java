@@ -49,4 +49,20 @@ class UserDetailsServiceImplTest {
         assertThat(details.getAuthorities()).isEmpty();
         verifyNoInteractions(groupApplicationMapper);
     }
+    @Test
+    void shouldLoadUserByUsernameAndRejectMissingEmailLookup() {
+        when(userMapper.selectOne(any()))
+                .thenReturn(User.builder().id(2L).username("user").status(Status.ENABLED).build())
+                .thenReturn(null);
+        UserDetailsServiceImpl service = new UserDetailsServiceImpl(userMapper, groupApplicationMapper);
+
+        assertThat(service.loadUserByUsername("user").getUsername()).isEqualTo("user");
+        assertThatThrownBy(() -> service.loadUserByUsername("missing"))
+                .isInstanceOf(AppException.class)
+                .hasMessage("用户不存在");
+        assertThatThrownBy(() -> service.loadUserByEmailOnly("missing@example.com"))
+                .isInstanceOf(AppException.class)
+                .hasMessage("用户不存在");
+    }
+
 }

@@ -47,6 +47,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -382,6 +383,57 @@ class UserServiceImplTest {
 
         assertThat(result.getRoles()).isEmpty();
     }
+    @Test
+    void shouldRejectMissingUserAndEmptyOrganizationList() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
+        when(userMapper.selectById(1L)).thenReturn(null);
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.getMyInfo(1L))
+                .isInstanceOf(AppException.class)
+                .hasMessage("用户不存在");
+        assertThat(service.getMyOrganizations(1L)).isEmpty();
+    }
+
+    @Test
+    void shouldIncludeAvatarWhenSwitchingToOrganizationWithAvatar() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
+        when(organizationMapper.selectById(2L)).thenReturn(
+                Organization.builder().id(2L).name("组织2").avatarFileId(5L).build());
+        when(resourceService.getResourceReadUrl(5L)).thenReturn("http://avatar");
+
+        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+
+        assertThat(result.getAvatarUrl()).isEqualTo("http://avatar");
+    }
+
+    @Test
+    void shouldRejectCreateOrganizationWhenNameIsBlank() {
+        stubRegisterValidation();
+        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+
+        assertThatThrownBy(() -> service.registerAndCreateOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织名称不能为空");
+    }
+
+    @Test
+    void shouldRejectJoinRegistrationWhenApplicationIsAlreadyPending() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectById(30L)).thenReturn(
+                Organization.builder().id(30L).status(Status.ENABLED).build());
+        when(groupApplicationMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("您已提交过入组申请");
+    }
+
 
 
 
