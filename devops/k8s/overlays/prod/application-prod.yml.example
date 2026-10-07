@@ -1,26 +1,23 @@
 # =============================================================================
-# longlian-oa 生产环境配置模板
+# 生产配置模板（overlays/prod）
 #
-# 使用方法：
-#   cp devops/application-prod.yml.example devops/application-prod.yml
-#   按外部 MariaDB / Redis / 邮件 / 存储填写真实值。
+# 使用：复制为同目录 application-prod.yml 后填写真实值。
+# application-prod.yml 已被 .gitignore 忽略，不会提交到仓库，也不会被 git pull 覆盖。
 #
-# 重要：
-#   - application-prod.yml 已被 gitignore，禁止提交
-#   - compose 把它挂到应用和迁移容器的 /app/config/application.yml
-#   - MariaDB、Redis、邮件不由 compose 启动，必须指向已有外部实例
-#   - 迁移从下方 spring.datasource 推导连接，不必再配 DB_URL
-#   - 会在同一实例自动创建 `{数据库名}_atlas` 空库作暂存；
-#     账号没有 CREATE DATABASE 时需预先建好，或设 DEV_DB_URL
+# 注意：
+#   - spring.datasource.password 必须与 mysql-init.sql 中 IDENTIFIED BY 的密码一致
+#   - jwt.secret 必须换成 ≥32 字节的高强度随机串
+#   - mysql-init.sql 只在 MariaDB 数据卷首次初始化时执行
+#   - 不能把旧 MySQL 8 数据目录直接挂给 MariaDB 10.11
 # =============================================================================
-
+# longlian-oa 生产配置（存放于 k8s Secret: longlian-oa-config）
 server:
   shutdown: graceful
 
 longlian:
   display-name: "longlian-oa"
-  # 对外部署地址；部署时替换为当前环境域名。
-  server-url: https://api.example.com
+  # 对外部署地址；与 Ingress Host 一致，本地文件绝对地址复用这里
+  server-url: https://oa.longlian.online
   datasource:
     type: mariadb
   cache:
@@ -38,14 +35,18 @@ spring:
     timeout-per-shutdown-phase: 30s
 
   datasource:
-    url: jdbc:mariadb://mariadb.example.com:3306/longlian_oa?sslMode=verify-full&timezone=+08:00
-    username: user
-    password: pass
+    # 集群内 MariaDB（见 base/mariadb.yaml）；mysql-init.sql 会创建 longlian 账号
+    url: jdbc:mariadb://mariadb:3306/longlian_oa?sslMode=disable&timezone=+08:00
+    username: longlian
+    # 必须与 mysql-init.sql 中 IDENTIFIED BY 的密码一致
+    password: CHANGE_ME_DB_PASSWORD
 
   data:
     redis:
-      host: redis.example.com
+      # 集群内 Redis（见 base/redis.yaml）
+      host: redis
       port: 6379
+      # 集群内 Redis 默认不设密码（仅集群网络可达），如启用密码需同时改 Redis args
       password: ""
       database: 1
   mail:
@@ -114,6 +115,7 @@ storage:
     secret-key: ""
 
 cors:
+  # 必须包含前端实际 Origin（Ingress 域名或 CDN 域名）
   allowed-origins: https://oa.longlian.online
 
 notify:
@@ -123,8 +125,8 @@ notify:
       path: classpath:templates/verify-code.html
 
 jwt:
-  # HS256 至少 32 字节。生产必须换成高强度随机串
-  secret: change-me-to-a-long-random-secret-at-least-32-bytes
+  # HS256 至少 32 字节。生产必须换成高强度随机串，泄露等于可伪造登录
+  secret: CHANGE_ME_JWT_SECRET_AT_LEAST_32_BYTES_LONG_RANDOM_STRING
   expiration: 86400
   header: Authorization
   prefix: Bearer

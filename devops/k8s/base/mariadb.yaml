@@ -1,0 +1,136 @@
+# =============================================================================
+# 集群内 MariaDB 10.11（默认全量部署，与 docker-compose.dev.yml 的 mariadb-dev 等价）
+#
+# 初始化（仅数据卷为空时执行一次）：
+#   - 镜像 entrypoint 创建业务库 longlian_oa（由 MARIADB_DATABASE 指定）
+#   - 挂载的 mysql-init.sql（Secret longlian-oa-config 的 key）创建应用账号
+#     longlian、Atlas 影子库 longlian_oa_atlas 并授权
+#
+# 说明：
+#   - 应用账号与 root 分离；应用/迁移连接走 longlian，JDBC 使用 jdbc:mariadb://。
+#   - 不想用集群内 MariaDB（已有外部实例）时：删除本文件与 kustomization.yaml
+#     中对应条目，并把 Secret 的 spring.datasource 改回外部地址。
+#   - 官方镜像默认以 mysql 用户运行（uid/gid 999），fsGroup 保证持久卷可写；
+#     Recreate 策略避免新旧实例同时写同一份数据目录。
+#   - 不能把 MySQL 8 的数据目录直接挂给本镜像。从旧 mysql-data-pvc 迁移须先
+#     mysqldump，再导入新卷（见 db/DEVELOPMENT.md）。
+#   - 备份：kubectl exec -it deploy/mariadb -n longlian-oa -- \
+#       mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" longlian_oa
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-data-pvc
+  namespace: longlian-oa
+  labels:
+    app: mariadb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: longlian-oa
+  labels:
+    app: mariadb
+spec:
+  # 单实例数据库：滚动更新会造成双写，必须 Recreate
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      securityContext:
+        # MariaDB 官方镜像内 mysql 用户 uid/gid 均为 999；
+        # fsGroup 让新 PVC 根目录归属组可写（kubelet 会自动 chown）
+        fsGroup: 999
+      containers:
+        - name: mariadb
+          image: mariadb:10.11.19
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_520_ci
+            - --default-time-zone=+08:00
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: longlian-oa-config
+                  key: mysql-root-password
+            - name: MARIADB_DATABASE
+              value: longlian_oa
+            - name: TZ
+              value: Asia/Shanghai
+          ports:
+            - name: mariadb
+              containerPort: 3306
+          volumeMounts:
+            - name: mariadb-data
+              mountPath: /var/lib/mysql
+            - name: mariadb-init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - healthcheck.sh
+                - --connect
+                - --innodb_initialized
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+            initialDelaySeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - healthcheck.sh
+                - --connect
+                - --innodb_initialized
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: mariadb-data
+          persistentVolumeClaim:
+            claimName: mariadb-data-pvc
+        - name: mariadb-init
+          secret:
+            secretName: longlian-oa-config
+            items:
+              - key: mysql-init.sql
+                path: init.sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: longlian-oa
+  labels:
+    app: mariadb
+spec:
+  type: ClusterIP
+  selector:
+    app: mariadb
+  ports:
+    - name: mariadb
+      port: 3306
+      targetPort: mariadb

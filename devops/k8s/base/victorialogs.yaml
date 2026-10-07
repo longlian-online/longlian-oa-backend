@@ -1,0 +1,92 @@
+# =============================================================================
+# 集群内 VictoriaLogs（与 docker-compose.prod.yml 的 victorialogs 等价）
+#
+# 应用通过 OTEL Java Agent 把日志以 OTLP/HTTP 写到
+# http://victorialogs:9428/insert/opentelemetry/v1/logs。
+# 只暴露 ClusterIP，不挂 Ingress。
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: victorialogs-data-pvc
+  namespace: longlian-oa
+  labels:
+    app: victorialogs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: victorialogs
+  namespace: longlian-oa
+  labels:
+    app: victorialogs
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: victorialogs
+  template:
+    metadata:
+      labels:
+        app: victorialogs
+    spec:
+      containers:
+        - name: victorialogs
+          image: victoriametrics/victoria-logs:v1.52.0
+          args:
+            - -storageDataPath=/victoria-logs-data
+          ports:
+            - name: http
+              containerPort: 9428
+          volumeMounts:
+            - name: data
+              mountPath: /victoria-logs-data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: victorialogs-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: victorialogs
+  namespace: longlian-oa
+  labels:
+    app: victorialogs
+spec:
+  type: ClusterIP
+  selector:
+    app: victorialogs
+  ports:
+    - name: http
+      port: 9428
+      targetPort: http
