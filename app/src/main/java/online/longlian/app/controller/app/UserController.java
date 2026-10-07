@@ -162,7 +162,7 @@ public class UserController {
         userService.joinOrganizationByInvite(sessionContext.userId(), joinByInviteCodeDTO.getInviteCode());
     }
 
-    @Operation(summary = "切换组织", description = "记住下次登录建议打开的组织，不改变其他请求的组织作用域")
+    @Operation(summary = "设置默认组织", description = "更新用户默认组织，不改变其他请求的组织作用域")
     @PostMapping("/switch")
     @ResponseMessage("切换成功")
     public UserOrgSwitchVO switchOrg(@UserSession(organization = false) SessionContext sessionContext,

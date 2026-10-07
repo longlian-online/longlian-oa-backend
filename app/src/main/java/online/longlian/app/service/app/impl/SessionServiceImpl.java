@@ -14,9 +14,9 @@ import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
 import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
-import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
+import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.TokenType;
 import org.springframework.beans.BeanUtils;
@@ -87,14 +87,15 @@ public class SessionServiceImpl implements SessionService {
         String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase());
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
-        OrganizationMember suggested = organizationMembershipService.suggestForLogin(userId);
+        DefaultOrganization defaultOrganization = organizationMembershipService.findDefault(userId);
         cacheLoginSession(userDetail, sessionTtlSeconds);
 
         return SessionLoginResultBO.builder()
                 .userId(userId)
                 .token(token)
-                .roles(StringUtils.hasText(suggested.getOrgRole()) ? List.of(suggested.getOrgRole()) : List.of())
-                .currentOrgId(suggested.getOrgId())
+                .roles(StringUtils.hasText(defaultOrganization.orgRole())
+                        ? List.of(defaultOrganization.orgRole()) : List.of())
+                .defaultOrgId(defaultOrganization.orgId())
                 .build();
     }
 

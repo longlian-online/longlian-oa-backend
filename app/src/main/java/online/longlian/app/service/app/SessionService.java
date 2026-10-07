@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
  *   <li>支持密码登录和邮箱验证码登录两种方式，认证成功后签发 JWT Token 并缓存用户身份至 Redis</li>
  *   <li>登出时将 Token 加入 {@link online.longlian.app.service.TokenBlacklistService}
  *       黑名单并清除 Redis 登录缓存</li>
- *   <li>登录结果里的组织只是建议打开的组织，不参与后续请求鉴权</li>
+ *   <li>登录结果里的组织是用户保存的默认组织，不参与后续请求鉴权</li>
  * </ol>
  */
 public interface SessionService {

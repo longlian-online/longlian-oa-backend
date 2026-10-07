@@ -5,7 +5,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 /**
  * 按一次请求声明的组织校验成员关系。
  * <p>
- * 不读写 Redis：请求作用域只来自 {@code X-Org-Id}，登录建议只读 {@code user.default_org_id}。
+ * 不读写 Redis：请求作用域只来自 {@code X-Org-Id}。登录只读取用户保存的默认组织。
  */
 public interface OrganizationMembershipService {
 
@@ -15,8 +15,8 @@ public interface OrganizationMembershipService {
     OrganizationMember requireEnabledMember(Long userId, Long orgId);
 
     /**
-     * 为登录挑选建议打开的组织。默认组织不可用时改用最早加入且仍启用的组织。
-     * 建议值不写入缓存，也不授权后续请求。
+     * 读取用户默认组织。没有默认组织时组织 ID 为空。
+     * 默认组织已禁用或用户不是启用成员时仍返回已保存的组织 ID，角色为空，不改用其他组织。
      */
-    OrganizationMember suggestForLogin(Long userId);
+    DefaultOrganization findDefault(Long userId);
 }

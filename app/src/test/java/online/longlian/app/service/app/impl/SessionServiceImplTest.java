@@ -7,8 +7,8 @@ import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
 import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
-import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TokenType;
@@ -58,14 +58,13 @@ class SessionServiceImplTest {
     }
 
     @Test
-    void loginByPwdReturnsSuggestedOrgWithoutCachingRoles() {
+    void loginByPwdReturnsDefaultOrgWithoutCachingRoles() {
         UserDetailImpl user = UserDetailImpl.builder().id(7L).username("user").status(Status.ENABLED).build();
         when(authenticationManager.authenticate(any())).thenReturn(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
         when(jwtUtil.generateToken(7L, TokenType.User.name().toLowerCase())).thenReturn("token");
         when(jwtUtil.getRemainingTimeSeconds("token")).thenReturn(120L);
-        when(organizationMembershipService.suggestForLogin(7L)).thenReturn(
-                OrganizationMember.builder().id(3L).orgId(11L).orgRole("ORG_ADMIN").build());
+        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganization(11L, "ORG_ADMIN"));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
@@ -73,7 +72,7 @@ class SessionServiceImplTest {
                 .password("123456")
                 .build());
 
-        assertThat(result.getCurrentOrgId()).isEqualTo(11L);
+        assertThat(result.getDefaultOrgId()).isEqualTo(11L);
         assertThat(result.getRoles()).containsExactly("ORG_ADMIN");
         ArgumentCaptor<LoginSessionCacheBO> cached = ArgumentCaptor.forClass(LoginSessionCacheBO.class);
         verify(valueOperations).set(eq(RedisConstants.LOGIN_USER + 7L), cached.capture(), eq(120L), eq(TimeUnit.SECONDS));
@@ -82,24 +81,24 @@ class SessionServiceImplTest {
         assertThat(LoginSessionCacheBO.class.getDeclaredFields())
                 .extracting(Field::getName)
                 .doesNotContain("roles", "permissions", "currentOrgId");
-        verify(organizationMembershipService).suggestForLogin(7L);
+        verify(organizationMembershipService).findDefault(7L);
     }
+
     @Test
-    void loginByPwdOmitsBlankSuggestedRole() {
+    void loginByPwdOmitsBlankDefaultRole() {
         UserDetailImpl user = UserDetailImpl.builder().id(7L).username("user").status(Status.ENABLED).build();
         when(authenticationManager.authenticate(any())).thenReturn(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
         when(jwtUtil.generateToken(7L, TokenType.User.name().toLowerCase())).thenReturn("token");
         when(jwtUtil.getRemainingTimeSeconds("token")).thenReturn(120L);
-        when(organizationMembershipService.suggestForLogin(7L)).thenReturn(
-                OrganizationMember.builder().id(3L).orgId(11L).orgRole(" ").build());
+        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganization(11L, " "));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
                 .username("user").password("123456").build());
 
         assertThat(result.getRoles()).isEmpty();
-        assertThat(result.getCurrentOrgId()).isEqualTo(11L);
+        assertThat(result.getDefaultOrgId()).isEqualTo(11L);
     }
 
 

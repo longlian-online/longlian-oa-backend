@@ -10,11 +10,12 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -57,33 +58,19 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
     }
 
     @Override
-    public OrganizationMember suggestForLogin(Long userId) {
+    public DefaultOrganization findDefault(Long userId) {
         User user = userMapper.selectById(userId);
         Long defaultOrgId = user == null ? null : user.getDefaultOrgId();
-        if (defaultOrgId != null && defaultOrgId > 0) {
-            OrganizationMember defaultMember = findEnabledMember(userId, defaultOrgId);
-            if (defaultMember != null) {
-                return defaultMember;
-            }
+        if (defaultOrgId == null || defaultOrgId <= 0) {
+            return new DefaultOrganization(null, null);
         }
-
-        List<OrganizationMember> organizationMembers = organizationMemberMapper.selectList(
-                new LambdaQueryWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getUserId, userId)
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)
-                        .orderByAsc(OrganizationMember::getJoinedAt)
-        );
-        for (OrganizationMember organizationMember : organizationMembers) {
-            OrganizationMember enabledMember = findEnabledMember(userId, organizationMember.getOrgId());
-            if (enabledMember != null) {
-                return enabledMember;
-            }
-        }
-        throw new AppException(ResultCode.OPERATION_FAIL, "当前无可用组织，请先加入组织");
+        OrganizationMember member = findEnabledMember(userId, defaultOrgId);
+        String orgRole = member != null && StringUtils.hasText(member.getOrgRole()) ? member.getOrgRole() : null;
+        return new DefaultOrganization(defaultOrgId, orgRole);
     }
 
     /**
-     * 登录回退用：失败返回 null，避免和 {@link #requireEnabledMember} 的失败即抛混在一起。
+     * 默认组织当前不可用时返回 null。调用方不得因此改选其他组织。
      */
     private OrganizationMember findEnabledMember(Long userId, Long orgId) {
         if (orgId == null || orgId <= 0) {

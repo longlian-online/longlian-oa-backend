@@ -15,7 +15,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 public class OrganizationScopeApiTest extends BaseApiTest {
@@ -98,10 +100,10 @@ public class OrganizationScopeApiTest extends BaseApiTest {
     }
 
     /**
-     * 切换只改下次登录建议，不改变另一侧请求头读到的组织。
+     * 切换只改默认组织，不改变另一侧请求头读到的组织。
      */
     @Test
-    void shouldSwitchOnlyTheSuggestedOrg() {
+    void shouldSwitchOnlyTheDefaultOrg() {
         createUserWithOrganization(1L, "admin", "123456", "admin@example.com", 1L, 1L, "ORG_ADMIN");
         createOrganization(2L, "组织2");
         createOrganizationMember(2L, 2L, 1L, "ORG_ADMIN");
@@ -127,10 +129,10 @@ public class OrganizationScopeApiTest extends BaseApiTest {
     }
 
     /**
-     * 登录返回建议组织，但建议值不能授权下一次业务请求。
+     * 登录返回默认组织，但该值不能授权下一次业务请求。
      */
     @Test
-    void shouldReturnSuggestedOrgWithoutAuthorizingTheNextRequest() {
+    void shouldReturnDefaultOrgWithoutAuthorizingTheNextRequest() {
         createUserWithOrganization(1L, "admin", "123456", "admin@example.com", 1L, 1L, "ORG_ADMIN");
         createOrganization(2L, "组织2");
         createOrganizationMember(2L, 2L, 1L, "ORG_USER");
@@ -141,43 +143,50 @@ public class OrganizationScopeApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldFallBackToEarliestEnabledOrgWhenDefaultIsDisabled() {
+    void shouldKeepDisabledDefaultOrgInsteadOfChoosingAnother() {
         createUserWithOrganization(1L, "admin", "123456", "admin@example.com", 1L, 1L, "ORG_ADMIN");
-        jdbcTemplate.update("UPDATE organization_member SET joined_at = ? WHERE id = 1", "2020-01-01 00:00:00");
         createOrganization(2L, "组织2");
         createOrganizationMember(2L, 2L, 1L, "ORG_ADMIN");
         jdbcTemplate.update("UPDATE organization SET status = 0 WHERE id = 2");
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 2L, 1L);
 
-        login(1L, "ORG_ADMIN");
+        request().body(Map.of("username", "admin", "password", "123456")).post("/app/session/pwd")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.defaultOrgId", equalTo("2"))
+                .body("data.roles", empty());
     }
 
     @Test
-    void shouldFallBackToEarliestEnabledOrgWhenDefaultIsZero() {
+    void shouldLoginWithoutDefaultOrgWhenStoredIdIsZero() {
         createUserWithOrganization(1L, "admin", "123456", "admin@example.com", 1L, 1L, "ORG_ADMIN");
-        jdbcTemplate.update("UPDATE organization_member SET joined_at = ? WHERE id = 1", "2020-01-01 00:00:00");
-        createOrganization(2L, "组织2");
-        createOrganizationMember(2L, 2L, 1L, "ORG_ADMIN");
         jdbcTemplate.update("UPDATE `user` SET default_org_id = 0 WHERE id = 1");
 
-        login(1L, "ORG_ADMIN");
+        request().body(Map.of("username", "admin", "password", "123456")).post("/app/session/pwd")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.defaultOrgId", nullValue())
+                .body("data.roles", empty())
+                .body("data.token", notNullValue());
     }
 
     @Test
-    void shouldRejectLoginWhenUserHasNoEnabledOrganization() {
+    void shouldLoginWhenUserHasNoOrganization() {
         createTestUser(1L, "lonely", "123456", "lonely@example.com");
 
         request().body(Map.of("username", "lonely", "password", "123456")).post("/app/session/pwd")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("data", nullValue());
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.defaultOrgId", nullValue())
+                .body("data.roles", empty())
+                .body("data.token", notNullValue());
     }
 
     private String login(long expectedOrgId, String expectedRole) {
         Response response = request().body(Map.of("username", "admin", "password", "123456")).post("/app/session/pwd");
         response.then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.currentOrgId", equalTo(Long.toString(expectedOrgId)))
+                .body("data.defaultOrgId", equalTo(Long.toString(expectedOrgId)))
                 .body("data.roles", contains(expectedRole));
         return response.jsonPath().getString("data.token");
     }

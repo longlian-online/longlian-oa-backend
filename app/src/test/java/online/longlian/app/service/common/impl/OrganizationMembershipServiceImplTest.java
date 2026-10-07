@@ -9,24 +9,23 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -91,70 +90,51 @@ class OrganizationMembershipServiceImplTest {
     }
 
     @Test
-    void shouldSuggestDefaultOrgWhenItIsEnabled() {
+    void shouldReturnEnabledDefaultOrganization() {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(10L).build());
         when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
         OrganizationMember member = member(100L, 10L, Status.ENABLED, "ORG_ADMIN");
         when(organizationMemberMapper.selectOne(any())).thenReturn(member);
 
-        assertThat(service.suggestForLogin(1L)).isSameAs(member);
+        DefaultOrganization result = service.findDefault(1L);
+
+        assertThat(result.orgId()).isEqualTo(10L);
+        assertThat(result.orgRole()).isEqualTo("ORG_ADMIN");
         verify(organizationMemberMapper, never()).selectList(any());
     }
 
     @Test
-    void shouldSuggestEarliestEnabledOrgWhenDefaultIsUnavailable() {
+    void shouldKeepStoredDefaultOrgWhenItIsDisabled() {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(10L).build());
         when(organizationMapper.selectById(10L)).thenReturn(Organization.builder().id(10L).status(Status.DISABLED).build());
-        when(organizationMapper.selectById(20L)).thenReturn(enabledOrg(20L));
-        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
-                member(1L, 10L, Status.ENABLED, "ORG_USER"),
-                member(2L, 20L, Status.ENABLED, "ORG_ADMIN")
-        ));
-        when(organizationMemberMapper.selectOne(any())).thenReturn(member(2L, 20L, Status.ENABLED, "ORG_ADMIN"));
 
-        assertThat(service.suggestForLogin(1L).getOrgId()).isEqualTo(20L);
+        DefaultOrganization result = service.findDefault(1L);
 
-        InOrder order = inOrder(organizationMapper);
-        order.verify(organizationMapper, org.mockito.Mockito.times(2)).selectById(10L);
-        order.verify(organizationMapper).selectById(20L);
+        assertThat(result.orgId()).isEqualTo(10L);
+        assertThat(result.orgRole()).isNull();
+        verify(organizationMemberMapper, never()).selectList(any());
+        verify(organizationMemberMapper, never()).selectOne(any());
     }
 
     @Test
-    void shouldSuggestEarliestMemberWhenDefaultOrgIsZero() {
+    void shouldReturnNoDefaultOrgWhenStoredIdIsZero() {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(0L).build());
-        when(organizationMapper.selectById(20L)).thenReturn(enabledOrg(20L));
-        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(member(2L, 20L, Status.ENABLED, "ORG_USER")));
-        when(organizationMemberMapper.selectOne(any())).thenReturn(member(2L, 20L, Status.ENABLED, "ORG_USER"));
 
-        assertThat(service.suggestForLogin(1L).getOrgId()).isEqualTo(20L);
-        verify(organizationMapper, never()).selectById(0L);
+        DefaultOrganization result = service.findDefault(1L);
+
+        assertThat(result.orgId()).isNull();
+        assertThat(result.orgRole()).isNull();
+        verifyNoInteractions(organizationMapper, organizationMemberMapper);
     }
 
     @Test
-    void shouldSkipInvalidOrgIdsAndMissingOrganizationsWhileSuggesting() {
-        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(10L).build());
-        when(organizationMapper.selectById(10L)).thenReturn(null);
-        when(organizationMapper.selectById(20L)).thenReturn(enabledOrg(20L));
-        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
-                OrganizationMember.builder().id(1L).userId(1L).orgRole("ORG_USER").status(Status.ENABLED).build(),
-                member(2L, 0L, Status.ENABLED, "ORG_USER"),
-                member(3L, 20L, Status.ENABLED, "ORG_ADMIN")
-        ));
-        when(organizationMemberMapper.selectOne(any())).thenReturn(member(3L, 20L, Status.ENABLED, "ORG_ADMIN"));
-
-        assertThat(service.suggestForLogin(1L).getOrgId()).isEqualTo(20L);
-        verify(organizationMapper, never()).selectById(0L);
-    }
-
-    @Test
-    void shouldRejectLoginSuggestionWhenNoEnabledOrganizationRemains() {
+    void shouldReturnNoDefaultOrgWhenUserDoesNotExist() {
         when(userMapper.selectById(1L)).thenReturn(null);
-        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
 
-        assertThatThrownBy(() -> service.suggestForLogin(1L))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("当前无可用组织");
+        assertThat(service.findDefault(1L)).isEqualTo(new DefaultOrganization(null, null));
+        verifyNoInteractions(organizationMapper, organizationMemberMapper);
     }
+
 
     @Test
     void shouldNotDependOnRedis() {
