@@ -4,7 +4,7 @@
 # 由 overlays/prod/kustomization.yaml 引用（kubectl apply -k devops/k8s/overlays/prod）。
 # 不要直接 apply 本目录：Secret 由 overlay 的 secretGenerator 生成本地真实配置。
 #
-# 服务器本地使用外部 MySQL/Redis 时，注释掉 mysql.yaml / redis.yaml 两行
+# 服务器本地使用外部 MariaDB/Redis 时，注释掉 mariadb.yaml / redis.yaml 两行
 # （建议配合 `git update-index --skip-worktree devops/k8s/base/kustomization.yaml`
 #  让本文件的本地修改不被 git pull 干扰，详见 README）。
 # =============================================================================
@@ -16,7 +16,8 @@ namespace: longlian-oa
 resources:
   - namespace.yaml
   - storage.yaml
-  - mysql.yaml
+  - mariadb.yaml
+  - victorialogs.yaml
   - redis.yaml
   - migrate-job.yaml
   - deployment.yaml

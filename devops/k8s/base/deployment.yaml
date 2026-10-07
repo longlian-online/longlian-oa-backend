@@ -47,9 +47,11 @@ spec:
         runAsNonRoot: true
         runAsUser: 100
         runAsGroup: 101
-        # 让 PVC 根目录归属组可写（kubelet 会 chown 卷根目录到该 GID 并把
-        # 该组注入容器补充组）
-        fsGroup: 101
+        # storage-pvc 首次挂载时已被 chown 为 GID 100（setgid）。
+        # fsGroup 必须与卷上已有 GID 一致，否则滚动更新会报
+        # "requested fsGroup is 101, but the volume has GID 100"。
+        # 该 GID 会作为补充组注入容器，进程即可写 PVC。
+        fsGroup: 100
       containers:
         - name: longlian-oa
           # 发布版本对应镜像 tag：v1.2.3 → :1.2.3；非预发布同时打 :latest
@@ -59,27 +61,25 @@ spec:
             - name: http
               containerPort: 8080
           env:
-            # 与数据库 serverTimezone=Asia/Shanghai 保持一致
             - name: TZ
               value: Asia/Shanghai
-            # ----- OpenTelemetry（发布镜像已内置 agent）-----
-            # 不需要链路追踪时，删除 JAVA_TOOL_OPTIONS 与 OTEL_* 整段即可；
-            # 使用不含 agent 的镜像时，Dockerfile ENTRYPOINT 会自动剔除
-            # -javaagent 参数，不会导致 JVM 启动失败
+            # 与 docker-compose.prod.yml 一致：日志直写 VictoriaLogs，不导出 trace/metric
             - name: JAVA_TOOL_OPTIONS
               value: "-javaagent:/app/opentelemetry-javaagent.jar"
             - name: OTEL_SERVICE_NAME
               value: longlian-oa
-            # 按集群内实际 collector 地址修改（示例：observability 命名空间的
-            # otel-collector 服务）
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector.observability:4317
-            - name: OTEL_TRACES_SAMPLER
-              value: traceidratio
-            - name: OTEL_TRACES_SAMPLER_ARG
-              value: "0.5"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=prod
+            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+              value: http://victorialogs:9428/insert/opentelemetry/v1/logs
+            - name: OTEL_EXPORTER_OTLP_LOGS_PROTOCOL
+              value: http/protobuf
+            - name: OTEL_LOGS_EXPORTER
+              value: otlp
+            - name: OTEL_TRACES_EXPORTER
+              value: none
+            - name: OTEL_METRICS_EXPORTER
+              value: none
           volumeMounts:
             - name: app-config
               mountPath: /app/config/application.yml

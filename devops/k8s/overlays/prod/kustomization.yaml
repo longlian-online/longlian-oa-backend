@@ -19,7 +19,7 @@
 #   kubectl apply -k devops/k8s/overlays/prod
 #   ```
 #
-# 已有外部 MySQL / Redis 时：在 base/kustomization.yaml 中注释对应行（见 README）。
+# 已有外部 MariaDB / Redis 时：在 base/kustomization.yaml 中注释对应行（见 README）。
 # =============================================================================
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -31,8 +31,8 @@ resources:
 
 # 从本地文件生成 Secret（文件名即 key）：
 #   application-prod.yml → key application-prod.yml（应用/迁移配置）
-#   mysql-init.sql       → key mysql-init.sql（MySQL 首次初始化）
-#   mysql-root-password  → key mysql-root-password（MySQL root 密码，文件勿带尾换行）
+#   mysql-init.sql       → key mysql-init.sql（MariaDB 首次初始化）
+#   mysql-root-password  → key mysql-root-password（MariaDB root 密码，文件勿带尾换行）
 #
 # kustomize 会给 Secret 名称追加内容哈希：本地配置一变 → 新 Secret → 应用自动滚动
 # 更新（无需手动 rollout restart）；升级 schema 时需按 README 重跑迁移 Job。

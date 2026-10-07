@@ -1,7 +1,7 @@
 # K8s 部署配置（devops/k8s）
 
-默认**全量部署**：MySQL 8.0 + Redis 7 + Atlas 迁移 Job + 后端 Deployment 全部跑在集群内，
-入口走 Traefik。也可以退化为「仅后端」（复用外部 MySQL/Redis），见下文。
+默认**全量部署**：MariaDB 10.11 + Redis 7 + VictoriaLogs + Atlas 迁移 Job + 后端 Deployment 全部跑在集群内，
+入口走 Traefik。也可以退化为「仅后端」（复用外部 MariaDB/Redis），见下文。
 
 ## 配置分离方式（核心）
 
@@ -13,7 +13,8 @@ devops/k8s/
 ├── base/                    # 仓库维护（随 git 更新）：通用部署结构，无任何真实值
 │   ├── namespace.yaml
 │   ├── storage.yaml
-│   ├── mysql.yaml           # MySQL/Redis 等组件清单
+│   ├── mariadb.yaml         # 集群内 MariaDB 10.11
+│   ├── victorialogs.yaml    # 日志
 │   ├── redis.yaml
 │   ├── migrate-job.yaml     # 迁移 Job
 │   ├── deployment.yaml      # 后端 Deployment
@@ -48,7 +49,8 @@ devops/k8s/
 | 路径 | 说明 |
 |---|---|
 | `base/namespace.yaml` | 命名空间 `longlian-oa` |
-| `base/mysql.yaml` | 集群内 MySQL 8.0（Deployment + PVC + Service，含应用账号/影子库初始化） |
+| `base/mariadb.yaml` | 集群内 MariaDB 10.11（Deployment + PVC + Service，含应用账号/影子库初始化） |
+| `base/victorialogs.yaml` | 集群内 VictoriaLogs（应用日志 OTLP/HTTP 直写） |
 | `base/redis.yaml` | 集群内 Redis 7（Deployment + PVC + Service） |
 | `base/storage.yaml` | 应用本地文件存储 PVC（`storage.type=LOCAL` 时使用） |
 | `base/migrate-job.yaml` | 数据库迁移 Job（Atlas 声明式同步，一次性） |
@@ -66,8 +68,9 @@ Traefik (IngressRoute)
    ▼
 longlian-oa Service ──▶ Deployment longlian-oa ──▶ PVC storage-pvc
                             │ 配置 /app/config/application.yml ← Secret longlian-oa-config
-                            ├─▶ MySQL (mysql:3306)  ──▶ PVC mysql-data-pvc
-                            └─▶ Redis (redis:6379)  ──▶ PVC redis-data-pvc
+                            ├─▶ MariaDB (mariadb:3306) ──▶ PVC mariadb-data-pvc
+                            ├─▶ Redis (redis:6379)  ──▶ PVC redis-data-pvc
+                            └─▶ VictoriaLogs (victorialogs:9428)
 migrate Job（prod apply，读同一份配置，先于/伴随应用执行）
 ```
 
@@ -79,7 +82,7 @@ migrate Job（prod apply，读同一份配置，先于/伴随应用执行）
    由 `.github/workflows/publish-docker.yml` 在打 tag 时推送）。
 3. 服务器有 git 访问权限（用于拉取仓库更新）。
 4. （可选）Traefik（含 CRD）用于对外暴露；cert-manager 用于备选 Ingress 方案。
-5. 默认全量部署**不需要**任何外部 MySQL / Redis。
+5. 默认全量部署**不需要**任何外部 MariaDB / Redis。
 
 ## 快速开始（首次部署）
 
@@ -103,7 +106,7 @@ cp devops/k8s/overlays/prod/mysql-root-password.example \
 |---|---|
 | `application-prod.yml` | 数据库/Redis 默认已指向集群内服务名；`jwt.secret` 换 >32 字节随机串；`spring.datasource.password` 与 `mysql-init.sql` 的 `IDENTIFIED BY` **保持一致** |
 | `mysql-init.sql` | 把两处 `CHANGE_ME_DB_PASSWORD` 换成真实密码（与应用配置一致） |
-| `mysql-root-password` | MySQL root 密码；**文件内容只含密码、末尾不要换行**（可直接用 `printf 'xxx' > mysql-root-password` 或 `openssl rand -base64 18 \| tr -d '\n' > mysql-root-password` 生成） |
+| `mysql-root-password` | MariaDB root 密码；**文件内容只含密码、末尾不要换行**（可直接用 `printf 'xxx' > mysql-root-password` 或 `openssl rand -base64 18 \| tr -d '\n' > mysql-root-password` 生成） |
 
 > 邮件不配时把 `application-prod.yml` 的 `notify.type` 改为 `NOOP`；
 > `cors.allowed-origins` 改为前端实际 Origin（默认与 Ingress 域名一致）。
@@ -122,8 +125,8 @@ kubectl logs job/migrate -n longlian-oa
 ```
 
 > 迁移 Job 与后端 Deployment 同时调度。首次部署若应用先于迁移启动，会短暂
-> CrashLoopBackOff——预期行为，MySQL 就绪且迁移完成后自动恢复（无需干预）。
-> MySQL 首次初始化（建库/建账号）约需 30~60 秒，迁移 Job 有自动重试兜底。
+> CrashLoopBackOff——预期行为，MariaDB 就绪且迁移完成后自动恢复（无需干预）。
+> MariaDB 首次初始化（建库/建账号）约需 30~60 秒，迁移 Job 有自动重试兜底。
 
 ### 5. 等待应用就绪并验证
 
@@ -190,7 +193,7 @@ Secret 名称带内容哈希：配置一变 → 新 Secret → 应用自动滚�
 若改了 `spring.datasource`（库连接）且已在跑，需按上文重跑迁移 Job。
 
 > **数据库密码变更**：`application-prod.yml` 与 `mysql-init.sql` 两处都要改；
-> `mysql-init.sql` 只在 MySQL 数据卷首次初始化时执行，改密码需额外手动执行
+> `mysql-init.sql` 只在 MariaDB 数据卷首次初始化时执行，改密码需额外手动执行
 > `ALTER USER 'longlian'@'%' IDENTIFIED BY '...'`（见 FAQ）。
 
 ## 对外暴露（Traefik）
@@ -205,17 +208,17 @@ Secret 名称带内容哈希：配置一变 → 新 Secret → 应用自动滚�
   cert-manager）备选，与 IngressRoute 二选一。
 - 应用配置 `cors.allowed-origins` 必须包含实际访问域名。
 
-## 仅部署后端（复用外部 MySQL / Redis）
+## 仅部署后端（复用外部 MariaDB / Redis）
 
-1. 注释掉 `overlays/prod/kustomization.yaml` 中 `mysql.yaml`、`redis.yaml` 两行引用。
+1. 注释掉 `base/kustomization.yaml` 中 `mariadb.yaml`、`redis.yaml` 两行引用。
 2. 外部组件地址在本地 `overlays/prod/application-prod.yml` 中填写
-   （`spring.datasource.url` / `spring.data.redis.host` 改为外部实例地址）。
-3. 迁移 Job 需要外部 MySQL 账号具备 `CREATE DATABASE` 权限（影子库 `{db}_atlas`
+   （`spring.datasource.url` 使用 `jdbc:mariadb://` / `spring.data.redis.host` 改为外部实例地址）。
+3. 迁移 Job 需要外部 MariaDB 账号具备 `CREATE DATABASE` 权限（影子库 `{db}_atlas`
    自动创建），或预建影子库后在 `base/migrate-job.yaml` 设置 `DEV_DB_URL`。
 
 ## 存储与副本
 
-- **MySQL / Redis**：单实例 Deployment + RWO PVC（DB 双写风险，禁止直接改多副本滚动）。
+- **MariaDB / Redis / VictoriaLogs**：单实例 Deployment + RWO PVC（DB 双写风险，禁止直接改多副本滚动）。
   负载评估后可用 StatefulSet + 主从/哨兵方案替换，属于数据库架构变更，需单独评审。
 - **后端**：默认 `replicas: 1`（`storage.type=LOCAL` 配合 RWO PVC 只能挂单个节点）。
   多副本改造二选一：
@@ -227,43 +230,44 @@ Secret 名称带内容哈希：配置一变 → 新 Secret → 应用自动滚�
 ## 数据库日常运维
 
 ```bash
-# 进入 MySQL 管理
-kubectl exec -it deploy/mysql -n longlian-oa -- mysql -uroot -p"$MYSQL_ROOT_PASSWORD"
+# 进入 MariaDB 管理
+kubectl exec -it deploy/mariadb -n longlian-oa -- mariadb -uroot -p"$MARIADB_ROOT_PASSWORD"
 
 # 逻辑备份（建议定期执行并另存）
-kubectl exec -it deploy/mysql -n longlian-oa -- \
-  mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction longlian_oa > backup.sql
+kubectl exec -it deploy/mariadb -n longlian-oa -- \
+  mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction longlian_oa > backup.sql
 
 # 查看 atlas 影子库状态
-kubectl exec -it deploy/mysql -n longlian-oa -- \
-  mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SHOW DATABASES;"
+kubectl exec -it deploy/mariadb -n longlian-oa -- \
+  mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "SHOW DATABASES;"
 ```
 
 ## 可观测性（OpenTelemetry）
 
-发布镜像内置 OTel Java Agent（构建参数 `INCLUDE_OTEL=true`），Deployment 已通过
-`JAVA_TOOL_OPTIONS` + `OTEL_*` 环境变量启用：
+发布镜像内置 OTel Java Agent（构建参数 `INCLUDE_OTEL=true`）。Deployment 与
+`docker-compose.prod.yml` 一致，只把日志用 OTLP/HTTP 写到集群内 VictoriaLogs：
 
-- 按集群实际 collector 地址修改 `base/deployment.yaml` 的 `OTEL_EXPORTER_OTLP_ENDPOINT`。
-- 采样率 `OTEL_TRACES_SAMPLER_ARG: 0.5` 可按需调整。
-- 不需要链路追踪时，删除 `JAVA_TOOL_OPTIONS` 与 `OTEL_*` 整段环境变量即可
+- 端点：`http://victorialogs:9428/insert/opentelemetry/v1/logs`
+- `OTEL_TRACES_EXPORTER` / `OTEL_METRICS_EXPORTER` 为 `none`
+- 不需要日志导出时，删除 `JAVA_TOOL_OPTIONS` 与 `OTEL_*` 整段环境变量即可
   （使用不含 agent 的镜像时 Dockerfile 会自动剔除 `-javaagent` 参数，不会启动失败）。
 
 ## 常见问题
 
 | 问题 | 处理 |
 |---|---|
-| 迁移 Job 失败 | `kubectl logs job/migrate -n longlian-oa` 查看。全量部署时常见原因：MySQL 尚未就绪（等 Job 自动重试即可）；外部模式则需给账号 `CREATE DATABASE` 权限或预建影子库 + `DEV_DB_URL` |
+| 迁移 Job 失败 | `kubectl logs job/migrate -n longlian-oa` 查看。全量部署时常见原因：MariaDB 尚未就绪（等 Job 自动重试即可）；外部模式则需给账号 `CREATE DATABASE` 权限或预建影子库 + `DEV_DB_URL` |
 | Job `spec.template` field is immutable | Job 模板不可变。改镜像或 securityContext 后必须先 `kubectl delete job migrate -n longlian-oa --ignore-not-found` 再 `kubectl apply -k devops/k8s/overlays/prod` |
 | CreateContainerConfigError / runAsNonRoot | 镜像 USER 是名字 `appuser` 时 kubelet 无法校验非 root。Deployment 需 `runAsUser: 100`/`runAsGroup: 101`，migrate Job 需 `runAsUser: 998`/`runAsGroup: 998` |
+| requested fsGroup … volume has GID 100 | `storage-pvc` 首次挂载已是 GID 100。`fsGroup` 必须与卷 GID 一致（保持 100）；`runAsGroup: 101` 是镜像内 appgroup，不要改 fsGroup 去迁就它 |
 | 应用 CrashLoopBackOff | `kubectl logs deploy/longlian-oa -n longlian-oa` 查看。常见原因：本地配置仍是占位值、DB/Redis 密码不一致、邮箱未配置（`notify.type` 可临时改 `NOOP`） |
 | 修改数据库密码不生效 | `mysql-init.sql` 只在数据卷首次初始化时执行；`kubectl exec` 进去手动 `ALTER USER 'longlian'@'%' IDENTIFIED BY '新密码'`，同时同步本地两个文件 |
-| MySQL root 密码带换行 | `mysql-root-password` 文件末尾不能有换行（kustomize 原样读入），用 `printf 'xxx' > mysql-root-password` 写入 |
-| MySQL 数据目录权限报错 | `mysql-data-pvc` 需集群默认 StorageClass 支持；fsGroup 999 已与镜像内 mysql 用户对齐，仍失败时检查 StorageClass 是否支持动态供给 |
+| MariaDB root 密码带换行 | `mysql-root-password` 文件末尾不能有换行（kustomize 原样读入），用 `printf 'xxx' > mysql-root-password` 写入 |
+| MariaDB 数据目录权限报错 | `mariadb-data-pvc` 需集群默认 StorageClass 支持；fsGroup 999 已与镜像内 mysql 用户对齐，仍失败时检查 StorageClass 是否支持动态供给 |
 | PVC `Pending` | 集群无默认 StorageClass；在对应 PVC 指定 `storageClassName` 或由管理员预建 PV |
 | IngressRoute apply 报 CRD 不存在 | 集群未部署 Traefik；注释掉 `overlays/prod/kustomization.yaml` 的 ingress 引用或先部署 Traefik 再 apply |
 | 为什么探针用 TCP 而不是 `/actuator/health` | `/actuator/**` 不在 `SecurityConstants` 免鉴权白名单，健康检查会返回 401；后续若放开可改 HTTP 探针 |
 | 镜像拉取失败 | docker.cnb.cool 私有制品库需凭据：为 `longlian-oa` 命名空间创建 `imagePullSecret`（`docker login docker.cnb.cool -u cnb -p $CNB_TOKEN`），并加到 Deployment / Job 的 `imagePullSecrets` |
 | 旧的 Secret 残留 | kustomize 内容哈希会生成新 Secret 名，旧 Secret 不会自动删除：`kubectl get secrets -n longlian-oa` 确认后手动清理 |
 | Redis 未设密码是否安全 | 仅集群网络可达；如需鉴权，Redis args 加 `--requirepass` 并从 Secret 注入，同时改应用配置的密码 |
-| 删除整个部署 | `kubectl delete -k devops/k8s/overlays/prod`（所有 Secret、PVC 会一并删除，注意先备份 MySQL 数据与上传文件） |
+| 删除整个部署 | `kubectl delete -k devops/k8s/overlays/prod`（所有 Secret、PVC 会一并删除，注意先备份 MariaDB 数据与上传文件） |

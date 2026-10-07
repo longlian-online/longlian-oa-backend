@@ -4,7 +4,7 @@
 # 对应 docker-compose.prod.yml 中 migrate 服务：
 #   - 镜像 docker.cnb.cool/longlian.online/longlian-oa-backend:migration-latest
 #   - 从挂载的 /app/config/application.yml 的 spring.datasource 推导 DB_URL
-#   - 在同一 MySQL 实例自动创建 {db}_atlas 影子库（需 CREATE DATABASE 权限，
+#   - 在同一 MariaDB 实例自动创建 {db}_atlas 影子库（需 CREATE DATABASE 权限，
 #     没有该权限时先预建影子库并在本 Job 设置 DEV_DB_URL 环境变量）
 #
 # 发布新版本（有 schema 变更）时重跑本 Job：

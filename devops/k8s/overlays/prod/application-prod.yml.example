@@ -7,7 +7,8 @@
 # 注意：
 #   - spring.datasource.password 必须与 mysql-init.sql 中 IDENTIFIED BY 的密码一致
 #   - jwt.secret 必须换成 ≥32 字节的高强度随机串
-#   - mysql-init.sql 只在 MySQL 数据卷首次初始化时执行
+#   - mysql-init.sql 只在 MariaDB 数据卷首次初始化时执行
+#   - 不能把旧 MySQL 8 数据目录直接挂给 MariaDB 10.11
 # =============================================================================
 # longlian-oa 生产配置（存放于 k8s Secret: longlian-oa-config）
 server:
@@ -15,8 +16,10 @@ server:
 
 longlian:
   display-name: "longlian-oa"
+  # 对外部署地址；与 Ingress Host 一致，本地文件绝对地址复用这里
+  server-url: https://oa.longlian.online
   datasource:
-    type: mysql
+    type: mariadb
   cache:
     type: redis
 
@@ -32,8 +35,8 @@ spring:
     timeout-per-shutdown-phase: 30s
 
   datasource:
-    # 集群内 MySQL（见 base/mysql.yaml）；mysql-init.sql 会创建 longlian 账号
-    url: jdbc:mysql://mysql:3306/longlian_oa?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    # 集群内 MariaDB（见 base/mariadb.yaml）；mysql-init.sql 会创建 longlian 账号
+    url: jdbc:mariadb://mariadb:3306/longlian_oa?sslMode=disable&timezone=+08:00
     username: longlian
     # 必须与 mysql-init.sql 中 IDENTIFIED BY 的密码一致
     password: CHANGE_ME_DB_PASSWORD
@@ -78,17 +81,26 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
-    enabled: false
+    enabled: true
   api-docs:
-    enabled: false
+    enabled: true
 
 storage:
   # LOCAL | OSS | COS
   type: LOCAL
+  # 存储服务生成的预签名 URL 有效期（秒）
+  presigned-url-ttl-seconds: 300
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
+  cdn:
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
+    # 与 EdgeOne Type D 控制台有效期必须一致。
+    auth-ttl-seconds: 300
+    # 同一 URL 在鉴权期内的复用比例；必须介于 1 和 99 之间。
+    url-reuse-percent: 80
   local:
-    base-url: ""
-    signing-secret: ${STORAGE_LOCAL_SIGNING_SECRET:${jwt.secret}}
-    read-url-ttl-seconds: 300
+    signing-secret: ${jwt.secret}
     directory: /app/data/storage
   oss:
     bucket: ""
@@ -101,7 +113,6 @@ storage:
     region: ""
     secret-id: ""
     secret-key: ""
-    url-prefix: ""
 
 cors:
   # 必须包含前端实际 Origin（Ingress 域名或 CDN 域名）

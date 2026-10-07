@@ -1,10 +1,10 @@
--- MySQL 首次初始化脚本模板（overlays/prod）
+-- MariaDB 首次初始化脚本模板（overlays/prod）
 -- 使用：复制为同目录 mysql-init.sql 后填写真实值；已被 .gitignore 忽略。
--- 仅在 MySQL 数据卷为空（首次部署）时由 mysql 镜像执行一次。
+-- 仅在 MariaDB 数据卷为空（首次部署）时由镜像执行一次。
 -- 密码必须与 application-prod.yml 的 spring.datasource.password 一致。
 
--- 业务库由镜像环境变量 MYSQL_DATABASE 创建，这里补建 Atlas 影子库与应用账号
-CREATE DATABASE IF NOT EXISTS longlian_oa_atlas CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+-- 业务库由镜像环境变量 MARIADB_DATABASE 创建，这里补建 Atlas 影子库与应用账号
+CREATE DATABASE IF NOT EXISTS longlian_oa_atlas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci;
 CREATE USER IF NOT EXISTS 'longlian'@'%' IDENTIFIED BY 'CHANGE_ME_DB_PASSWORD';
 ALTER USER 'longlian'@'%' IDENTIFIED BY 'CHANGE_ME_DB_PASSWORD';
 GRANT ALL PRIVILEGES ON longlian_oa.* TO 'longlian'@'%';
