@@ -23,6 +23,10 @@ public class TaskFormService {
     private static final Set<String> TYPES = Set.of("text", "textarea", "file", "number", "select");
     private static final Set<String> FIELD_KEYS = Set.of("key", "label", "type", "required", "options");
     private static final Pattern FILE_ID = Pattern.compile("[1-9][0-9]*");
+    /** Caps rendered digits so exponent notation cannot expand into an unbounded stored value. */
+    private static final int MAX_INTEGER_DIGITS = 18;
+    private static final int MAX_DECIMAL_DIGITS = 12;
+    private static final int MAX_PRECISION = 24;
 
     /** Validates unique field keys and the supported form controls before taking a snapshot. */
     public List<TaskFormField> validateFields(List<TaskFormField> fields) {
@@ -162,11 +166,13 @@ public class TaskFormService {
 
     private String normalizeNumber(TaskFormField field, String text) {
         try {
-            double finite = Double.parseDouble(text);
-            if (!Double.isFinite(finite)) {
+            BigDecimal number = new BigDecimal(text).stripTrailingZeros();
+            int integerDigits = number.precision() - number.scale();
+            if (number.precision() > MAX_PRECISION || integerDigits > MAX_INTEGER_DIGITS
+                    || number.scale() > MAX_DECIMAL_DIGITS) {
                 throw new NumberFormatException();
             }
-            return new BigDecimal(text).stripTrailingZeros().toPlainString();
+            return number.toPlainString();
         } catch (NumberFormatException exception) {
             throw invalid(field.label() + "必须为有限数字");
         }

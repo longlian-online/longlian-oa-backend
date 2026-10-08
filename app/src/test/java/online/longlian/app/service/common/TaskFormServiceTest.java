@@ -65,6 +65,20 @@ class TaskFormServiceTest {
     }
 
     @Test
+    void shouldRejectNumbersWhoseDisplayFormWouldExpandWithoutBound() {
+        List<TaskFormField> fields = List.of(field("count", "number", true));
+        for (String huge : List.of("1e-1000000", "1e1000000", "1e-13", "0.0000000000001",
+                "1234567890123456789", "1234567890123456789012345")) {
+            assertThatThrownBy(() -> service.validateValues(fields, Map.of("count", huge)))
+                    .isInstanceOf(AppException.class);
+        }
+        assertThat(service.validateValues(fields, Map.of("count", "1e-12")).values())
+                .containsEntry("count", "0.000000000001");
+        assertThat(service.validateValues(fields, Map.of("count", "123456789012345678")).values())
+                .containsEntry("count", "123456789012345678");
+    }
+
+    @Test
     void shouldEnforceSelectChoicesAndFileOnlyReferences() {
         TaskFormField choice = new TaskFormField("pick", "Choice", "select", true, List.of("A", "B"));
         assertThat(service.validateValues(List.of(choice), Map.of("pick", "A")).values()).containsEntry("pick", "A");
