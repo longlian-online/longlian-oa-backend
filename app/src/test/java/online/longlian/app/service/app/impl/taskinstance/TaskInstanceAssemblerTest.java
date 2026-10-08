@@ -190,7 +190,7 @@ class TaskInstanceAssemblerTest {
                 new TaskInstanceDetailVO.TextField("notes", "备注", "multiline", "first\n  second \n"),
                 new TaskInstanceDetailVO.TextField("pick", "选择", "text", "A"),
                 new TaskInstanceDetailVO.TextField("empty", "空值", "text", "未填写"),
-                new TaskInstanceDetailVO.FilesField("file", "附件", "files", List.of(), "未填写")), detail.getSubmission().fields());
+                new TaskInstanceDetailVO.FileField("file", "附件", "file", null)), detail.getSubmission().fields());
     }
 
     @Test
@@ -208,7 +208,7 @@ class TaskInstanceAssemblerTest {
 
         TaskInstanceDetailVO detail = assembler.assembleDetail(instance, node, submission, 10L);
 
-        assertEquals(List.of(new TaskInstanceDetailVO.FilesField("file", "附件", "files", List.of(attachment), null)),
+        assertEquals(List.of(new TaskInstanceDetailVO.FileField("file", "附件", "file", attachment)),
                 detail.getSubmission().fields());
         verify(resourceService).getTaskAttachments(1L, 10L, List.of(9L));
         verify(resourceService, never()).getResourceReadUrls(anyList());

@@ -114,15 +114,12 @@ public class TaskInstanceAssembler {
         for (TaskFormField field : fields) {
             Object value = validated.values().get(field.key());
             if (field.type().equals("file")) {
-                List<TaskAttachmentVO> files;
-                if (value == null) {
-                    files = List.of();
-                } else {
+                TaskAttachmentVO file = null;
+                if (value != null) {
                     String fileId = (String) ((Map<?, ?>) value).get("fileId");
-                    files = List.of(attachments.get(taskFormService.parseFileId(fileId)));
+                    file = attachments.get(taskFormService.parseFileId(fileId));
                 }
-                detailFields.add(new TaskInstanceDetailVO.FilesField(
-                        field.key(), field.label(), "files", files, files.isEmpty() ? "未填写" : null));
+                detailFields.add(new TaskInstanceDetailVO.FileField(field.key(), field.label(), "file", file));
             } else {
                 detailFields.add(new TaskInstanceDetailVO.TextField(
                         field.key(), field.label(), field.type().equals("textarea") ? "multiline" : "text",

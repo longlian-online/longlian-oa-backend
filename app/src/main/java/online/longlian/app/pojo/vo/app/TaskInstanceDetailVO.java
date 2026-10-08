@@ -24,18 +24,17 @@ public class TaskInstanceDetailVO {
     public record Submission(String state, LocalDateTime submittedAt, List<Field> fields) { }
 
     /** Ordered display items, distinct from the input form's control definitions. */
-    @Schema(oneOf = {TextField.class, FilesField.class}, discriminatorProperty = "type",
+    @Schema(oneOf = {TextField.class, FileField.class}, discriminatorProperty = "type",
             discriminatorMapping = {
                     @DiscriminatorMapping(value = "text", schema = TextField.class),
                     @DiscriminatorMapping(value = "multiline", schema = TextField.class),
-                    @DiscriminatorMapping(value = "files", schema = FilesField.class)
+                    @DiscriminatorMapping(value = "file", schema = FileField.class)
             })
-    public sealed interface Field permits TextField, FilesField { }
+    public sealed interface Field permits TextField, FileField { }
 
     /** Server-formatted scalar content; multiline text retains submitted whitespace. */
     public record TextField(String key, String label, String type, String text) implements Field { }
 
-    /** Authorized attachment cards or an explicit empty-field message. */
-    public record FilesField(String key, String label, String type, List<TaskAttachmentVO> files,
-                             String emptyText) implements Field { }
+    /** The single attachment submitted for a file field; null means the field was left empty. */
+    public record FileField(String key, String label, String type, TaskAttachmentVO file) implements Field { }
 }

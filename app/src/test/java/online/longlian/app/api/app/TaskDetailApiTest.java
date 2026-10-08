@@ -83,13 +83,12 @@ class TaskDetailApiTest extends BaseApiTest {
                 .body("data.submission.submittedAt", notNullValue())
                 .body("data.submission.fields.key", contains("optional", "count", "notes", "category", "attachment"))
                 .body("data.submission.fields.label", contains("可选文本", "数量", "说明", "分类", "附件"))
-                .body("data.submission.fields.type", contains("text", "text", "multiline", "text", "files"))
+                .body("data.submission.fields.type", contains("text", "text", "multiline", "text", "file"))
                 .body("data.submission.fields[0].text", not(isEmptyOrNullString()))
                 .body("data.submission.fields[1].text", equalTo("0"))
                 .body("data.submission.fields[2].text", equalTo(multiline))
                 .body("data.submission.fields[3].text", equalTo("开发"))
-                .body("data.submission.fields[4].files", empty())
-                .body("data.submission.fields[4].emptyText", not(isEmptyOrNullString()))
+                .body("data.submission.fields[4].file", nullValue())
                 .body("data.task", not(hasKey("metaSchema")))
                 .body("data.submission", not(hasKey("metadata")));
     }
@@ -216,7 +215,7 @@ class TaskDetailApiTest extends BaseApiTest {
         assertSuccess(submit(token, 2L, Map.of("first", file(101L))));
         detail(token, 2L).then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.submission.fields[0].files[0].availability", equalTo("available"));
+                .body("data.submission.fields[0].file.availability", equalTo("available"));
     }
 
     @Test
@@ -249,8 +248,8 @@ class TaskDetailApiTest extends BaseApiTest {
         assertUnsubmitted(token, 2L);
         detail(token, 1L).then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.submission.fields[0].files[0].id", equalTo("101"))
-                .body("data.submission.fields[0].files[0].availability", equalTo("available"));
+                .body("data.submission.fields[0].file.id", equalTo("101"))
+                .body("data.submission.fields[0].file.availability", equalTo("available"));
     }
 
     @Test
@@ -262,14 +261,13 @@ class TaskDetailApiTest extends BaseApiTest {
         Response response = detail(token, 1L);
         response.then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.submission.fields[0].type", equalTo("files"))
-                .body("data.submission.fields[0].files", hasSize(1))
-                .body("data.submission.fields[0].files[0].id", equalTo("101"))
-                .body("data.submission.fields[0].files[0].name", equalTo("成果101.pdf"))
-                .body("data.submission.fields[0].files[0].sizeText", not(isEmptyOrNullString()))
-                .body("data.submission.fields[0].files[0].mediaType", equalTo("document"))
-                .body("data.submission.fields[0].files[0].availability", equalTo("available"));
-        String path = "data.submission.fields[0].files[0]";
+                .body("data.submission.fields[0].type", equalTo("file"))
+                .body("data.submission.fields[0].file.id", equalTo("101"))
+                .body("data.submission.fields[0].file.name", equalTo("成果101.pdf"))
+                .body("data.submission.fields[0].file.sizeText", not(isEmptyOrNullString()))
+                .body("data.submission.fields[0].file.mediaType", equalTo("document"))
+                .body("data.submission.fields[0].file.availability", equalTo("available"));
+        String path = "data.submission.fields[0].file";
         URI uri = URI.create(response.jsonPath().getString(path + ".readUrl"));
         String timestamp = queryValue(uri.getRawQuery(), "t");
         assertThat(uri.getScheme()).isEqualTo("https");
@@ -312,7 +310,7 @@ class TaskDetailApiTest extends BaseApiTest {
                 .body("data.submission.state", equalTo("submitted"))
                 .body("data.submission.fields", hasSize(6));
         for (int index = 0; index < fields.size(); index++) {
-            String attachmentPath = "data.submission.fields[" + index + "].files[0]";
+            String attachmentPath = "data.submission.fields[" + index + "].file";
             response.then()
                     .body(attachmentPath + ".id", equalTo(Long.toString(101L + index)))
                     .body(attachmentPath + ".name", not(isEmptyOrNullString()))
