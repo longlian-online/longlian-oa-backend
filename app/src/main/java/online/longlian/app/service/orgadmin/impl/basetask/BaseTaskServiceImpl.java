@@ -68,6 +68,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
         baseTaskMapper.insert(task);
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getIconFileId())
+                .bizType("avatar")
                 .bizId(task.getId())
                 .creatorId(params.getCreatorId())
                 .orgId(params.getOrgId())

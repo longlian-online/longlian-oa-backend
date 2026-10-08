@@ -15,8 +15,9 @@ import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResource;
+import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
@@ -27,10 +28,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -160,178 +162,191 @@ public class ResourceService {
         return storageProperties.getCdn() != null && storageProperties.getCdn().isEnabled();
     }
 
-    /** Bind only this submitter's task files; the submission transaction owns these transitions. */
-    public void bindTaskResources(Long taskId, Long orgId, Long creatorId, List<Long> resourceIds) {
-        if (resourceIds.isEmpty()) {
-            return;
+    /** Activated resources for one business object. IDs that do not match are omitted and are not signed. */
+    public Map<Long, ActivatedResource> findActivated(String bizType, Long bizId, Long orgId, List<Long> resourceIds) {
+        if (resourceIds == null || resourceIds.isEmpty()) {
+            return Map.of();
         }
-        Map<Long, Resource> resources = loadTaskResources(resourceIds);
-        for (Long resourceId : resourceIds) {
-            validateTaskResource(resources.get(resourceId), taskId, orgId, creatorId);
-        }
-        for (Resource resource : resources.values()) {
-            activateTaskResource(resource, taskId, orgId, creatorId);
-        }
-    }
-
-    private void validateTaskResource(Resource resource, Long taskId, Long orgId, Long creatorId) {
-        if (resource == null || !Objects.equals(resource.getOrgId(), orgId)
-                || !Objects.equals(resource.getCreatorId(), creatorId)
-                || !"task_submit".equals(resource.getBizType())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-        }
-        boolean reusable = resource.getProcessStatus() == FileProcessStatus.Activated
-                && Objects.equals(resource.getBizId(), taskId);
-        boolean unboundUpload = Objects.equals(resource.getBizId(), 0L)
-                && (resource.getProcessStatus() == FileProcessStatus.Pending
-                || resource.getProcessStatus() == FileProcessStatus.Uploaded);
-        if (!reusable && !unboundUpload) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-        }
-    }
-
-    private void activateTaskResource(Resource resource, Long taskId, Long orgId, Long creatorId) {
-        if (resource.getProcessStatus() == FileProcessStatus.Activated) {
-            return;
-        }
-        if (resource.getProcessStatus() == FileProcessStatus.Pending) {
-            storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
-                    resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
-            int uploaded = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
-                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
-                    .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-            if (uploaded != 1) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-            }
-        }
-        int activated = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
-                .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                .set(Resource::getBizId, taskId)
-                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-        if (activated != 1) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-        }
-    }
-
-    private LambdaUpdateWrapper<Resource> taskUploadUpdate(Long resourceId, Long orgId, Long creatorId) {
-        return new LambdaUpdateWrapper<Resource>()
-                .eq(Resource::getId, resourceId)
-                .eq(Resource::getOrgId, orgId)
-                .eq(Resource::getCreatorId, creatorId)
-                .eq(Resource::getBizType, "task_submit")
-                .eq(Resource::getBizId, 0L);
-    }
-
-    /** The caller authorizes task access; only active resources bound to that task may be signed. */
-    public Map<Long, TaskAttachmentVO> getTaskAttachments(Long taskId, Long orgId, List<Long> resourceIds) {
-        Map<Long, TaskAttachmentVO> attachments = new HashMap<>();
-        if (resourceIds.isEmpty()) {
-            return attachments;
-        }
-        Map<Long, Resource> resources = loadTaskResources(resourceIds);
-        Long timestamp = null;
+        Map<Long, Resource> resources = loadResources(resourceIds);
+        Map<Long, ActivatedResource> matched = new HashMap<>();
         for (Long resourceId : resourceIds) {
             Resource resource = resources.get(resourceId);
-            boolean boundToTask = resource != null && Objects.equals(resource.getOrgId(), orgId)
-                    && "task_submit".equals(resource.getBizType()) && Objects.equals(resource.getBizId(), taskId);
-            TaskAttachmentVO attachment = new TaskAttachmentVO();
-            attachment.setId(resourceId.toString());
-            attachment.setName(boundToTask ? resource.getFileName() : "附件不可用");
-            attachment.setAvailability("unavailable");
-            if (boundToTask && resource.getProcessStatus() == FileProcessStatus.Activated) {
-                if (!isCdnEnabled()) {
-                    throw new IllegalStateException("任务附件读取必须启用 CDN");
-                }
-                if (timestamp == null) {
-                    timestamp = currentCdnTimestamp();
-                }
-                attachment.setReadUrl(getCdnReadUrl(resource, timestamp));
-                attachment.setExpiresAt(Math.addExact(timestamp, storageProperties.getCdn().getAuthTtlSeconds()));
-                attachment.setSizeText(taskAttachmentSize(resource.getFileSize()));
-                attachment.setMediaType(taskAttachmentMediaType(resource.getFileMime()));
-                attachment.setAvailability("available");
+            if (resource == null || !Objects.equals(resource.getOrgId(), orgId)
+                    || !Objects.equals(resource.getBizType(), bizType)
+                    || !Objects.equals(resource.getBizId(), bizId)
+                    || resource.getProcessStatus() != FileProcessStatus.Activated) {
+                continue;
             }
-            attachments.put(resourceId, attachment);
+            matched.put(resourceId, new ActivatedResource(
+                    resource.getId(), resource.getFileName(), resource.getFileSize(), resource.getFileMime(),
+                    resource.getStorageType(), resource.getStorageKey(), resource.getOrgId()));
         }
-        return attachments;
+        return matched;
     }
 
-    private Map<Long, Resource> loadTaskResources(List<Long> resourceIds) {
-        return resourceMapper.selectList(lambdaQuery(Resource.class).in(Resource::getId, resourceIds))
-                .stream().collect(Collectors.toMap(Resource::getId, resource -> resource));
+    public boolean cdnEnabled() {
+        return isCdnEnabled();
     }
 
-    private String taskAttachmentSize(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
+    /** Sign already authorized activated resources. The caller decides whether CDN is mandatory. */
+    public Map<Long, ActivatedResourceRead> signActivated(Collection<ActivatedResource> resources) {
+        if (resources.isEmpty()) {
+            return Map.of();
         }
-        if (bytes < 1024L * 1024) {
-            return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
+        if (!isCdnEnabled()) {
+            throw new IllegalStateException("签名读取必须启用 CDN");
         }
-        if (bytes < 1024L * 1024 * 1024) {
-            return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024));
+        long timestamp = currentCdnTimestamp();
+        long expiresAt = Math.addExact(timestamp, storageProperties.getCdn().getAuthTtlSeconds());
+        Map<Long, ActivatedResourceRead> reads = new HashMap<>();
+        for (ActivatedResource item : resources) {
+            Resource resource = Resource.builder()
+                    .storageType(item.storageType())
+                    .storageKey(item.storageKey())
+                    .build();
+            reads.put(item.id(), new ActivatedResourceRead(
+                    item.id(), item.fileName(), item.fileSize(), item.fileMime(),
+                    getCdnReadUrl(resource, timestamp), expiresAt));
         }
-        return String.format(Locale.ROOT, "%.1f GB", bytes / (1024.0 * 1024 * 1024));
-    }
-
-    private String taskAttachmentMediaType(String mime) {
-        String normalized = mime.toLowerCase(Locale.ROOT);
-        if (normalized.startsWith("image/")) {
-            return "image";
-        }
-        return switch (normalized) {
-            case "application/pdf", "application/msword", "application/vnd.ms-excel",
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "document";
-            case "application/zip", "application/x-zip-compressed" -> "archive";
-            default -> "other";
-        };
+        return reads;
     }
 
     /**
      * 将业务对象资源更新为指定资源。
      * <p>
-     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源会被废弃。
+     * {@code reuseBound} 为 false 时，新资源在同一调用中绑定并激活，与新资源不同的旧资源会被废弃。
      * {@code resourceId} 为 {@code null} 或非正数时表示清空业务对象资源。
+     * {@code reuseBound} 为 true 时，可一次绑定多份未绑定上传，并复用已激活且业务 ID 相同的资源，不废弃其他资源。
      */
     public void bindBizResource(ResourceBindParamsBO params) {
         if (params.getBizId() == null) {
             return;
         }
-        Long resourceId = params.getResourceId();
-        if (isResourceId(resourceId)) {
-            if (Objects.equals(resourceId, params.getReplacedResourceId())) {
+        List<Long> resourceIds = bindResourceIds(params);
+        boolean reuseBound = Boolean.TRUE.equals(params.getReuseBound());
+        if (!reuseBound && resourceIds.size() == 1
+                && Objects.equals(resourceIds.get(0), params.getReplacedResourceId())) {
+            return;
+        }
+        if (!resourceIds.isEmpty()) {
+            if (params.getBizType() == null) {
+                throw unauthorized();
+            }
+            Map<Long, Resource> resources = loadResources(resourceIds);
+            for (Long resourceId : resourceIds) {
+                validateBind(resources.get(resourceId), params, reuseBound);
+            }
+            for (Long resourceId : resourceIds) {
+                activateBound(resources.get(resourceId), params, reuseBound);
+            }
+        }
+        if (!reuseBound) {
+            Long currentId = resourceIds.size() == 1 ? resourceIds.get(0) : null;
+            if (!Objects.equals(currentId, params.getReplacedResourceId())) {
+                deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
+            }
+        }
+    }
+
+    private List<Long> bindResourceIds(ResourceBindParamsBO params) {
+        if (params.getResourceIds() != null) {
+            List<Long> resourceIds = new ArrayList<>();
+            for (Long resourceId : params.getResourceIds()) {
+                if (isResourceId(resourceId)) {
+                    resourceIds.add(resourceId);
+                }
+            }
+            return resourceIds;
+        }
+        return isResourceId(params.getResourceId()) ? List.of(params.getResourceId()) : List.of();
+    }
+
+    private void validateBind(Resource resource, ResourceBindParamsBO params, boolean reuseBound) {
+        if (reuseBound) {
+            if (resource == null || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || !Objects.equals(resource.getCreatorId(), params.getCreatorId())
+                    || !Objects.equals(resource.getBizType(), params.getBizType())) {
+                throw unauthorized();
+            }
+            boolean reusable = resource.getProcessStatus() == FileProcessStatus.Activated
+                    && Objects.equals(resource.getBizId(), params.getBizId());
+            boolean unboundUpload = Objects.equals(resource.getBizId(), 0L)
+                    && (resource.getProcessStatus() == FileProcessStatus.Pending
+                    || resource.getProcessStatus() == FileProcessStatus.Uploaded);
+            if (!reusable && !unboundUpload) {
+                throw unauthorized();
+            }
+            return;
+        }
+        if (resource == null || !Objects.equals(resource.getCreatorId(), params.getCreatorId())
+                || (params.getOrgId() != null && !Objects.equals(resource.getOrgId(), params.getOrgId()))
+                || !Objects.equals(resource.getBizType(), params.getBizType())) {
+            throw unauthorized();
+        }
+    }
+
+    private void activateBound(Resource resource, ResourceBindParamsBO params, boolean reuseBound) {
+        if (reuseBound) {
+            if (resource.getProcessStatus() == FileProcessStatus.Activated) {
                 return;
             }
-            Resource resource = loadOwnedResource(resourceId, params);
-            ensureUploaded(resource, params);
-            int updated = resourceMapper.update(null,
-                    new LambdaUpdateWrapper<Resource>()
-                            .eq(Resource::getId, resourceId)
-                            .eq(Resource::getCreatorId, params.getCreatorId())
-                            .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
-                            .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                            .set(Resource::getBizId, params.getBizId())
-                            .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                            .set(Resource::getUpdatedAt, LocalDateTime.now()));
-            if (updated == 0) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            if (resource.getProcessStatus() == FileProcessStatus.Pending) {
+                storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                        resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+                int uploaded = resourceMapper.update(null, unboundUpdate(resource.getId(), params)
+                        .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                        .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+                if (uploaded != 1) {
+                    throw unauthorized();
+                }
             }
+            int activated = resourceMapper.update(null, unboundUpdate(resource.getId(), params)
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                    .set(Resource::getBizId, params.getBizId())
+                    .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+            if (activated != 1) {
+                throw unauthorized();
+            }
+            return;
         }
-        if (!Objects.equals(resourceId, params.getReplacedResourceId())) {
-            deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
+        ensureUploaded(resource, params);
+        int updated = resourceMapper.update(null, ownedUpdate(resource.getId(), params)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                .set(Resource::getBizId, params.getBizId())
+                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .set(Resource::getUpdatedAt, LocalDateTime.now()));
+        if (updated == 0) {
+            throw unauthorized();
         }
+    }
+
+    private LambdaUpdateWrapper<Resource> unboundUpdate(Long resourceId, ResourceBindParamsBO params) {
+        return new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resourceId)
+                .eq(Resource::getOrgId, params.getOrgId())
+                .eq(Resource::getCreatorId, params.getCreatorId())
+                .eq(Resource::getBizType, params.getBizType())
+                .eq(Resource::getBizId, 0L);
+    }
+
+    private LambdaUpdateWrapper<Resource> ownedUpdate(Long resourceId, ResourceBindParamsBO params) {
+        return new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resourceId)
+                .eq(Resource::getCreatorId, params.getCreatorId())
+                .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
+                .eq(Resource::getBizType, params.getBizType());
     }
 
     private Resource loadOwnedResource(Long resourceId, ResourceBindParamsBO params) {
         Resource resource = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
                 .eq(Resource::getId, resourceId)
                 .eq(Resource::getCreatorId, params.getCreatorId())
-                .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId()));
+                .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
+                .eq(Resource::getBizType, params.getBizType()));
         if (resource == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            throw unauthorized();
         }
         return resource;
     }
@@ -340,10 +355,7 @@ public class ResourceService {
         if (resource.getProcessStatus() == FileProcessStatus.Pending) {
             storageFactory.get(resource.getStorageType()).probe(
                     new ResourceProbeParamsBO(resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
-            int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                    .eq(Resource::getId, resource.getId())
-                    .eq(Resource::getCreatorId, params.getCreatorId())
-                    .eq(params.getOrgId() != null, Resource::getOrgId, params.getOrgId())
+            int updated = resourceMapper.update(null, ownedUpdate(resource.getId(), params)
                     .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
                     .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
                     .set(Resource::getUpdatedAt, LocalDateTime.now()));
@@ -353,7 +365,7 @@ public class ResourceService {
             resource = loadOwnedResource(resource.getId(), params);
         }
         if (resource.getProcessStatus() != FileProcessStatus.Uploaded) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            throw unauthorized();
         }
     }
 
@@ -370,8 +382,17 @@ public class ResourceService {
                 .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
     }
 
+    private Map<Long, Resource> loadResources(List<Long> resourceIds) {
+        return resourceMapper.selectList(lambdaQuery(Resource.class).in(Resource::getId, resourceIds))
+                .stream().collect(Collectors.toMap(Resource::getId, resource -> resource));
+    }
+
     private boolean isResourceId(Long resourceId) {
         return resourceId != null && resourceId > 0;
+    }
+
+    private AppException unauthorized() {
+        return new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
     }
 
     public Resource loadPending(String storageKey) {

@@ -190,6 +190,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getAvatarFileId())
                 .replacedResourceId(oldAvatarFileId)
+                .bizType("avatar")
                 .bizId(params.getUserId())
                 .creatorId(params.getUserId())
                 .build());

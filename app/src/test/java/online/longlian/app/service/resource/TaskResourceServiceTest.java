@@ -6,8 +6,10 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
+import online.longlian.app.service.app.impl.taskinstance.TaskAttachmentPresenter;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -67,7 +69,7 @@ class TaskResourceServiceTest {
         when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
         doThrow(new AppException(ResultCode.OPERATION_FAIL)).when(storageService).probe(any());
 
-        assertThatThrownBy(() -> service.bindTaskResources(TASK_ID, ORG_ID, CREATOR_ID, List.of(1L)))
+        assertThatThrownBy(() -> bind(List.of(1L)))
                 .isInstanceOf(AppException.class);
         verify(resourceMapper, never()).update(isNull(), any());
     }
@@ -80,7 +82,7 @@ class TaskResourceServiceTest {
         when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
         when(resourceMapper.update(isNull(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> service.bindTaskResources(TASK_ID, ORG_ID, CREATOR_ID, List.of(1L)))
+        assertThatThrownBy(() -> bind(List.of(1L)))
                 .isInstanceOf(AppException.class);
         verify(resourceMapper).update(isNull(), any());
     }
@@ -90,7 +92,7 @@ class TaskResourceServiceTest {
         when(resourceMapper.selectList(any())).thenReturn(List.of(uploaded(1L)));
         when(resourceMapper.update(isNull(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> service.bindTaskResources(TASK_ID, ORG_ID, CREATOR_ID, List.of(1L)))
+        assertThatThrownBy(() -> bind(List.of(1L)))
                 .isInstanceOf(AppException.class);
     }
 
@@ -131,11 +133,11 @@ class TaskResourceServiceTest {
         validPending.setProcessStatus(FileProcessStatus.Pending);
         for (Resource invalid : invalidResources) {
             when(resourceMapper.selectList(any())).thenReturn(List.of(validPending, invalid));
-            assertThatThrownBy(() -> service.bindTaskResources(TASK_ID, ORG_ID, CREATOR_ID, List.of(1L, 2L)))
+            assertThatThrownBy(() -> bind(List.of(1L, 2L)))
                     .isInstanceOf(AppException.class).hasMessageContaining("无权使用该文件");
         }
         when(resourceMapper.selectList(any())).thenReturn(List.of(validPending));
-        assertThatThrownBy(() -> service.bindTaskResources(TASK_ID, ORG_ID, CREATOR_ID, List.of(1L, 2L)))
+        assertThatThrownBy(() -> bind(List.of(1L, 2L)))
                 .isInstanceOf(AppException.class);
         verify(resourceMapper, never()).update(isNull(), any());
         verifyNoInteractions(storageFactory);
@@ -156,7 +158,7 @@ class TaskResourceServiceTest {
         other.setFileSize(1024L * 1024 * 1024);
         when(resourceMapper.selectList(any())).thenReturn(List.of(pdf, image, archive, other));
 
-        Map<Long, TaskAttachmentVO> first = service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L, 2L, 3L, 4L));
+        Map<Long, TaskAttachmentVO> first = present(service, List.of(1L, 2L, 3L, 4L));
         TaskAttachmentVO attachment = first.get(1L);
         assertThat(attachment.getId()).isEqualTo("1");
         assertThat(attachment.getName()).isEqualTo("database-name.pdf");
@@ -175,8 +177,8 @@ class TaskResourceServiceTest {
         verify(resourceMapper, never()).selectOne(any());
         verifyNoInteractions(storageFactory);
 
-        TaskAttachmentVO reused = serviceAt(1_100L).getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)).get(1L);
-        TaskAttachmentVO refreshed = serviceAt(1_200L).getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)).get(1L);
+        TaskAttachmentVO reused = present(serviceAt(1_100L), List.of(1L)).get(1L);
+        TaskAttachmentVO refreshed = present(serviceAt(1_200L), List.of(1L)).get(1L);
         assertThat(reused.getReadUrl()).isEqualTo(attachment.getReadUrl());
         assertThat(reused.getExpiresAt()).isEqualTo(1260L);
         assertThat(refreshed.getReadUrl()).isNotEqualTo(attachment.getReadUrl()).endsWith("&t=1200");
@@ -189,7 +191,7 @@ class TaskResourceServiceTest {
         local.setStorageType(StorageType.LOCAL);
         when(resourceMapper.selectList(any())).thenReturn(List.of(local));
 
-        TaskAttachmentVO attachment = service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)).get(1L);
+        TaskAttachmentVO attachment = present(service, List.of(1L)).get(1L);
 
         assertThat(attachment.getReadUrl()).matches("https://cdn.example/common/file/local\\?key=task_submit/1.pdf"
                 + "&expires=1260&signature=[0-9a-f]{64}&token=[0-9a-f]{32}&t=960");
@@ -218,7 +220,7 @@ class TaskResourceServiceTest {
         properties.setCdn(null);
         service = serviceAt(1_000L);
 
-        Map<Long, TaskAttachmentVO> attachments = service.getTaskAttachments(TASK_ID, ORG_ID,
+        Map<Long, TaskAttachmentVO> attachments = present(service,
                 List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L));
 
         assertThat(attachments).hasSize(8);
@@ -229,8 +231,7 @@ class TaskResourceServiceTest {
             assertThat(attachment.getSizeText()).isNull();
             assertThat(attachment.getMediaType()).isNull();
         }
-        assertThat(attachments.get(1L).getName()).isEqualTo("1.pdf");
-        for (long id : List.of(4L, 5L, 6L, 7L, 8L)) {
+        for (long id : List.of(1L, 4L, 5L, 6L, 7L, 8L)) {
             assertThat(attachments.get(id).getName()).isEqualTo("附件不可用");
         }
         verify(resourceMapper).selectList(any());
@@ -242,10 +243,11 @@ class TaskResourceServiceTest {
         when(resourceMapper.selectList(any())).thenReturn(List.of(activated(1L)));
         properties.getCdn().setEnabled(false);
 
-        assertThatThrownBy(() -> service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)))
+        assertThatThrownBy(() -> present(service, List.of(1L)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("必须启用 CDN");
         properties.setCdn(null);
-        assertThatThrownBy(() -> service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)))
+        service = serviceAt(1_000L);
+        assertThatThrownBy(() -> present(service, List.of(1L)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("必须启用 CDN");
         verifyNoInteractions(storageFactory);
     }
@@ -255,7 +257,7 @@ class TaskResourceServiceTest {
         when(resourceMapper.selectList(any())).thenReturn(List.of(activated(1L)));
         properties.getCdn().setUrlReusePercent(100);
 
-        assertThatThrownBy(() -> service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)))
+        assertThatThrownBy(() -> present(service, List.of(1L)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("配置无效");
         verifyNoInteractions(storageFactory);
     }
@@ -266,14 +268,29 @@ class TaskResourceServiceTest {
         properties.getCdn().setAuthKey("");
         service = serviceAt(1_000L);
 
-        assertThatThrownBy(() -> service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)))
+        assertThatThrownBy(() -> present(service, List.of(1L)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("鉴权密钥必须配置");
         properties.getCdn().setAuthKey("test-secret");
         properties.getCdn().setUrlPrefix("https://cdn.example?query=invalid");
         service = serviceAt(1_000L);
-        assertThatThrownBy(() -> service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L)))
+        assertThatThrownBy(() -> present(service, List.of(1L)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("绝对 URL");
         verifyNoInteractions(storageFactory);
+    }
+
+    private void bind(List<Long> resourceIds) {
+        service.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceIds(resourceIds)
+                .bizType("task_submit")
+                .bizId(TASK_ID)
+                .orgId(ORG_ID)
+                .creatorId(CREATOR_ID)
+                .reuseBound(true)
+                .build());
+    }
+
+    private Map<Long, TaskAttachmentVO> present(ResourceService resourceService, List<Long> resourceIds) {
+        return new TaskAttachmentPresenter(resourceService).present(TASK_ID, ORG_ID, resourceIds);
     }
 
     private Resource uploaded(Long id) {

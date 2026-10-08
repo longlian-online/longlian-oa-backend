@@ -41,12 +41,14 @@ class TaskInstanceAssemblerTest {
 
     @Mock
     private ResourceService resourceService;
+    @Mock
+    private TaskAttachmentPresenter taskAttachmentPresenter;
 
     private TaskInstanceAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        assembler = new TaskInstanceAssembler(userMapper, resourceService, new TaskFormService());
+        assembler = new TaskInstanceAssembler(userMapper, resourceService, new TaskFormService(), taskAttachmentPresenter);
     }
 
     @Test
@@ -164,7 +166,7 @@ class TaskInstanceAssemblerTest {
         assertEquals("PENDING", detail.getTask().status());
         assertEquals("not_submitted", detail.getSubmission().state());
         assertTrue(detail.getSubmission().fields().isEmpty());
-        org.mockito.Mockito.verifyNoInteractions(resourceService);
+        org.mockito.Mockito.verifyNoInteractions(resourceService, taskAttachmentPresenter);
     }
 
     @Test
@@ -180,7 +182,7 @@ class TaskInstanceAssemblerTest {
         LocalDateTime submitted = LocalDateTime.of(2026, 10, 8, 12, 30);
         TaskSubmission submission = TaskSubmission.builder().createdAt(submitted)
                 .metadata(forms.validateValues(fields, Map.of("notes", "first\n  second \n", "pick", "A", "count", "0.00")).serialize()).build();
-        when(resourceService.getTaskAttachments(1L, 10L, List.of())).thenReturn(Map.of());
+        when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
 
         TaskInstanceDetailVO detail = assembler.assembleDetail(instance, node, submission, 10L);
 
@@ -204,13 +206,13 @@ class TaskInstanceAssemblerTest {
         attachment.setId("9");
         attachment.setName("database.pdf");
         attachment.setAvailability("unavailable");
-        when(resourceService.getTaskAttachments(1L, 10L, List.of(9L))).thenReturn(Map.of(9L, attachment));
+        when(taskAttachmentPresenter.present(1L, 10L, List.of(9L))).thenReturn(Map.of(9L, attachment));
 
         TaskInstanceDetailVO detail = assembler.assembleDetail(instance, node, submission, 10L);
 
         assertEquals(List.of(new TaskInstanceDetailVO.FileField("file", "附件", "file", attachment)),
                 detail.getSubmission().fields());
-        verify(resourceService).getTaskAttachments(1L, 10L, List.of(9L));
+        verify(taskAttachmentPresenter).present(1L, 10L, List.of(9L));
         verify(resourceService, never()).getResourceReadUrls(anyList());
     }
 }

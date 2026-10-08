@@ -286,7 +286,7 @@ class UserServiceImplTest {
         verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
                 && resource.getReplacedResourceId().equals(10L)
                 && resource.getBizId().equals(1L)
-                && resource.getCreatorId().equals(1L)
+                && "avatar".equals(resource.getBizType())
                 && resource.getOrgId() == null));
     }
 

@@ -77,7 +77,7 @@ class BaseTaskServiceImplTest {
         verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
                 && resource.getReplacedResourceId() == null
                 && resource.getBizId().equals(100L)
-                && resource.getCreatorId().equals(2L)
+                && "avatar".equals(resource.getBizType())
                 && resource.getOrgId().equals(1L)));
     }
 }

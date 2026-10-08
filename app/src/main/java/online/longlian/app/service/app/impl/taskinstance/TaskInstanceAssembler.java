@@ -29,6 +29,7 @@ public class TaskInstanceAssembler {
     private final UserMapper userMapper;
     private final ResourceService resourceService;
     private final TaskFormService taskFormService;
+    private final TaskAttachmentPresenter taskAttachmentPresenter;
 
     public List<ItemTaskInstanceVO> assembleInstances(List<TaskInstance> instances, Map<Long, ItemTaskNode> nodeMap) {
         if (instances.isEmpty()) {
@@ -108,7 +109,7 @@ public class TaskInstanceAssembler {
 
         List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
         TaskFormService.ValidatedValues validated = taskFormService.parseValues(fields, submission.getMetadata());
-        Map<Long, TaskAttachmentVO> attachments = resourceService.getTaskAttachments(
+        Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
                 instance.getId(), orgId, validated.resourceIds());
         List<TaskInstanceDetailVO.Field> detailFields = new ArrayList<>(fields.size());
         for (TaskFormField field : fields) {
