@@ -173,6 +173,26 @@ class ProjectServiceImplTest {
     }
 
     @Test
+    void removeFromWorkshop_creator_throwsUnauthorized() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(2L)
+                .resourceStatus(Status.ENABLED)
+                .build());
+
+        assertThatThrownBy(() -> service.removeFromWorkshop(ProjectWorkshopRemoveParamsBO.builder()
+                .projectId(100L)
+                .userId(2L)
+                .orgId(1L)
+                .build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+
+        verify(projectWorkshopMapper, never()).update(any(), any());
+    }
+
+    @Test
     void getProjectDetail_disabledProject_throwsNotFound() {
         when(projectMapper.selectById(100L)).thenReturn(Project.builder()
                 .id(100L)

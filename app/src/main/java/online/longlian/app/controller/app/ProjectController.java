@@ -149,7 +149,7 @@ public class ProjectController {
 
     @Operation(
             summary = "从工坊移除企划",
-            description = "将指定企划从当前用户的个人工坊中移除"
+            description = "将指定企划从当前用户的个人工坊中移除。企划负责人不能退出自己的企划"
     )
     @Parameter(name = "projectId", description = "企划ID")
     @DeleteMapping("/{projectId}/workshop")
