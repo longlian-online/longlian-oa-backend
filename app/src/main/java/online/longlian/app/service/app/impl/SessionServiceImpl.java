@@ -26,7 +26,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -93,8 +92,8 @@ public class SessionServiceImpl implements SessionService {
         return SessionLoginResultBO.builder()
                 .userId(userId)
                 .token(token)
-                .roles(StringUtils.hasText(defaultOrganization.orgRole())
-                        ? List.of(defaultOrganization.orgRole()) : List.of())
+                .role(StringUtils.hasText(defaultOrganization.orgRole())
+                        ? defaultOrganization.orgRole() : null)
                 .defaultOrgId(defaultOrganization.orgId())
                 .build();
     }

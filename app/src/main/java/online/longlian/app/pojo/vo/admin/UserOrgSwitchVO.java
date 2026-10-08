@@ -8,8 +8,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
@@ -27,6 +25,6 @@ public class UserOrgSwitchVO {
     @Schema(description = "组织头像文件url")
     private String avatarUrl;
 
-    @Schema(description = "在组织内的角色列表")
-    private List<String> roles;
+    @Schema(description = "在组织内的角色")
+    private String role;
 }
