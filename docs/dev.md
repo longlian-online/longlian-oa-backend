@@ -34,6 +34,10 @@ YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥�
 
 `mvn spring-boot:run -pl app`
 
+系统信息接口 `GET /common/system/info` 无需登录，返回 `data.version`（当前后端 Maven 版本号）。
+构建时由 `spring-boot:build-info` 自动生成版本信息；直接通过 IDE 启动前，先运行
+`mvn -pl app -am compile`，确保 `META-INF/build-info.properties` 已生成。修改项目版本后也需重新构建。
+
 ## 可选本地日志采集
 
 需要 Docker Desktop 和 Task。`task dev-observability` 在开发环境基础上启动 VictoriaLogs；Java Agent 通过 OTLP/HTTP 直接写入，导出配置见 [otel-agent.md](otel-agent.md)。
