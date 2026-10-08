@@ -470,7 +470,8 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, icon_name, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "BadgeCheck", "[]", 1, 1L
+                1L, 1L, "原子任务", "描述", 0L, "BadgeCheck",
+                "[{\"key\":\"summary\",\"label\":\"摘要\",\"type\":\"text\",\"required\":true,\"options\":[]}]", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -486,7 +487,14 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.nodes", hasSize(1))
-                .body("data.nodes[0].baseTaskIconName", equalTo("BadgeCheck"));
+                .body("data.nodes[0].baseTaskIconName", equalTo("BadgeCheck"))
+                .body("data.nodes[0].submitFields", hasSize(1))
+                .body("data.nodes[0].submitFields[0].key", equalTo("summary"))
+                .body("data.nodes[0].submitFields[0].label", equalTo("摘要"))
+                .body("data.nodes[0].submitFields[0].type", equalTo("text"))
+                .body("data.nodes[0].submitFields[0].required", equalTo(true))
+                .body("data.nodes[0].submitFields[0].options", empty())
+                .body("data.nodes[0]", not(hasKey("metaSchema")));
     }
 
     // ========== 参数校验（进阶） ==========

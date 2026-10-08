@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
     private final Clock clock;
     private final BaseTaskQueryBuilder baseTaskQueryBuilder;
     private final BaseTaskAssembler baseTaskAssembler;
+    private final TaskFormService taskFormService;
 
     @Override
     public PageResultBO<BaseTaskListResultBO> listBaseTasks(BaseTaskListParamsBO params) {
@@ -57,7 +59,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .description(params.getDescription())
                 .iconFileId(params.getIconFileId())
                 .iconName(params.getIconName())
-                .metaSchema(params.getMetaSchema())
+                .metaSchema(taskFormService.serializeFields(params.getSubmitFields()))
                 .status(Status.ENABLED)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)

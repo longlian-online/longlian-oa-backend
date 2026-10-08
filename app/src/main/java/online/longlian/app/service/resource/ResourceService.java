@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
@@ -29,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -156,6 +158,132 @@ public class ResourceService {
 
     private boolean isCdnEnabled() {
         return storageProperties.getCdn() != null && storageProperties.getCdn().isEnabled();
+    }
+
+    /** Bind only this submitter's task files; the submission transaction owns these transitions. */
+    public void bindTaskResources(Long taskId, Long orgId, Long creatorId, List<Long> resourceIds) {
+        if (resourceIds.isEmpty()) {
+            return;
+        }
+        Map<Long, Resource> resources = loadTaskResources(resourceIds);
+        for (Long resourceId : resourceIds) {
+            Resource resource = resources.get(resourceId);
+            if (resource == null || !Objects.equals(resource.getOrgId(), orgId)
+                    || !Objects.equals(resource.getCreatorId(), creatorId)
+                    || !"task_submit".equals(resource.getBizType())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            }
+            boolean reusable = resource.getProcessStatus() == FileProcessStatus.Activated
+                    && Objects.equals(resource.getBizId(), taskId);
+            boolean unboundUpload = Objects.equals(resource.getBizId(), 0L)
+                    && (resource.getProcessStatus() == FileProcessStatus.Pending
+                    || resource.getProcessStatus() == FileProcessStatus.Uploaded);
+            if (!reusable && !unboundUpload) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            }
+        }
+        for (Resource resource : resources.values()) {
+            if (resource.getProcessStatus() == FileProcessStatus.Activated) {
+                continue;
+            }
+            if (resource.getProcessStatus() == FileProcessStatus.Pending) {
+                storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                        resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+                int uploaded = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
+                        .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                        .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+                if (uploaded != 1) {
+                    throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+                }
+            }
+            int activated = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                    .set(Resource::getBizId, taskId)
+                    .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+            if (activated != 1) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+            }
+        }
+    }
+
+    private LambdaUpdateWrapper<Resource> taskUploadUpdate(Long resourceId, Long orgId, Long creatorId) {
+        return new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resourceId)
+                .eq(Resource::getOrgId, orgId)
+                .eq(Resource::getCreatorId, creatorId)
+                .eq(Resource::getBizType, "task_submit")
+                .eq(Resource::getBizId, 0L);
+    }
+
+    /** The caller authorizes task access; only active resources bound to that task may be signed. */
+    public Map<Long, TaskAttachmentVO> getTaskAttachments(Long taskId, Long orgId, List<Long> resourceIds) {
+        Map<Long, TaskAttachmentVO> attachments = new HashMap<>();
+        if (resourceIds.isEmpty()) {
+            return attachments;
+        }
+        Map<Long, Resource> resources = loadTaskResources(resourceIds);
+        Long timestamp = null;
+        for (Long resourceId : resourceIds) {
+            Resource resource = resources.get(resourceId);
+            boolean boundToTask = resource != null && Objects.equals(resource.getOrgId(), orgId)
+                    && "task_submit".equals(resource.getBizType()) && Objects.equals(resource.getBizId(), taskId);
+            TaskAttachmentVO attachment = new TaskAttachmentVO();
+            attachment.setId(resourceId.toString());
+            attachment.setName(boundToTask ? resource.getFileName() : "附件不可用");
+            attachment.setAvailability("unavailable");
+            if (boundToTask && resource.getProcessStatus() == FileProcessStatus.Activated) {
+                if (!isCdnEnabled()) {
+                    throw new IllegalStateException("任务附件读取必须启用 CDN");
+                }
+                if (timestamp == null) {
+                    timestamp = currentCdnTimestamp();
+                }
+                attachment.setReadUrl(getCdnReadUrl(resource, timestamp));
+                attachment.setExpiresAt(Math.addExact(timestamp, storageProperties.getCdn().getAuthTtlSeconds()));
+                attachment.setSizeText(taskAttachmentSize(resource.getFileSize()));
+                attachment.setMediaType(taskAttachmentMediaType(resource.getFileMime()));
+                attachment.setAvailability("available");
+            }
+            attachments.put(resourceId, attachment);
+        }
+        return attachments;
+    }
+
+    private Map<Long, Resource> loadTaskResources(List<Long> resourceIds) {
+        return resourceMapper.selectList(lambdaQuery(Resource.class).in(Resource::getId, resourceIds))
+                .stream().collect(Collectors.toMap(Resource::getId, resource -> resource));
+    }
+
+    private String taskAttachmentSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
+        if (bytes < 1024L * 1024) {
+            return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
+        }
+        if (bytes < 1024L * 1024 * 1024) {
+            return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024));
+        }
+        return String.format(Locale.ROOT, "%.1f GB", bytes / (1024.0 * 1024 * 1024));
+    }
+
+    private String taskAttachmentMediaType(String mime) {
+        if (mime == null) {
+            return "other";
+        }
+        String normalized = mime.toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("image/")) {
+            return "image";
+        }
+        return switch (normalized) {
+            case "application/pdf", "application/msword", "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "document";
+            case "application/zip", "application/x-zip-compressed" -> "archive";
+            default -> "other";
+        };
     }
 
     /**

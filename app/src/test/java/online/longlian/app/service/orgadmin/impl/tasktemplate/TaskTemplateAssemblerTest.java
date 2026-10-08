@@ -11,6 +11,7 @@ import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class TaskTemplateAssemblerTest {
 
     @BeforeEach
     void setUp() {
-        assembler = new TaskTemplateAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService);
+        assembler = new TaskTemplateAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService, new TaskFormService());
     }
 
     @Test
@@ -86,7 +87,7 @@ class TaskTemplateAssemblerTest {
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
 
         BaseTask baseTask = BaseTask.builder().id(100L).name("Draw").iconFileId(200L)
-                .iconName("SquarePen").metaSchema("{}").build();
+                .iconName("SquarePen").metaSchema("[]").build();
         when(baseTaskMapper.selectBatchIds(anyList())).thenReturn(List.of(baseTask));
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(200L, new ResourceReadUrlGetResultBO("https://cdn/icon.png", 1L, "icon/200")));

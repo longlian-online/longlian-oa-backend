@@ -6,6 +6,7 @@ import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ class ItemTaskFlowAssemblerTest {
 
     @BeforeEach
     void setUp() {
-        assembler = new ItemTaskFlowAssembler(baseTaskMapper, resourceService);
+        assembler = new ItemTaskFlowAssembler(baseTaskMapper, resourceService, new TaskFormService());
     }
 
     @Test

@@ -5,11 +5,17 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
+import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,6 +28,7 @@ public class TaskInstanceAssembler {
 
     private final UserMapper userMapper;
     private final ResourceService resourceService;
+    private final TaskFormService taskFormService;
 
     public List<ItemTaskInstanceVO> assembleInstances(List<TaskInstance> instances, Map<Long, ItemTaskNode> nodeMap) {
         if (instances.isEmpty()) {
@@ -74,5 +81,56 @@ public class TaskInstanceAssembler {
                     return builder.build();
                 })
                 .toList();
+    }
+
+    public TaskInstanceDetailVO assembleDetail(
+            TaskInstance instance, ItemTaskNode node, TaskSubmission submission, Long orgId) {
+        TaskInstanceDetailVO result = new TaskInstanceDetailVO();
+        TaskInstanceDetailVO.Assignee assignee = null;
+        if (instance.getAssigneeId() != null) {
+            User user = userMapper.selectById(instance.getAssigneeId());
+            if (user != null) {
+                String avatarUrl = user.getAvatarFileId() != null && user.getAvatarFileId() > 0
+                        ? resourceService.getResourceReadUrls(List.of(user.getAvatarFileId()))
+                            .values().stream().map(value -> value.getUrl()).findFirst().orElse(null)
+                        : null;
+                assignee = new TaskInstanceDetailVO.Assignee(
+                        user.getId().toString(), user.getNickname(), avatarUrl);
+            }
+        }
+        result.setTask(new TaskInstanceDetailVO.Task(
+                instance.getId().toString(), node.getName(), node.getSort(), instance.getStatus().name(), assignee));
+        if (submission == null) {
+            result.setSubmission(new TaskInstanceDetailVO.Submission(
+                    "not_submitted", null, List.of()));
+            return result;
+        }
+
+        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
+        TaskFormService.ValidatedValues validated = taskFormService.parseValues(fields, submission.getMetadata());
+        Map<Long, TaskAttachmentVO> attachments = resourceService.getTaskAttachments(
+                instance.getId(), orgId, validated.resourceIds());
+        List<TaskInstanceDetailVO.Field> detailFields = new ArrayList<>(fields.size());
+        for (TaskFormField field : fields) {
+            Object value = validated.values().get(field.key());
+            if (field.type().equals("file")) {
+                List<TaskAttachmentVO> files;
+                if (value == null) {
+                    files = List.of();
+                } else {
+                    String fileId = (String) ((Map<?, ?>) value).get("fileId");
+                    files = List.of(attachments.get(taskFormService.parseFileId(fileId)));
+                }
+                detailFields.add(new TaskInstanceDetailVO.FilesField(
+                        field.key(), field.label(), "files", files, files.isEmpty() ? "未填写" : null));
+            } else {
+                detailFields.add(new TaskInstanceDetailVO.TextField(
+                        field.key(), field.label(), field.type().equals("textarea") ? "multiline" : "text",
+                        value == null ? "未填写" : (String) value));
+            }
+        }
+        result.setSubmission(new TaskInstanceDetailVO.Submission(
+                "submitted", submission.getCreatedAt(), detailFields));
+        return result;
     }
 }

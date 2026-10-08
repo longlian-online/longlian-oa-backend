@@ -5,6 +5,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +48,7 @@ class BaseTaskServiceImplTest {
                 resourceService,
                 clock,
                 baseTaskQueryBuilder,
-                baseTaskAssembler
+                baseTaskAssembler, new TaskFormService()
         );
     }
 
@@ -66,7 +67,7 @@ class BaseTaskServiceImplTest {
                 .description("翻译内容")
                 .iconFileId(20L)
                 .iconName("Languages")
-                .metaSchema("[]")
+                .submitFields(java.util.List.of())
                 .build());
 
         ArgumentCaptor<BaseTask> taskCaptor = ArgumentCaptor.forClass(BaseTask.class);

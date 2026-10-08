@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 @Data
 @Schema(description = "创建/更新原子任务请求参数")
@@ -28,6 +31,7 @@ public class BaseTaskCreateDTO {
     @Schema(description = "Lucide 图标组件名")
     private String iconName;
 
-    @Schema(description = "元数据字段定义(JSON数组)，示例：[{\"name\":\"附件\",\"fieldType\":\"file\",\"required\":true},{\"name\":\"作者\",\"fieldType\":\"text\",\"required\":true},{\"name\":\"源链接\",\"fieldType\":\"text\",\"required\":true}]")
-    private String metaSchema;
+    @NotNull
+    @Schema(description = "提交表单字段", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<TaskFormField> submitFields;
 }
