@@ -6,7 +6,7 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.api.util.DatabaseCleanupUtil;
-import online.longlian.app.common.filter.OrganizationScopeFilter;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
@@ -209,13 +209,13 @@ public abstract class BaseApiTest {
     protected RequestSpecification authRequest(String token) {
         RequestSpecification spec = userRequest(token);
         if (requestOrgId != null) {
-            spec.header(OrganizationScopeFilter.ORG_ID_HEADER, Long.toString(requestOrgId));
+            spec.header(OrganizationScopeInterceptor.ORG_ID_HEADER, Long.toString(requestOrgId));
         }
         return spec;
     }
 
     protected RequestSpecification authRequest(String token, long orgId) {
-        return userRequest(token).header(OrganizationScopeFilter.ORG_ID_HEADER, Long.toString(orgId));
+        return userRequest(token).header(OrganizationScopeInterceptor.ORG_ID_HEADER, Long.toString(orgId));
     }
 
     protected String createRootAdmin() {

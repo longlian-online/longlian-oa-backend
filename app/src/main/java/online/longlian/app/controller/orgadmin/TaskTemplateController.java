@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -49,7 +50,7 @@ public class TaskTemplateController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @ResponseMessage("查询成功")
     public PageResultVO<TaskTemplateListVO> listTaskTemplates(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid TaskTemplateListDTO taskTemplateListDTO) {
         PageResultBO<TaskTemplateListResultBO> resultBO = taskTemplateService.listTaskTemplates(
                 TaskTemplateListParamsBO.builder()
@@ -82,7 +83,7 @@ public class TaskTemplateController {
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @ResponseMessage("查询成功")
     public TaskTemplateDetailVO getTaskTemplateDetail(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long templateId) {
         TaskTemplateDetailResultBO resultBO = taskTemplateService.getTaskTemplateDetail(
                 templateId, sessionContext.orgId());
@@ -105,7 +106,7 @@ public class TaskTemplateController {
     @PostMapping
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @ResponseMessage("创建成功")
-    public void createTaskTemplate(@UserSession SessionContext sessionContext,
+    public void createTaskTemplate(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                     @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
         List<TaskTemplateNodeCreateParamsBO> nodeBOs = taskTemplateCreateDTO.getNodes().stream()
                 .map(nodeDTO -> TaskTemplateNodeCreateParamsBO.builder()
@@ -134,7 +135,7 @@ public class TaskTemplateController {
     @PutMapping("/{templateId}")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @ResponseMessage("更新成功")
-    public void updateTaskTemplate(@UserSession SessionContext sessionContext,
+    public void updateTaskTemplate(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                     @PathVariable Long templateId,
                                     @RequestBody @Valid TaskTemplateCreateDTO taskTemplateCreateDTO) {
         List<TaskTemplateNodeCreateParamsBO> nodeBOs = taskTemplateCreateDTO.getNodes().stream()
@@ -163,7 +164,7 @@ public class TaskTemplateController {
     @PatchMapping("/{templateId}/status")
     @PreAuthorize("hasRole('ORG_ADMIN')")
     @ResponseMessage("状态修改成功")
-    public void changeTaskTemplateStatus(@UserSession SessionContext sessionContext,
+    public void changeTaskTemplateStatus(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                   @PathVariable Long templateId,
                                                   @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         taskTemplateService.changeTaskTemplateStatus(

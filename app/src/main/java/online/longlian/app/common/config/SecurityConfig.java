@@ -3,7 +3,6 @@ package online.longlian.app.common.config;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
-import online.longlian.app.common.filter.OrganizationScopeFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvider;
@@ -35,7 +34,6 @@ public class SecurityConfig {
     private final AuthenticationEntryPoint authenticationEntryPoint;
     private final AccessDeniedHandler accessDeniedHandler;
     private final TraceIdFilter traceIdFilter;
-    private final OrganizationScopeFilter organizationScopeFilter;
     private final MyUsernamePasswordAuthenticationProvider emailPasswordProvider;
     private final EmailCodeAuthenticationProvider emailCodeProvider;
     private final UserDetailsServiceImpl userDetailsService;
@@ -66,8 +64,7 @@ public class SecurityConfig {
                 //添加 JWT 过滤器
                 .addFilterBefore(traceIdFilter,UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(organizationScopeFilter, JwtAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

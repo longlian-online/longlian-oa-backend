@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import com.alibaba.fastjson2.support.config.FastJsonConfig;
 import com.alibaba.fastjson2.support.spring6.http.converter.FastJsonHttpMessageConverter;
 import online.longlian.app.common.constants.PatternConstants;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import online.longlian.app.common.resolver.UserSessionArgumentResolver;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -11,6 +12,7 @@ import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.MediaType;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.charset.StandardCharsets;
@@ -21,10 +23,16 @@ import java.util.List;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final UserSessionArgumentResolver userSessionArgumentResolver;
+    private final OrganizationScopeInterceptor organizationScopeInterceptor;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(userSessionArgumentResolver);
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(organizationScopeInterceptor);
     }
 
     /**

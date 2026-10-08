@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -44,7 +45,7 @@ public class ProjectController {
     @GetMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectInfoVO> getProjectList(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @ModelAttribute @Valid ProjectListDTO projectListDTO) {
         PageResultBO<ProjectListResultBO> resultBO = projectService.getProjectList(
                 ProjectListParamsBO.builder()
@@ -75,7 +76,7 @@ public class ProjectController {
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("/{projectId}")
     @ResponseMessage("查询成功")
-    public ProjectDetailInfoVO getProjectDetail(@UserSession SessionContext sessionContext,
+    public ProjectDetailInfoVO getProjectDetail(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                  @PathVariable Long projectId) {
         ProjectDetailResultBO resultBO = projectService.getProjectDetail(
                 projectId, sessionContext.userId(), sessionContext.orgId());
@@ -87,14 +88,14 @@ public class ProjectController {
     @Operation(summary = "获取企划类型列表", description = "仅返回启用状态的类型")
     @GetMapping("/types")
     @ResponseMessage("查询成功")
-    public List<ProjectTypeInfoVO> getProjectTypes(@UserSession SessionContext sessionContext) {
+    public List<ProjectTypeInfoVO> getProjectTypes(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
         return projectService.getProjectTypes(sessionContext.orgId());
     }
 
     @Operation(summary = "创建企划", description = "创建后自动加入当前用户的个人工坊")
     @PostMapping("")
     @ResponseMessage("创建成功")
-    public void createProject(@UserSession SessionContext sessionContext,
+    public void createProject(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                @RequestBody @Valid ProjectCreateDTO projectCreateDTO) {
         projectService.createProject(
                 ProjectCreateParamsBO.builder()
@@ -113,7 +114,7 @@ public class ProjectController {
     @Parameter(name = "projectId", description = "企划ID")
     @PutMapping("/{projectId}")
     @ResponseMessage("修改成功")
-    public void updateProject(@UserSession SessionContext sessionContext,
+    public void updateProject(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                @PathVariable Long projectId,
                                @RequestBody @Valid ProjectUpdateDTO projectUpdateDTO) {
         projectService.updateProject(
@@ -136,7 +137,7 @@ public class ProjectController {
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("/{projectId}/workshop")
     @ResponseMessage("已添加到工坊")
-    public void addToWorkshop(@UserSession SessionContext sessionContext,
+    public void addToWorkshop(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                @PathVariable Long projectId) {
         projectService.addToWorkshop(
                 ProjectWorkshopAddParamsBO.builder()
@@ -153,7 +154,7 @@ public class ProjectController {
     @Parameter(name = "projectId", description = "企划ID")
     @DeleteMapping("/{projectId}/workshop")
     @ResponseMessage("已从工坊移除")
-    public void removeFromWorkshop(@UserSession SessionContext sessionContext,
+    public void removeFromWorkshop(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                     @PathVariable Long projectId) {
         projectService.removeFromWorkshop(
                 ProjectWorkshopRemoveParamsBO.builder()

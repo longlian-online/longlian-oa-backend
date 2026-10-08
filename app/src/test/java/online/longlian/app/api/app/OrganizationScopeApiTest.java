@@ -2,7 +2,7 @@ package online.longlian.app.api.app;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
-import online.longlian.app.common.filter.OrganizationScopeFilter;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,11 +92,23 @@ public class OrganizationScopeApiTest extends BaseApiTest {
 
         assertOperationFail(userRequest(token).get("/app/projects"));
         for (String header : new String[]{"", "0", "-1", "abc"}) {
-            assertOperationFail(userRequest(token).header(OrganizationScopeFilter.ORG_ID_HEADER, header).get("/app/projects"));
+            assertOperationFail(userRequest(token).header(OrganizationScopeInterceptor.ORG_ID_HEADER, header).get("/app/projects"));
         }
         assertOperationFail(authRequest(token, 3L).get("/app/projects"));
         assertOperationFail(authRequest(token, 4L).get("/app/projects"));
         assertOperationFail(authRequest(token, 5L).get("/app/projects"));
+    }
+
+    @Test
+    void shouldIgnoreIllegalOrgHeaderWhenMethodDeclaresNone() {
+        createUserWithOrganization(1L, "admin", "123456", "admin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("admin", "123456");
+
+        userRequest(token).header(OrganizationScopeInterceptor.ORG_ID_HEADER, "abc").get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        request().header(OrganizationScopeInterceptor.ORG_ID_HEADER, "not-an-org")
+                .body(Map.of("username", "admin", "password", "123456")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
@@ -33,7 +34,7 @@ public class OrgAdminOrganizationController {
     @Operation(summary = "获取组织信息", description = "获取组织管理员所在组织的头像、组名和简介")
     @GetMapping("")
     @ResponseMessage("查询成功")
-    public OrgAdmintOrganizationInfoVO getOrganizationInfo(@UserSession SessionContext sessionContext) {
+    public OrgAdmintOrganizationInfoVO getOrganizationInfo(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
         OrgAdminGetOrganizationInfoResultBO resultBO = orgAdminOrganizationService.getOrganizationInfo(
                 sessionContext.orgId());
 
@@ -49,7 +50,7 @@ public class OrgAdminOrganizationController {
     @Operation(summary = "更新组织信息", description = "更新组织的头像、组名和简介")
     @PutMapping("")
     @ResponseMessage("更新成功")
-    public void updateOrganizationInfo(@UserSession SessionContext sessionContext,
+    public void updateOrganizationInfo(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                         @RequestBody @Valid OrgAdminUpdateOrganizationInfoDTO updateOrganizationInfoDTO) {
         orgAdminOrganizationService.updateOrganizationInfo(
                 OrgAdminUpdateOrganizationInfoParamsBO.builder()

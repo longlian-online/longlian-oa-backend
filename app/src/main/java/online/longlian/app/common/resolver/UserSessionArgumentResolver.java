@@ -2,7 +2,8 @@ package online.longlian.app.common.resolver;
 
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.filter.OrganizationScopeFilter;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.common.security.OrganizationScope;
@@ -32,11 +33,11 @@ public class UserSessionArgumentResolver implements HandlerMethodArgumentResolve
                                    NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         Long userId = currentUserContext.requireUserId();
         UserSession annotation = parameter.getParameterAnnotation(UserSession.class);
-        if (annotation != null && !annotation.organization()) {
+        if (annotation == null || annotation.value() == OrganizationDeclaration.NONE) {
             return new SessionContext(userId, null);
         }
         Object value = webRequest.getAttribute(
-                OrganizationScopeFilter.SCOPE_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST);
+                OrganizationScopeInterceptor.SCOPE_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST);
         if (!(value instanceof OrganizationScope scope)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "组织不能为空");
         }

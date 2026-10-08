@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -38,7 +39,7 @@ public class ItemController {
     @GetMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectItemListVO> listProjectItems(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long projectId,
             @ModelAttribute @Valid ProjectItemListDTO projectItemListDTO) {
         PageResultBO<ProjectItemListVO> resultBO = itemService.listProjectItems(
@@ -59,7 +60,7 @@ public class ItemController {
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("")
     @ResponseMessage("创建成功")
-    public void createProjectItem(@UserSession SessionContext sessionContext,
+    public void createProjectItem(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                    @PathVariable Long projectId,
                                    @RequestBody @Valid ProjectItemCreateDTO projectItemCreateDTO) {
         itemService.createProjectItem(
@@ -77,7 +78,7 @@ public class ItemController {
     @Parameter(name = "itemId", description = "项目ID")
     @DeleteMapping("/{itemId}")
     @ResponseMessage("删除成功")
-    public void deleteProjectItem(@UserSession SessionContext sessionContext,
+    public void deleteProjectItem(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                    @PathVariable Long projectId,
                                    @PathVariable Long itemId) {
         itemService.deleteProjectItem(
@@ -94,7 +95,7 @@ public class ItemController {
     @Parameter(name = "itemId", description = "项目ID")
     @PatchMapping("/{itemId}/publish")
     @ResponseMessage("公布成功")
-    public void publishProjectItem(@UserSession SessionContext sessionContext,
+    public void publishProjectItem(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                     @PathVariable Long projectId,
                                     @PathVariable Long itemId) {
         itemService.publishProjectItem(
