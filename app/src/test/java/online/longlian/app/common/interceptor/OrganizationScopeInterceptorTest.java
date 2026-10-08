@@ -87,6 +87,21 @@ class OrganizationScopeInterceptorTest {
     }
 
     @Test
+    void shouldRejectNonUserPrincipalAsUnauthorized() throws Exception {
+        AdminUserDetails admin = AdminUserDetails.from(1L, "admin", "ADMIN");
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities()));
+        request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "12");
+
+        assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isFalse();
+
+        verifyNoInteractions(organizationMembershipService);
+        assertThat(JSON.parseObject(response.getContentAsString()).getIntValue("code"))
+                .isEqualTo(ResultCode.UNAUTHORIZED.getCode());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
     void shouldIgnoreHeaderWhenMethodDeclaresNone() throws Exception {
         UsernamePasswordAuthenticationToken incoming = authentication();
         SecurityContextHolder.getContext().setAuthentication(incoming);

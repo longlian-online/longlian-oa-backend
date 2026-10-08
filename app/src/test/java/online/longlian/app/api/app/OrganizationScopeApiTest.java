@@ -76,6 +76,22 @@ public class OrganizationScopeApiTest extends BaseApiTest {
     }
 
     /**
+     * 管理员令牌不是用户令牌，不能把令牌类型错误误报为组织为空。
+     */
+    @Test
+    void shouldRejectAdminTokenAsUnauthorized() {
+        createAdmin(1L, "system_admin", "123456", "root");
+        String token = adminLoginAs("system_admin", "123456");
+
+        userRequest(token)
+                .header(OrganizationScopeInterceptor.ORG_ID_HEADER, "1")
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    /**
      * 缺头或头非法时失败，不回退到 default_org_id。
      */
     @Test

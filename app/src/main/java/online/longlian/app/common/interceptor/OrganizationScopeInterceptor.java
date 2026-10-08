@@ -60,7 +60,7 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication != null && authentication.getPrincipal() instanceof UserDetailImpl user)) {
             SecurityContextHolder.clearContext();
-            writeFailure(response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织不能为空"));
+            writeFailure(response, Result.fail(ResultCode.UNAUTHORIZED));
             return false;
         }
         String header = request.getHeader(ORG_ID_HEADER);
