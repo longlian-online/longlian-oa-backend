@@ -61,6 +61,10 @@ class TaskDetailApiTest extends BaseApiTest {
                 field("notes", "说明", "textarea", true),
                 selectField("category", "分类", true, List.of("设计", "开发")),
                 field("attachment", "附件", "file", false)));
+        createTaskResource(101L, 1L, 1L, 0L, FileProcessStatus.Activated);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'avatar', storage_key = 'avatar/101.png', "
+                + "file_ext = 'png', file_mime = 'image/png' WHERE id = 101");
+        jdbcTemplate.update("UPDATE user SET avatar_file_id = 101 WHERE id = 1");
         String multiline = "  第一行\n\n第二行  \n";
         Map<String, Object> values = new HashMap<>();
         values.put("category", "开发");
@@ -74,6 +78,7 @@ class TaskDetailApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.task.status", equalTo("COMPLETED"))
                 .body("data.task.assignee.id", equalTo("1"))
+                .body("data.task.assignee.avatarUrl", startsWith("https://static.example.com/avatar/101.png?token="))
                 .body("data.submission.state", equalTo("submitted"))
                 .body("data.submission.submittedAt", notNullValue())
                 .body("data.submission.fields.key", contains("optional", "count", "notes", "category", "attachment"))
@@ -315,6 +320,21 @@ class TaskDetailApiTest extends BaseApiTest {
                     .body(attachmentPath + ".readUrl", nullValue())
                     .body(attachmentPath + ".expiresAt", nullValue());
         }
+    }
+
+    @Test
+    void shouldRejectMissingTaskNodeWithoutCompletingOrRecordingSubmission() {
+        String token = createTask(List.of());
+        jdbcTemplate.update("DELETE FROM item_task_node WHERE id = 1");
+
+        detail(token, 1L).then().statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        submit(token, 1L, Map.of()).then().statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        authRequest(token).get("/app/task/instance/item/1").then().statusCode(200)
+                .body("data[0].status", equalTo("CLAIMED"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task_submission WHERE task_instance_id = 1", Integer.class)).isZero();
     }
 
     private String createTask(List<Map<String, Object>> fields) {

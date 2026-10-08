@@ -150,8 +150,10 @@ class TaskResourceServiceTest {
         image.setFileSize(512L);
         Resource archive = activated(3L);
         archive.setFileMime("application/zip");
+        archive.setFileSize(1024L * 1024);
         Resource other = activated(4L);
         other.setFileMime("application/octet-stream");
+        other.setFileSize(1024L * 1024 * 1024);
         when(resourceMapper.selectList(any())).thenReturn(List.of(pdf, image, archive, other));
 
         Map<Long, TaskAttachmentVO> first = service.getTaskAttachments(TASK_ID, ORG_ID, List.of(1L, 2L, 3L, 4L));
@@ -166,7 +168,9 @@ class TaskResourceServiceTest {
         assertThat(first.get(2L).getMediaType()).isEqualTo("image");
         assertThat(first.get(2L).getSizeText()).isEqualTo("512 B");
         assertThat(first.get(3L).getMediaType()).isEqualTo("archive");
+        assertThat(first.get(3L).getSizeText()).isEqualTo("1.0 MB");
         assertThat(first.get(4L).getMediaType()).isEqualTo("other");
+        assertThat(first.get(4L).getSizeText()).isEqualTo("1.0 GB");
         verify(resourceMapper).selectList(any());
         verify(resourceMapper, never()).selectOne(any());
         verifyNoInteractions(storageFactory);

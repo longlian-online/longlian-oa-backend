@@ -15,42 +15,68 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /** The task HTTP boundary and stored snapshots share one strict form contract. */
 @Component
 public class TaskFormService {
     private static final Set<String> TYPES = Set.of("text", "textarea", "file", "number", "select");
     private static final Set<String> FIELD_KEYS = Set.of("key", "label", "type", "required", "options");
+    private static final Pattern FILE_ID = Pattern.compile("[1-9][0-9]*");
 
+    /** Validates unique field keys and the supported form controls before taking a snapshot. */
     public List<TaskFormField> validateFields(List<TaskFormField> fields) {
-        if (fields == null) {
-            throw invalid("提交字段不能为空");
-        }
         Set<String> keys = new HashSet<>();
         for (TaskFormField field : fields) {
-            if (field == null || field.key() == null || field.key().isBlank()
-                    || !keys.add(field.key()) || field.label() == null || field.label().isBlank()
-                    || !TYPES.contains(field.type() == null ? "" : field.type())
-                    || field.required() == null || field.options() == null) {
+            validateField(field);
+            if (!keys.add(field.key())) {
                 throw invalid("提交字段定义无效");
             }
-            Set<String> options = new HashSet<>();
-            for (String option : field.options()) {
-                if (option == null || option.isBlank() || !options.add(option)) {
-                    throw invalid("选项定义无效");
-                }
-            }
-            if (field.type().equals("select") ? options.isEmpty() : !options.isEmpty()) {
-                throw invalid("选项仅用于选择字段且不能为空");
-            }
         }
-        return List.copyOf(fields);
+        return fields;
     }
 
+    private void validateField(TaskFormField field) {
+        if (field == null) {
+            throw invalid("提交字段定义无效");
+        }
+        requireFieldText(field.key());
+        requireFieldText(field.label());
+        if (field.type() == null || !TYPES.contains(field.type())
+                || field.required() == null || field.options() == null) {
+            throw invalid("提交字段定义无效");
+        }
+        validateOptions(field);
+    }
+
+    private void requireFieldText(String text) {
+        if (text == null || text.isBlank()) {
+            throw invalid("提交字段定义无效");
+        }
+    }
+
+    private void validateOptions(TaskFormField field) {
+        Set<String> options = new HashSet<>();
+        for (String option : field.options()) {
+            if (option == null || option.isBlank() || !options.add(option)) {
+                throw invalid("选项定义无效");
+            }
+        }
+        if (field.type().equals("select")) {
+            if (options.isEmpty()) {
+                throw invalid("选项仅用于选择字段且不能为空");
+            }
+        } else if (!options.isEmpty()) {
+            throw invalid("选项仅用于选择字段且不能为空");
+        }
+    }
+
+    /** Stores validated input definitions without exposing the storage encoding to API callers. */
     public String serializeFields(List<TaskFormField> fields) {
         return JSON.toJSONString(validateFields(fields));
     }
 
+    /** Decodes a current-format snapshot, rejecting corruption rather than returning display fallback data. */
     public List<TaskFormField> parseFields(String stored) {
         try {
             Object parsed = JSON.parse(stored);
@@ -84,10 +110,8 @@ public class TaskFormService {
         }
     }
 
+    /** Checks submitted values against the server-owned definition and collects authorized file candidates. */
     public ValidatedValues validateValues(List<TaskFormField> fields, Map<String, Object> values) {
-        if (values == null) {
-            throw invalid("提交内容不能为空");
-        }
         Set<String> keys = new HashSet<>();
         fields.forEach(field -> keys.add(field.key()));
         if (!keys.containsAll(values.keySet())) {
@@ -96,50 +120,59 @@ public class TaskFormService {
         Map<String, Object> normalized = new LinkedHashMap<>();
         List<Long> resourceIds = new ArrayList<>();
         for (TaskFormField field : fields) {
-            Object value = values.get(field.key());
-            boolean empty = value == null || value instanceof String text && text.isEmpty();
-            if (empty) {
-                if (field.required()) {
-                    throw invalid(field.label() + "不能为空");
-                }
-                normalized.put(field.key(), null);
-                continue;
-            }
-            if (field.type().equals("file")) {
-                if (!(value instanceof Map<?, ?> file) || !file.keySet().equals(Set.of("fileId"))
-                        || !(file.get("fileId") instanceof String fileId)) {
-                    throw invalid(field.label() + "必须为文件引用");
-                }
-                long id = parseFileId(fileId);
-                normalized.put(field.key(), Map.of("fileId", Long.toString(id)));
-                resourceIds.add(id);
-            } else {
-                if (!(value instanceof String text)) {
-                    throw invalid(field.label() + "必须为文本");
-                }
-                if (field.required() && text.isBlank()) {
-                    throw invalid(field.label() + "不能为空");
-                }
-                if (field.type().equals("select") && !field.options().contains(text)) {
-                    throw invalid(field.label() + "选项无效");
-                }
-                if (field.type().equals("number")) {
-                    try {
-                        double finite = Double.parseDouble(text);
-                        if (!Double.isFinite(finite)) {
-                            throw new NumberFormatException();
-                        }
-                        text = new BigDecimal(text).stripTrailingZeros().toPlainString();
-                    } catch (NumberFormatException exception) {
-                        throw invalid(field.label() + "必须为有限数字");
-                    }
-                }
-                normalized.put(field.key(), text);
-            }
+            normalized.put(field.key(), normalizeValue(field, values.get(field.key()), resourceIds));
         }
         return new ValidatedValues(normalized, resourceIds.stream().distinct().toList());
     }
 
+    private Object normalizeValue(TaskFormField field, Object value, List<Long> resourceIds) {
+        boolean empty = value == null || value instanceof String text && text.isEmpty();
+        if (empty) {
+            if (field.required()) {
+                throw invalid(field.label() + "不能为空");
+            }
+            return null;
+        }
+        return field.type().equals("file")
+                ? normalizeFile(field, value, resourceIds) : normalizeText(field, value);
+    }
+
+    private Map<String, String> normalizeFile(TaskFormField field, Object value, List<Long> resourceIds) {
+        if (!(value instanceof Map<?, ?> file) || file.size() != 1
+                || !(file.get("fileId") instanceof String fileId)) {
+            throw invalid(field.label() + "必须为文件引用");
+        }
+        long id = parseFileId(fileId);
+        resourceIds.add(id);
+        return Map.of("fileId", Long.toString(id));
+    }
+
+    private String normalizeText(TaskFormField field, Object value) {
+        if (!(value instanceof String text)) {
+            throw invalid(field.label() + "必须为文本");
+        }
+        if (field.required() && text.isBlank()) {
+            throw invalid(field.label() + "不能为空");
+        }
+        if (field.type().equals("select") && !field.options().contains(text)) {
+            throw invalid(field.label() + "选项无效");
+        }
+        return field.type().equals("number") ? normalizeNumber(field, text) : text;
+    }
+
+    private String normalizeNumber(TaskFormField field, String text) {
+        try {
+            double finite = Double.parseDouble(text);
+            if (!Double.isFinite(finite)) {
+                throw new NumberFormatException();
+            }
+            return new BigDecimal(text).stripTrailingZeros().toPlainString();
+        } catch (NumberFormatException exception) {
+            throw invalid(field.label() + "必须为有限数字");
+        }
+    }
+
+    /** Revalidates persisted submission values against the task's immutable field snapshot. */
     public ValidatedValues parseValues(List<TaskFormField> fields, String stored) {
         try {
             Object parsed = JSON.parse(stored);
@@ -154,9 +187,10 @@ public class TaskFormService {
         }
     }
 
+    /** Converts a positive decimal string ID without passing through floating-point representation. */
     public long parseFileId(String fileId) {
         try {
-            if (!fileId.matches("[1-9][0-9]*")) {
+            if (!FILE_ID.matcher(fileId).matches()) {
                 throw new NumberFormatException();
             }
             return Long.parseLong(fileId);
@@ -169,7 +203,9 @@ public class TaskFormService {
         return new AppException(ResultCode.PARAM_ERROR, message);
     }
 
+    /** Normalized submission data and distinct resource IDs for the enclosing submission transaction. */
     public record ValidatedValues(Map<String, Object> values, List<Long> resourceIds) {
+        /** Persists business values only; transient file URLs and display data are not stored. */
         public String serialize() {
             return JSON.toJSONString(values);
         }

@@ -3,6 +3,7 @@ package online.longlian.app.pojo.vo.app;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+/** Authorized task file display data; unavailable files never contain signed access credentials. */
 @Data
 @Schema(description = "任务提交附件；不可用附件不包含读取链接和有效期")
 public class TaskAttachmentVO {

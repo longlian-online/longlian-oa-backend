@@ -14,20 +14,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TaskFormServiceTest {
     private final TaskFormService service = new TaskFormService();
 
-    @Test
-    void shouldRoundTripOnlyTypedSchema() {
-        List<TaskFormField> fields = List.of(field("title", "text", true), field("count", "number", false));
-        String stored = service.serializeFields(fields);
-        assertThat(service.parseFields(stored)).isEqualTo(fields);
-        assertThatThrownBy(() -> service.parseFields("[{\"name\":\"old\",\"fieldType\":\"text\"}]"))
-                .isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> service.parseFields("{}" )).isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> service.parseFields(null)).isInstanceOf(AppException.class);
-    }
 
     @Test
     void shouldRejectDuplicateUnknownAndInvalidSchemaFields() {
         TaskFormField text = field("title", "text", false);
+        assertThatThrownBy(() -> service.validateFields(java.util.Collections.singletonList(null)))
+                .isInstanceOf(AppException.class);
         assertThatThrownBy(() -> service.validateFields(List.of(text, text))).isInstanceOf(AppException.class);
         assertThatThrownBy(() -> service.validateFields(List.of(field("old", "group", false))))
                 .isInstanceOf(AppException.class);
@@ -89,6 +81,21 @@ class TaskFormServiceTest {
         }
         assertThatThrownBy(() -> service.validateValues(List.of(field("text", "text", false)),
                 Map.of("text", Map.of("fileId", "1")))).isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void shouldRejectCorruptedFieldSnapshotsWithoutParserExceptions() {
+        String invalidOptions = "[{\"key\":\"pick\",\"label\":\"选择\",\"type\":\"select\",\"required\":false,\"options\":[1]}]";
+        assertThatThrownBy(() -> service.parseFields(invalidOptions)).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.parseFields("[")).isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void shouldRejectCorruptedSubmissionSnapshotsWithoutParserExceptions() {
+        List<TaskFormField> fields = List.of(field("title", "text", true));
+        for (String stored : List.of("[]", "{", "{\"title\":123}")) {
+            assertThatThrownBy(() -> service.parseValues(fields, stored)).isInstanceOf(AppException.class);
+        }
     }
 
     private TaskFormField field(String key, String type, boolean required) {

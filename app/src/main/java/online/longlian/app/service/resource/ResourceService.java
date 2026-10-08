@@ -167,44 +167,51 @@ public class ResourceService {
         }
         Map<Long, Resource> resources = loadTaskResources(resourceIds);
         for (Long resourceId : resourceIds) {
-            Resource resource = resources.get(resourceId);
-            if (resource == null || !Objects.equals(resource.getOrgId(), orgId)
-                    || !Objects.equals(resource.getCreatorId(), creatorId)
-                    || !"task_submit".equals(resource.getBizType())) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-            }
-            boolean reusable = resource.getProcessStatus() == FileProcessStatus.Activated
-                    && Objects.equals(resource.getBizId(), taskId);
-            boolean unboundUpload = Objects.equals(resource.getBizId(), 0L)
-                    && (resource.getProcessStatus() == FileProcessStatus.Pending
-                    || resource.getProcessStatus() == FileProcessStatus.Uploaded);
-            if (!reusable && !unboundUpload) {
+            validateTaskResource(resources.get(resourceId), taskId, orgId, creatorId);
+        }
+        for (Resource resource : resources.values()) {
+            activateTaskResource(resource, taskId, orgId, creatorId);
+        }
+    }
+
+    private void validateTaskResource(Resource resource, Long taskId, Long orgId, Long creatorId) {
+        if (resource == null || !Objects.equals(resource.getOrgId(), orgId)
+                || !Objects.equals(resource.getCreatorId(), creatorId)
+                || !"task_submit".equals(resource.getBizType())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
+        boolean reusable = resource.getProcessStatus() == FileProcessStatus.Activated
+                && Objects.equals(resource.getBizId(), taskId);
+        boolean unboundUpload = Objects.equals(resource.getBizId(), 0L)
+                && (resource.getProcessStatus() == FileProcessStatus.Pending
+                || resource.getProcessStatus() == FileProcessStatus.Uploaded);
+        if (!reusable && !unboundUpload) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
+    }
+
+    private void activateTaskResource(Resource resource, Long taskId, Long orgId, Long creatorId) {
+        if (resource.getProcessStatus() == FileProcessStatus.Activated) {
+            return;
+        }
+        if (resource.getProcessStatus() == FileProcessStatus.Pending) {
+            storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                    resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+            int uploaded = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                    .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+            if (uploaded != 1) {
                 throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
             }
         }
-        for (Resource resource : resources.values()) {
-            if (resource.getProcessStatus() == FileProcessStatus.Activated) {
-                continue;
-            }
-            if (resource.getProcessStatus() == FileProcessStatus.Pending) {
-                storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
-                        resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
-                int uploaded = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
-                        .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
-                        .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-                if (uploaded != 1) {
-                    throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-                }
-            }
-            int activated = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
-                    .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                    .set(Resource::getBizId, taskId)
-                    .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-            if (activated != 1) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-            }
+        int activated = resourceMapper.update(null, taskUploadUpdate(resource.getId(), orgId, creatorId)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                .set(Resource::getBizId, taskId)
+                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+        if (activated != 1) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
         }
     }
 
@@ -270,9 +277,6 @@ public class ResourceService {
     }
 
     private String taskAttachmentMediaType(String mime) {
-        if (mime == null) {
-            return "other";
-        }
         String normalized = mime.toLowerCase(Locale.ROOT);
         if (normalized.startsWith("image/")) {
             return "image";
