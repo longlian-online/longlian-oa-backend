@@ -86,8 +86,9 @@ class TaskFormServiceTest {
     @Test
     void shouldRejectCorruptedFieldSnapshotsWithoutParserExceptions() {
         String invalidOptions = "[{\"key\":\"pick\",\"label\":\"选择\",\"type\":\"select\",\"required\":false,\"options\":[1]}]";
-        assertThatThrownBy(() -> service.parseFields(invalidOptions)).isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> service.parseFields("[")).isInstanceOf(AppException.class);
+        for (String stored : List.of(invalidOptions, "[", "{}", "[{}]")) {
+            assertThatThrownBy(() -> service.parseFields(stored)).isInstanceOf(AppException.class);
+        }
     }
 
     @Test
