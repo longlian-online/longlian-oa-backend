@@ -6,7 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
 import online.longlian.app.service.app.impl.taskinstance.TaskAttachmentPresenter;
@@ -279,13 +279,12 @@ class TaskResourceServiceTest {
     }
 
     private void bind(List<Long> resourceIds) {
-        service.bindBizResource(ResourceBindParamsBO.builder()
+        service.bindBizResources(ResourceBindBatchParamsBO.builder()
                 .resourceIds(resourceIds)
                 .bizType("task_submit")
                 .bizId(TASK_ID)
                 .orgId(ORG_ID)
                 .creatorId(CREATOR_ID)
-                .reuseBound(true)
                 .build());
     }
 

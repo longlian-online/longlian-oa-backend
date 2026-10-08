@@ -9,7 +9,7 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -171,13 +171,12 @@ class TaskInstanceCommandHandlerTest {
         handler.submit(instance, 10L, 5L, Map.of("file", Map.of("fileId", "9")));
 
         org.mockito.InOrder order = inOrder(resourceService, taskInstanceMapper, taskSubmissionMapper, memberSubmitCountHandler);
-        order.verify(resourceService).bindBizResource(org.mockito.ArgumentMatchers.<ResourceBindParamsBO>argThat(bind ->
+        order.verify(resourceService).bindBizResources(org.mockito.ArgumentMatchers.<ResourceBindBatchParamsBO>argThat(bind ->
                 List.of(9L).equals(bind.getResourceIds())
                         && "task_submit".equals(bind.getBizType())
                         && bind.getBizId().equals(1L)
                         && bind.getOrgId().equals(5L)
-                        && bind.getCreatorId().equals(10L)
-                        && Boolean.TRUE.equals(bind.getReuseBound())));
+                        && bind.getCreatorId().equals(10L)));
         order.verify(taskInstanceMapper).update(isNull(), any());
         order.verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(
                 submission -> submission.getMetadata().equals("{\"file\":{\"fileId\":\"9\"}}")));
@@ -191,7 +190,7 @@ class TaskInstanceCommandHandlerTest {
         String schema = "[{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":true,\"options\":[]}]";
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().metaSchema(schema).build());
         doThrow(new AppException(online.longlian.app.common.result.ResultCode.UNAUTHORIZED_OPERATION))
-                .when(resourceService).bindBizResource(any());
+                .when(resourceService).bindBizResources(any());
 
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of("file", Map.of("fileId", "9"))))
                 .isInstanceOf(AppException.class);

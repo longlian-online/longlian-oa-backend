@@ -1,6 +1,6 @@
 package online.longlian.app.pojo.bo.common;
 
-/** Signed read facts for an activated resource. Callers format these for their own response. */
+/** 已激活资源的签名读取结果。调用方按自己的响应格式组装。 */
 public record ActivatedResourceRead(
         Long id,
         String fileName,

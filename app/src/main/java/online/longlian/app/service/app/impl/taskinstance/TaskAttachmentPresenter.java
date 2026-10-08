@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Turns authorized task-file reads into detail cards. Resource storage stays unaware of this view. */
+/** 把已授权的任务文件读取结果组装成详情卡片。资源存储不感知这个展示结构。 */
 @Component
 @RequiredArgsConstructor
 public class TaskAttachmentPresenter {

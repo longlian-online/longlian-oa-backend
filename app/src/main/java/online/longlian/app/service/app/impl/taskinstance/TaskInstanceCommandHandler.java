@@ -11,12 +11,13 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Component;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -92,13 +93,12 @@ public class TaskInstanceCommandHandler {
         }
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+        resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
                 .resourceIds(validated.resourceIds())
                 .bizType("task_submit")
                 .bizId(instance.getId())
                 .orgId(orgId)
                 .creatorId(userId)
-                .reuseBound(true)
                 .build());
 
         LocalDateTime now = LocalDateTime.now(clock);
