@@ -22,18 +22,15 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
-import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
+import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
-import online.longlian.app.service.app.SessionService;
-import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
@@ -62,7 +59,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
     private final LockService lockService;
-    private final SessionService sessionService;
     private final PlatformTransactionManager transactionManager;
 
     @Override
@@ -109,9 +105,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
             memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
             memberStatusHandler.updateMemberStatus(member, params.getStatus());
-            if (params.getStatus() == Status.DISABLED) {
-                clearRoleSessionCacheAfterCommit(member.getUserId());
-            }
         });
     }
 
@@ -127,7 +120,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 validateNotLastEnabledAdmin(params.getOrgId());
             }
             updateMemberRole(member.getId(), params.getOrgRole());
-            clearRoleSessionCacheAfterCommit(member.getUserId());
         });
     }
 
@@ -175,18 +167,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         }
     }
 
-    /**
-     * 角色缓存在登录会话里，必须等事务提交后再清：提交前清缓存的话，
-     * 并发请求可能用旧角色把缓存重新填满，而提交后不会再被清第二次。
-     */
-    private void clearRoleSessionCacheAfterCommit(Long userId) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                sessionService.clearUserSessionCache(userId);
-            }
-        });
-    }
 
     @Override
     public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params) {

@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.Status;
 
-import java.util.List;
 
 @Data
 @Builder
@@ -17,7 +16,4 @@ public class LoginSessionCacheBO {
     private String username;
     private String email;
     private Status status;
-    private Long currentOrgId;
-    private List<String> roles;
-    private List<String> permissions;
 }

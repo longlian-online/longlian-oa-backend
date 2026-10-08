@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
@@ -28,7 +29,6 @@ import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
-import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -43,10 +43,10 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
-    private final SessionService sessionService;
 
     @Operation(summary = "找回密码", description = "使用邮箱验证码重置密码", security = {})
     @PutMapping("/password")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("密码重置成功")
     public void resetPassword(@RequestBody @Valid ResetPasswordDTO resetPasswordDTO) {
         userService.resetPassword(
@@ -61,7 +61,7 @@ public class UserController {
     @Operation(summary = "修改密码", description = "使用原密码修改当前登录用户密码")
     @PatchMapping("/password")
     @ResponseMessage("密码已修改")
-    public void changePassword(@UserSession SessionContext sessionContext,
+    public void changePassword(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
                                @RequestBody @Valid ChangePasswordDTO changePasswordDTO) {
         userService.changePassword(
                 UserChangePasswordParamsBO.builder()
@@ -77,6 +77,7 @@ public class UserController {
         security = {}
     )
     @PostMapping("/register/create-organization")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("已提交申请")
     public void registerAndCreateOrganizationByInvite(@RequestBody @Valid RegisterByInviteDTO registerByInviteDTO) {
         UserRegisterByInviteParamsBO params = new UserRegisterByInviteParamsBO();
@@ -90,6 +91,7 @@ public class UserController {
         security = {}
     )
     @PostMapping("/register/join-organization")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("已提交申请")
     public void registerAndJoinOrganizationByInvite(@RequestBody @Valid RegisterByInviteDTO registerByInviteDTO) {
         UserRegisterByInviteParamsBO params = new UserRegisterByInviteParamsBO();
@@ -103,6 +105,7 @@ public class UserController {
         security = {}
     )
     @GetMapping("/register/join-organization/invite-info")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("查询成功")
     public InviteInfoVO getJoinOrganizationInviteInfo(@RequestParam String inviteCode) {
         UserGetJoinOrgInviteInfoResultBO resultBO = userService.getJoinOrgInviteInfo(
@@ -119,7 +122,7 @@ public class UserController {
     @Operation(summary = "获取当前登录用户信息", description = "返回当前 Token 对应的用户信息")
     @GetMapping("/")
     @ResponseMessage("查询成功")
-    public UserInfoVO getMyInfo(@UserSession SessionContext sessionContext) {
+    public UserInfoVO getMyInfo(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext) {
         UserGetMyInfoResultBO resultBO = userService.getMyInfo(sessionContext.userId());
         UserInfoVO userInfoVO = new UserInfoVO();
         BeanUtils.copyProperties(resultBO, userInfoVO);
@@ -129,7 +132,7 @@ public class UserController {
     @Operation(summary = "更新当前用户信息")
     @PutMapping("/")
     @ResponseMessage("更新成功")
-    public void updateMyInfo(@UserSession SessionContext sessionContext,
+    public void updateMyInfo(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
                               @RequestBody @Valid UpdateMyInfoDTO updateMyInfoDTO) {
         userService.updateMyInfo(
                 UserUpdateMyInfoParamsBO.builder()
@@ -142,7 +145,7 @@ public class UserController {
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")
     @GetMapping("/organizations")
     @ResponseMessage("查询成功")
-    public List<OrgSimpleInfoVO> getOrgSimpleInfo(@UserSession SessionContext sessionContext) {
+    public List<OrgSimpleInfoVO> getOrgSimpleInfo(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext) {
         List<OrgSimpleInfoBO> orgList = userService.getMyOrganizations(sessionContext.userId());
         return orgList.stream()
                 .map(orgSimpleInfoBO -> {
@@ -159,15 +162,15 @@ public class UserController {
     )
     @PostMapping("/organizations/join-by-invite")
     @ResponseMessage("已提交申请")
-    public void joinOrganizationByInvite(@UserSession SessionContext sessionContext,
+    public void joinOrganizationByInvite(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
                                           @RequestBody @Valid JoinByInviteCodeDTO joinByInviteCodeDTO) {
         userService.joinOrganizationByInvite(sessionContext.userId(), joinByInviteCodeDTO.getInviteCode());
     }
 
-    @Operation(summary = "切换组织", description = "切换用户当前所在组织")
+    @Operation(summary = "设置默认组织", description = "更新用户默认组织，不改变其他请求的组织作用域")
     @PostMapping("/switch")
     @ResponseMessage("切换成功")
-    public UserOrgSwitchVO switchOrg(@UserSession SessionContext sessionContext,
+    public UserOrgSwitchVO switchOrg(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
                                       @RequestBody @Valid OrgIdDTO orgIdDTO) {
         UserSwitchOrgResultBO resultBO = userService.switchOrg(
                 UserSwitchOrgParamsBO.builder()
@@ -175,7 +178,6 @@ public class UserController {
                         .orgId(orgIdDTO.getOrgId())
                         .build()
         );
-        sessionService.refreshCurrentUserOrg(sessionContext.userId(), resultBO.getId(), resultBO.getRoles());
         UserOrgSwitchVO userOrgSwitchVO = new UserOrgSwitchVO();
         BeanUtils.copyProperties(resultBO, userOrgSwitchVO);
         return userOrgSwitchVO;

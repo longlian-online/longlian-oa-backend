@@ -24,8 +24,8 @@ import java.util.List;
  *   <li><b>注册 + 加入组织</b>：新用户通过邀请码注册后提交加入1申请（生成
  *       {@link online.longlian.app.pojo.entity.GroupApplication} 待管理员审核）</li>
  *   <li><b>已有用户加入组织</b>：已注册用户通过邀请码提交加入申请</li>
- *   <li><b>组织切换</b>：在多组织间切换当前活跃组织，切换结果通过
- *       {@link online.longlian.app.service.common.CurrentOrganizationService} 持久化</li>
+ *   <li><b>默认组织</b>：把指定组织记为用户的 {@code default_org_id}，
+ *       不改变其他请求的组织作用域</li>
  *   <li><b>我的组织列表</b>：查询用户已加入的所有启用状态组织，含组织头像 URL</li>
  *   <li><b>个人信息更新</b>：更新昵称、头像等个人资料</li>
  * </ol>

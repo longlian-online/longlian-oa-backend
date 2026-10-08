@@ -16,13 +16,15 @@ import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
-import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.service.common.DefaultOrganization;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.TokenType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -36,7 +38,7 @@ public class SessionServiceImpl implements SessionService {
     private final AuthenticationManager authenticationManager;
     private final RedisTemplate<String, Object> redisTemplate;
     private final JwtUtil jwtUtil;
-    private final CurrentOrganizationService currentOrganizationService;
+    private final OrganizationMembershipService organizationMembershipService;
 
     @Override
     public SessionLoginResultBO loginByPwd(SessionLoginByPwdParamsBO params) {
@@ -71,29 +73,11 @@ public class SessionServiceImpl implements SessionService {
         tokenBlacklistService.addToBlacklist(params.getToken(), TokenType.User, params.getUserId(), "用户登出", remainingSeconds);
 
         redisTemplate.delete(RedisConstants.LOGIN_USER + params.getUserId());
-        currentOrganizationService.clearCurrentOrg(params.getUserId());
-    }
-
-    @Override
-    public void refreshCurrentUserOrg(Long userId, Long currentOrgId, List<String> roles) {
-        LoginSessionCacheBO session = (LoginSessionCacheBO) redisTemplate.opsForValue()
-                .get(RedisConstants.LOGIN_USER + userId);
-        if (session == null) {
-            throw new AppException(ResultCode.UNAUTHORIZED);
-        }
-        session.setCurrentOrgId(currentOrgId);
-        session.setRoles(roles == null ? List.of() : roles);
-        long ttlSeconds = redisTemplate.getExpire(RedisConstants.LOGIN_USER + userId, TimeUnit.SECONDS);
-        if (ttlSeconds <= 0) {
-            ttlSeconds = jwtUtil.getExpirationSeconds();
-        }
-        redisTemplate.opsForValue().set(RedisConstants.LOGIN_USER + userId, session, ttlSeconds, TimeUnit.SECONDS);
     }
 
     @Override
     public void clearUserSessionCache(Long userId) {
         redisTemplate.delete(RedisConstants.LOGIN_USER + userId);
-        currentOrganizationService.clearCurrentOrg(userId);
     }
 
     private SessionLoginResultBO doLogin(Authentication authentication) {
@@ -103,14 +87,15 @@ public class SessionServiceImpl implements SessionService {
         String token = jwtUtil.generateToken(userId, TokenType.User.name().toLowerCase());
         long sessionTtlSeconds = jwtUtil.getRemainingTimeSeconds(token);
 
-        currentOrganizationService.refreshCurrentOrgTtl(userId, userDetail.getCurrentOrgId(), sessionTtlSeconds);
+        DefaultOrganization defaultOrganization = organizationMembershipService.findDefault(userId);
         cacheLoginSession(userDetail, sessionTtlSeconds);
 
         return SessionLoginResultBO.builder()
                 .userId(userId)
                 .token(token)
-                .roles(userDetail.getRoles())
-                .currentOrgId(userDetail.getCurrentOrgId())
+                .roles(StringUtils.hasText(defaultOrganization.orgRole())
+                        ? List.of(defaultOrganization.orgRole()) : List.of())
+                .defaultOrgId(defaultOrganization.orgId())
                 .build();
     }
 

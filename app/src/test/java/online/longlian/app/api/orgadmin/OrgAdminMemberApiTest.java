@@ -250,10 +250,8 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
         createTestUser(3L, "secondadmin", "123456", "secondadmin@example.com");
         createOrganization(3L, "其他组织");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 3L, 3L);
         createOrganizationMember(3L, 3L, 3L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -299,7 +297,6 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
         String token = loginAs("member", "123456");
 
         authRequest(token).body(Map.of("orgRole", "ORG_ADMIN"))

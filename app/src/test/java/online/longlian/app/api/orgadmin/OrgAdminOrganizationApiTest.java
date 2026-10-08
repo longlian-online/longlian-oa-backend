@@ -83,7 +83,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 99L, 2L, 1, "avatar/99.png", "avatar.png", "png", 1L, "avatar", 2L, 1, 2L
         );
 
-        Response response = authRequest(token)
+        Response response = authRequest(token, 1L)
                 .body(Map.of(
                         "name", "组织一",
                         "description", "组织描述",
@@ -285,19 +285,26 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     // ========== 业务规则失败 ==========
 
     /**
-     * 无组织用户获取组织信息应失败
-     * 注：用户端登录需要组织关联，因此此场景通过直接调用接口验证
+     * 没有组织的用户可以登录，但未声明组织时不能读取组织信息。
      */
     @Test
     void shouldFailGetOrganizationInfoWithoutOrganization() {
         createTestUser(1L, "user_no_org", "123456", "user@example.com");
 
-        Response response = given()
-                .contentType(ContentType.JSON)
+        Response login = request()
                 .body(Map.of("username", "user_no_org", "password", "123456"))
                 .post("/app/session/pwd");
 
-        response.then()
+        login.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.defaultOrgId", nullValue())
+                .body("data.roles", empty())
+                .body("data.token", notNullValue());
+
+        userRequest(login.jsonPath().getString("data.token"))
+                .get("/orgadmin/organizations")
+                .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
@@ -338,7 +345,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailGetOrganizationInfoWithoutAdminRole() {
-        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "MEMBER");
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("regular", "123456");
 
         Response response = authRequest(token)

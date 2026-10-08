@@ -11,10 +11,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -60,18 +58,7 @@ public class UserAuthenticationStrategy implements AuthenticationStrategy {
         BeanUtils.copyProperties(sessionCacheBO, userDetail);
         userDetail.setId(sessionCacheBO.getUserId());
 
-        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-        if (sessionCacheBO.getPermissions() != null) {
-            authorities.addAll(sessionCacheBO.getPermissions().stream()
-                    .map(SimpleGrantedAuthority::new)
-                    .toList());
-        }
-        if (sessionCacheBO.getRoles() != null) {
-            authorities.addAll(sessionCacheBO.getRoles().stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                    .toList());
-        }
-        userDetail.setAuthorities(new ArrayList<>(authorities));
+        userDetail.setAuthorities(List.of());
         return userDetail;
     }
 }

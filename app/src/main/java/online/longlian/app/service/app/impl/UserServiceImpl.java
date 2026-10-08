@@ -31,7 +31,7 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -49,6 +49,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -68,7 +69,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final GroupApplicationMapper groupApplicationMapper;
     private final ResourceService resourceService;
     private final UserMapper userMapper;
-    private final CurrentOrganizationService currentOrganizationService;
+    private final OrganizationMembershipService organizationMembershipService;
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
     private final SessionService sessionService;
@@ -196,17 +197,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params) {
-        currentOrganizationService.switchCurrentOrg(params.getUserId(), params.getOrgId());
+        OrganizationMember member = organizationMembershipService.requireEnabledMember(
+                params.getUserId(), params.getOrgId());
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, params.getUserId())
+                .set(User::getDefaultOrgId, params.getOrgId()));
 
         Organization organization = organizationMapper.selectById(params.getOrgId());
-        OrganizationMember organizationMember = organizationMemberMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getUserId, params.getUserId())
-                        .eq(OrganizationMember::getOrgId, params.getOrgId())
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)
-                        .last("LIMIT 1")
-        );
-
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
             avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
@@ -216,9 +213,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .roles(organizationMember == null || organizationMember.getOrgRole() == null
-                        ? List.of()
-                        : List.of(organizationMember.getOrgRole()))
+                .roles(StringUtils.hasText(member.getOrgRole()) ? List.of(member.getOrgRole()) : List.of())
                 .build();
     }
 

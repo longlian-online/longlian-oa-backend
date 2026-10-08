@@ -1,8 +1,12 @@
 package online.longlian.app.common.resolver;
 
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.CurrentUserContext;
-import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.common.security.OrganizationScope;
 import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -14,12 +18,9 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 public class UserSessionArgumentResolver implements HandlerMethodArgumentResolver {
 
     private final CurrentUserContext currentUserContext;
-    private final CurrentOrganizationService currentOrganizationService;
 
-    public UserSessionArgumentResolver(CurrentUserContext currentUserContext,
-                                        CurrentOrganizationService currentOrganizationService) {
+    public UserSessionArgumentResolver(CurrentUserContext currentUserContext) {
         this.currentUserContext = currentUserContext;
-        this.currentOrganizationService = currentOrganizationService;
     }
 
     @Override
@@ -32,12 +33,14 @@ public class UserSessionArgumentResolver implements HandlerMethodArgumentResolve
                                    NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         Long userId = currentUserContext.requireUserId();
         UserSession annotation = parameter.getParameterAnnotation(UserSession.class);
-        Long orgId;
-        if (annotation != null && annotation.required()) {
-            orgId = currentOrganizationService.requireCurrentOrgId(userId);
-        } else {
-            orgId = currentOrganizationService.resolveCurrentOrgId(userId);
+        if (annotation == null || annotation.value() == OrganizationDeclaration.NONE) {
+            return new SessionContext(userId, null);
         }
-        return new SessionContext(userId, orgId);
+        Object value = webRequest.getAttribute(
+                OrganizationScopeInterceptor.SCOPE_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST);
+        if (!(value instanceof OrganizationScope scope)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不能为空");
+        }
+        return new SessionContext(userId, scope.orgId());
     }
 }

@@ -1,16 +1,21 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.Status;
@@ -29,6 +34,7 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +57,6 @@ class OrganizationMemberServiceImplTest {
     @Mock private MemberStatusHandler memberStatusHandler;
     @Mock private MemberSubmissionHandler memberSubmissionHandler;
     @Mock private LockService lockService;
-    @Mock private SessionService sessionService;
 
     private OrganizationMemberServiceImpl service;
     private RecordingTransactionManager transactions;
@@ -66,17 +71,14 @@ class OrganizationMemberServiceImplTest {
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
                 otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
-                memberStatusHandler, memberSubmissionHandler, lockService, sessionService, transactions);
+                memberStatusHandler, memberSubmissionHandler, lockService, transactions);
     }
 
     @Test
     void shouldLockBeforeTransactionAndClearSessionOnlyAfterCommit() {
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
         transactions.onBegin = () -> verify(lockService).tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS);
-        transactions.onCommit = () -> {
-            verify(lock, never()).close();
-            verify(sessionService, never()).clearUserSessionCache(anyLong());
-        };
+        transactions.onCommit = () -> verify(lock, never()).close();
 
         service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN));
 
@@ -86,7 +88,6 @@ class OrganizationMemberServiceImplTest {
         order.verify(memberStatusHandler).getAndValidateMember(2L, 1L);
         order.verify(lock).close();
         assertThat(transactions.propagation).isEqualTo(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        verify(sessionService).clearUserSessionCache(20L);
         verify(organizationMemberMapper).update(eq(null), any());
     }
 
@@ -102,7 +103,6 @@ class OrganizationMemberServiceImplTest {
 
         verify(lock).close();
         verify(organizationMemberMapper, never()).update(eq(null), any());
-        verify(sessionService, never()).clearUserSessionCache(anyLong());
         assertThat(transactions.rollbacks).isEqualTo(1);
     }
 
@@ -115,7 +115,6 @@ class OrganizationMemberServiceImplTest {
 
         verify(organizationMemberMapper).update(eq(null), any());
         verify(lock).close();
-        verify(sessionService).clearUserSessionCache(20L);
     }
 
     @Test
@@ -188,16 +187,50 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
-    void shouldClearDisabledMemberSessionOnlyAfterCommit() {
+    void shouldDisableMemberUnderLock() {
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-        transactions.onCommit = () -> verify(sessionService, never()).clearUserSessionCache(anyLong());
 
         service.changeMemberStatus(statusParams(Status.DISABLED));
 
         verify(memberStatusHandler).updateMemberStatus(any(), eq(Status.DISABLED));
-        verify(sessionService).clearUserSessionCache(20L);
         verify(lock).close();
     }
+    @Test
+    void shouldAssembleNonEmptyApplicationPageAndEmptyMemberPage() {
+        Page<GroupApplication> applications = new Page<>(1, 10);
+        applications.setRecords(List.of(new GroupApplication()));
+        applications.setTotal(1);
+        when(memberQueryBuilder.buildApplicationListQuery(any())).thenReturn(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>());
+        when(groupApplicationMapper.selectPage(any(), any())).thenReturn(applications);
+        when(memberAssembler.assembleApplications(any())).thenReturn(List.of());
+
+        assertThat(service.listApplications(OrgAdminApplicationListParamsBO.builder()
+                .orgId(1L).page(new PageParamsBO(1, 10)).build()).getTotal()).isEqualTo(1L);
+
+        Page<OrganizationMember> members = new Page<>(1, 10);
+        members.setRecords(List.of());
+        members.setTotal(0);
+        when(memberQueryBuilder.buildMemberListQuery(any())).thenReturn(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>());
+        when(organizationMemberMapper.selectPage(any(), any())).thenReturn(members);
+
+        assertThat(service.listMembers(OrgMemberListParamsBO.builder()
+                .orgId(1L).page(new PageParamsBO(1, 10)).build()).getList()).isEmpty();
+    }
+
+    @Test
+    void shouldRejectMissingOrForeignMemberSubmitCounts() {
+        when(organizationMemberMapper.selectById(2L)).thenReturn(null).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
+
+        assertThatThrownBy(() -> service.getMemberBaseTaskSubmitCounts(
+                OrgMemberBaseTaskSubmitCountParamsBO.builder().memberId(2L).orgId(1L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("成员不存在");
+        assertThatThrownBy(() -> service.getMemberBaseTaskSubmitCounts(
+                OrgMemberBaseTaskSubmitCountParamsBO.builder().memberId(2L).orgId(9L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权操作该成员");
+    }
+
 
     private OrganizationMember member(String role, Status status) {
         return OrganizationMember.builder().id(2L).orgId(1L).userId(20L).orgRole(role).status(status).build();

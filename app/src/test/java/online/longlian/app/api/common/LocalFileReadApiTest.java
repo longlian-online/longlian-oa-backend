@@ -54,7 +54,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         createFile();
         jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 1 WHERE id = 1");
         String token = loginAs("user", "123456");
-        String url = authRequest(token).get("/app/user/").then()
+        String url = userRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
         assertThat(url).contains("expires=", "signature=");
         byte[] content = request().urlEncodingEnabled(false).get(url).then().statusCode(200).extract().asByteArray();
@@ -143,7 +143,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         byte[] png = createPng();
         LocalUpload created = createLocalUpload(token, png.length);
 
-        authRequest(token).body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
+        userRequest(token).body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
                 .put("/app/user/").then()
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
         Integer pendingStatus = jdbcTemplate.queryForObject(
@@ -152,7 +152,7 @@ class LocalFileReadApiTest extends BaseApiTest {
 
         putSignedUpload(created.uploadUrl(), png)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        authRequest(token).body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
+        userRequest(token).body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
                 .put("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
@@ -270,20 +270,20 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(processStatus).isZero();
         assertThat(unboundBizId).isZero();
 
-        authRequest(token)
+        userRequest(token)
                 .body(Map.of("nickname", "user", "avatarFileId", created.fileId()))
                 .put("/app/user/")
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
-        String oldAvatarUrl = authRequest(token).get("/app/user/").then()
+        String oldAvatarUrl = userRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract().path("data.avatarUrl");
         LocalUpload replacement = createLocalUpload(token, png.length);
         putSignedUpload(replacement.uploadUrl(), png)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
-        authRequest(token)
+        userRequest(token)
                 .body(Map.of("nickname", "user", "avatarFileId", replacement.fileId()))
                 .put("/app/user/")
                 .then()

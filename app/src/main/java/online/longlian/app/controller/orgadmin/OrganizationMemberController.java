@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
@@ -57,7 +58,7 @@ public class OrganizationMemberController {
     @PostMapping("/applications")
     @ResponseMessage("查询成功")
     public PageResultVO<ApplicationInfoVO> listApplications(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid ApplicationListDTO applicationListDTO) {
         PageResultBO<OrgAdminApplicationInfoResultBO> resultBO = organizationMemberService.listApplications(
                 OrgAdminApplicationListParamsBO.builder()
@@ -87,7 +88,7 @@ public class OrganizationMemberController {
     @Parameter(name = "applicationId", description = "入组申请ID")
     @PutMapping("/applications/{applicationId}/review")
     @ResponseMessage("审核完成")
-    public void reviewApplication(@UserSession(required = true) SessionContext sessionContext,
+    public void reviewApplication(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                    @PathVariable Long applicationId,
                                    @RequestBody @Valid ApplicationReviewDTO applicationReviewDTO) {
         organizationMemberService.reviewApplication(
@@ -108,7 +109,7 @@ public class OrganizationMemberController {
     @PostMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<OrgMemberInfoVO> listMembers(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid OrgMemberListDTO orgMemberListDTO) {
         PageResultBO<OrgMemberInfoResultBO> resultBO = organizationMemberService.listMembers(
                 OrgMemberListParamsBO.builder()
@@ -138,7 +139,7 @@ public class OrganizationMemberController {
     @GetMapping("/{memberId}/base-tasks/submit-counts")
     @ResponseMessage("查询成功")
     public OrgMemberBaseTaskSubmitCountVO getMemberBaseTaskSubmitCounts(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long memberId) {
         OrgMemberBaseTaskSubmitCountResultBO resultBO = organizationMemberService.getMemberBaseTaskSubmitCounts(
                 OrgMemberBaseTaskSubmitCountParamsBO.builder()
@@ -167,7 +168,7 @@ public class OrganizationMemberController {
     )
     @PatchMapping("/{memberId}/status")
     @ResponseMessage("状态修改成功")
-    public void changeMemberStatus(@UserSession(required = true) SessionContext sessionContext,
+    public void changeMemberStatus(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                             @PathVariable Long memberId,
                                             @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         organizationMemberService.changeMemberStatus(
@@ -183,7 +184,7 @@ public class OrganizationMemberController {
     @Operation(summary = "调整成员组织角色")
     @PatchMapping("/{memberId}/role")
     @ResponseMessage("角色修改成功")
-    public void changeMemberRole(@UserSession(required = true) SessionContext sessionContext,
+    public void changeMemberRole(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                  @PathVariable Long memberId,
                                  @RequestBody @Valid OrgMemberChangeRoleDTO changeRoleDTO) {
         organizationMemberService.changeMemberRole(
@@ -202,7 +203,7 @@ public class OrganizationMemberController {
     @PostMapping("/invite-codes/join-org")
     @ResponseMessage("生成成功")
     public InviteCodeVO generateJoinOrgInviteCode(
-            @UserSession(required = true) SessionContext sessionContext) {
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
                 new OrgAdminGenerateJoinOrgInviteCodeParamsBO(sessionContext.userId(), sessionContext.orgId())
         );
