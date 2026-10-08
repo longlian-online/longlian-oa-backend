@@ -35,6 +35,15 @@ class SystemInfoApiTest extends BaseApiTest {
                 .body("data", equalTo(Map.of("version", buildProperties.getVersion())));
     }
 
+    /** 系统信息不依赖组织上下文，非法组织头也不能阻止匿名读取。 */
+    @Test
+    void shouldReturnBuildVersionWithInvalidOrganizationHeader() {
+        request().header("X-Org-Id", "invalid-org").get("/common/system/info").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data", equalTo(Map.of("version", buildProperties.getVersion())));
+    }
+
     /** 白名单仅开放读取，其他 HTTP 方法仍需认证。 */
     @Test
     void shouldNotPermitAnonymousWriteToSystemInfo() {
