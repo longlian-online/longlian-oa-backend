@@ -200,6 +200,18 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
         }
 
+        // 锁定任务直到发布事务提交，避免校验后被并发重置或打回。
+        List<TaskInstance> instances = taskInstanceMapper.selectList(
+                new LambdaQueryWrapper<TaskInstance>()
+                        .select(TaskInstance::getStatus)
+                        .eq(TaskInstance::getItemId, params.getItemId())
+                        .orderByAsc(TaskInstance::getId)
+                        .last("FOR UPDATE"));
+        if (instances.isEmpty() || instances.stream().anyMatch(
+                instance -> instance.getStatus() != TaskInstanceStatus.COMPLETED)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目中所有任务完成后才能发布");
+        }
+
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
