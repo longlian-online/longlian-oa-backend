@@ -299,7 +299,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.defaultOrgId", nullValue())
-                .body("data.roles", empty())
+                .body("data.role", nullValue())
                 .body("data.token", notNullValue());
 
         userRequest(login.jsonPath().getString("data.token"))

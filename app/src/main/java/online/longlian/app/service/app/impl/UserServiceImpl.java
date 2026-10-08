@@ -213,7 +213,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .roles(StringUtils.hasText(member.getOrgRole()) ? List.of(member.getOrgRole()) : List.of())
+                .role(StringUtils.hasText(member.getOrgRole()) ? member.getOrgRole() : null)
                 .build();
     }
 

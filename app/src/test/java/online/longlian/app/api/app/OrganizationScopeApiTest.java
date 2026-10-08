@@ -14,8 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -166,7 +164,7 @@ public class OrganizationScopeApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.defaultOrgId", equalTo("2"))
-                .body("data.roles", empty());
+                .body("data.role", nullValue());
     }
 
     @Test
@@ -178,7 +176,7 @@ public class OrganizationScopeApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.defaultOrgId", nullValue())
-                .body("data.roles", empty())
+                .body("data.role", nullValue())
                 .body("data.token", notNullValue());
     }
 
@@ -190,7 +188,7 @@ public class OrganizationScopeApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.defaultOrgId", nullValue())
-                .body("data.roles", empty())
+                .body("data.role", nullValue())
                 .body("data.token", notNullValue());
     }
 
@@ -199,7 +197,7 @@ public class OrganizationScopeApiTest extends BaseApiTest {
         response.then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.defaultOrgId", equalTo(Long.toString(expectedOrgId)))
-                .body("data.roles", contains(expectedRole));
+                .body("data.role", equalTo(expectedRole));
         return response.jsonPath().getString("data.token");
     }
 

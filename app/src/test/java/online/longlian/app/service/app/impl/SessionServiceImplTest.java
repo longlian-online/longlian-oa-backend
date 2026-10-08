@@ -73,14 +73,14 @@ class SessionServiceImplTest {
                 .build());
 
         assertThat(result.getDefaultOrgId()).isEqualTo(11L);
-        assertThat(result.getRoles()).containsExactly("ORG_ADMIN");
+        assertThat(result.getRole()).isEqualTo("ORG_ADMIN");
         ArgumentCaptor<LoginSessionCacheBO> cached = ArgumentCaptor.forClass(LoginSessionCacheBO.class);
         verify(valueOperations).set(eq(RedisConstants.LOGIN_USER + 7L), cached.capture(), eq(120L), eq(TimeUnit.SECONDS));
         assertThat(cached.getValue().getUserId()).isEqualTo(7L);
         assertThat(cached.getValue().getUsername()).isEqualTo("user");
         assertThat(LoginSessionCacheBO.class.getDeclaredFields())
                 .extracting(Field::getName)
-                .doesNotContain("roles", "permissions", "currentOrgId");
+                .doesNotContain("role", "roles", "permissions", "currentOrgId");
         verify(organizationMembershipService).findDefault(7L);
     }
 
@@ -97,7 +97,7 @@ class SessionServiceImplTest {
         SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
                 .username("user").password("123456").build());
 
-        assertThat(result.getRoles()).isEmpty();
+        assertThat(result.getRole()).isNull();
         assertThat(result.getDefaultOrgId()).isEqualTo(11L);
     }
 

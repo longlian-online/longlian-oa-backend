@@ -8,8 +8,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,6 +26,6 @@ public class LoginVO {
     @Schema(description = "用户认证token")
     private String token;
 
-    @Schema(description = "默认组织内的角色，仅供展示")
-    private List<String> roles;
+    @Schema(description = "默认组织内的角色，仅供展示。没有可用默认组织时为空")
+    private String role;
 }

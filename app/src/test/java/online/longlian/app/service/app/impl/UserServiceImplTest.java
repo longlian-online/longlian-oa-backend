@@ -363,7 +363,7 @@ class UserServiceImplTest {
         UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
 
         assertThat(result.getId()).isEqualTo(2L);
-        assertThat(result.getRoles()).containsExactly("ORG_ADMIN");
+        assertThat(result.getRole()).isEqualTo("ORG_ADMIN");
         @SuppressWarnings("unchecked")
         ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
         verify(userMapper).update(isNull(), captor.capture());
@@ -374,14 +374,14 @@ class UserServiceImplTest {
         verifyNoInteractions(sessionService);
     }
     @Test
-    void shouldReturnNoRolesWhenMembershipRoleIsBlank() {
+    void shouldReturnNoRoleWhenMembershipRoleIsBlank() {
         when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
                 OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole(" ").status(Status.ENABLED).build());
         when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
 
         UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
 
-        assertThat(result.getRoles()).isEmpty();
+        assertThat(result.getRole()).isNull();
     }
     @Test
     void shouldRejectMissingUserAndEmptyOrganizationList() {
