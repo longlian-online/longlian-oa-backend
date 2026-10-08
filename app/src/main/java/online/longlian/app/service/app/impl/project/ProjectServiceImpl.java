@@ -212,8 +212,10 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params) {
-        getVisibleProject(params.getProjectId(), params.getOrgId());
-
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
+        if (project.getCreatorId().equals(params.getUserId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "企划负责人不能退出企划");
+        }
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())

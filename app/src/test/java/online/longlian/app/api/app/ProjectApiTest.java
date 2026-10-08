@@ -317,10 +317,48 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
-     * 从工坊移除企划成功
+     * 非负责人可以从工坊移除企划
      */
     @Test
     void shouldRemoveProjectFromWorkshopSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("member", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_workshop` (id, project_id, user_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L
+        );
+
+        authRequest(token)
+                .delete("/app/projects/1/workshop")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project_workshop` WHERE id = 1 AND deleted_at IS NOT NULL",
+                Integer.class)).isEqualTo(1);
+    }
+
+    /**
+     * 企划负责人不能退出自己的企划
+     */
+    @Test
+    void shouldRejectCreatorRemovingProjectFromWorkshop() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -341,13 +379,14 @@ public class ProjectApiTest extends BaseApiTest {
                 1L, 1L, 1L
         );
 
-        Response response = authRequest(token)
-                .delete("/app/projects/1/workshop");
-
-        response
+        authRequest(token)
+                .delete("/app/projects/1/workshop")
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project_workshop` WHERE id = 1 AND deleted_at IS NULL",
+                Integer.class)).isEqualTo(1);
     }
 
     // ========== 认证失败 ==========
