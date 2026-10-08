@@ -23,8 +23,9 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL }}
+          OPENCODE_DEFAULT_MODEL_ID: ${{ vars.OPENCODE_DEFAULT_MODEL_ID || 'grok-4.7' }}
         with:
-          model: custom/grok-4.7
+          model: custom/default
           prompt: |
             你是 Spring Boot 项目的 Issue 分类助手。阅读 Issue 内容并搜索代码库，按以下策略处理。
 
