@@ -5,6 +5,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.Map;
 
@@ -14,23 +16,50 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
     // ========== 成功路径 ==========
 
-    /**
-     * 分页查询原子任务列表成功
-     */
     @Test
-    void shouldListBaseTasksSuccessfully() {
+    void shouldListEnabledAndDisabledBaseTasksWhenStatusIsOmitted() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createBaseTasksForStatusFiltering();
         String token = loginAs("orgadmin", "123456");
 
-        Response response = authRequest(token)
+        authRequest(token)
                 .body(Map.of("pageNum", 1, "pageSize", 10))
-                .post("/orgadmin/task/base/list");
-
-        response.then()
+                .post("/orgadmin/task/base/list")
+                .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.list", notNullValue())
-                .body("data.total", notNullValue());
+                .body("data.total", equalTo(2))
+                .body("data.list.id", containsInAnyOrder("1", "2"))
+                .body("data.list.status", containsInAnyOrder("ENABLED", "DISABLED"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ENABLED, 1", "DISABLED, 2"})
+    void shouldListOnlyBaseTasksMatchingExplicitStatus(String status, String expectedId) {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createBaseTasksForStatusFiltering();
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "status", status))
+                .post("/orgadmin/task/base/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list.id", contains(expectedId))
+                .body("data.list.status", contains(status));
+    }
+
+    private void createBaseTasksForStatusFiltering() {
+        createOrganization(2L, "其他组织");
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, status, creator_id, meta_schema, deleted_at) VALUES " +
+                        "(1, 1, '启用任务', 1, 1, '[]', NULL), " +
+                        "(2, 1, '禁用任务', 0, 1, '[]', NULL), " +
+                        "(3, 2, '其他组织任务', 0, 1, '[]', NULL), " +
+                        "(4, 1, '已删除任务', 0, 1, '[]', NOW())"
+        );
     }
 
     /**
@@ -153,6 +182,16 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/task/base/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list[0].id", equalTo("1"))
+                .body("data.list[0].status", equalTo("DISABLED"));
     }
 
     // ========== 认证失败 ==========

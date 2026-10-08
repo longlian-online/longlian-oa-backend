@@ -20,8 +20,8 @@ public class BaseTaskListDTO extends PageRequestDTO {
     @Schema(description = "任务名称模糊搜索关键词")
     private String keyword;
 
-    @Schema(description = "状态精确筛选：ENABLED-启用，DISABLED-禁用，默认查启用")
-    private Status status = Status.ENABLED;
+    @Schema(description = "状态精确筛选：ENABLED-启用，DISABLED-禁用，不传或为 null 时查询全部状态")
+    private Status status;
 
     @Schema(description = "创建时间-起始")
     private LocalDateTime startCreatedTime;
