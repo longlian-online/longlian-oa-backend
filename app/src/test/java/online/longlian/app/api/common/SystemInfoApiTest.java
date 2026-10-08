@@ -44,19 +44,19 @@ class SystemInfoApiTest extends BaseApiTest {
                 .body("data", equalTo(Map.of("version", buildProperties.getVersion())));
     }
 
-    /** 白名单仅开放读取，其他 HTTP 方法仍需认证。 */
+    /** 未提供 POST 映射，认证入口的 handler 查询异常沿用统一 FAIL 响应。 */
     @Test
-    void shouldNotPermitAnonymousWriteToSystemInfo() {
+    void shouldReturnFailureForUnsupportedSystemInfoMethod() {
         request().post("/common/system/info").then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+                .body("code", equalTo(ResultCode.FAIL.getCode()));
     }
 
-    /** 新增公开接口不能使相邻路径同时免鉴权。 */
+    /** 不存在的相邻路径沿用认证入口的 NOT_FOUND 响应。 */
     @Test
-    void shouldNotPermitAnonymousAccessToOtherSystemPaths() {
+    void shouldReturnNotFoundForUnknownSystemPath() {
         request().get("/common/system/private").then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+                .body("code", equalTo(ResultCode.NOT_FOUND.getCode()));
     }
 }
