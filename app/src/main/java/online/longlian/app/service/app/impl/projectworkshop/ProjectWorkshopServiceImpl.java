@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
@@ -14,6 +17,7 @@ import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateListParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.entity.TaskTemplate;
@@ -39,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMapper, ProjectWorkshop> implements ProjectWorkshopService {
 
     private final ProjectWorkshopMapper projectWorkshopMapper;
+    private final BaseTaskMapper baseTaskMapper;
     private final ProjectMapper projectMapper;
     private final TaskTemplateMapper taskTemplateMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
@@ -110,7 +115,7 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
                 .updatedAt(now)
                 .build();
         taskTemplateMapper.insert(template);
-
+        lockBaseTasks(params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
         for (WorkshopTaskTemplateNodeCreateParamsBO node : params.getNodes()) {
             TaskTemplateNode taskTemplateNode = buildNode(template.getId(), node, now);
             taskTemplateNodeMapper.insert(taskTemplateNode);
@@ -134,5 +139,17 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+    }
+
+    private void lockBaseTasks(List<Long> baseTaskIds) {
+        List<Long> orderedIds = baseTaskIds.stream().filter(id -> id != null).distinct().sorted().toList();
+        for (Long baseTaskId : orderedIds) {
+            BaseTask baseTask = baseTaskMapper.selectOne(new LambdaQueryWrapper<BaseTask>()
+                    .eq(BaseTask::getId, baseTaskId)
+                    .last("FOR UPDATE"));
+            if (baseTask == null || baseTask.getStatus() != Status.ENABLED) {
+                throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
@@ -27,6 +28,8 @@ class WorkshopProjectHandlerTest {
     @Mock
     private ProjectTypeMapper projectTypeMapper;
     @Mock
+    private BaseTaskMapper baseTaskMapper;
+    @Mock
     private TaskTemplateMapper taskTemplateMapper;
     @Mock
     private TaskTemplateNodeMapper taskTemplateNodeMapper;
@@ -36,7 +39,7 @@ class WorkshopProjectHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new WorkshopProjectHandler(
-                projectTypeMapper, taskTemplateMapper, taskTemplateNodeMapper, Clock.systemUTC());
+                projectTypeMapper, taskTemplateMapper, baseTaskMapper, taskTemplateNodeMapper, Clock.systemUTC());
     }
 
     @Test

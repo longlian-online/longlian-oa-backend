@@ -65,9 +65,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务1", "描述", 0L, "[]", 1, 1L
+                1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -94,9 +94,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "[]", 1, 1L
+                1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -432,9 +432,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "[]", 1, 1L
+                1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         String longDesc = "a".repeat(501);
@@ -468,9 +468,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, icon_name, meta_schema, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "BadgeCheck",
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "原子任务", "描述", "BadgeCheck",
                 "[{\"key\":\"summary\",\"label\":\"摘要\",\"type\":\"text\",\"required\":true,\"options\":[]}]", 1, 1L
         );
 
@@ -487,7 +487,7 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.nodes", hasSize(1))
-                .body("data.nodes[0].baseTaskIconName", equalTo("BadgeCheck"))
+                .body("data.nodes[0].baseTaskIcon", equalTo("BadgeCheck"))
                 .body("data.nodes[0].submitFields", hasSize(1))
                 .body("data.nodes[0].submitFields[0].key", equalTo("summary"))
                 .body("data.nodes[0].submitFields[0].label", equalTo("摘要"))
@@ -508,9 +508,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "[]", 1, 1L
+                1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -538,9 +538,9 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "原子任务", "描述", 0L, "[]", 1, 1L
+                1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
 
         Response response = authRequest(token)

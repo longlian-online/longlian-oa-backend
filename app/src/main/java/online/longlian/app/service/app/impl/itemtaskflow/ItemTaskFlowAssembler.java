@@ -6,7 +6,6 @@ import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.common.TaskFormService;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +20,6 @@ import java.util.stream.Collectors;
 public class ItemTaskFlowAssembler {
 
     private final BaseTaskMapper baseTaskMapper;
-    private final ResourceService resourceService;
     private final TaskFormService taskFormService;
 
     public List<ItemTaskNodeVO> assembleNodes(List<ItemTaskNode> nodes, List<TaskInstance> instances) {
@@ -36,27 +34,15 @@ public class ItemTaskFlowAssembler {
         Map<Long, BaseTask> baseTaskMap = baseTaskMapper.selectBatchIds(baseTaskIds).stream()
                 .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
-        List<Long> iconFileIds = baseTaskMap.values().stream()
-                .map(BaseTask::getIconFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> iconUrlMap = iconFileIds.isEmpty()
-                ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(iconFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
-
         return nodes.stream()
                 .map(node -> {
                     BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
-                    String iconUrl = null;
-                    if (baseTask != null && baseTask.getIconFileId() != null) {
-                        iconUrl = iconUrlMap.get(baseTask.getIconFileId());
-                    }
 
                     ItemTaskNodeVO.ItemTaskNodeVOBuilder builder = ItemTaskNodeVO.builder()
                             .id(node.getId())
                             .baseTaskId(node.getBaseTaskId())
                             .name(node.getName())
-                            .baseTaskIconUrl(iconUrl)
-                            .baseTaskIconName(baseTask != null ? baseTask.getIconName() : null)
+                            .baseTaskIcon(baseTask != null ? baseTask.getIcon() : null)
                             .submitFields(taskFormService.parseFields(node.getMetaSchema()))
                             .sort(node.getSort())
                             .parallelSort(node.getParallelSort());

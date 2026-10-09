@@ -319,9 +319,38 @@ resolve_db_url
 setup_atlas
 cd "$SCRIPT_DIR"
 
+preserve_base_task_icon() {
+  # Atlas 把 icon_name 删除、icon 新增视为两次无关变更，直接 apply 会丢失已保存的 Lucide 标识。
+  # 在声明式同步前把标识改名到目标列；图片文件 ID 没有对应的 Lucide 键，按空值丢弃。
+  parse_maria_url "$DB_URL"
+  has_icon_name=$(printf '%s\n' \
+    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='${url_db}' AND TABLE_NAME='base_task' AND COLUMN_NAME='icon_name';" \
+    | mariadb_exec "$DB_URL" -N "$url_db")
+  if [ "$has_icon_name" = "1" ]; then
+    has_icon=$(printf '%s\n' \
+      "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='${url_db}' AND TABLE_NAME='base_task' AND COLUMN_NAME='icon';" \
+      | mariadb_exec "$DB_URL" -N "$url_db")
+    echo "==> [${ENVIRONMENT}] 保留 base_task.icon_name 到 icon"
+    if [ "$has_icon" != "1" ]; then
+      printf '%s\n' "ALTER TABLE base_task ADD COLUMN icon varchar(100) NULL COMMENT 'Lucide 图标组件名' AFTER name;" \
+        | mariadb_exec "$DB_URL" "$url_db"
+    fi
+    printf '%s\n' "UPDATE base_task SET icon = NULLIF(icon_name, '') WHERE icon IS NULL OR icon = '';" \
+      | mariadb_exec "$DB_URL" "$url_db"
+    printf '%s\n' "ALTER TABLE base_task DROP COLUMN icon_name;" | mariadb_exec "$DB_URL" "$url_db"
+  fi
+  has_icon_file=$(printf '%s\n' \
+    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='${url_db}' AND TABLE_NAME='base_task' AND COLUMN_NAME='icon_file_id';" \
+    | mariadb_exec "$DB_URL" -N "$url_db")
+  if [ "$has_icon_file" = "1" ]; then
+    printf '%s\n' "ALTER TABLE base_task DROP COLUMN icon_file_id;" | mariadb_exec "$DB_URL" "$url_db"
+  fi
+}
+
 case "$ACTION" in
   apply)
     resolve_dev_url
+    preserve_base_task_icon
     echo "==> [${ENVIRONMENT}] 同步数据库到 schema.sql 声明状态..."
     run_atlas schema apply --env "$ENVIRONMENT" --auto-approve
     echo "==> [${ENVIRONMENT}] 同步完成"

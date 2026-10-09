@@ -18,8 +18,7 @@ public class BaseTaskListResultBO {
     private Long id;
     private String name;
     private String description;
-    private String iconUrl;
-    private String iconName;
+    private String icon;
     private List<TaskFormField> submitFields;
     private Integer refCount;
     private Status status;

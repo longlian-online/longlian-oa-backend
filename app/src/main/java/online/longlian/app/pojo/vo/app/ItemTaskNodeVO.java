@@ -29,11 +29,8 @@ public class ItemTaskNodeVO {
     @Schema(description = "任务名称")
     private String name;
 
-    @Schema(description = "原子任务图标URL")
-    private String baseTaskIconUrl;
-
     @Schema(description = "原子任务 Lucide 图标组件名")
-    private String baseTaskIconName;
+    private String baseTaskIcon;
 
     @Schema(description = "节点提交表单字段快照")
     private List<TaskFormField> submitFields;

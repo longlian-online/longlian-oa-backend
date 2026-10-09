@@ -5,11 +5,13 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
@@ -29,6 +31,7 @@ public class WorkshopProjectHandler {
 
     private final ProjectTypeMapper projectTypeMapper;
     private final TaskTemplateMapper taskTemplateMapper;
+    private final BaseTaskMapper baseTaskMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
 
@@ -69,6 +72,8 @@ public class WorkshopProjectHandler {
                         .set(TaskTemplate::getDescription, params.getDescription())
                         .set(TaskTemplate::getUpdatedAt, now));
 
+        lockBaseTasks(params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
@@ -88,6 +93,18 @@ public class WorkshopProjectHandler {
                             .createdAt(now)
                             .updatedAt(now)
                             .build());
+        }
+    }
+
+    private void lockBaseTasks(List<Long> baseTaskIds) {
+        List<Long> orderedIds = baseTaskIds.stream().filter(id -> id != null).distinct().sorted().toList();
+        for (Long baseTaskId : orderedIds) {
+            BaseTask baseTask = baseTaskMapper.selectOne(new LambdaQueryWrapper<BaseTask>()
+                    .eq(BaseTask::getId, baseTaskId)
+                    .last("FOR UPDATE"));
+            if (baseTask == null || baseTask.getStatus() != Status.ENABLED) {
+                throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+            }
         }
     }
 }

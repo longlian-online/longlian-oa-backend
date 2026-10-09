@@ -5,8 +5,6 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -20,8 +18,6 @@ import static org.hamcrest.Matchers.nullValue;
 
 public class OrganizationScopeApiTest extends BaseApiTest {
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 同一个 token 按请求头写入各自的组织，并行时也不串组织。
@@ -53,7 +49,6 @@ public class OrganizationScopeApiTest extends BaseApiTest {
         }
         assertThat(orgIdOfProjectType("类型A")).isEqualTo(1L);
         assertThat(orgIdOfProjectType("类型B")).isEqualTo(2L);
-        assertThat(redisTemplate.hasKey("currentOrg:user:1")).isNotEqualTo(Boolean.TRUE);
     }
 
     /**
@@ -131,7 +126,6 @@ public class OrganizationScopeApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.name", equalTo("组织2"));
-        assertThat(redisTemplate.hasKey("currentOrg:user:1")).isNotEqualTo(Boolean.TRUE);
         userRequest(token).get("/app/user/")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))

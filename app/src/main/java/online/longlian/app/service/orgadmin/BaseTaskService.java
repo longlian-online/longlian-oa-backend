@@ -3,6 +3,7 @@ package online.longlian.app.service.orgadmin;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 
@@ -42,4 +43,13 @@ public interface BaseTaskService {
      * @param params 包含基础任务 ID、目标状态及组织 ID 的变更参数
      */
     void changeBaseTaskStatus(BaseTaskChangeStatusParamsBO params);
+    /**
+     * 删除基础任务。
+     * <p>
+     * 仅允许删除尚未被任务模板节点或项目任务节点引用的任务，删除采用逻辑删除。
+     * 调用方需在事务内先锁定原子任务行，避免并发新增引用后留下悬空节点。
+     *
+     * @param params 包含基础任务 ID 和当前组织 ID 的删除参数
+     */
+    void deleteBaseTask(BaseTaskDeleteParamsBO params);
 }

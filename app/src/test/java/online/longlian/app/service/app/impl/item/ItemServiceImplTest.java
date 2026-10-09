@@ -16,6 +16,7 @@ import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
@@ -96,7 +97,7 @@ class ItemServiceImplTest {
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
                 TaskTemplateNode.builder().id(11L).baseTaskId(21L).sort(1).parallelSort(1).build(),
                 TaskTemplateNode.builder().id(12L).baseTaskId(22L).sort(2).parallelSort(1).build()));
-        when(baseTaskMapper.selectBatchIds(any())).thenReturn(List.of());
+        when(baseTaskMapper.selectOne(any())).thenReturn(BaseTask.builder().id(21L).name("任务").metaSchema("[]").build());
 
         service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());

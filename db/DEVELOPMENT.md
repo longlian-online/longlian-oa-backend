@@ -79,7 +79,8 @@ curl -sSf https://atlasgo.sh | sh
 ./db/migrate.sh prod apply
 ```
 
-生产环境会跳过删除 Schema、表、字段、索引和外键的操作。即使对象已从 `schema.sql` 移除，它们也会继续保留在生产数据库中；需要删除时应走单独、经审核的人工变更流程。
+
+`base_task.icon_name` 到 `base_task.icon` 是一次数据保留改名，不是 Atlas 能自动识别的列变更。`migrate.sh apply` 会在调用 Atlas 前检查旧列：存在 `icon_name` 时先写入同类型可空的 `icon`，只复制非空 Lucide 标识，再删除 `icon_name`。旧的 `icon_file_id` 没有可替代的 Lucide 键，随这次预迁移删除，不保留图片标识。已有 `icon` 且没有 `icon_name` 时该步骤不执行，因此可以重复运行。生产环境的 Atlas 删除保护不会删除这次预迁移已经移除的列；`plan` 只预览 Atlas 差异，不执行该数据改名。
 
 ## 命令说明
 

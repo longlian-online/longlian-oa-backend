@@ -24,11 +24,8 @@ public class BaseTaskVO {
     @Schema(description = "任务说明")
     private String description;
 
-    @Schema(description = "图标URL")
-    private String iconUrl;
-
     @Schema(description = "Lucide 图标组件名")
-    private String iconName;
+    private String icon;
 
     @Schema(description = "提交表单字段")
     private List<TaskFormField> submitFields;
