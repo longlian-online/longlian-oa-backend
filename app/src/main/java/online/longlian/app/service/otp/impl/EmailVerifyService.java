@@ -9,12 +9,14 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
@@ -37,6 +39,7 @@ public class EmailVerifyService implements OTPStrategyService {
 
     private final OneTimePasswordService oneTimePasswordService;
     private final EmailVerifyOtpMapper emailVerifyOtpMapper;
+    private final UserMapper userMapper;
     private final EmailVerifyCodeAsyncSender emailVerifyCodeAsyncSender;
     private final Clock clock;
 
@@ -52,6 +55,10 @@ public class EmailVerifyService implements OTPStrategyService {
         EmailVerifyBusinessType businessType = otpGenerateContextBO.getBusinessType();
         if (!isValidEmail(receiver)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱格式不合法");
+        }
+        if (businessType == EmailVerifyBusinessType.REGISTER && userMapper.selectCount(
+                new LambdaQueryWrapper<User>().eq(User::getEmail, receiver)) > 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
         }
 
         // 限制60s内发送验证码

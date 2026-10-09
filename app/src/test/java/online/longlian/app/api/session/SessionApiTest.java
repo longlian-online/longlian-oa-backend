@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SessionApiTest extends BaseApiTest {
 
@@ -217,6 +218,85 @@ public class SessionApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+    }
+
+    /**
+     * 已占用邮箱发送注册验证码时应提示邮箱已存在，且不创建验证码记录。
+     */
+    @Test
+    void shouldRejectRegisterCodeForExistingEmail() {
+        createTestUser(1L, "existinguser", "123456", "registered@example.com");
+
+        Response response = request()
+                .body(Map.of("email", "registered@example.com", "businessType", "REGISTER"))
+                .post("/app/session/email/code");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", containsString("邮箱已存在"));
+        assertEquals(0L, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `email_verify_otp` WHERE receiver = ?", Long.class, "registered@example.com"));
+    }
+
+    /**
+     * 待审批用户已经占用邮箱，不能重复申请注册验证码。
+     */
+    @Test
+    void shouldRejectRegisterCodeForPendingUserEmail() {
+        createTestUser(1L, "pendinguser", "123456", "pending@example.com");
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 0, 0, "pendinguser", "待审批用户", "pending@example.com");
+
+        request().body(Map.of("email", "pending@example.com", "businessType", "REGISTER"))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", containsString("邮箱已存在"));
+    }
+
+    /**
+     * 未占用邮箱可以正常申请注册验证码。
+     */
+    @Test
+    void shouldSendRegisterCodeForUnusedEmail() {
+        request().body(Map.of("email", "new@example.com", "businessType", "REGISTER"))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /**
+     * 已注册邮箱找回密码时仍可申请验证码。
+     */
+    @Test
+    void shouldSendForgotPasswordCodeForExistingEmail() {
+        createTestUser(1L, "existinguser", "123456", "registered@example.com");
+
+        request().body(Map.of("email", "registered@example.com", "businessType", "FORGOT_PASSWORD"))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /**
+     * 已注册邮箱仍可申请登录验证码。
+     */
+    @Test
+    void shouldSendLoginCodeForExistingEmail() {
+        createTestUser(1L, "existinguser", "123456", "registered@example.com");
+
+        request().body(Map.of("email", "registered@example.com", "businessType", "LOGIN"))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
