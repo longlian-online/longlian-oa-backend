@@ -78,6 +78,15 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 
 访问开发应用后查询最近日志，确认其中含有 `service.name`、`deployment.environment`、`trace_id` 或 `span_id`。停止服务但保留数据使用 `task dev-observability-down`；需要重建空库时删除 `data/victorialogs`，不要在共享环境执行。
 
+## 入组申请审核事务
+
+审核入口使用 `@Transactional(rollbackFor = Exception.class)`，以默认 `REQUIRED` 传播方式
+将申请行锁、账号创建、成员创建和申请状态更新纳入同一事务。
+入口授权由 Controller 的 `@PreAuthorize` 及组织上下文校验负责；允许已通过鉴权的在途审核
+在组织禁用或审核人撤权后继续完成，不在事务内重复鉴权，也不获取组织行锁或组织级 Redis 锁。
+同一申请通过 `FOR UPDATE` 和待审核状态检查防止重复处理，身份及成员关系冲突由数据库唯一约束兜底。
+成员角色与状态变更仍沿用原有锁和事务流程，不受审核入口简化影响。
+
 ## ORM 代码生成
 
 本项目依赖 Mybatis-Plus 代码生成器(generator)，默认不覆盖旧代码，在新增功能和表结构字段改动时需用到代码生成

@@ -60,6 +60,15 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT user_id FROM group_application WHERE id = ? AND status = 1 AND password_hash IS NULL",
+                Long.class, 1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT username FROM `user` WHERE id = ?", String.class, userId)).isEqualTo("applyuser");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_member WHERE org_id = ? AND user_id = ? AND status = 1",
+                Integer.class, 1L, userId)).isEqualTo(1);
     }
 
     /**
@@ -116,7 +125,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
 
     /**
