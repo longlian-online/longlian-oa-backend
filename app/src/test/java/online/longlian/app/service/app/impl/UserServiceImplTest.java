@@ -1,7 +1,5 @@
 package online.longlian.app.service.app.impl;
 
-import online.longlian.app.service.common.OrganizationAuthorizationService;
-
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -18,6 +16,7 @@ import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
@@ -50,6 +49,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,7 +62,6 @@ class UserServiceImplTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
-    @Mock private OrganizationAuthorizationService organizationAuthorizationService;
     @Mock
     private OrganizationMapper organizationMapper;
     @Mock
@@ -94,9 +93,9 @@ class UserServiceImplTest {
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), GroupApplication.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Organization.class);
         service = new UserServiceImpl(
                 passwordEncoder,
-                organizationAuthorizationService,
                 organizationMapper,
                 organizationMemberMapper,
                 organizationJoinOtpMapper,
@@ -254,8 +253,9 @@ class UserServiceImplTest {
                 .hasMessageContaining("邀请码不存在");
     }
 
+    /** 目标组织不存在时不写入申请，也不消耗验证码。 */
     @Test
-    void shouldFailRegisterWhenJoinOrganizationDoesNotExist() {
+    void shouldRejectRegistrationForMissingOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
@@ -263,22 +263,30 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织不存在");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(groupApplicationMapper);
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
     }
 
+    /** 禁用组织不得接受注册申请，也不能消耗验证码。 */
     @Test
-    void shouldFailRegisterWhenJoinOrganizationIsDisabled() {
+    void shouldRejectRegistrationForDisabledOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.DISABLED).build());
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织已被禁用");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(groupApplicationMapper);
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
     }
+
 
     @Test
     void shouldDeprecatePreviousAvatarWhenReplacingIt() {
@@ -322,7 +330,7 @@ class UserServiceImplTest {
         when(groupApplicationMapper.selectOne(any())).thenReturn(null);
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(passwordEncoder.encode("password")).thenReturn("hashed-password");
         doAnswer(invocation -> {
@@ -396,6 +404,28 @@ class UserServiceImplTest {
         assertThat(service.getMyOrganizations(1L)).isEmpty();
     }
 
+    /** 组织列表过滤禁用组织，并按资源 ID 匹配头像；没有头像的组织保留空值。 */
+    @Test
+    void shouldListEnabledOrganizationsWithMatchingAvatars() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().orgId(10L).build(),
+                OrganizationMember.builder().orgId(20L).build(),
+                OrganizationMember.builder().orgId(30L).build()));
+        when(organizationMapper.selectBatchIds(any())).thenReturn(List.of(
+                Organization.builder().id(10L).name("with avatar").status(Status.ENABLED).avatarFileId(100L).build(),
+                Organization.builder().id(20L).name("disabled").status(Status.DISABLED).avatarFileId(200L).build(),
+                Organization.builder().id(30L).name("without avatar").status(Status.ENABLED).build()));
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of(
+                100L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 10L, "avatar.png")));
+
+        assertThat(service.getMyOrganizations(1L))
+                .extracting("id", "name", "avatarUrl")
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple(10L, "with avatar", "https://cdn.example/avatar.png"),
+                        org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
+    }
+
     @Test
     void shouldIncludeAvatarWhenSwitchingToOrganizationWithAvatar() {
         when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
@@ -426,7 +456,7 @@ class UserServiceImplTest {
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.selectOne(any())).thenReturn(GroupApplication.builder().id(1L).build());
 
@@ -465,7 +495,7 @@ class UserServiceImplTest {
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.insert(any(GroupApplication.class)))
                 .thenThrow(new org.springframework.dao.DuplicateKeyException("pending registration"));

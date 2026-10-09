@@ -63,7 +63,7 @@ public class CodeGenerator {
                                 new ClassAnnotationAttributes("@AllArgsConstructor", "lombok.AllArgsConstructor")
                         )
                         .enableTableFieldAnnotation()
-                        .addIgnoreColumns("owner_org_id", "active_guard", "pending_register_email")
+                        .addIgnoreColumns("owner_org_id", "active_guard")
                         .naming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
                         .columnNaming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
                         .controllerBuilder().disable()

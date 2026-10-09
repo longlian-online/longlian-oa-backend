@@ -3,10 +3,15 @@ package online.longlian.app.api.app;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.common.OrganizationAuthorizationService;
+import online.longlian.app.mapper.OrganizationMapper;
+import online.longlian.app.mapper.GroupApplicationMapper;
+import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.pojo.entity.OrganizationMember;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.mybatis.spring.SqlSessionTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -18,11 +23,15 @@ import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 class JoinApplicationConcurrencyApiTest extends BaseApiTest {
-    @SpyBean private OrganizationAuthorizationService authorization;
+    @SpyBean private OrganizationMapper organizations;
+    @SpyBean private GroupApplicationMapper applications;
+    @SpyBean private OrganizationMemberMapper members;
+    @Autowired private SqlSessionTemplate sqlSession;
     private String managerToken;
 
     @BeforeEach
@@ -87,6 +96,51 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 .isEqualTo(1);
     }
 
+    /** 组织治理审批与提交按组织锁串行，重复提交在审批提交后识别最新成员。 */
+    @Test
+    void shouldSerializeApprovalAndDuplicateSubmissionByOrganization() throws Exception {
+        String token = prepareExistingUser();
+        join(token, "JOIN01").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application WHERE user_id = 2", Long.class);
+        CountDownLatch approvalBeforeMemberInsert = new CountDownLatch(1);
+        CountDownLatch duplicateBeforeOrganizationLock = new CountDownLatch(1);
+        doAnswer(call -> {
+            approvalBeforeMemberInsert.countDown();
+            assertThat(duplicateBeforeOrganizationLock.await(15, TimeUnit.SECONDS)).isTrue();
+            return sqlSession.getMapper(OrganizationMemberMapper.class)
+                    .insert(call.getArgument(0, OrganizationMember.class));
+        }).when(members).insert(any(OrganizationMember.class));
+        doAnswer(call -> {
+            if (approvalBeforeMemberInsert.getCount() == 0) {
+                duplicateBeforeOrganizationLock.countDown();
+            }
+            return call.callRealMethod();
+        }).when(organizations).selectOne(argThat(query ->
+                query != null && query.getSqlSegment().endsWith("FOR UPDATE")));
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CompletableFuture<Response> approval = CompletableFuture.supplyAsync(() ->
+                    authRequest(managerToken, 1L).body(Map.of("applicationStatus", "APPROVED"))
+                            .put("/orgadmin/members/applications/" + applicationId + "/review"), executor);
+            try {
+                assertThat(approvalBeforeMemberInsert.await(15, TimeUnit.SECONDS)).isTrue();
+                join(token, "JOIN02").then().statusCode(200)
+                        .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+            } finally {
+                duplicateBeforeOrganizationLock.countDown();
+            }
+            approval.get(15, TimeUnit.SECONDS).then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id = ?",
+                Integer.class, applicationId)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE org_id = 1 AND user_id = 2",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code = 'JOIN02'",
+                Integer.class)).isZero();
+    }
+
     private Response afterEarlierSnapshot(Supplier<Response> delayedRequest, Runnable interveningWrite) throws Exception {
         CountDownLatch snapshotEstablished = new CountDownLatch(1);
         CountDownLatch resume = new CountDownLatch(1);
@@ -97,7 +151,8 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 assertThat(resume.await(15, TimeUnit.SECONDS)).isTrue();
             }
             return call.callRealMethod();
-        }).when(authorization).lockOrganization(eq(1L), eq(true));
+        }).when(organizations).selectOne(argThat(query ->
+                query != null && query.getSqlSegment().endsWith("FOR UPDATE")));
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> delayed = CompletableFuture.supplyAsync(delayedRequest, executor);

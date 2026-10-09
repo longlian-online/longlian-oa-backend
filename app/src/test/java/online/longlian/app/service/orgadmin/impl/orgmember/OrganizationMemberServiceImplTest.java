@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.enumeration.OrganizationRole;
 import online.longlian.app.mapper.*;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
@@ -14,12 +15,14 @@ import online.longlian.app.service.common.*;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
+import online.longlian.common.enumeration.ApplicationStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.support.*;
 import java.time.*;
 import java.util.*;
@@ -130,6 +133,18 @@ class OrganizationMemberServiceImplTest {
                 OrgMemberBaseTaskSubmitCountParamsBO.builder().memberId(2L).orgId(9L).build()))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("无权操作该成员");
+    }
+
+    /** 唯一键冲突应返回业务失败，而不是暴露数据库异常。 */
+    @Test
+    void shouldReportReviewIdentityConflictAsBusinessFailure() {
+        when(groupApplicationMapper.selectOne(any())).thenThrow(new DuplicateKeyException("duplicate identity"));
+
+        assertThatThrownBy(() -> service.reviewApplication(OrgAdminReviewApplicationParamsBO.builder()
+                .applicationId(1L).orgId(1L).reviewerId(10L)
+                .applicationStatus(ApplicationStatus.APPROVED).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
     }
 
 
