@@ -27,7 +27,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
 
     @BeforeEach
     void prepareOrganization() {
-        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_OWNER");
         managerToken = loginAs("manager", "123456");
         createOrganizationUserInviteOTP("JOIN01", 1L);
         createOrganizationUserInviteOTP("JOIN02", 1L);

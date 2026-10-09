@@ -14,6 +14,9 @@ import static org.hamcrest.Matchers.equalTo;
 
 class OrganizationGovernanceApiTest extends BaseApiTest {
     @Autowired private ResourceService resources;
+    @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+    private org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping requestMappings;
     private String ownerToken;
     private String adminToken;
     private String userToken;
@@ -184,6 +187,40 @@ class OrganizationGovernanceApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT default_org_id FROM user WHERE id=4",Long.class)).isEqualTo(2L);
         jdbcTemplate.update("UPDATE user SET status=0 WHERE id=3");
         authRequest(ownerToken,1L).put("/orgadmin/members/3/ownership").then().body("code",equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    /** 实际注册的生命周期路由必须由对应管理端或用户端包中的控制器提供。 */
+    @Test
+    void shouldRegisterLifecycleRoutesInMatchingControllerPackages() {
+        Map<String, String> expectedPackages = Map.of(
+                "/app/organizations/{orgId}/membership", "online.longlian.app.controller.app",
+                "/orgadmin/members/{memberId}", "online.longlian.app.controller.orgadmin",
+                "/orgadmin/members/{memberId}/ownership", "online.longlian.app.controller.orgadmin",
+                "/orgadmin/organizations/{orgId}", "online.longlian.app.controller.orgadmin");
+        expectedPackages.forEach((route, expectedPackage) -> {
+            var handlers = requestMappings.getHandlerMethods().entrySet().stream()
+                    .filter(entry -> entry.getKey().getPatternValues().contains(route))
+                    .map(entry -> entry.getValue().getBeanType().getPackageName())
+                    .toList();
+            assertThat(handlers).containsExactly(expectedPackage);
+        });
+    }
+
+    /** 用户退出以路径组织为准，其他组织请求头不能改变退出对象。 */
+    @Test
+    void shouldExitPathOrganizationAndPreserveOtherMembership() {
+        createOrganization(2L, "other");
+        createOrganizationMember(5L, 2L, 4L, "ORG_USER");
+        jdbcTemplate.update("UPDATE user SET default_org_id=2 WHERE id=4");
+
+        authRequest(userToken, 2L).delete("/app/organizations/1/membership")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_member WHERE id=4 AND deleted_at IS NULL", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_member WHERE id=5 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT default_org_id FROM user WHERE id=4", Long.class)).isEqualTo(2L);
     }
 
     private int ownerCount(){return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE org_id=1 AND org_role='ORG_OWNER' AND deleted_at IS NULL",Integer.class);}
