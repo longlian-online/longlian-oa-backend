@@ -13,6 +13,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -40,10 +41,13 @@ public class OrganizationAuthorizationService {
                 || operator.getStatus() != Status.ENABLED
                 || OrganizationRole.fromValue(operator.getOrgRole()) == OrganizationRole.ORG_USER)
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "当前用户无权管理组织");
-        if (memberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
+        // 组织锁内读取所有未删除的所有者，禁用所有者也计数，避免漏掉异常双所有者。
+        List<OrganizationMember> owners = memberMapper.selectList(new LambdaQueryWrapper<OrganizationMember>()
                 .eq(OrganizationMember::getOrgId, orgId).eq(OrganizationMember::getOrgRole, "ORG_OWNER")
-                .eq(OrganizationMember::getStatus, Status.ENABLED)) != 1) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织所有者缺失，请先完成回填");
+                .last("FOR UPDATE"));
+        if (owners.size() != 1 || owners.getFirst().getStatus() != Status.ENABLED
+                || !OrganizationRole.ORG_OWNER.name().equals(owners.getFirst().getOrgRole())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织所有者状态异常，请先完成回填");
         }
         return operator;
     }

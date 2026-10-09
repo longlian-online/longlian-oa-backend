@@ -147,7 +147,7 @@ ALTER TABLE admin DROP CONSTRAINT ck_admin_role;
 ALTER TABLE organization_member DROP CONSTRAINT ck_org_member_role;
 ```
 
-MariaDB 10.11 使用 `DROP CONSTRAINT` 删除 CHECK；当前 Atlas 版本生成的 `DROP CHECK` 不兼容此版本。此清理仅针对旧版新增约束，原有主键、账号唯一索引和成员唯一索引保留。
+MariaDB 10.11 使用 `DROP CONSTRAINT` 删除 CHECK；当前 Atlas 版本生成的 `DROP CHECK` 不兼容此版本。此清理仅针对旧版新增约束，原有主键和账号唯一索引保留；成员索引调整见组织治理发布流程。
 
 - `schema.sql` 是唯一真实来源，所有表结构变更必须通过修改此文件完成
 - `dev` 没有删除保护，执行前确认目标库可安全重建
@@ -186,21 +186,33 @@ ALTER TABLE group_application DROP CONSTRAINT ck_application_snapshot;
 ## Issue #169：组织治理发布
 
 所有权仅由未删除的 ORG_OWNER 成员表达，creator_id 保持审计含义。
-本结构添加所有者唯一索引和 active_guard 成员唯一索引。
-生产 Atlas 保护索引删除，旧 uk_org_member_user 不会因 schema.sql 移除而自动消失。
+所有者数量、启用状态及成员唯一性由应用层校验，不设置业务 CHECK、唯一索引或外键。
+idx_org_member_user 和 idx_org_member_role 仅加速查询；组织写事务先锁组织行，审批在锁内检查有效成员，转让和治理验证唯一启用所有者。
+生产 Atlas 保护索引和字段删除，旧约束及计算列不会因 schema.sql 移除而全部自动消失。
 
 发布顺序：
 
 1. 暂停组织创建、申请提交、审批、成员治理，停止旧实例写入。
-2. 审核 prod plan 并同步结构，确认 uk_org_member_owner、uk_org_member_active 和角色 CHECK 已生效。
+2. 审核 prod plan 并同步结构，确认 idx_org_member_user、idx_org_member_role 查询索引已生效。
 3. 核对 SHOW INDEX FROM organization_member 的结果，再经审核执行
    ALTER TABLE organization_member DROP INDEX uk_org_member_user。
    未实际删除旧索引不得开放移除/退出与重新入组，否则旧历史记录仍会占用成员唯一键。
+   若库曾部署本 PR 的旧版，还需确认并清理 uk_org_member_owner、uk_org_member_active、
+   ck_org_member_owner_enabled，以及仅为这些约束添加的 owner_org_id、active_guard 计算列。
+   每项仅在 SHOW CREATE TABLE 确认存在后执行：
+
+   ```sql
+   ALTER TABLE organization_member DROP CONSTRAINT ck_org_member_owner_enabled;
+   ALTER TABLE organization_member DROP INDEX uk_org_member_owner;
+   ALTER TABLE organization_member DROP INDEX uk_org_member_active;
+   ALTER TABLE organization_member DROP COLUMN owner_org_id, DROP COLUMN active_guard;
+   ```
 4. 同一事务回填所有未删除组织，包括被平台禁用的组织：
    优先选择仍全局启用、成员启用且未删除的创建者，设该成员为 ORG_OWNER；
    创建者不可用时，仅自动选择恰好一名全局及成员均启用的 ORG_ADMIN；
    多候选、无候选或非法角色进入业务负责人审核清单，不任意挑选。
-5. 校验所有未删除组织恰好一名未删除、成员启用、用户存在且全局启用的 ORG_OWNER，
+5. 校验没有重复的有效成员（同组织、同用户、deleted_at IS NULL），
+   且所有未删除组织恰好一名未删除、成员启用、用户存在且全局启用的 ORG_OWNER，
    否则回滚回填并继续停写。creator_id 不随转让变更。
 6. 部署完整新版本后恢复写入，验证新建组织、转让、管理员边界与退出重新入组。
 
@@ -215,6 +227,14 @@ ALTER TABLE group_application DROP CONSTRAINT ck_application_snapshot;
     GROUP BY o.id
     HAVING COUNT(m.id) <> 1
        OR SUM(CASE WHEN m.status=1 AND u.status=1 THEN 1 ELSE 0 END) <> 1;
+
+有效成员核对查询必须返回零行：
+
+    SELECT org_id, user_id
+    FROM organization_member
+    WHERE deleted_at IS NULL
+    GROUP BY org_id, user_id
+    HAVING COUNT(*) > 1;
 
 新开发种子创建 ORG_OWNER；已有开发种子因 INSERT IGNORE 不会覆盖成员角色，应遵循同一回填流程。
 解散是 organization.deleted_at 的逻辑删除，保留成员、任务和资源历史，拒绝所有待审申请并清空密码快照。

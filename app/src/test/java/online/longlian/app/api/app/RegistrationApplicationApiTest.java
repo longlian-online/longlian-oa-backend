@@ -97,7 +97,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
     @ParameterizedTest
     @ValueSource(strings = {"missing-password", "missing-user", "unexpected-password", "unknown-type"})
     void shouldRejectMalformedApplicationBeforeCreatingUserOrMember(String scenario) {
-        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_OWNER");
         submit("JOIN01", "EMAIL1");
         Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application", Long.class);
         switch (scenario) {

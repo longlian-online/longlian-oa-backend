@@ -74,7 +74,7 @@ public class OrganizationLifecycleServiceImpl extends ServiceImpl<OrganizationMa
                     .eq(User::getId,target.getUserId()).last("FOR UPDATE"));
             if (targetUser == null || targetUser.getStatus() != Status.ENABLED)
                 throw new AppException(ResultCode.OPERATION_FAIL,"转让目标账号不可用");
-            // 先释放唯一所有者索引，再升级目标；第二步失败会回滚恢复原所有者。
+            // 组织行锁串行化转让，两个角色变更同事务提交；第二步失败恢复原所有者。
             changeRole(owner,"ORG_OWNER","ORG_ADMIN");
             changeRole(target,target.getOrgRole(),"ORG_OWNER");
         });

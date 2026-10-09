@@ -8,6 +8,7 @@ import online.longlian.app.pojo.entity.*;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.*;
+import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -20,7 +21,8 @@ class OrganizationAuthorizationServiceTest {
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.lenient().when(members.selectCount(any())).thenReturn(1L);
+        when(members.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().orgRole("ORG_OWNER").status(Status.ENABLED).build()));
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Organization.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
     }
@@ -51,5 +53,22 @@ class OrganizationAuthorizationServiceTest {
         member.setStatus(Status.ENABLED);
         when(users.selectById(2L)).thenReturn(User.builder().status(Status.DISABLED).build());
         assertThatThrownBy(() -> service.requireManager(1L, 2L)).isInstanceOf(AppException.class);
+    }
+
+    /** 无数据库所有者约束时，缺失、重复或禁用所有者均阻止治理写入。 */
+    @Test
+    void shouldRejectInvalidOwnerState() {
+        when(members.selectOne(any())).thenReturn(OrganizationMember.builder()
+                .userId(2L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
+        when(users.selectById(2L)).thenReturn(User.builder().status(Status.ENABLED).build());
+        OrganizationMember enabled = OrganizationMember.builder().orgRole("ORG_OWNER").status(Status.ENABLED).build();
+        OrganizationMember disabled = OrganizationMember.builder().orgRole("ORG_OWNER").status(Status.DISABLED).build();
+        OrganizationMember invalid = OrganizationMember.builder().orgRole("org_owner").status(Status.ENABLED).build();
+        for (List<OrganizationMember> owners : List.of(List.<OrganizationMember>of(), List.of(disabled),
+                List.of(enabled, enabled), List.of(enabled, disabled), List.of(invalid))) {
+            when(members.selectList(any())).thenReturn(owners);
+            assertThatThrownBy(() -> service.requireManager(1L, 2L)).isInstanceOf(AppException.class)
+                    .extracting("code").isEqualTo(online.longlian.app.common.result.ResultCode.OPERATION_FAIL.getCode());
+        }
     }
 }

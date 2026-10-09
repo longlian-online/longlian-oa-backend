@@ -54,6 +54,14 @@ public class ApplicationReviewHandler {
             case EXISTING_USER -> getExistingApplicationUser(application);
         };
 
+        // 调用方已锁组织行；当前读识别先提交的审批，软删除历史不阻止重新入组。
+        OrganizationMember existingMember = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, application.getOrgId())
+                .eq(OrganizationMember::getUserId, user.getId()).last("LIMIT 1 FOR UPDATE"));
+        if (existingMember != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "申请人已有组织成员关系");
+        }
+
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(application.getOrgId())
                 .userId(user.getId())

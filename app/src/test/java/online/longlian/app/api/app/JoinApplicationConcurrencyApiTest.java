@@ -166,6 +166,46 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
         }
     }
 
+    /** 没有成员唯一索引时，并发审批同用户的不同历史申请也只能创建一条有效成员。 */
+    @Test
+    void shouldCreateOnlyOneMembershipWhenApprovingConcurrentApplications() throws Exception {
+        prepareExistingUser();
+        jdbcTemplate.update("INSERT INTO group_application(id,org_id,user_id,status,application_type) VALUES(10,1,2,0,1),(11,1,2,0,1)");
+        CountDownLatch firstBeforeInsert = new CountDownLatch(1);
+        CountDownLatch secondBeforeOrganizationLock = new CountDownLatch(1);
+        doAnswer(call -> {
+            firstBeforeInsert.countDown();
+            assertThat(secondBeforeOrganizationLock.await(15, TimeUnit.SECONDS)).isTrue();
+            return sqlSession.getMapper(OrganizationMemberMapper.class)
+                    .insert(call.getArgument(0, OrganizationMember.class));
+        }).when(members).insert(any(OrganizationMember.class));
+        doAnswer(call -> {
+            if (firstBeforeInsert.getCount() == 0) secondBeforeOrganizationLock.countDown();
+            return call.callRealMethod();
+        }).when(organizations).selectOne(argThat(query ->
+                query != null && query.getSqlSegment().endsWith("FOR UPDATE")));
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CompletableFuture<Response> first = CompletableFuture.supplyAsync(() ->
+                    authRequest(managerToken, 1L).body(Map.of("applicationStatus", "APPROVED"))
+                            .put("/orgadmin/members/applications/10/review"), executor);
+            try {
+                assertThat(firstBeforeInsert.await(15, TimeUnit.SECONDS)).isTrue();
+                authRequest(managerToken, 1L).body(Map.of("applicationStatus", "APPROVED"))
+                        .put("/orgadmin/members/applications/11/review").then().statusCode(200)
+                        .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+            } finally {
+                secondBeforeOrganizationLock.countDown();
+            }
+            first.get(15, TimeUnit.SECONDS).then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE org_id=1 AND user_id=2 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id=10", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id=11", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT reviewer_id FROM group_application WHERE id=11", Long.class)).isNull();
+    }
+
     private String prepareExistingUser() {
         createTestUser(2L, "candidate", "123456", "candidate@example.com");
         return loginAs("candidate", "123456");

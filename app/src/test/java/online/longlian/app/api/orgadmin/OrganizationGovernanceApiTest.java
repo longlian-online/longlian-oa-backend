@@ -7,6 +7,7 @@ import online.longlian.app.service.resource.ResourceService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Map;
 import static org.assertj.core.api.Assertions.*;
@@ -129,13 +130,25 @@ class OrganizationGovernanceApiTest extends BaseApiTest {
                 .then().body("code",equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
 
-    /** 数据库独立阻止双所有者和禁用所有者。 */
-    @Test void shouldEnforceOwnerConstraintsInDatabase(){
-        assertThatThrownBy(()->jdbcTemplate.update("UPDATE organization_member SET org_role='ORG_OWNER' WHERE id=2"))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        assertThatThrownBy(()->jdbcTemplate.update("UPDATE organization_member SET status=0 WHERE id=1"))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        assertThat(ownerCount()).isEqualTo(1);
+    /** 历史异常数据没有数据库 CHECK 时，应用仍拒绝继续治理。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "duplicate", "disabled", "disabled-duplicate", "invalid-role"})
+    void shouldRejectGovernanceWithInvalidOwnerState(String state){
+        switch (state) {
+            case "missing" -> jdbcTemplate.update("UPDATE organization_member SET org_role='ORG_ADMIN' WHERE id=1");
+            case "duplicate" -> jdbcTemplate.update("UPDATE organization_member SET org_role='ORG_OWNER' WHERE id=2");
+            case "disabled" -> jdbcTemplate.update("UPDATE organization_member SET status=0 WHERE id=1");
+            case "disabled-duplicate" -> {
+                jdbcTemplate.update("UPDATE organization_member SET org_role='ORG_OWNER' WHERE id=2");
+                jdbcTemplate.update("UPDATE organization_member SET status=0 WHERE id=1");
+            }
+            case "invalid-role" -> jdbcTemplate.update("UPDATE organization_member SET org_role='org_owner' WHERE id=1");
+            default -> throw new IllegalArgumentException(state);
+        }
+        authRequest(loginAs("member3","123456"),1L).body(Map.of("status","DISABLED"))
+                .patch("/orgadmin/members/4/status").then().statusCode(200)
+                .body("code",equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM organization_member WHERE id=4",Integer.class)).isEqualTo(1);
     }
 
     /** 新组织在创建事务中即拥有有效所有者。 */

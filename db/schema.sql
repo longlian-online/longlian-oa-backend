@@ -173,11 +173,8 @@ CREATE TABLE `organization_member` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  `active_guard` bigint GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 0, `id`)) STORED,
-  `owner_org_id` bigint GENERATED ALWAYS AS (IF(`deleted_at` IS NULL AND BINARY `org_role` = BINARY 'ORG_OWNER', `org_id`, NULL)) STORED,
-  UNIQUE INDEX `uk_org_member_active` (`org_id`, `user_id`, `active_guard`),
-  UNIQUE INDEX `uk_org_member_owner` (`owner_org_id`),
-  CONSTRAINT `ck_org_member_owner_enabled` CHECK (`deleted_at` IS NOT NULL OR BINARY `org_role` <> BINARY 'ORG_OWNER' OR `status` = 1)
+  INDEX `idx_org_member_user` (`org_id`, `user_id`, `deleted_at`),
+  INDEX `idx_org_member_role` (`org_id`, `org_role`, `deleted_at`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table
 CREATE TABLE `permission` (
