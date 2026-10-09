@@ -9,8 +9,7 @@ CREATE TABLE `admin` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `uk_username` (`username`),
-  CONSTRAINT `ck_admin_role` CHECK (BINARY `role` IN (BINARY 'root', BINARY 'normal'))
+  UNIQUE INDEX `uk_username` (`username`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "管理员表";
 -- Create "base_task" table
 CREATE TABLE `base_task` (
@@ -172,8 +171,7 @@ CREATE TABLE `organization_member` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`),
-  CONSTRAINT `ck_org_member_role` CHECK (BINARY `org_role` IN (BINARY 'ORG_OWNER', BINARY 'ORG_ADMIN', BINARY 'ORG_USER'))
+  UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table
 CREATE TABLE `permission` (
