@@ -9,8 +9,7 @@ CREATE TABLE `admin` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `uk_username` (`username`),
-  CONSTRAINT `ck_admin_role` CHECK (BINARY `role` IN (BINARY 'root', BINARY 'normal'))
+  UNIQUE INDEX `uk_username` (`username`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "管理员表";
 -- Create "base_task" table
 CREATE TABLE `base_task` (
@@ -64,10 +63,7 @@ CREATE TABLE `group_application` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_group_application_otp_id` (`otp_id`),
-  INDEX `idx_group_application_org_status_email` (`org_id`, `status`, `email`),
-  CONSTRAINT `ck_application_password` CHECK (`password_hash` IS NULL OR (`application_type` = 0 AND `status` = 0)),
-  CONSTRAINT `ck_application_user` CHECK (`user_id` IS NOT NULL OR (`application_type` = 0 AND `status` IN (0, 2))),
-  CONSTRAINT `ck_application_snapshot` CHECK (`application_type` <> 0 OR `status` <> 0 OR `user_id` IS NOT NULL OR `password_hash` IS NOT NULL)
+  INDEX `idx_group_application_org_status_email` (`org_id`, `status`, `email`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "入组申请表";
 -- Create "item" table
 CREATE TABLE `item` (
@@ -181,7 +177,6 @@ CREATE TABLE `organization_member` (
   `owner_org_id` bigint GENERATED ALWAYS AS (IF(`deleted_at` IS NULL AND BINARY `org_role` = BINARY 'ORG_OWNER', `org_id`, NULL)) STORED,
   UNIQUE INDEX `uk_org_member_active` (`org_id`, `user_id`, `active_guard`),
   UNIQUE INDEX `uk_org_member_owner` (`owner_org_id`),
-  CONSTRAINT `ck_org_member_role` CHECK (BINARY `org_role` IN (BINARY 'ORG_OWNER', BINARY 'ORG_ADMIN', BINARY 'ORG_USER')),
   CONSTRAINT `ck_org_member_owner_enabled` CHECK (`deleted_at` IS NOT NULL OR BINARY `org_role` <> BINARY 'ORG_OWNER' OR `status` = 1)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table

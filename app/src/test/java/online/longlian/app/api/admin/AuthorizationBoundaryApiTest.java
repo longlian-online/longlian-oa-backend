@@ -3,6 +3,8 @@ package online.longlian.app.api.admin;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -56,16 +58,27 @@ class AuthorizationBoundaryApiTest extends BaseApiTest {
         assertThat(loginAs("member", "123456")).isNotBlank();
     }
 
-    /** 数据库拒绝未知角色，防止测试夹具掩盖授权错误。 */
-    @Test
-    void shouldRejectInvalidPersistedRoles() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> createAdmin(1L,"invalid","123456","INVALID"))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        createOrganization(1L,"organization");
-        createTestUser(2L,"member","123456","member@example.com");
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> createOrganizationMember(1L,1L,2L,"org_admin"))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    /** 即使数据库存有非法角色，已有平台 Token 也不能获得管理员权限。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"INVALID", "ROOT"})
+    void shouldRejectInvalidPersistedAdminRole(String role) {
+        createAdmin(1L, "admin", "123456", "root");
+        String token = adminLoginAs("admin", "123456");
+        jdbcTemplate.update("UPDATE admin SET role=? WHERE id=1", role);
+
+        authRequest(token).get("/admin/organizations/").then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    /** 组织作用域必须校验当前数据库角色，拒绝未知值和错误大小写。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"INVALID", "org_admin"})
+    void shouldRejectInvalidPersistedOrganizationRole(String role) {
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("manager", "123456");
+        jdbcTemplate.update("UPDATE organization_member SET org_role=? WHERE id=1", role);
+
+        authRequest(token, 1L).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
 }
