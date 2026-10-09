@@ -1,5 +1,7 @@
 package online.longlian.app.service.admin.impl;
 
+import online.longlian.app.common.enumeration.AdminRole;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
@@ -29,8 +31,8 @@ import java.util.List;
 @AllArgsConstructor
 public class AdminManagementServiceImpl implements AdminManagementService {
 
-    private static final String ROLE_ROOT = "root";
-    private static final String ROLE_NORMAL = "normal";
+    private static final String ROLE_ROOT = AdminRole.ROOT.getValue();
+    private static final String ROLE_NORMAL = AdminRole.NORMAL.getValue();
 
     private final AdminMapper adminMapper;
     private final PasswordEncoder passwordEncoder;
@@ -39,6 +41,7 @@ public class AdminManagementServiceImpl implements AdminManagementService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long createInternal(@NonNull AdminCreateParamsBO params, @NonNull String role) {
+        AdminRole.fromValue(role);
         Admin existAdmin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>()
                         .eq(Admin::getUsername, params.getUsername())

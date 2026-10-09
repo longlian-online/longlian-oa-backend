@@ -241,7 +241,7 @@ class OrganizationMemberServiceImplTest {
     }
 
     private OrgMemberChangeRoleParamsBO roleParams(String role) {
-        return OrgMemberChangeRoleParamsBO.builder().orgId(1L).operatorUserId(10L).memberId(2L).orgRole(role).build();
+        return OrgMemberChangeRoleParamsBO.builder().orgId(1L).operatorUserId(10L).memberId(2L).orgRole(online.longlian.app.common.enumeration.OrganizationRole.fromValue(role)).build();
     }
 
     private OrgMemberChangeStatusParamsBO statusParams(Status status) {

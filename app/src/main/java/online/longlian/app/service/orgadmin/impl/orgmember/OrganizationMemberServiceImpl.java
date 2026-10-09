@@ -116,10 +116,10 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         changeMemberUnderLock(params.getOrgId(), () -> {
             validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
             OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-            if (isDemotingEnabledAdmin(member, params.getOrgRole())) {
+            if (isDemotingEnabledAdmin(member, params.getOrgRole().name())) {
                 validateNotLastEnabledAdmin(params.getOrgId());
             }
-            updateMemberRole(member.getId(), params.getOrgRole());
+            updateMemberRole(member.getId(), params.getOrgRole().name());
         });
     }
 
