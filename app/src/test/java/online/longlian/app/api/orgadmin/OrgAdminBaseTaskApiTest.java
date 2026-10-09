@@ -281,6 +281,23 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldFailChangingAnotherOrganizationsBaseTaskStatusWithoutMutatingIt() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "其他组织");
+        String token = loginAs("orgadmin", "123456");
+        insertBaseTask(1L, 2L, "其他组织任务");
+
+        authRequest(token).body(Map.of("status", "DISABLED"))
+                .patch("/orgadmin/task/base/1/status")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+
+        org.assertj.core.api.Assertions.assertThat(
+                jdbcTemplate.queryForObject("SELECT status FROM base_task WHERE id = 1", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
     void shouldFailDeleteBaseTaskWithoutAuth() {
         request().delete("/orgadmin/task/base/1")
                 .then().statusCode(200)

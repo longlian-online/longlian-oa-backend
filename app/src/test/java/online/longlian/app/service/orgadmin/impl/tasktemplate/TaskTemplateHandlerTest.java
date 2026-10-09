@@ -1,4 +1,4 @@
-package online.longlian.app.service.app.impl.projectworkshop;
+package online.longlian.app.service.orgadmin.impl.tasktemplate;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -6,15 +6,13 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.BaseTaskMapper;
-import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
-import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.TaskTemplate;
-import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,75 +25,45 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class WorkshopProjectHandlerTest {
+class TaskTemplateHandlerTest {
 
-    @Mock
-    private ProjectTypeMapper projectTypeMapper;
-    @Mock
-    private BaseTaskMapper baseTaskMapper;
     @Mock
     private TaskTemplateMapper taskTemplateMapper;
     @Mock
+    private BaseTaskMapper baseTaskMapper;
+    @Mock
     private TaskTemplateNodeMapper taskTemplateNodeMapper;
 
-    private WorkshopProjectHandler handler;
+    private TaskTemplateHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new WorkshopProjectHandler(
-                projectTypeMapper, taskTemplateMapper, baseTaskMapper, taskTemplateNodeMapper, Clock.systemUTC());
-    }
-
-    @Test
-    void resolveTypeId_blankProjectType_returnsNoFilter() {
-        assertThat(handler.resolveTypeId(1L, "  ")).isNull();
-
-        verify(projectTypeMapper, never()).selectOne(any());
-    }
-
-    @Test
-    void resolveTypeId_enabledProjectType_returnsTypeId() {
-        when(projectTypeMapper.selectOne(any())).thenReturn(ProjectType.builder().id(10L).build());
-
-        assertThat(handler.resolveTypeId(1L, "  漫画  ")).isEqualTo(10L);
-    }
-
-    @Test
-    void resolveTypeId_unknownOrDisabledProjectType_throwsParameterError() {
-        when(projectTypeMapper.selectOne(any())).thenReturn(null);
-
-        assertThatThrownBy(() -> handler.resolveTypeId(1L, "不存在的类型"))
-                .isInstanceOfSatisfying(AppException.class,
-                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
-    }
-
-    @Test
-    void updateWorkshopTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
         MybatisConfiguration configuration = new MybatisConfiguration();
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), TaskTemplate.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), BaseTask.class);
+        handler = new TaskTemplateHandler(
+                taskTemplateMapper, baseTaskMapper, taskTemplateNodeMapper, Clock.systemUTC());
+    }
+
+    @Test
+    void updateTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
         when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
                 .id(8L)
-                .scope(TaskTemplateScope.PERSONAL)
-                .creatorId(3L)
+                .orgId(1L)
+                .status(Status.ENABLED)
                 .build());
         when(baseTaskMapper.selectOne(any())).thenReturn(null);
 
-        assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
+        assertThatThrownBy(() -> handler.updateTaskTemplate(TaskTemplateUpdateParamsBO.builder()
                 .templateId(8L)
                 .orgId(1L)
-                .userId(3L)
                 .name("修订模板")
                 .description("说明")
-                .nodes(List.of(
-                        node(20L, 1),
-                        node(10L, 2)))
+                .nodes(List.of(node(20L, 1), node(10L, 2)))
                 .build()))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
@@ -106,8 +74,8 @@ class WorkshopProjectHandlerTest {
         verifyNoInteractions(taskTemplateNodeMapper);
     }
 
-    private static WorkshopTaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {
-        return WorkshopTaskTemplateNodeCreateParamsBO.builder()
+    private static TaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {
+        return TaskTemplateNodeCreateParamsBO.builder()
                 .baseTaskId(baseTaskId)
                 .sort(sort)
                 .parallelSort(1)
