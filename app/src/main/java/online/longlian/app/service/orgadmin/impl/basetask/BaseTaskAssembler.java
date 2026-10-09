@@ -7,6 +7,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -20,6 +21,7 @@ public class BaseTaskAssembler {
 
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final ResourceService resourceService;
+    private final TaskFormService taskFormService;
 
     public List<BaseTaskListResultBO> assembleBaseTaskList(List<BaseTask> tasks) {
         if (tasks.isEmpty()) {
@@ -55,7 +57,7 @@ public class BaseTaskAssembler {
                         .description(task.getDescription())
                         .iconUrl(task.getIconFileId() != null ? iconUrlMap.get(task.getIconFileId()) : null)
                         .iconName(task.getIconName())
-                        .metaSchema(task.getMetaSchema())
+                        .submitFields(taskFormService.parseFields(task.getMetaSchema()))
                         .refCount(refCountMap.getOrDefault(task.getId(), 0L).intValue())
                         .status(task.getStatus())
                         .createdAt(task.getCreatedAt())

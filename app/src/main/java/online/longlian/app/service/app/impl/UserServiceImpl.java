@@ -19,6 +19,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
@@ -30,19 +31,25 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.UserService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -62,9 +69,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final GroupApplicationMapper groupApplicationMapper;
     private final ResourceService resourceService;
     private final UserMapper userMapper;
-    private final CurrentOrganizationService currentOrganizationService;
+    private final OrganizationMembershipService organizationMembershipService;
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
+    private final SessionService sessionService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -86,9 +95,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
 
-        user.setPassword(passwordEncoder.encode(params.getPassword()));
-        userMapper.updateById(user);
+        replacePassword(user, passwordEncoder.encode(params.getPassword()));
+        clearSessionAfterCommit(user.getId());
         emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changePassword(UserChangePasswordParamsBO params) {
+        User user = userMapper.selectById(params.getUserId());
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        if (!passwordEncoder.matches(params.getOldPassword(), user.getPassword())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "原密码错误");
+        }
+
+        replacePassword(user, passwordEncoder.encode(params.getNewPassword()));
+        clearSessionAfterCommit(user.getId());
+    }
+
+    private void clearSessionAfterCommit(Long userId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sessionService.clearUserSessionCache(userId);
+            }
+        });
     }
 
     @Override
@@ -157,6 +190,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getAvatarFileId())
                 .replacedResourceId(oldAvatarFileId)
+                .bizType("avatar")
                 .bizId(params.getUserId())
                 .creatorId(params.getUserId())
                 .build());
@@ -164,17 +198,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params) {
-        currentOrganizationService.switchCurrentOrg(params.getUserId(), params.getOrgId());
+        OrganizationMember member = organizationMembershipService.requireEnabledMember(
+                params.getUserId(), params.getOrgId());
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, params.getUserId())
+                .set(User::getDefaultOrgId, params.getOrgId()));
 
         Organization organization = organizationMapper.selectById(params.getOrgId());
-        OrganizationMember organizationMember = organizationMemberMapper.selectOne(
-                new LambdaQueryWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getUserId, params.getUserId())
-                        .eq(OrganizationMember::getOrgId, params.getOrgId())
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)
-                        .last("LIMIT 1")
-        );
-
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
             avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
@@ -184,9 +214,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .roles(organizationMember == null || organizationMember.getOrgRole() == null
-                        ? List.of()
-                        : List.of(organizationMember.getOrgRole()))
+                .role(StringUtils.hasText(member.getOrgRole()) ? member.getOrgRole() : null)
                 .build();
     }
 
@@ -388,6 +416,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "组织已被禁用");
         }
         return organization;
+    }
+
+    private void replacePassword(User user, String encodedPassword) {
+        user.setPassword(encodedPassword);
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, user.getId())
+                .set(User::getPassword, encodedPassword));
+        // 密码一变，此前签发的 token 全部作废；黑名单是鉴权链上的统一校验入口
+        tokenBlacklistService.blacklistAllUserTokens(TokenType.User, user.getId(), "密码变更");
     }
 
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {

@@ -11,6 +11,9 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
+import online.longlian.app.service.common.TaskFormService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Component;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 任务实例状态流转的处理器。
@@ -33,6 +37,8 @@ public class TaskInstanceCommandHandler {
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final MemberSubmitCountHandler memberSubmitCountHandler;
     private final Clock clock;
+    private final TaskFormService taskFormService;
+    private final ResourceService resourceService;
 
     /**
      * 接取任务：PENDING -> CLAIMED，归属操作人。
@@ -75,11 +81,25 @@ public class TaskInstanceCommandHandler {
     /**
      * 提交任务：CLAIMED -> COMPLETED，生成提交记录并累加成员提交计数。
      */
-    public void submit(TaskInstance instance, Long userId, String metadata) {
+    public void submit(TaskInstance instance, Long userId, Long orgId, Map<String, Object> values) {
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
         }
         requireAssignee(instance, userId, "仅接取人可提交任务");
+
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
+        }
+        TaskFormService.ValidatedValues validated = taskFormService.validateValues(
+                taskFormService.parseFields(node.getMetaSchema()), values);
+        resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
+                .resourceIds(validated.resourceIds())
+                .bizType("task_submit")
+                .bizId(instance.getId())
+                .orgId(orgId)
+                .creatorId(userId)
+                .build());
 
         LocalDateTime now = LocalDateTime.now(clock);
 
@@ -100,7 +120,7 @@ public class TaskInstanceCommandHandler {
                 .taskInstanceId(instance.getId())
                 .itemTaskNodeId(instance.getItemTaskNodeId())
                 .submitterId(userId)
-                .metadata(metadata)
+                .metadata(validated.serialize())
                 .status(TaskSubmissionStatus.SUBMITTED)
                 .createdAt(now)
                 .updatedAt(now)

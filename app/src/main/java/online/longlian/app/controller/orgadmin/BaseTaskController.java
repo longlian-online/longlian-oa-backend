@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -43,7 +44,7 @@ public class BaseTaskController {
     @PostMapping("/list")
     @ResponseMessage("查询成功")
     public PageResultVO<BaseTaskVO> listBaseTasks(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid BaseTaskListDTO baseTaskListDTO) {
         PageResultBO<BaseTaskListResultBO> resultBO = baseTaskService.listBaseTasks(
                 BaseTaskListParamsBO.builder()
@@ -69,11 +70,11 @@ public class BaseTaskController {
 
     @Operation(
         summary = "创建原子任务",
-        description = "任务创建后不可编辑，请确认标题、图标、简介和元数据字段定义后提交"
+        description = "任务创建后不可编辑，请确认标题、图标、简介和提交字段定义后提交"
     )
     @PostMapping
     @ResponseMessage("创建成功")
-    public void createBaseTask(@UserSession(required = true) SessionContext sessionContext,
+    public void createBaseTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                 @RequestBody @Valid BaseTaskCreateDTO baseTaskCreateDTO) {
         baseTaskService.createBaseTask(
                 BaseTaskCreateParamsBO.builder()
@@ -83,7 +84,7 @@ public class BaseTaskController {
                         .description(baseTaskCreateDTO.getDescription())
                         .iconFileId(baseTaskCreateDTO.getIconFileId())
                         .iconName(baseTaskCreateDTO.getIconName())
-                        .metaSchema(baseTaskCreateDTO.getMetaSchema())
+                        .submitFields(baseTaskCreateDTO.getSubmitFields())
                         .build()
         );
     }
@@ -94,7 +95,7 @@ public class BaseTaskController {
     )
     @PatchMapping("/{taskId}/status")
     @ResponseMessage("状态修改成功")
-    public void changeBaseTaskStatus(@UserSession(required = true) SessionContext sessionContext,
+    public void changeBaseTaskStatus(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                               @PathVariable Long taskId,
                                               @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         baseTaskService.changeBaseTaskStatus(

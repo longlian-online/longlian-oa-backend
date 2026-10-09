@@ -4,21 +4,25 @@
 # 一键运行：
 #   docker compose -f devops/docker-compose.test.yml up --build --exit-code-from test-runner
 #
-# 包含：MySQL 8.0 + Redis 7-Alpine + Maven 测试执行器
+# 包含：MariaDB 10.11 + Redis 7-Alpine + Maven 测试执行器
 # ============================================================
 
 services:
-  mysql-test:
-    image: mysql:8.0
-    container_name: longlian-oa-mysql-test
+  mariadb-test:
+    image: mariadb:10.11.19
+    container_name: longlian-oa-mariadb-test
     environment:
-      MYSQL_ROOT_PASSWORD: testpass
-      MYSQL_DATABASE: longlian_oa_test
-    command: --default-authentication-plugin=mysql_native_password
+      MARIADB_ROOT_PASSWORD: testpass
+      MARIADB_DATABASE: longlian_oa_test
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_520_ci
+      - --default-time-zone=+08:00
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 3s
       timeout: 5s
       retries: 10
@@ -41,7 +45,7 @@ services:
     image: maven:3.9-eclipse-temurin-21
     container_name: longlian-oa-test-runner
     depends_on:
-      mysql-test:
+      mariadb-test:
         condition: service_healthy
       redis-test:
         condition: service_healthy

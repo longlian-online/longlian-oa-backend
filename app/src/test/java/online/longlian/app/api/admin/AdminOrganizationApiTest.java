@@ -177,7 +177,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldFailChangeOrgStatusWithUserToken() {
         createUserWithOrganization(30L, "regularuser", "123456", "regular@example.com",
-                30L, 30L, "MEMBER");
+                30L, 30L, "ORG_USER");
         String userToken = loginAs("regularuser", "123456");
         createOrganization(31L, "目标组织");
 
@@ -187,7 +187,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(403)
+                .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 

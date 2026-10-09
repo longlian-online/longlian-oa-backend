@@ -6,6 +6,7 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.api.util.DatabaseCleanupUtil;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
@@ -52,6 +53,12 @@ public abstract class BaseApiTest {
     @Autowired
     protected PasswordEncoder passwordEncoder;
 
+    private Long requestOrgId;
+
+    protected void useRequestOrg(long orgId) {
+        this.requestOrgId = orgId;
+    }
+
     @BeforeAll
     void baseBeforeAll() {
         log.info("=== 开始测试数据库初始化 ===");
@@ -79,6 +86,7 @@ public abstract class BaseApiTest {
 
     @BeforeEach
     void baseSetUp() {
+        requestOrgId = null;
         try {
             RestAssured.port = port;
             RestAssured.baseURI = "http://localhost";
@@ -178,6 +186,7 @@ public abstract class BaseApiTest {
         createTestUser(userId, username, password, email);
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", orgId, userId);
         createOrganizationMember(orgMemberId, orgId, userId, orgRole);
+        useRequestOrg(orgId);
     }
 
     /**
@@ -188,12 +197,25 @@ public abstract class BaseApiTest {
     }
 
     /**
-     * 创建带 Bearer Token 认证头的请求规范
+     * 只带登录令牌，不声明组织。用户级接口用这个。
+     */
+    protected RequestSpecification userRequest(String token) {
+        return request().header("Authorization", "Bearer " + token);
+    }
+
+    /**
+     * 带登录令牌；若当前用例通过 {@link #useRequestOrg(long)} 指定了组织，则附带 X-Org-Id。
      */
     protected RequestSpecification authRequest(String token) {
-        return given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token);
+        RequestSpecification spec = userRequest(token);
+        if (requestOrgId != null) {
+            spec.header(OrganizationScopeInterceptor.ORG_ID_HEADER, Long.toString(requestOrgId));
+        }
+        return spec;
+    }
+
+    protected RequestSpecification authRequest(String token, long orgId) {
+        return userRequest(token).header(OrganizationScopeInterceptor.ORG_ID_HEADER, Long.toString(orgId));
     }
 
     protected String createRootAdmin() {

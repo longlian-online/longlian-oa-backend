@@ -9,12 +9,14 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
@@ -37,6 +39,7 @@ public class EmailVerifyService implements OTPStrategyService {
 
     private final OneTimePasswordService oneTimePasswordService;
     private final EmailVerifyOtpMapper emailVerifyOtpMapper;
+    private final UserMapper userMapper;
     private final EmailVerifyCodeAsyncSender emailVerifyCodeAsyncSender;
     private final Clock clock;
 
@@ -52,6 +55,10 @@ public class EmailVerifyService implements OTPStrategyService {
         EmailVerifyBusinessType businessType = otpGenerateContextBO.getBusinessType();
         if (!isValidEmail(receiver)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱格式不合法");
+        }
+        if (businessType == EmailVerifyBusinessType.REGISTER && userMapper.selectCount(
+                new LambdaQueryWrapper<User>().eq(User::getEmail, receiver)) > 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
         }
 
         // 限制60s内发送验证码
@@ -117,21 +124,14 @@ public class EmailVerifyService implements OTPStrategyService {
         oneTimePasswordService.useOTP(otpUseContextBO.getOtpId());
     }
 
-    /**
-     * 如果当前在事务中则注册回调等待提交后发送，否则直接发送。
-     * 保证 OTP 记录已持久化再发邮件。
-     */
+    /** 事务提交后再发送，保证邮件中的验证码已经持久化。 */
     private void sendAfterCommit(Long emailVerifyOtpId, String receiver, String code) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    emailVerifyCodeAsyncSender.send(emailVerifyOtpId, receiver, code);
-                }
-            });
-            return;
-        }
-        emailVerifyCodeAsyncSender.send(emailVerifyOtpId, receiver, code);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                emailVerifyCodeAsyncSender.send(emailVerifyOtpId, receiver, code);
+            }
+        });
     }
 
     private boolean isValidEmail(String email) {

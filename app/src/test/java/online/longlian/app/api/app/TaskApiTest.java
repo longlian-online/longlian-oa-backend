@@ -186,7 +186,14 @@ public class TaskApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0))
-                .body("data", notNullValue());
+                .body("data.task.id", equalTo("1"))
+                .body("data.task.name", equalTo("节点1"))
+                .body("data.task.stage", equalTo(1))
+                .body("data.task.status", equalTo("PENDING"))
+                .body("data.submission.state", equalTo("not_submitted"))
+                .body("data.submission.fields", empty())
+                .body("data", not(hasKey("metadata")))
+                .body("data", not(hasKey("metaSchema")));
     }
 
     /**
@@ -331,7 +338,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         Response response = authRequest(token)
-                .body(Map.of("metadata", "{}"))
+                .body(Map.of("values", Map.of()))
                 .post("/app/task/instance/1/submit");
 
         response
@@ -346,7 +353,7 @@ public class TaskApiTest extends BaseApiTest {
     @Test
     void shouldFailSubmitTaskWithoutAuth() {
         Response response = request()
-                .body(Map.of("metadata", "{}"))
+                .body(Map.of("values", Map.of()))
                 .post("/app/task/instance/1/submit");
 
         response
@@ -439,7 +446,6 @@ public class TaskApiTest extends BaseApiTest {
     void shouldRejectTaskSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "reviewer", "123456", "reviewer@example.com");
-        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
         createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
         String token = loginAs("reviewer", "123456");
 
@@ -702,7 +708,7 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
-                .body(Map.of("metadata", "{}"))
+                .body(Map.of("values", Map.of()))
                 .post("/app/task/instance/99999/submit");
 
         response
@@ -905,7 +911,7 @@ public class TaskApiTest extends BaseApiTest {
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/claim"));
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/abandon"));
         assertTaskNotFound(authRequest(token)
-                .body(Map.of("metadata", "{}"))
+                .body(Map.of("values", Map.of()))
                 .post("/app/task/instance/1/submit"));
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/reset"));
         assertTaskNotFound(authRequest(token)

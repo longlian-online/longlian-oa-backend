@@ -37,7 +37,7 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
 
         // 设置响应状态和头
         response.setContentType(CommonConstants.CONTENT_TYPE);
-        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setStatus(HttpStatus.OK.value());
 
         // 封装统一返回
         Result<Void> result = Result.fail(ResultCode.UNAUTHORIZED_OPERATION);

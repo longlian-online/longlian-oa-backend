@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>验证码通知</title>
+    <title>LongLian-OA 邮箱验证码</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,7 +26,7 @@
             border-bottom: 1px solid #eeeeee;
         }
         .header img {
-            max-width: 300px;
+            max-width: 96px;
             height: auto;
         }
         .content {
@@ -48,29 +48,22 @@
             padding-top: 20px;
             border-top: 1px solid #eeeeee;
         }
-        .footer a {
-            color: #3498db;
-            text-decoration: none;
-        }
     </style>
 </head>
 <body>
 <div class="email-container">
     <div class="header">
-        <h3>验证码通知</h3>
-        <img src="https://cdn.casbin.org/img/casdoor-logo_1185x256.png" alt="Logo" width="300">
+        <h3>LongLian-OA 邮箱验证码</h3>
+        <img src="https://longlian-oa-sit-1308050490.cos.ap-guangzhou.myqcloud.com/logo.jpg" alt="龙联 OA Logo" width="96" height="96">
     </div>
     <div class="content">
         <p>尊敬的${receiver}，您好！</p>
         <p>您的验证码如下，有效期5分钟，请尽快使用：</p>
         <div class="code">${code}</div>
         <p>感谢您的使用！</p>
-        <p>技术支持团队</p>
     </div>
-    <hr style="border: none; border-top: 1px solid #eeeeee;">
     <div class="footer">
-        <p>本邮件由系统自动发送，请勿回复。如有疑问，请联系客服。</p>
-        <p>更多信息请访问 <a href="https://your-domain.com">https://your-domain.com</a></p>
+        <p>本邮件由 LongLian-OA 自动发送，请勿回复。</p>
     </div>
 </div>
 </body>

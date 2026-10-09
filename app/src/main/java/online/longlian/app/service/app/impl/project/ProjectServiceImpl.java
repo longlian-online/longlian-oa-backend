@@ -161,6 +161,7 @@ public class ProjectServiceImpl implements ProjectService {
         projectMapper.insert(project);
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getCoverFileId())
+                .bizType("cover")
                 .bizId(project.getId())
                 .creatorId(params.getCreatorId())
                 .orgId(params.getOrgId())
@@ -193,6 +194,7 @@ public class ProjectServiceImpl implements ProjectService {
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getCoverFileId())
                 .replacedResourceId(project.getCoverFileId())
+                .bizType("cover")
                 .bizId(params.getProjectId())
                 .creatorId(params.getUserId())
                 .orgId(params.getOrgId())
@@ -212,8 +214,10 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params) {
-        getVisibleProject(params.getProjectId(), params.getOrgId());
-
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
+        if (project.getCreatorId().equals(params.getUserId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "企划负责人不能退出企划");
+        }
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())

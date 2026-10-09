@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import java.util.List;
 
 @Data
 @Builder
@@ -16,5 +18,5 @@ public class BaseTaskCreateParamsBO {
     private String description;
     private Long iconFileId;
     private String iconName;
-    private String metaSchema;
+    private List<TaskFormField> submitFields;
 }

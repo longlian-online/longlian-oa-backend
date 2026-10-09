@@ -4,6 +4,8 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import java.util.List;
 
 @Data
 @Schema(description = "任务模板节点信息")
@@ -26,8 +28,8 @@ public class TaskTemplateNodeVO {
     @Schema(description = "原子任务 Lucide 图标组件名")
     private String baseTaskIconName;
 
-    @Schema(description = "元数据字段定义(JSON数组)")
-    private String metaSchema;
+    @Schema(description = "提交表单字段")
+    private List<TaskFormField> submitFields;
 
     @Schema(
         description = "步骤顺序（相同 sort 值表示并行节点）"

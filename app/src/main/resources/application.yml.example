@@ -8,8 +8,8 @@
 #
 # 重要：
 #   - application.yml 已被 gitignore，禁止提交（避免把密钥、内网地址推上去）
-#   - 本模板面向「应用跑在宿主机、MySQL/Redis 由 task dev 映射到本机端口」
-#     MySQL = localhost:10001，Redis = localhost:10002
+#   - 本模板面向「应用跑在宿主机、MariaDB/Redis 由 task dev 映射到本机端口」
+#     MariaDB = localhost:10001，Redis = localhost:10002
 #   - Docker 一键开发环境（task dev）挂载本文件，并用 SPRING_DATASOURCE_URL /
 #     SPRING_DATA_REDIS_* 覆盖为 compose 服务名
 #   - 生产/预发把改好的 YAML 挂到容器工作目录的 config/application.yml
@@ -26,8 +26,8 @@ longlian:
   # 对外部署地址；用于 OpenAPI 文档及需生成绝对地址的业务代码。
   server-url: http://localhost:10003
   datasource:
-    # mysql | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
-    type: mysql
+    # mariadb | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
+    type: mariadb
   cache:
     # redis | local。local 仅适合单机，多实例必须 redis
     type: redis
@@ -45,9 +45,9 @@ spring:
     # 优雅停机等待上限，需大于最慢接口的可接受耗时
     timeout-per-shutdown-phase: 30s
 
-  # MySQL。仅 longlian.datasource.type=mysql 时生效
+  # MariaDB。仅 longlian.datasource.type=mariadb 时生效
   datasource:
-    url: jdbc:mysql://localhost:10001/longlian_oa_dev?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mariadb://localhost:10001/longlian_oa_dev?sslMode=disable&timezone=+08:00
     username: root
     password: dev
 

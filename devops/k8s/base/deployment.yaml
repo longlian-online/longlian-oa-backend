@@ -1,0 +1,128 @@
+# =============================================================================
+# longlian-oa 应用 Deployment
+#
+# 与 docker-compose.prod.yml 中 longlian-oa 服务等价：
+#   - 配置：Secret longlian-oa-config 挂载为 /app/config/application.yml
+#   - 存储：PVC storage-pvc 挂载为 /app/data/storage（storage.type=LOCAL 时）
+#
+# 副本数：
+#   - 默认 1（LOCAL 存储 + ReadWriteOnce PVC 只能挂一个节点）。
+#   - 多副本前先做存储改造（OSS/COS 或 RWX 卷，见 storage.yaml），
+#     再上调 replicas；缓存配置 longlian.cache.type=redis 已支持多实例。
+#
+# 探针：
+#   - /actuator/health 不在 SecurityConstants 免鉴权白名单内，会返回 401，
+#     因此用 TCP 探针探测 8080 端口（Tomcat 监听后即视为就绪）。
+#     若后续放开 actuator 的 health 访问，可改为 HTTP 探针。
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: longlian-oa
+  namespace: longlian-oa
+  labels:
+    app: longlian-oa
+spec:
+  replicas: 1
+  strategy:
+    # 滚动更新：先起新 Pod 再撤旧 Pod，避免单副本期间出现空窗
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: longlian-oa
+  template:
+    metadata:
+      labels:
+        app: longlian-oa
+    spec:
+      # 大于应用优雅停机上限（lifecycle.timeout-per-shutdown-phase: 30s），
+      # 留出 SIGTERM 后等待存量请求结束的时间
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        # kubelet 校验 runAsNonRoot 要求数字 UID；镜像 USER 是 appuser
+        # （eclipse-temurin alpine: uid=100 gid=101，见 devops/Dockerfile）
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        # storage-pvc 首次挂载时已被 chown 为 GID 100（setgid）。
+        # fsGroup 必须与卷上已有 GID 一致，否则滚动更新会报
+        # "requested fsGroup is 101, but the volume has GID 100"。
+        # 该 GID 会作为补充组注入容器，进程即可写 PVC。
+        fsGroup: 100
+      containers:
+        - name: longlian-oa
+          # 发布版本对应镜像 tag：v1.2.3 → :1.2.3；非预发布同时打 :latest
+          # （见 .github/workflows/publish-docker.yml，推送到 docker.cnb.cool）
+          image: docker.cnb.cool/longlian.online/longlian-oa-backend:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            # 与 docker-compose.prod.yml 一致：日志直写 VictoriaLogs，不导出 trace/metric
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/app/opentelemetry-javaagent.jar"
+            - name: OTEL_SERVICE_NAME
+              value: longlian-oa
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=prod
+            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+              value: http://victorialogs:9428/insert/opentelemetry/v1/logs
+            - name: OTEL_EXPORTER_OTLP_LOGS_PROTOCOL
+              value: http/protobuf
+            - name: OTEL_LOGS_EXPORTER
+              value: otlp
+            - name: OTEL_TRACES_EXPORTER
+              value: none
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config/application.yml
+              subPath: application-prod.yml
+              readOnly: true
+            - name: storage
+              mountPath: /app/data/storage
+          startupProbe:
+            # Spring Boot + Druid 冷启动较慢（含 DB/Redis 连接初始化），
+            # 5s × 40 = 200s 启动预算；成功后探针自动失效
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            # 与镜像默认 JVM 参数（-Xms256m -Xmx512m）配套；
+            # 增大副本或并发前先评估 heap 设置（可用 JAVA_OPTS 覆盖）
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: app-config
+          secret:
+            secretName: longlian-oa-config
+            items:
+              - key: application-prod.yml
+                path: application-prod.yml
+        - name: storage
+          persistentVolumeClaim:
+            claimName: storage-pvc

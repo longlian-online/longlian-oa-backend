@@ -5,7 +5,10 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
@@ -14,23 +17,50 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
     // ========== 成功路径 ==========
 
-    /**
-     * 分页查询原子任务列表成功
-     */
     @Test
-    void shouldListBaseTasksSuccessfully() {
+    void shouldListEnabledAndDisabledBaseTasksWhenStatusIsOmitted() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createBaseTasksForStatusFiltering();
         String token = loginAs("orgadmin", "123456");
 
-        Response response = authRequest(token)
+        authRequest(token)
                 .body(Map.of("pageNum", 1, "pageSize", 10))
-                .post("/orgadmin/task/base/list");
-
-        response.then()
+                .post("/orgadmin/task/base/list")
+                .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.list", notNullValue())
-                .body("data.total", notNullValue());
+                .body("data.total", equalTo(2))
+                .body("data.list.id", containsInAnyOrder("1", "2"))
+                .body("data.list.status", containsInAnyOrder("ENABLED", "DISABLED"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ENABLED, 1", "DISABLED, 2"})
+    void shouldListOnlyBaseTasksMatchingExplicitStatus(String status, String expectedId) {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createBaseTasksForStatusFiltering();
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "status", status))
+                .post("/orgadmin/task/base/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list.id", contains(expectedId))
+                .body("data.list.status", contains(status));
+    }
+
+    private void createBaseTasksForStatusFiltering() {
+        createOrganization(2L, "其他组织");
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, status, creator_id, meta_schema, deleted_at) VALUES " +
+                        "(1, 1, '启用任务', 1, 1, '[]', NULL), " +
+                        "(2, 1, '禁用任务', 0, 1, '[]', NULL), " +
+                        "(3, 2, '其他组织任务', 0, 1, '[]', NULL), " +
+                        "(4, 1, '已删除任务', 0, 1, '[]', NOW())"
+        );
     }
 
     /**
@@ -50,7 +80,11 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                         "description", "这是一个测试用的原子任务",
                         "iconFileId", 12345L,
                         "iconName", "Languages",
-                        "metaSchema", "[]"
+                        "submitFields", List.of(
+                                Map.of("key", "summary", "label", "摘要", "type", "text",
+                                        "required", true, "options", List.of()),
+                                Map.of("key", "category", "label", "分类", "type", "select",
+                                        "required", false, "options", List.of("设计", "开发")))
                 ))
                 .post("/orgadmin/task/base");
 
@@ -65,7 +99,14 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list", hasSize(1))
-                .body("data.list[0].iconName", equalTo("Languages"));
+                .body("data.list[0].iconName", equalTo("Languages"))
+                .body("data.list[0].submitFields.key", contains("summary", "category"))
+                .body("data.list[0].submitFields.label", contains("摘要", "分类"))
+                .body("data.list[0].submitFields.type", contains("text", "select"))
+                .body("data.list[0].submitFields.required", contains(true, false))
+                .body("data.list[0].submitFields[0].options", empty())
+                .body("data.list[0].submitFields[1].options", contains("设计", "开发"))
+                .body("data.list[0]", not(hasKey("metaSchema")));
     }
 
     /**
@@ -79,7 +120,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         Response response = authRequest(token)
                 .body(Map.of(
                         "name", "测试任务",
-                        "iconName", "a".repeat(101)
+                        "iconName", "a".repeat(101),
+                        "submitFields", List.of()
                 ))
                 .post("/orgadmin/task/base");
 
@@ -100,7 +142,8 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         Response response = authRequest(token)
                 .body(Map.of(
                         "name", "测试任务",
-                        "description", longDesc
+                        "description", longDesc,
+                        "submitFields", List.of()
                 ))
                 .post("/orgadmin/task/base");
 
@@ -153,6 +196,16 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/task/base/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list[0].id", equalTo("1"))
+                .body("data.list[0].status", equalTo("DISABLED"));
     }
 
     // ========== 认证失败 ==========
@@ -210,7 +263,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
-                .body(Map.of("name", ""))
+                .body(Map.of("name", "", "submitFields", List.of()))
                 .post("/orgadmin/task/base");
 
         response.then()
@@ -228,7 +281,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
         String longName = "a".repeat(101);
         Response response = authRequest(token)
-                .body(Map.of("name", longName))
+                .body(Map.of("name", longName, "submitFields", List.of()))
                 .post("/orgadmin/task/base");
 
         response.then()
@@ -372,7 +425,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailListBaseTasksWithoutAdminRole() {
-        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "MEMBER");
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("regular", "123456");
 
         Response response = authRequest(token)
@@ -382,5 +435,33 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void shouldRejectInvalidSubmitFieldDefinitions() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        Map<String, Object> text = Map.of("key", "summary", "label", "摘要", "type", "text",
+                "required", false, "options", List.of());
+        List<List<Map<String, Object>>> invalidFields = List.of(
+                List.of(text, text),
+                List.of(Map.of("key", "summary", "label", "摘要", "type", "unknown",
+                        "required", false, "options", List.of())),
+                List.of(Map.of("key", "category", "label", "分类", "type", "select",
+                        "required", false, "options", List.of())),
+                List.of(Map.of("key", "summary", "label", "摘要", "type", "text",
+                        "required", false, "options", List.of("不适用"))),
+                List.of(Map.of("key", "category", "label", "分类", "type", "select",
+                        "required", true, "options", List.of("重复", "重复"))));
+
+        for (List<Map<String, Object>> fields : invalidFields) {
+            authRequest(token).body(Map.of("name", "测试任务", "submitFields", fields))
+                    .post("/orgadmin/task/base").then().statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        }
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/task/base/list").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", empty());
     }
 }

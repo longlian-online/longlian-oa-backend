@@ -10,6 +10,7 @@ import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
@@ -47,7 +48,7 @@ public class FileStorageController {
     @PostMapping("/upload")
     @ResponseMessage("获取成功")
     public ResourceCreateVO createFileUpload(@RequestBody @Valid CreateFileReqDTO createFileReqDTO,
-                                             @UserSession SessionContext sessionContext) {
+                                             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
         ResourceCreateParamsBO params = new ResourceCreateParamsBO(
                 sessionContext.userId(),
                 sessionContext.orgId(),
@@ -65,6 +66,7 @@ public class FileStorageController {
         description = "客户端使用预签名 URL 直传文件内容到本地存储，需校验上传者身份与文件大小"
     )
     @PutMapping("/local")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("上传成功")
     public void uploadLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
                                 HttpServletRequest request) {
@@ -83,6 +85,7 @@ public class FileStorageController {
         description = "通过带有效期和签名的链接读取文件，裸 key 不可读取"
     )
     @NotWrap
+    @UserSession(OrganizationDeclaration.NONE)
     @GetMapping(value = "/local", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
                                                   @RequestParam(value = "t", required = false) Long cdnTimestamp) {

@@ -129,8 +129,7 @@ public class ItemServiceImpl implements ItemService {
                 .build();
         itemTaskFlowMapper.insert(flow);
 
-        for (int i = 0; i < templateNodes.size(); i++) {
-            TaskTemplateNode templateNode = templateNodes.get(i);
+        for (TaskTemplateNode templateNode : templateNodes) {
             BaseTask baseTask = baseTaskMap.get(templateNode.getBaseTaskId());
             ItemTaskNode node = ItemTaskNode.builder()
                     .itemTaskFlowId(flow.getId())
@@ -146,14 +145,13 @@ public class ItemServiceImpl implements ItemService {
                     .build();
             itemTaskNodeMapper.insert(node);
 
-            boolean isFirstNode = i == 0;
             TaskInstance instance = TaskInstance.builder()
                     .projectId(params.getProjectId())
                     .itemId(item.getId())
                     .itemTaskNodeId(node.getId())
                     .taskFlowId(flow.getId())
-                    .status(isFirstNode ? TaskInstanceStatus.CLAIMED : TaskInstanceStatus.PENDING)
-                    .assigneeId(isFirstNode ? params.getCreatorId() : null)
+                    .status(TaskInstanceStatus.PENDING)
+                    .assigneeId(null)
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
@@ -200,6 +198,18 @@ public class ItemServiceImpl implements ItemService {
         }
         if (item.getStatus() == ItemStatus.PUBLISHED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
+        }
+
+        // 锁定任务直到发布事务提交，避免校验后被并发重置或打回。
+        List<TaskInstance> instances = taskInstanceMapper.selectList(
+                new LambdaQueryWrapper<TaskInstance>()
+                        .select(TaskInstance::getStatus)
+                        .eq(TaskInstance::getItemId, params.getItemId())
+                        .orderByAsc(TaskInstance::getId)
+                        .last("FOR UPDATE"));
+        if (instances.isEmpty() || instances.stream().anyMatch(
+                instance -> instance.getStatus() != TaskInstanceStatus.COMPLETED)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目中所有任务完成后才能发布");
         }
 
         int updated = itemMapper.update(null,

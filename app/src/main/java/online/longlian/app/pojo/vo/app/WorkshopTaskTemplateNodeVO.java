@@ -5,7 +5,7 @@ import lombok.Data;
 import online.longlian.app.common.annotation.JsonLongIdString;
 
 @Data
-@Schema(description = "工坊任务流模板节点信息（卡片简化版，不含 metaSchema）")
+@Schema(description = "工坊任务流模板节点信息（卡片简化版）")
 public class WorkshopTaskTemplateNodeVO {
 
     @JsonLongIdString

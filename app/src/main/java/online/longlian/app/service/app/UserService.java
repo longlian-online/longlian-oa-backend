@@ -7,6 +7,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
@@ -23,8 +24,8 @@ import java.util.List;
  *   <li><b>注册 + 加入组织</b>：新用户通过邀请码注册后提交加入1申请（生成
  *       {@link online.longlian.app.pojo.entity.GroupApplication} 待管理员审核）</li>
  *   <li><b>已有用户加入组织</b>：已注册用户通过邀请码提交加入申请</li>
- *   <li><b>组织切换</b>：在多组织间切换当前活跃组织，切换结果通过
- *       {@link online.longlian.app.service.common.CurrentOrganizationService} 持久化</li>
+ *   <li><b>默认组织</b>：把指定组织记为用户的 {@code default_org_id}，
+ *       不改变其他请求的组织作用域</li>
  *   <li><b>我的组织列表</b>：查询用户已加入的所有启用状态组织，含组织头像 URL</li>
  *   <li><b>个人信息更新</b>：更新昵称、头像等个人资料</li>
  * </ol>
@@ -40,6 +41,13 @@ public interface UserService extends IService<User> {
      * @param params 包含邮箱、验证码和新密码的重置参数
      */
     void resetPassword(UserResetPasswordParamsBO params);
+    /**
+     * 使用当前密码修改登录密码。
+     *
+     * @param params 包含用户 ID、原密码和新密码的参数
+     */
+    void changePassword(UserChangePasswordParamsBO params);
+
 
     /**
      * 获取当前用户的个人信息（含头像 URL）。

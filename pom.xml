@@ -9,7 +9,7 @@
     </parent>
     <groupId>online.longlian</groupId>
     <artifactId>longlian-oa-backend</artifactId>
-    <version>1.0.9-SNAPSHOT</version>
+    <version>1.0.15-SNAPSHOT</version>
     <name>longlian-oa-backend</name>
     <url />
     <licenses>
@@ -21,7 +21,7 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:https://github.com/longlian-online/longlian-oa-backend.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/longlian-online/longlian-oa-backend.git</developerConnection>
-        <tag>v1.0.8</tag>
+        <tag>v1.0.11</tag>
         <url>https://github.com/longlian-online/longlian-oa-backend</url>
     </scm>
     <properties>
@@ -55,12 +55,6 @@
                 <groupId>org.mybatis.spring.boot</groupId>
                 <artifactId>mybatis-spring-boot-starter-test</artifactId>
                 <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
-                <version>8.0.33</version>
-                <scope>runtime</scope>
             </dependency>
             <dependency>
                 <groupId>com.baomidou</groupId>
