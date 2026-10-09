@@ -6,6 +6,10 @@ import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.common.exception.AppException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -18,6 +22,8 @@ public class UserApiTest extends BaseApiTest {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private ResourceService resources;
 
     // ========== 注册与创建组织 ==========
 
@@ -103,7 +109,7 @@ public class UserApiTest extends BaseApiTest {
         long adminUserId = System.currentTimeMillis();
         createUserWithOrganization(adminUserId, "orgadmin_" + adminUserId, "123456",
                 "orgadmin_" + adminUserId + "@example.com",
-                orgId, orgId, "ORG_ADMIN");
+                orgId, orgId, "ORG_OWNER");
         String orgAdminToken = loginAs("orgadmin_" + adminUserId, "123456");
 
         Response inviteResponse = authRequest(orgAdminToken)
@@ -139,7 +145,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldGetInviteInfo() {
         // 创建用户和组织，orgadmin 生成加入组织的邀请码（OrganizationUserInvite 类型）
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String adminToken = loginAs("orgadmin", "123456");
 
         Response inviteResponse = authRequest(adminToken)
@@ -178,7 +184,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldGetMyInfo() {
         // 创建用户和组织
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
 
         // 登录获取token
         String token = loginAs("testuser", "123456");
@@ -192,13 +198,45 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
     }
 
+    /** 头像所属组织禁用或解散后，全局资料可读，头像为空且资源仍不可签发。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"disabled", "dissolved"})
+    void shouldReturnProfileWhenAvatarOrganizationIsUnavailable(String state) {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
+        createResource(20L, 1L, 1L);
+        jdbcTemplate.update("UPDATE user SET avatar_file_id=20 WHERE id=1");
+        String token = loginAs("testuser", "123456");
+        userRequest(token).get("/app/user/").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode())).body("data.avatarUrl", notNullValue());
+
+        if (state.equals("dissolved")) {
+            authRequest(token, 1L).delete("/orgadmin/organizations/1").then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        } else {
+            jdbcTemplate.update("UPDATE organization SET status=0 WHERE id=1");
+        }
+
+        userRequest(token).get("/app/user/").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.id", equalTo("1"))
+                .body("data.username", equalTo("testuser"))
+                .body("data.email", equalTo("test@example.com"))
+                .body("data.avatarUrl", nullValue());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> resources.getResourceReadUrl(20L))
+                .isInstanceOfSatisfying(AppException.class, exception ->
+                        org.assertj.core.api.Assertions.assertThat(exception.getCode())
+                                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT avatar_file_id FROM user WHERE id=1", Long.class)).isEqualTo(20L);
+    }
+
     /**
      * 获取用户加入的组织列表成功
      */
     @Test
     void shouldGetOrganizations() {
         // 创建用户和组织
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
 
         // 登录获取token
         String token = loginAs("testuser", "123456");
@@ -220,8 +258,8 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldJoinOrganizationByInvite() {
         // 创建两个用户和对应的组织
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
-        createUserWithOrganization(2L, "user2", "123456", "user2@example.com", 2L, 2L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
+        createUserWithOrganization(2L, "user2", "123456", "user2@example.com", 2L, 2L, "ORG_OWNER");
 
         // user1 登录并生成加入自己组织的邀请码
         String token1 = loginAs("user1", "123456");
@@ -247,7 +285,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldSwitchOrganization() {
         // 创建用户和两个组织
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         // 创建第二个组织
         createOrganization(2L, "第二个组织");
         // 用户加入第二个组织
@@ -273,7 +311,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailJoinOrganizationWhenAlreadyEnabledMember() {
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org")
@@ -305,7 +343,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailJoinOrganizationWhenMemberDisabled() {
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org")
@@ -337,7 +375,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailJoinOrganizationWhenHasPendingApplication() {
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org")
@@ -371,7 +409,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldResetPasswordSuccessfully() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
@@ -441,7 +479,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldChangePasswordWithCurrentPassword() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
 
         userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
@@ -457,7 +495,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectPasswordChangeWhenUserRecordIsGone() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
         userRequest(token).get("/app/user/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -470,7 +508,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectRequestWhenLoginCacheMissesAndUserRowIsGone() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
         redisTemplate.delete(RedisConstants.LOGIN_USER + 1L);
         jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
@@ -481,7 +519,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
 
         userRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))

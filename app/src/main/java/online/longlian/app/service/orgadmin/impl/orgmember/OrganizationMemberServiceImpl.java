@@ -1,6 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import org.springframework.dao.DuplicateKeyException;
+import online.longlian.app.service.common.OrganizationAuthorizationService;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -63,6 +64,8 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final MemberSubmissionHandler memberSubmissionHandler;
     private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
+    private final OrganizationAuthorizationService organizationAuthorizationService;
+    private final OrganizationMemberPolicy organizationMemberPolicy;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -80,6 +83,8 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     @Transactional(rollbackFor = Exception.class)
     public void reviewApplication(@NonNull OrgAdminReviewApplicationParamsBO params) {
         try {
+            organizationAuthorizationService.lockOrganization(params.getOrgId(), true);
+            organizationAuthorizationService.requireManager(params.getOrgId(), params.getReviewerId());
             GroupApplication application = groupApplicationMapper.selectOne(
                     new LambdaQueryWrapper<GroupApplication>()
                             .eq(GroupApplication::getId, params.getApplicationId())
@@ -106,9 +111,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     @Override
     public void changeMemberStatus(@NonNull OrgMemberChangeStatusParamsBO params) {
         changeMemberUnderLock(params.getOrgId(), () -> {
-            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
+            OrganizationMember operator = organizationAuthorizationService.requireManager(params.getOrgId(), params.getOperatorUserId());
             OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-            memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
+            organizationMemberPolicy.requireManageableTarget(operator, member);
             memberStatusHandler.updateMemberStatus(member, params.getStatus());
         });
     }
@@ -119,12 +124,12 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     @Override
     public void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params) {
         changeMemberUnderLock(params.getOrgId(), () -> {
-            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
+            OrganizationMember operator = organizationAuthorizationService.requireManager(params.getOrgId(), params.getOperatorUserId());
             OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-            if (isDemotingEnabledAdmin(member, params.getOrgRole().name())) {
-                validateNotLastEnabledAdmin(params.getOrgId());
+            organizationMemberPolicy.requireRoleChange(operator, member);
+            if (!member.getOrgRole().equals(params.getOrgRole().name())) {
+                updateMemberRole(member, params.getOrgRole().name());
             }
-            updateMemberRole(member.getId(), params.getOrgRole().name());
         });
     }
 
@@ -136,42 +141,12 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 "org:member:role:" + orgId, 0, TimeUnit.SECONDS)) {
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            transaction.executeWithoutResult(status -> mutation.run());
+            transaction.executeWithoutResult(status -> {
+                organizationAuthorizationService.lockOrganization(orgId, true);
+                mutation.run();
+            });
         }
     }
-
-    /**
-     * 入口鉴权可能早于另一管理员的降级操作，修改前必须按数据库中的当前身份重新授权。
-     */
-    private void validateRoleOperator(Long orgId, Long operatorUserId) {
-        OrganizationMember operator = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getUserId, operatorUserId));
-        if (operator == null || operator.getStatus() != Status.ENABLED
-                || !InviteConstants.ROLE_ORG_ADMIN.equals(operator.getOrgRole())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "当前用户无权调整组织成员");
-        }
-    }
-
-    private boolean isDemotingEnabledAdmin(OrganizationMember member, String targetRole) {
-        return InviteConstants.ROLE_ORG_USER.equals(targetRole)
-                && InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
-                && member.getStatus() == Status.ENABLED;
-    }
-
-    /**
-     * 组织必须至少保留一名启用状态的管理员，否则成员会失去全部管理入口。
-     */
-    private void validateNotLastEnabledAdmin(Long orgId) {
-        long enabledAdminCount = organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_ADMIN)
-                .eq(OrganizationMember::getStatus, Status.ENABLED));
-        if (enabledAdminCount <= 1) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
-        }
-    }
-
 
     @Override
     public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params) {
@@ -186,7 +161,10 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params) {
+        organizationAuthorizationService.lockOrganization(params.getOrgId(), true);
+        organizationAuthorizationService.requireManager(params.getOrgId(), params.getCreatorId());
         OneTimePassword oneTimePassword = otpServiceFactory.get(OTPType.OrganizationUserInvite).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
@@ -199,12 +177,14 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 .build();
     }
 
-    private void updateMemberRole(Long memberId, String orgRole) {
-        organizationMemberMapper.update(null,
+    private void updateMemberRole(OrganizationMember member, String orgRole) {
+        int changed = organizationMemberMapper.update(null,
                 new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getId, memberId)
+                        .eq(OrganizationMember::getId, member.getId())
+                        .eq(OrganizationMember::getOrgRole, member.getOrgRole())
                         .set(OrganizationMember::getOrgRole, orgRole)
                         .set(OrganizationMember::getUpdatedAt, LocalDateTime.now(clock)));
+        if (changed != 1) throw new AppException(ResultCode.OPERATION_FAIL, "成员角色已变更");
     }
 
 }

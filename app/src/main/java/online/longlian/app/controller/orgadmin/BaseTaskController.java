@@ -32,7 +32,7 @@ import java.util.List;
 @RequestMapping("/orgadmin/task/base")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
 public class BaseTaskController {
 
     private final BaseTaskService baseTaskService;

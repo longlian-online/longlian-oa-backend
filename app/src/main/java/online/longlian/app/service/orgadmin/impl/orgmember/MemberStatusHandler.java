@@ -2,7 +2,6 @@ package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMemberMapper;
@@ -31,18 +30,14 @@ public class MemberStatusHandler {
         return member;
     }
 
-    public void validateNotAdminDisable(OrganizationMember member, Status targetStatus) {
-        if (targetStatus == Status.DISABLED && InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "管理员不可被禁用");
-        }
-    }
-
     public void updateMemberStatus(OrganizationMember member, Status status) {
-        organizationMemberMapper.update(null,
+        if (member.getStatus() == status) return;
+        int updated = organizationMemberMapper.update(null,
                 new LambdaUpdateWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getId, member.getId())
-                        .ne(OrganizationMember::getStatus, status)
+                        .eq(OrganizationMember::getStatus, member.getStatus())
                         .set(OrganizationMember::getStatus, status)
                         .set(OrganizationMember::getUpdatedAt, LocalDateTime.now(clock)));
+        if (updated != 1) throw new AppException(ResultCode.OPERATION_FAIL, "成员状态已变更");
     }
 }

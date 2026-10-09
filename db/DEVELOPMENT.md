@@ -138,16 +138,11 @@ MySQL 与 MariaDB 的数据目录格式不作为迁移接口，禁止把原 MySQ
 
 ### 应用层业务校验
 
-平台角色和组织角色由应用枚举、写入入口及鉴权入口校验，数据库不设置角色 CHECK 或业务外键。未知角色不会获得权限；历史非法值应人工审核修正，不能自动升级为管理员。
+平台角色和组织角色由应用枚举、写入入口及鉴权入口校验，数据库不设置角色 CHECK 或业务外键。未知角色不会获得权限；历史非法值不能自动升级为管理员。
 
-如果测试或预发布库曾应用本 PR 的旧版角色 CHECK，先核对 `SHOW CREATE TABLE admin` 和 `SHOW CREATE TABLE organization_member`。确认约束存在后执行以下清理，再运行 `./db/migrate.sh dev apply`（生产环境仍遵循人工变更审核流程）：
+注册申请的类型、用户引用和密码快照一致性由应用维护。审批通过前校验申请快照及已有账号，审批终结时清空密码哈希；身份冲突回滚审核并保持待审状态。
 
-```sql
-ALTER TABLE admin DROP CONSTRAINT ck_admin_role;
-ALTER TABLE organization_member DROP CONSTRAINT ck_org_member_role;
-```
-
-MariaDB 10.11 使用 `DROP CONSTRAINT` 删除 CHECK；当前 Atlas 版本生成的 `DROP CHECK` 不兼容此版本。此清理仅针对旧版新增约束，原有主键、账号唯一索引和成员唯一索引保留。
+所有者数量、启用状态及有效成员唯一性由应用层保证。组织写事务先锁组织行，审批在锁内检查已有成员，所有权转让在同一事务内完成两个角色变更。数据库普通索引仅加速查询，原有主键及账号唯一索引保留。
 
 - `schema.sql` 是唯一真实来源，所有表结构变更必须通过修改此文件完成
 - `dev` 没有删除保护，执行前确认目标库可安全重建
@@ -155,30 +150,3 @@ MariaDB 10.11 使用 `DROP CONSTRAINT` 删除 CHECK；当前 Atlas 版本生成�
 - 字段类型等非删除变更仍可能影响数据，生产环境始终先执行 `prod plan`
 - 种子数据（`seed/`）不纳入 schema 管理，仅用于开发环境初始化
 - 每次变更前建议先 `git pull` 获取最新的 `schema.sql`
-
-## Issue #169：注册申请快照切换
-
-申请的用户引用、类型和密码快照一致性由应用层维护，不新增数据库 CHECK。审批通过前校验注册快照或已有账号，审批终结时清空密码哈希；拒绝申请可清理不完整快照。曾部署旧版申请 CHECK 的库，按前述审核流程确认约束存在后清理：
-
-```sql
-ALTER TABLE group_application DROP CONSTRAINT ck_application_password;
-ALTER TABLE group_application DROP CONSTRAINT ck_application_user;
-ALTER TABLE group_application DROP CONSTRAINT ck_application_snapshot;
-```
-
-新结构兼容旧的待审 user_id，但新代码审批要求 REGISTER 快照 user_id 为空且 password_hash 非空。
-必须暂停注册、审批和组织治理，转换后才启动新实例。
-
-1. 审核 prod plan，先排查重复待审邮箱和无效字段组合，再应用结构。
-2. 导出所有待审/拒绝 REGISTER 申请及关联用户，人工确认仅为注册申请创建的占位账号。
-3. 必须核对账号没有任何成员（包含已删除成员）、组织创建、任务、文件、操作记录等其他业务引用。
-   DISABLED 和 default_org_id=0 不能独立作为删除依据。
-4. 同一事务、同一条更新中复制待审占位用户的密码哈希及账号信息到申请快照，并清空申请 user_id。
-   拒绝申请清空 user_id 和密码；已通过申请和 EXISTING_USER 不转换。
-5. 只物理删除经审核、无其他业务引用的占位账号。核对影响行数及身份唯一键释放结果。
-6. 待审 REGISTER 无遗留 user_id、密码非空，终态无密码，正式用户完整时才能 COMMIT，
-   部署新代码并恢复写入。任何异常应 ROLLBACK 并继续停写。
-
-结构唯一来源仍为 schema.sql，以上是经审核的数据处理流程，不新增结构迁移脚本。
-待审核申请不独占全局身份。审批时身份已被占用则保持 PENDING；
-需要继续加入时拒绝该注册申请，由对应正式账号提交 EXISTING_USER 申请。

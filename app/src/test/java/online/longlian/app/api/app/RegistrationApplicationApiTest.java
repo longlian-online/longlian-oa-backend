@@ -13,7 +13,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
     /** 拒绝注册快照后身份可以再次提交，正式用户直到批准才创建。 */
     @Test
     void shouldReuseIdentityAfterRejectionAndCreateUserOnApproval() {
-        createUserWithOrganization(1L,"manager","123456","manager@example.com",1L,1L,"ORG_ADMIN");
+        createUserWithOrganization(1L,"manager","123456","manager@example.com",1L,1L,"ORG_OWNER");
         String token = loginAs("manager","123456");
         submit("JOIN01","EMAIL1");
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user WHERE username='newuser'",Integer.class)).isZero();
@@ -42,7 +42,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
     /** 正式身份在审批前被占用时完整回滚，申请仍待审。 */
     @Test
     void shouldKeepPendingWhenIdentityIsTakenBeforeApproval() {
-        createUserWithOrganization(1L,"manager","123456","manager@example.com",1L,1L,"ORG_ADMIN");
+        createUserWithOrganization(1L,"manager","123456","manager@example.com",1L,1L,"ORG_OWNER");
         submit("JOIN01","EMAIL1");
         createTestUser(2L,"newuser","123456","other@example.com");
         Long application = jdbcTemplate.queryForObject("SELECT id FROM group_application",Long.class);
@@ -97,7 +97,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
     @ParameterizedTest
     @ValueSource(strings = {"missing-password", "missing-user", "unexpected-password", "unknown-type"})
     void shouldRejectMalformedApplicationBeforeCreatingUserOrMember(String scenario) {
-        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_OWNER");
         submit("JOIN01", "EMAIL1");
         Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application", Long.class);
         switch (scenario) {

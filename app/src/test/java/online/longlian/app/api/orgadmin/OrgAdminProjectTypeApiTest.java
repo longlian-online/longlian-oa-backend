@@ -21,7 +21,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldListProjectTypesSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -39,7 +39,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldCreateProjectTypeSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -56,7 +56,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldUpdateProjectTypeSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
                 1L, 1L, "旧名称", 1, 1L);
@@ -74,7 +74,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailUpdateProjectTypeWithDuplicateName() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
                 1L, 1L, "类型一", 1, 1L);
@@ -91,7 +91,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldDeleteUnusedProjectTypeSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
                 1L, 1L, "待删除", 1, 1L);
@@ -108,7 +108,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailDeleteProjectTypeWhenReferenced() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
                 1L, 1L, "在用类型", 1, 1L);
@@ -143,7 +143,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailUpdateProjectTypeWithEmptyName() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         authRequest(token).body(Map.of("name", ""))
@@ -156,7 +156,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldEnableProjectTypeSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -179,7 +179,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldDisableProjectTypeSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -247,7 +247,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailCreateProjectTypeWithEmptyName() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -264,7 +264,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailCreateProjectTypeWithNameTooLong() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         String longName = "a".repeat(51);
@@ -282,7 +282,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeProjectTypeStatusWithEmptyStatus() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -301,7 +301,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeStatusForNonExistentProjectType() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -320,7 +320,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldListProjectTypesWithPaginationBoundaries() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -336,7 +336,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldListProjectTypesWithPageSizeExceedingMax() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -352,7 +352,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldListProjectTypesWithKeywordFilter() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -368,7 +368,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldListProjectTypesWithEmptyResult() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)

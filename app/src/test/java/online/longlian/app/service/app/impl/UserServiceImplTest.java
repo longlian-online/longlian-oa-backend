@@ -30,6 +30,7 @@ import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.common.OrganizationAuthorizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -77,6 +78,8 @@ class UserServiceImplTest {
     @Mock
     private OrganizationMembershipService organizationMembershipService;
     @Mock
+    private OrganizationAuthorizationService organizationAuthorizationService;
+    @Mock
     private OTPServiceFactory otpServiceFactory;
     @Mock
     private OTPStrategyService emailVerifyService;
@@ -103,6 +106,7 @@ class UserServiceImplTest {
                 resourceService,
                 userMapper,
                 organizationMembershipService,
+                organizationAuthorizationService,
                 otpServiceFactory,
                 Clock.systemUTC(),
                 sessionService,
@@ -352,6 +356,8 @@ class UserServiceImplTest {
     }
     @Test
     void shouldNotUpdateDefaultOrgWhenMembershipRejected() {
+        when(organizationAuthorizationService.lockOrganization(2L, true))
+                .thenReturn(Organization.builder().id(2L).status(Status.ENABLED).build());
         when(organizationMembershipService.requireEnabledMember(1L, 2L))
                 .thenThrow(new AppException(ResultCode.OPERATION_FAIL, "您不是该组织成员"));
 
@@ -367,12 +373,17 @@ class UserServiceImplTest {
     void shouldUpdateDefaultOrgOnceWhenMembershipEnabled() {
         when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
                 OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
-        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+        when(organizationAuthorizationService.lockOrganization(2L, true))
+                .thenReturn(Organization.builder().id(2L).name("组织2").status(Status.ENABLED).build());
 
         UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
 
         assertThat(result.getId()).isEqualTo(2L);
         assertThat(result.getRole()).isEqualTo("ORG_ADMIN");
+        var order = inOrder(organizationAuthorizationService, organizationMembershipService, userMapper);
+        order.verify(organizationAuthorizationService).lockOrganization(2L, true);
+        order.verify(organizationMembershipService).requireEnabledMember(1L, 2L);
+        order.verify(userMapper).update(isNull(), any());
         @SuppressWarnings("unchecked")
         ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
         verify(userMapper).update(isNull(), captor.capture());
@@ -382,11 +393,22 @@ class UserServiceImplTest {
         }
         verifyNoInteractions(sessionService);
     }
+
+    /** 组织锁内校验失败时，不能读取成员或覆盖用户默认组织。 */
+    @Test
+    void shouldNotUpdateDefaultOrgWhenOrganizationIsUnavailable() {
+        when(organizationAuthorizationService.lockOrganization(2L, true))
+                .thenThrow(new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在"));
+        assertThatThrownBy(() -> service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build()))
+                .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+        verifyNoInteractions(organizationMembershipService, userMapper, resourceService, sessionService);
+    }
     @Test
     void shouldReturnNoRoleWhenMembershipRoleIsBlank() {
         when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
                 OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole(" ").status(Status.ENABLED).build());
-        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+        when(organizationAuthorizationService.lockOrganization(2L, true))
+                .thenReturn(Organization.builder().id(2L).name("组织2").status(Status.ENABLED).build());
 
         UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
 
@@ -426,12 +448,43 @@ class UserServiceImplTest {
                         org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
     }
 
+    /** 可用头像仍通过资源批量查询返回地址，用户资料字段保持完整。 */
+    @Test
+    void shouldReturnProfileWithAvailableAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("user")
+                .email("user@example.com").nickname("Nickname").defaultOrgId(10L).avatarFileId(100L).build());
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of(
+                100L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 10L, "avatar.png")));
+
+        var result = service.getMyInfo(1L);
+        assertThat(result.getAvatarUrl()).isEqualTo("https://cdn.example/avatar.png");
+        assertThat(result.getUsername()).isEqualTo("user");
+        assertThat(result.getEmail()).isEqualTo("user@example.com");
+        assertThat(result.getNickname()).isEqualTo("Nickname");
+        assertThat(result.getDefaultOrgId()).isEqualTo(10L);
+    }
+
+    /** 头像资源不在可用集合中时不影响全局个人资料查询。 */
+    @Test
+    void shouldReturnProfileWithoutUnavailableAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("user")
+                .email("user@example.com").avatarFileId(100L).build());
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of());
+
+        var result = service.getMyInfo(1L);
+        assertThat(result.getAvatarUrl()).isNull();
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getUsername()).isEqualTo("user");
+        assertThat(result.getEmail()).isEqualTo("user@example.com");
+        verify(resourceService, never()).getResourceReadUrl(any());
+    }
+
     @Test
     void shouldIncludeAvatarWhenSwitchingToOrganizationWithAvatar() {
         when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
                 OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
-        when(organizationMapper.selectById(2L)).thenReturn(
-                Organization.builder().id(2L).name("组织2").avatarFileId(5L).build());
+        when(organizationAuthorizationService.lockOrganization(2L, true)).thenReturn(
+                Organization.builder().id(2L).name("组织2").status(Status.ENABLED).avatarFileId(5L).build());
         when(resourceService.getResourceReadUrl(5L)).thenReturn("http://avatar");
 
         UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());

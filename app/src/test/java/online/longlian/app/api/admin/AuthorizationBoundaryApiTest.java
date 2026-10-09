@@ -40,7 +40,7 @@ class AuthorizationBoundaryApiTest extends BaseApiTest {
     /** 组织成员禁用不影响全局登录和其他组织。 */
     @Test
     void shouldRestrictOnlyDisabledMembershipWithExistingToken() {
-        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         createOrganization(2L, "other");

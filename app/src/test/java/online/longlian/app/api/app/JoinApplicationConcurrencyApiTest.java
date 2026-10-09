@@ -36,7 +36,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
 
     @BeforeEach
     void prepareOrganization() {
-        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_OWNER");
         managerToken = loginAs("manager", "123456");
         createOrganizationUserInviteOTP("JOIN01", 1L);
         createOrganizationUserInviteOTP("JOIN02", 1L);
@@ -96,25 +96,27 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 .isEqualTo(1);
     }
 
-    /** 审批持有申请锁时重复提交读取待审状态并失败，不阻塞审批写入成员和状态。 */
+    /** 组织治理审批与提交按组织锁串行，重复提交在审批提交后识别最新成员。 */
     @Test
-    void shouldApproveWhileDuplicateJoinChecksPendingApplication() throws Exception {
+    void shouldSerializeApprovalAndDuplicateSubmissionByOrganization() throws Exception {
         String token = prepareExistingUser();
         join(token, "JOIN01").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application WHERE user_id = 2", Long.class);
         CountDownLatch approvalBeforeMemberInsert = new CountDownLatch(1);
-        CountDownLatch duplicateBeforeApplicationRead = new CountDownLatch(1);
+        CountDownLatch duplicateBeforeOrganizationLock = new CountDownLatch(1);
         doAnswer(call -> {
             approvalBeforeMemberInsert.countDown();
-            assertThat(duplicateBeforeApplicationRead.await(15, TimeUnit.SECONDS)).isTrue();
+            assertThat(duplicateBeforeOrganizationLock.await(15, TimeUnit.SECONDS)).isTrue();
             return sqlSession.getMapper(OrganizationMemberMapper.class)
                     .insert(call.getArgument(0, OrganizationMember.class));
         }).when(members).insert(any(OrganizationMember.class));
         doAnswer(call -> {
-            duplicateBeforeApplicationRead.countDown();
+            if (approvalBeforeMemberInsert.getCount() == 0) {
+                duplicateBeforeOrganizationLock.countDown();
+            }
             return call.callRealMethod();
-        }).when(applications).selectOne(argThat(query ->
-                query != null && query.getSqlSegment().endsWith("LIMIT 1")));
+        }).when(organizations).selectOne(argThat(query ->
+                query != null && query.getSqlSegment().endsWith("FOR UPDATE")));
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> approval = CompletableFuture.supplyAsync(() ->
@@ -125,7 +127,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 join(token, "JOIN02").then().statusCode(200)
                         .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
             } finally {
-                duplicateBeforeApplicationRead.countDown();
+                duplicateBeforeOrganizationLock.countDown();
             }
             approval.get(15, TimeUnit.SECONDS).then().statusCode(200)
                     .body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -162,6 +164,46 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
             }
             return delayed.get(15, TimeUnit.SECONDS);
         }
+    }
+
+    /** 没有成员唯一索引时，并发审批同用户的不同历史申请也只能创建一条有效成员。 */
+    @Test
+    void shouldCreateOnlyOneMembershipWhenApprovingConcurrentApplications() throws Exception {
+        prepareExistingUser();
+        jdbcTemplate.update("INSERT INTO group_application(id,org_id,user_id,status,application_type) VALUES(10,1,2,0,1),(11,1,2,0,1)");
+        CountDownLatch firstBeforeInsert = new CountDownLatch(1);
+        CountDownLatch secondBeforeOrganizationLock = new CountDownLatch(1);
+        doAnswer(call -> {
+            firstBeforeInsert.countDown();
+            assertThat(secondBeforeOrganizationLock.await(15, TimeUnit.SECONDS)).isTrue();
+            return sqlSession.getMapper(OrganizationMemberMapper.class)
+                    .insert(call.getArgument(0, OrganizationMember.class));
+        }).when(members).insert(any(OrganizationMember.class));
+        doAnswer(call -> {
+            if (firstBeforeInsert.getCount() == 0) secondBeforeOrganizationLock.countDown();
+            return call.callRealMethod();
+        }).when(organizations).selectOne(argThat(query ->
+                query != null && query.getSqlSegment().endsWith("FOR UPDATE")));
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CompletableFuture<Response> first = CompletableFuture.supplyAsync(() ->
+                    authRequest(managerToken, 1L).body(Map.of("applicationStatus", "APPROVED"))
+                            .put("/orgadmin/members/applications/10/review"), executor);
+            try {
+                assertThat(firstBeforeInsert.await(15, TimeUnit.SECONDS)).isTrue();
+                authRequest(managerToken, 1L).body(Map.of("applicationStatus", "APPROVED"))
+                        .put("/orgadmin/members/applications/11/review").then().statusCode(200)
+                        .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+            } finally {
+                secondBeforeOrganizationLock.countDown();
+            }
+            first.get(15, TimeUnit.SECONDS).then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE org_id=1 AND user_id=2 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id=10", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id=11", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT reviewer_id FROM group_application WHERE id=11", Long.class)).isNull();
     }
 
     private String prepareExistingUser() {

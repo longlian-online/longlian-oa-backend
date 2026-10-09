@@ -1,56 +1,39 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.common.enumeration.OrganizationRole;
+import online.longlian.app.mapper.*;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
-import online.longlian.app.pojo.entity.GroupApplication;
-import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.service.common.LockService;
+import online.longlian.app.pojo.bo.orgadmin.*;
+import online.longlian.app.pojo.entity.*;
+import online.longlian.app.service.common.*;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.dao.DuplicateKeyException;
-
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.List;
+import org.springframework.transaction.support.*;
+import java.time.*;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrganizationMemberServiceImplTest {
-
-    private final Clock clock = Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC);
+    private final Clock clock=Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"),ZoneOffset.UTC);
     @Mock private GroupApplicationMapper groupApplicationMapper;
     @Mock private OrganizationMemberMapper organizationMemberMapper;
     @Mock private OTPServiceFactory otpServiceFactory;
@@ -60,144 +43,62 @@ class OrganizationMemberServiceImplTest {
     @Mock private MemberStatusHandler memberStatusHandler;
     @Mock private MemberSubmissionHandler memberSubmissionHandler;
     @Mock private LockService lockService;
-
+    @Mock private OrganizationAuthorizationService authorization;
     private OrganizationMemberServiceImpl service;
     private RecordingTransactionManager transactions;
     private DistributedLockService.Lock lock;
 
     @BeforeEach
     void setUp() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
-        transactions = new RecordingTransactionManager();
-        lock = mock(DistributedLockService.Lock.class);
-        lenient().when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
-        lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
-                otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
-                memberStatusHandler, memberSubmissionHandler, lockService, transactions);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(),""),OrganizationMember.class);
+        transactions=new RecordingTransactionManager();
+        lenient().when(organizationMemberMapper.update(isNull(),any())).thenReturn(1);
+        lock=mock(DistributedLockService.Lock.class);
+        lenient().when(lockService.tryAcquireOrThrow("org:member:role:1",0,TimeUnit.SECONDS)).thenReturn(lock);
+        lenient().when(authorization.requireManager(1L,10L)).thenReturn(operator("ORG_OWNER",Status.ENABLED));
+        service=new OrganizationMemberServiceImpl(clock,groupApplicationMapper,organizationMemberMapper,otpServiceFactory,
+                memberQueryBuilder,memberAssembler,applicationReviewHandler,memberStatusHandler,memberSubmissionHandler,
+                lockService,transactions,authorization,new OrganizationMemberPolicy());
     }
 
     @Test
-    void shouldLockBeforeTransactionAndClearSessionOnlyAfterCommit() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-        transactions.onBegin = () -> verify(lockService).tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS);
-        transactions.onCommit = () -> verify(lock, never()).close();
-
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN));
-
-        InOrder order = inOrder(lockService, organizationMemberMapper, memberStatusHandler, lock);
-        order.verify(lockService).tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS);
-        order.verify(organizationMemberMapper).selectOne(any());
-        order.verify(memberStatusHandler).getAndValidateMember(2L, 1L);
+    void shouldLockBeforeTransactionAndAuthorizeBeforeMutation() {
+        when(memberStatusHandler.getAndValidateMember(2L,1L)).thenReturn(member("ORG_USER",Status.ENABLED));
+        service.changeMemberRole(roleParams("ORG_ADMIN"));
+        InOrder order=inOrder(lockService,authorization,memberStatusHandler,organizationMemberMapper,lock);
+        order.verify(lockService).tryAcquireOrThrow("org:member:role:1",0,TimeUnit.SECONDS);
+        order.verify(authorization).lockOrganization(1L,true);
+        order.verify(authorization).requireManager(1L,10L);
+        order.verify(memberStatusHandler).getAndValidateMember(2L,1L);
+        order.verify(organizationMemberMapper).update(isNull(),any());
         order.verify(lock).close();
         assertThat(transactions.propagation).isEqualTo(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        verify(organizationMemberMapper).update(eq(null), any());
     }
 
     @Test
-    void shouldRejectLastEnabledAdminAndRollback() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织至少保留一名管理员")
-                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-
-        verify(lock).close();
-        verify(organizationMemberMapper, never()).update(eq(null), any());
+    void shouldRejectAdministratorChangingPeerRoleAndRollback() {
+        when(authorization.requireManager(1L,10L)).thenReturn(operator("ORG_ADMIN",Status.ENABLED));
+        when(memberStatusHandler.getAndValidateMember(2L,1L)).thenReturn(member("ORG_ADMIN",Status.ENABLED));
+        assertThatThrownBy(()->service.changeMemberRole(roleParams("ORG_USER"))).isInstanceOf(AppException.class);
+        verify(organizationMemberMapper,never()).update(any(),any());
         assertThat(transactions.rollbacks).isEqualTo(1);
     }
 
     @Test
-    void shouldAllowDowngradeWhenAnotherEnabledAdminRemains() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(2L);
-
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
-
-        verify(organizationMemberMapper).update(eq(null), any());
-        verify(lock).close();
-    }
-
-    @Test
-    void shouldCheckLatestRoleEvenWhenTargetWasPromotedBeforeLock() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织至少保留一名管理员");
-
-        verify(organizationMemberMapper, never()).update(eq(null), any());
-    }
-
-    @Test
-    void shouldSkipAdminCountForOrdinaryOrDisabledMember() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L))
-                .thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED))
-                .thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.DISABLED));
-
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
-        service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
-
-        verify(organizationMemberMapper, never()).selectCount(any());
-        verify(lock, times(2)).close();
-    }
-
-    @Test
-    void shouldRejectDemotedOperatorBeforeReadingTarget() {
-        when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_ADMIN)))
-                .isInstanceOf(AppException.class)
-                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-
-        verify(memberStatusHandler, never()).getAndValidateMember(anyLong(), anyLong());
-        verify(organizationMemberMapper, never()).update(eq(null), any());
-        verify(lock).close();
-    }
-
-    @Test
-    void shouldRejectDisabledOrMissingOperator() {
-        when(organizationMemberMapper.selectOne(any()))
-                .thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.DISABLED))
-                .thenReturn(null);
-
-        assertThatThrownBy(() -> service.changeMemberStatus(statusParams(Status.DISABLED)))
-                .isInstanceOf(AppException.class)
-                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-
-        verify(memberStatusHandler, never()).updateMemberStatus(any(), any());
-        verify(lock, times(2)).close();
-    }
-
-    @Test
-    void shouldRejectDisablingMemberPromotedBeforeStatusMutation() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        doThrow(new AppException(ResultCode.OPERATION_FAIL, "管理员不可被禁用"))
-                .when(memberStatusHandler).validateNotAdminDisable(any(), eq(Status.DISABLED));
-
-        assertThatThrownBy(() -> service.changeMemberStatus(statusParams(Status.DISABLED)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("管理员不可被禁用");
-
-        verify(memberStatusHandler, never()).updateMemberStatus(any(), any());
-        verify(lock).close();
-    }
-
-    @Test
-    void shouldDisableMemberUnderLock() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_USER, Status.ENABLED));
-
+    void shouldAllowOwnerToDisableAdministrator() {
+        when(memberStatusHandler.getAndValidateMember(2L,1L)).thenReturn(member("ORG_ADMIN",Status.ENABLED));
         service.changeMemberStatus(statusParams(Status.DISABLED));
-
-        verify(memberStatusHandler).updateMemberStatus(any(), eq(Status.DISABLED));
-        verify(lock).close();
+        verify(memberStatusHandler).updateMemberStatus(any(),eq(Status.DISABLED));
     }
+
+    @Test
+    void shouldRejectRevokedOperatorBeforeReadingTarget() {
+        when(authorization.requireManager(1L,10L)).thenThrow(new AppException(online.longlian.app.common.result.ResultCode.UNAUTHORIZED_OPERATION));
+        assertThatThrownBy(()->service.changeMemberStatus(statusParams(Status.DISABLED))).isInstanceOf(AppException.class);
+        verifyNoInteractions(memberStatusHandler);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
     @Test
     void shouldAssembleNonEmptyApplicationPageAndEmptyMemberPage() {
         Page<GroupApplication> applications = new Page<>(1, 10);

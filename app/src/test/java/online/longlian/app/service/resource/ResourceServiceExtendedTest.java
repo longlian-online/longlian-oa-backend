@@ -1,5 +1,11 @@
 package online.longlian.app.service.resource;
 
+import online.longlian.common.enumeration.Status;
+
+import online.longlian.app.pojo.entity.Organization;
+
+import online.longlian.app.mapper.OrganizationMapper;
+
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
@@ -45,9 +51,12 @@ class ResourceServiceExtendedTest {
     private StorageService storageService;
 
     private ResourceService resourceService;
+    @Mock private OrganizationMapper organizationMapper;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(organizationMapper.selectById(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(Organization.builder().status(Status.ENABLED).build());
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Resource.class);
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
@@ -57,7 +66,7 @@ class ResourceServiceExtendedTest {
         cdn.setUrlPrefix("https://cdn.example");
         cdn.setAuthKey("test-secret");
         props.setCdn(cdn);
-        resourceService = new ResourceService(resourceMapper, storageFactory,
+        resourceService = new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
                 new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
     }
@@ -159,7 +168,7 @@ class ResourceServiceExtendedTest {
                 .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
                 .build();
         when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
-        ResourceService invalidService = new ResourceService(resourceMapper, storageFactory,
+        ResourceService invalidService = new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner(cdn, CLOCK), new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK),
                 props, CLOCK);
 
@@ -175,7 +184,7 @@ class ResourceServiceExtendedTest {
         StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
         cdn.setEnabled(false);
         props.setCdn(cdn);
-        resourceService = new ResourceService(resourceMapper, storageFactory,
+        resourceService = new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
                 new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
 
@@ -360,6 +369,19 @@ class ResourceServiceExtendedTest {
                 .processStatus(FileProcessStatus.Pending).build();
     }
 
+
+    @Test
+    void shouldNotIssueUrlsOrReadFilesForUnavailableOrganization() {
+        Resource resource=Resource.builder().id(1L).orgId(10L).storageKey("avatar/1.png").storageType(StorageType.LOCAL).build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+        when(organizationMapper.selectById(10L)).thenReturn(null);
+        assertThat(resourceService.getResourceReadUrls(List.of(1L))).isEmpty();
+        when(resourceMapper.selectOne(any())).thenReturn(resource);
+        assertThatThrownBy(()->resourceService.loadActivated("avatar/1.png")).isInstanceOf(AppException.class);
+        assertThatThrownBy(()->resourceService.loadPending("avatar/1.png")).isInstanceOf(AppException.class);
+        verifyNoInteractions(storageFactory);
+    }
+
     private ResourceService resourceServiceAt(long epochSecond) {
         Clock clock = Clock.fixed(Instant.ofEpochSecond(epochSecond), ZoneOffset.UTC);
         StorageProperties props = new StorageProperties();
@@ -369,7 +391,7 @@ class ResourceServiceExtendedTest {
         cdn.setUrlPrefix("https://cdn.example");
         cdn.setAuthKey("test-secret");
         props.setCdn(cdn);
-        return new ResourceService(resourceMapper, storageFactory,
+        return new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner(cdn, clock), new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, clock),
                 props, clock);
     }

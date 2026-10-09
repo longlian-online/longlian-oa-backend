@@ -164,7 +164,7 @@ CREATE TABLE `organization_member` (
   `id` bigint NOT NULL,
   `org_id` bigint NOT NULL COMMENT "组织ID",
   `user_id` bigint NOT NULL COMMENT "用户ID",
-  `org_role` varchar(20) NOT NULL DEFAULT "ORG_USER" COMMENT "组织内角色：ORG_ADMIN/ORG_USER",
+  `org_role` varchar(20) NOT NULL DEFAULT "ORG_USER" COMMENT "组织内角色：ORG_OWNER/ORG_ADMIN/ORG_USER",
   `joined_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "入组时间",
   `last_submitted_at` datetime NULL COMMENT "上次提交任务时间",
   `submit_count` int NOT NULL DEFAULT 0 COMMENT "任务提交总数",
@@ -173,7 +173,8 @@ CREATE TABLE `organization_member` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`)
+  INDEX `idx_org_member_user` (`org_id`, `user_id`, `deleted_at`),
+  INDEX `idx_org_member_role` (`org_id`, `org_role`, `deleted_at`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table
 CREATE TABLE `permission` (

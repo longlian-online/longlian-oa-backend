@@ -171,6 +171,18 @@ class ApplicationReviewHandlerTest {
         handler.review(application, 10L, ApplicationStatus.APPROVED, 2L, "", reviewedAt);
     }
 
+    /** 成员唯一性由组织锁内的应用查询保证，禁用成员也不能重复创建。 */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(Status.class)
+    void shouldRejectApprovalForExistingMembership(Status status) {
+        when(users.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.ENABLED).build());
+        when(members.selectOne(any())).thenReturn(OrganizationMember.builder().id(9L).status(status).build());
+        assertThatThrownBy(() -> approve(existingUserApplication())).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(members, never()).insert(any(OrganizationMember.class));
+        verifyNoInteractions(applications, otps);
+    }
+
     /** 数据库不设 CHECK 时，缺少账号引用的已有用户申请仍不能写入成员。 */
     @Test
     void shouldRejectExistingApplicationWithoutUserReference() {

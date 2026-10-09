@@ -19,7 +19,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldListApplications() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         createTestUser(2L, "applyuser", "123456", "apply@example.com");
         jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 2L);
@@ -38,7 +38,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldReviewApplication() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
 
@@ -76,7 +76,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldRejectApplicationSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         createTestUser(2L, "applyuser", "123456", "apply@example.com");
         jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 2L);
@@ -104,7 +104,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailReviewAlreadyReviewedApplication() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         createTestUser(2L, "applyuser", "123456", "apply@example.com");
         jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", 2L);
@@ -152,7 +152,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailApproveApplicationWhenUserAlreadyMember() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         // user2 已是 org1 的成员
@@ -195,7 +195,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldListMembers() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -212,7 +212,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldGetMemberBaseTaskSubmitCounts() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -228,7 +228,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldChangeMemberStatus() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         // 创建第二个 MEMBER 角色成员用于测试禁用
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
@@ -251,7 +251,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
      */
     @Test
     void shouldGenerateJoinOrgInviteCode() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -280,7 +280,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     }
     @Test
     void shouldPromoteAndDemoteMemberWithinOrganization() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         createTestUser(3L, "secondadmin", "123456", "secondadmin@example.com");
@@ -300,8 +300,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
         authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,组织至少保留一名管理员"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
@@ -311,7 +310,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectInvalidRoleRequest() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         String token = loginAs("orgadmin", "123456");
@@ -327,7 +326,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectOrdinaryMemberChangingRole() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         String token = loginAs("member", "123456");

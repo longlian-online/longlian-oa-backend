@@ -35,7 +35,7 @@ import java.util.List;
 @RequestMapping("/orgadmin/project-types")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
 public class ProjectTypeController {
 
     private final ProjectTypeService projectTypeService;
