@@ -169,7 +169,7 @@ CREATE TABLE `organization_member` (
   `id` bigint NOT NULL,
   `org_id` bigint NOT NULL COMMENT "组织ID",
   `user_id` bigint NOT NULL COMMENT "用户ID",
-  `org_role` varchar(20) NOT NULL DEFAULT "ORG_USER" COMMENT "组织内角色：ORG_ADMIN/ORG_USER",
+  `org_role` varchar(20) NOT NULL DEFAULT "ORG_USER" COMMENT "组织内角色：ORG_OWNER/ORG_ADMIN/ORG_USER",
   `joined_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "入组时间",
   `last_submitted_at` datetime NULL COMMENT "上次提交任务时间",
   `submit_count` int NOT NULL DEFAULT 0 COMMENT "任务提交总数",
@@ -178,8 +178,12 @@ CREATE TABLE `organization_member` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`),
-  CONSTRAINT `ck_org_member_role` CHECK (BINARY `org_role` IN (BINARY 'ORG_OWNER', BINARY 'ORG_ADMIN', BINARY 'ORG_USER'))
+  `active_guard` bigint GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 0, `id`)) STORED,
+  `owner_org_id` bigint GENERATED ALWAYS AS (IF(`deleted_at` IS NULL AND BINARY `org_role` = BINARY 'ORG_OWNER', `org_id`, NULL)) STORED,
+  UNIQUE INDEX `uk_org_member_active` (`org_id`, `user_id`, `active_guard`),
+  UNIQUE INDEX `uk_org_member_owner` (`owner_org_id`),
+  CONSTRAINT `ck_org_member_role` CHECK (BINARY `org_role` IN (BINARY 'ORG_OWNER', BINARY 'ORG_ADMIN', BINARY 'ORG_USER')),
+  CONSTRAINT `ck_org_member_owner_enabled` CHECK (`deleted_at` IS NOT NULL OR BINARY `org_role` <> BINARY 'ORG_OWNER' OR `status` = 1)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table
 CREATE TABLE `permission` (

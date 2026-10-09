@@ -51,7 +51,7 @@ public class CodeGenerator {
                         .typeConvertHandler(new TypeConverter())
                 )
                 .globalConfig(builder -> builder.author("longlian")
-                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
+                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate("yyyy-MM-dd"))
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
                 .strategyConfig(builder -> {
                     if (args.length > 0) builder.addInclude(args);

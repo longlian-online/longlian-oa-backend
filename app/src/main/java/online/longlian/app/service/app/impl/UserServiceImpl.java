@@ -245,7 +245,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(organization.getId())
                 .userId(user.getId())
-                .orgRole(InviteConstants.ROLE_ORG_ADMIN)
+                .orgRole(InviteConstants.ROLE_ORG_OWNER)
                 .joinedAt(now)
                 .submitCount(0)
                 .status(Status.ENABLED)

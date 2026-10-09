@@ -22,7 +22,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldGetOrganizationInfoSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createResource(12345L, 1L, 1L);
         jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
         jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
@@ -44,7 +44,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldUpdateOrganizationInfoSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createResource(1L, 1L, 1L);
         createResource(12345L, 1L, 1L);
         jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
@@ -74,8 +74,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
 
     @Test
     void shouldFailUpdateOrganizationInfoWithAnotherOrganizationResource() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        createUserWithOrganization(2L, "otheradmin", "123456", "otheradmin@example.com", 2L, 2L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
+        createUserWithOrganization(2L, "otheradmin", "123456", "otheradmin@example.com", 2L, 2L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
         jdbcTemplate.update(
                 "INSERT INTO `resource` (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, biz_type, biz_id, process_status, creator_id, created_at, updated_at) " +
@@ -145,7 +145,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailUpdateOrganizationInfoWithNameTooLong() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         String longName = "a".repeat(51);
@@ -167,7 +167,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailUpdateOrganizationInfoWithEmptyDescription() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -188,7 +188,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailUpdateOrganizationInfoWithDescriptionTooLong() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         String longDesc = "a".repeat(501);
@@ -210,7 +210,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldPreserveAvatarWhenUpdateOmitsAvatarFileId() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createResource(12345L, 1L, 1L);
         jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
         jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
@@ -238,7 +238,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldClearAvatarWithZeroAvatarFileId() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createResource(12345L, 1L, 1L);
         jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
         jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
@@ -267,7 +267,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailUpdateOrganizationInfoWithNegativeAvatarFileId() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         authRequest(token)
@@ -316,7 +316,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldGetOrganizationInfoWithAllFields() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update("UPDATE organization SET avatar_file_id = 1, description = '组织简介' WHERE id = 1");

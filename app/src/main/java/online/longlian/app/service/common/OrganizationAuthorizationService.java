@@ -38,8 +38,19 @@ public class OrganizationAuthorizationService {
         User user = userMapper.selectById(operatorUserId);
         if (user == null || user.getStatus() != Status.ENABLED || operator == null
                 || operator.getStatus() != Status.ENABLED
-                || OrganizationRole.fromValue(operator.getOrgRole()) != OrganizationRole.ORG_ADMIN)
+                || OrganizationRole.fromValue(operator.getOrgRole()) == OrganizationRole.ORG_USER)
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "当前用户无权管理组织");
+        if (memberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, orgId).eq(OrganizationMember::getOrgRole, "ORG_OWNER")
+                .eq(OrganizationMember::getStatus, Status.ENABLED)) != 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织所有者缺失，请先完成回填");
+        }
+        return operator;
+    }
+    public OrganizationMember requireOwner(Long orgId, Long operatorUserId) {
+        OrganizationMember operator = requireManager(orgId, operatorUserId);
+        if (OrganizationRole.fromValue(operator.getOrgRole()) != OrganizationRole.ORG_OWNER)
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "只有组织所有者可以执行此操作");
         return operator;
     }
 }

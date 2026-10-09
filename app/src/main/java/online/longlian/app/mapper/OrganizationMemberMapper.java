@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Mapper;
  * </p>
  *
  * @author longlian
- * @since 2026-03-17
+ * @since 2026-10-09
  */
 @Mapper
 public interface OrganizationMemberMapper extends BaseMapper<OrganizationMember> {

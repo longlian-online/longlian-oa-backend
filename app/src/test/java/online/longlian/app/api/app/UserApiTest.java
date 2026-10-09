@@ -103,7 +103,7 @@ public class UserApiTest extends BaseApiTest {
         long adminUserId = System.currentTimeMillis();
         createUserWithOrganization(adminUserId, "orgadmin_" + adminUserId, "123456",
                 "orgadmin_" + adminUserId + "@example.com",
-                orgId, orgId, "ORG_ADMIN");
+                orgId, orgId, "ORG_OWNER");
         String orgAdminToken = loginAs("orgadmin_" + adminUserId, "123456");
 
         Response inviteResponse = authRequest(orgAdminToken)
@@ -139,7 +139,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldGetInviteInfo() {
         // 创建用户和组织，orgadmin 生成加入组织的邀请码（OrganizationUserInvite 类型）
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String adminToken = loginAs("orgadmin", "123456");
 
         Response inviteResponse = authRequest(adminToken)
@@ -178,7 +178,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldGetMyInfo() {
         // 创建用户和组织
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
 
         // 登录获取token
         String token = loginAs("testuser", "123456");
@@ -198,7 +198,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldGetOrganizations() {
         // 创建用户和组织
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
 
         // 登录获取token
         String token = loginAs("testuser", "123456");
@@ -220,8 +220,8 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldJoinOrganizationByInvite() {
         // 创建两个用户和对应的组织
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
-        createUserWithOrganization(2L, "user2", "123456", "user2@example.com", 2L, 2L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
+        createUserWithOrganization(2L, "user2", "123456", "user2@example.com", 2L, 2L, "ORG_OWNER");
 
         // user1 登录并生成加入自己组织的邀请码
         String token1 = loginAs("user1", "123456");
@@ -247,7 +247,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldSwitchOrganization() {
         // 创建用户和两个组织
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         // 创建第二个组织
         createOrganization(2L, "第二个组织");
         // 用户加入第二个组织
@@ -273,7 +273,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailJoinOrganizationWhenAlreadyEnabledMember() {
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org")
@@ -305,7 +305,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailJoinOrganizationWhenMemberDisabled() {
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org")
@@ -337,7 +337,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailJoinOrganizationWhenHasPendingApplication() {
-        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_OWNER");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
                 .post("/orgadmin/members/invite-codes/join-org")
@@ -371,7 +371,7 @@ public class UserApiTest extends BaseApiTest {
      */
     @Test
     void shouldResetPasswordSuccessfully() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
@@ -441,7 +441,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldChangePasswordWithCurrentPassword() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
 
         userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
@@ -457,7 +457,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectPasswordChangeWhenUserRecordIsGone() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
         userRequest(token).get("/app/user/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -470,7 +470,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectRequestWhenLoginCacheMissesAndUserRowIsGone() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
         redisTemplate.delete(RedisConstants.LOGIN_USER + 1L);
         jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
@@ -481,7 +481,7 @@ public class UserApiTest extends BaseApiTest {
 
     @Test
     void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
-        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("testuser", "123456");
 
         userRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))

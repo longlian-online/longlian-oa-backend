@@ -68,33 +68,19 @@ class MemberStatusHandlerTest {
     }
 
     @Test
-    void validateNotAdminDisable_adminDisable_throws() {
-        OrganizationMember admin = OrganizationMember.builder().id(1L).orgRole("ORG_ADMIN").build();
-
-        assertThatThrownBy(() -> handler.validateNotAdminDisable(admin, Status.DISABLED))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("管理员不可被禁用");
-    }
-
-    @Test
-    void validateNotAdminDisable_adminEnable_noException() {
-        OrganizationMember admin = OrganizationMember.builder().id(1L).orgRole("ORG_ADMIN").build();
-        handler.validateNotAdminDisable(admin, Status.ENABLED);
-    }
-
-    @Test
-    void validateNotAdminDisable_normalUserDisable_noException() {
-        OrganizationMember user = OrganizationMember.builder().id(1L).orgRole("org_user").build();
-        handler.validateNotAdminDisable(user, Status.DISABLED);
-    }
-
-    @Test
     void updateMemberStatus_callsMapper() {
-        OrganizationMember member = OrganizationMember.builder().id(1L).build();
+        OrganizationMember member = OrganizationMember.builder().id(1L).status(Status.ENABLED).build();
         when(organizationMemberMapper.update(isNull(), any())).thenReturn(1);
 
         handler.updateMemberStatus(member, Status.DISABLED);
 
         verify(organizationMemberMapper).update(isNull(), any());
+    }
+    @Test
+    void shouldSkipUnchangedStatusAndRejectLostUpdate() {
+        OrganizationMember member=OrganizationMember.builder().id(1L).status(Status.ENABLED).build();
+        handler.updateMemberStatus(member,Status.ENABLED);
+        verifyNoInteractions(organizationMemberMapper);
+        assertThatThrownBy(()->handler.updateMemberStatus(member,Status.DISABLED)).isInstanceOf(AppException.class);
     }
 }

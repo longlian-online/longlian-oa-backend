@@ -6,113 +6,73 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.service.common.LockService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.mock.mockito.SpyBean;
-
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
-public class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
+class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
+    @SpyBean private LockService locks;
 
-    @SpyBean
-    private LockService lockService;
-
-    /**
-     * 请求通过入口鉴权后暂停在组织锁前；另一个管理员先提交降级，恢复时必须按当前角色重新授权。
-     */
-    @Test
-    void shouldRejectDemotedOperatorAfterAuthentication() throws Exception {
-        createUserWithOrganization(1L, "firstadmin", "123456", "first@example.com", 1L, 1L, "ORG_ADMIN");
-        createTestUser(2L, "secondadmin", "123456", "second@example.com");
-        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
-        String firstToken = loginAs("firstadmin", "123456");
-        String secondToken = loginAs("secondadmin", "123456");
-
-        CountDownLatch blockedBeforeLock = new CountDownLatch(1);
-        CountDownLatch resume = new CountDownLatch(1);
-        AtomicBoolean blockFirst = new AtomicBoolean(true);
-        doAnswer(invocation -> {
-            if (blockFirst.compareAndSet(true, false)) {
-                blockedBeforeLock.countDown();
-                assertThat(resume.await(15, TimeUnit.SECONDS)).isTrue();
-            }
-            return invocation.callRealMethod();
-        }).when(lockService).tryAcquireOrThrow(eq("org:member:role:1"), eq(0L), eq(TimeUnit.SECONDS));
-
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            CompletableFuture<Response> staleRequest = CompletableFuture.supplyAsync(() ->
-                    authRequest(firstToken).body(Map.of("orgRole", "ORG_USER"))
-                            .patch("/orgadmin/members/2/role"), executor);
-            try {
-                assertThat(blockedBeforeLock.await(15, TimeUnit.SECONDS)).isTrue();
-                Response demotion = authRequest(secondToken).body(Map.of("orgRole", "ORG_USER"))
-                        .patch("/orgadmin/members/1/role");
-                demotion.then().statusCode(200);
-                assertThat(demotion.jsonPath().getInt("code")).isEqualTo(ResultCode.SUCCESS.getCode());
-            } finally {
-                resume.countDown();
-            }
-
-            Response rejected = staleRequest.get(15, TimeUnit.SECONDS);
-            rejected.then().statusCode(200);
-            assertThat(rejected.jsonPath().getInt("code")).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+    /** 两个转让都通过初次入口鉴权，但只有第一个提交者保留转让资格。 */
+    @Test void shouldCommitOnlyOneOwnershipTransfer() throws Exception {
+        prepare();
+        String token=loginAs("owner","123456");
+        CountDownLatch blocked=new CountDownLatch(1),resume=new CountDownLatch(1);
+        blockFirst(blocked,resume);
+        try(var executor=Executors.newVirtualThreadPerTaskExecutor()){
+            CompletableFuture<Response> stale=CompletableFuture.supplyAsync(
+                    ()->authRequest(token,1L).put("/orgadmin/members/3/ownership"),executor);
+            try{
+                assertThat(blocked.await(15,TimeUnit.SECONDS)).isTrue();
+                authRequest(token,1L).put("/orgadmin/members/2/ownership")
+                        .then().body("code",org.hamcrest.Matchers.equalTo(ResultCode.SUCCESS.getCode()));
+            }finally{resume.countDown();}
+            assertThat(stale.get(15,TimeUnit.SECONDS).jsonPath().getInt("code"))
+                    .isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
         }
-
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 1", String.class)).isEqualTo("ORG_USER");
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_ADMIN");
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE org_role='ORG_OWNER' AND deleted_at IS NULL",Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT org_role FROM organization_member WHERE id=2",String.class)).isEqualTo("ORG_OWNER");
     }
 
-    /**
-     * 状态变更也要在锁内读取最新角色，否则可能禁用刚被提升的管理员。
-     */
-    @Test
-    void shouldRejectDisableAfterTargetBecomesAdmin() throws Exception {
-        createUserWithOrganization(1L, "firstadmin", "123456", "first@example.com", 1L, 1L, "ORG_ADMIN");
-        createTestUser(2L, "member", "123456", "member@example.com");
-        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
-        String token = loginAs("firstadmin", "123456");
-
-        CountDownLatch blockedBeforeLock = new CountDownLatch(1);
-        CountDownLatch resume = new CountDownLatch(1);
-        AtomicBoolean blockFirst = new AtomicBoolean(true);
-        doAnswer(invocation -> {
-            if (blockFirst.compareAndSet(true, false)) {
-                blockedBeforeLock.countDown();
-                assertThat(resume.await(15, TimeUnit.SECONDS)).isTrue();
-            }
-            return invocation.callRealMethod();
-        }).when(lockService).tryAcquireOrThrow(eq("org:member:role:1"), eq(0L), eq(TimeUnit.SECONDS));
-
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            CompletableFuture<Response> staleRequest = CompletableFuture.supplyAsync(() ->
-                    authRequest(token).body(Map.of("status", "DISABLED"))
-                            .patch("/orgadmin/members/2/status"), executor);
-            try {
-                assertThat(blockedBeforeLock.await(15, TimeUnit.SECONDS)).isTrue();
-                Response promotion = authRequest(token).body(Map.of("orgRole", "ORG_ADMIN"))
-                        .patch("/orgadmin/members/2/role");
-                promotion.then().statusCode(200);
-                assertThat(promotion.jsonPath().getInt("code")).isEqualTo(ResultCode.SUCCESS.getCode());
-            } finally {
-                resume.countDown();
-            }
-
-            Response rejected = staleRequest.get(15, TimeUnit.SECONDS);
-            rejected.then().statusCode(200);
-            assertThat(rejected.jsonPath().getInt("code")).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+    /** 管理员请求锁前暂停，所有者先提升目标；恢复后不能使用过时的目标角色。 */
+    @Test void shouldRejectDisableAfterTargetBecomesAdmin() throws Exception {
+        prepare();
+        jdbcTemplate.update("UPDATE organization_member SET org_role='ORG_USER' WHERE id=3");
+        String owner=loginAs("owner","123456"),admin=loginAs("member2","123456");
+        CountDownLatch blocked=new CountDownLatch(1),resume=new CountDownLatch(1);
+        blockFirst(blocked,resume);
+        try(var executor=Executors.newVirtualThreadPerTaskExecutor()){
+            CompletableFuture<Response> stale=CompletableFuture.supplyAsync(
+                    ()->authRequest(admin,1L).body(Map.of("status","DISABLED")).patch("/orgadmin/members/3/status"),executor);
+            try{
+                assertThat(blocked.await(15,TimeUnit.SECONDS)).isTrue();
+                authRequest(owner,1L).body(Map.of("orgRole","ORG_ADMIN")).patch("/orgadmin/members/3/role")
+                        .then().body("code",org.hamcrest.Matchers.equalTo(ResultCode.SUCCESS.getCode()));
+            }finally{resume.countDown();}
+            assertThat(stale.get(15,TimeUnit.SECONDS).jsonPath().getInt("code"))
+                    .isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
         }
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM organization_member WHERE id=3",Integer.class)).isEqualTo(1);
+    }
 
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_ADMIN");
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT status FROM organization_member WHERE id = 2", Integer.class)).isEqualTo(1);
+    private void prepare(){
+        createUserWithOrganization(1L,"owner","123456","owner@example.com",1L,1L,"ORG_OWNER");
+        for(long id=2;id<=3;id++){
+            createTestUser(id,"member"+id,"123456","member"+id+"@example.com");
+            createOrganizationMember(id,1L,id,"ORG_ADMIN");
+        }
+    }
+    private void blockFirst(CountDownLatch blocked,CountDownLatch resume){
+        AtomicBoolean first=new AtomicBoolean(true);
+        doAnswer(call->{
+            if(first.compareAndSet(true,false)){
+                blocked.countDown();
+                assertThat(resume.await(15,TimeUnit.SECONDS)).isTrue();
+            }
+            return call.callRealMethod();
+        }).when(locks).tryAcquireOrThrow(eq("org:member:role:1"),eq(0L),eq(TimeUnit.SECONDS));
     }
 }

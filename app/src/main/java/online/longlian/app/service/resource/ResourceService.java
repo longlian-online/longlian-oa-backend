@@ -1,5 +1,11 @@
 package online.longlian.app.service.resource;
 
+import online.longlian.common.enumeration.Status;
+
+import online.longlian.app.pojo.entity.Organization;
+
+import online.longlian.app.mapper.OrganizationMapper;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -40,6 +46,7 @@ import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
 public class ResourceService {
 
     private final ResourceMapper resourceMapper;
+    private final OrganizationMapper organizationMapper;
     private final StorageServiceFactory storageFactory;
     private final CdnUrlSigner cdnUrlSigner;
     private final LocalFileUrlSigner localFileUrlSigner;
@@ -111,7 +118,10 @@ public class ResourceService {
         ).in(Resource::getId, resourceIds);
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
-        List<Resource> resources = resourceMapper.selectList(query);
+        Map<Long, Boolean> availability = new HashMap<>();
+        List<Resource> resources = resourceMapper.selectList(query).stream()
+                .filter(resource -> availability.computeIfAbsent(resource.getOrgId(),
+                        ignored -> organizationAvailable(resource))).toList();
         long cdnTimestamp = isCdnEnabled() && !resources.isEmpty() ? currentCdnTimestamp() : 0;
 
         Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));
@@ -201,6 +211,7 @@ public class ResourceService {
         if (resource == null) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
         }
+        if (!organizationAvailable(resource)) throw new AppException(ResultCode.DATA_NOT_EXIT);
         return resource;
     }
 
@@ -250,6 +261,7 @@ public class ResourceService {
         if (resource == null) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传或文件已完成上传");
         }
+        if (!organizationAvailable(resource)) throw new AppException(ResultCode.DATA_NOT_EXIT);
         return resource;
     }
 
@@ -261,6 +273,7 @@ public class ResourceService {
         if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
+        if (!organizationAvailable(resource)) throw new AppException(ResultCode.DATA_NOT_EXIT);
         return resource;
     }
 
@@ -272,4 +285,10 @@ public class ResourceService {
         return "avatar".equals(bizType) || "cover".equals(bizType);
     }
 
+    private boolean organizationAvailable(Resource resource) {
+        Long orgId = resource.getOrgId();
+        if (orgId == null || orgId == 0) return true;
+        Organization organization = organizationMapper.selectById(orgId);
+        return organization != null && organization.getStatus() == Status.ENABLED;
+    }
 }

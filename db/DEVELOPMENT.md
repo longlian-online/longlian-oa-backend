@@ -161,3 +161,44 @@ MySQL 与 MariaDB 的数据目录格式不作为迁移接口，禁止把原 MySQ
 结构唯一来源仍为 schema.sql，以上是经审核的数据处理流程，不新增结构迁移脚本。
 待审核申请不独占全局身份。审批时身份已被占用则保持 PENDING；
 需要继续加入时拒绝该注册申请，由对应正式账号提交 EXISTING_USER 申请。
+
+## Issue #169：组织治理发布
+
+所有权仅由未删除的 ORG_OWNER 成员表达，creator_id 保持审计含义。
+本结构添加所有者唯一索引和 active_guard 成员唯一索引。
+生产 Atlas 保护索引删除，旧 uk_org_member_user 不会因 schema.sql 移除而自动消失。
+
+发布顺序：
+
+1. 暂停组织创建、申请提交、审批、成员治理，停止旧实例写入。
+2. 审核 prod plan 并同步结构，确认 uk_org_member_owner、uk_org_member_active 和角色 CHECK 已生效。
+3. 核对 SHOW INDEX FROM organization_member 的结果，再经审核执行
+   ALTER TABLE organization_member DROP INDEX uk_org_member_user。
+   未实际删除旧索引不得开放移除/退出与重新入组，否则旧历史记录仍会占用成员唯一键。
+4. 同一事务回填所有未删除组织，包括被平台禁用的组织：
+   优先选择仍全局启用、成员启用且未删除的创建者，设该成员为 ORG_OWNER；
+   创建者不可用时，仅自动选择恰好一名全局及成员均启用的 ORG_ADMIN；
+   多候选、无候选或非法角色进入业务负责人审核清单，不任意挑选。
+5. 校验所有未删除组织恰好一名未删除、成员启用、用户存在且全局启用的 ORG_OWNER，
+   否则回滚回填并继续停写。creator_id 不随转让变更。
+6. 部署完整新版本后恢复写入，验证新建组织、转让、管理员边界与退出重新入组。
+
+所有者核对查询必须返回零行：
+
+    SELECT o.id
+    FROM organization o
+    LEFT JOIN organization_member m
+      ON m.org_id=o.id AND m.deleted_at IS NULL AND m.org_role='ORG_OWNER'
+    LEFT JOIN user u ON u.id=m.user_id AND u.deleted_at IS NULL
+    WHERE o.deleted_at IS NULL
+    GROUP BY o.id
+    HAVING COUNT(m.id) <> 1
+       OR SUM(CASE WHEN m.status=1 AND u.status=1 THEN 1 ELSE 0 END) <> 1;
+
+新开发种子创建 ORG_OWNER；已有开发种子因 INSERT IGNORE 不会覆盖成员角色，应遵循同一回填流程。
+解散是 organization.deleted_at 的逻辑删除，保留成员、任务和资源历史，拒绝所有待审申请并清空密码快照。
+平台禁用可重新启用，解散不能通过启用接口恢复。已经发放的外部 COS 签名地址按原有效期失效；
+本地签名资源入口会重新检查组织状态。
+
+回填后不得回滚到不认识 ORG_OWNER 的旧实例；产生重复入组历史后不得恢复旧成员唯一索引。
+需要回退时应停写并使用支持当前模型的兼容版本，优先向前修复。

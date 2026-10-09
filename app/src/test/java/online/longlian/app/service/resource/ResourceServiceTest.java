@@ -1,5 +1,11 @@
 package online.longlian.app.service.resource;
 
+import online.longlian.common.enumeration.Status;
+
+import online.longlian.app.pojo.entity.Organization;
+
+import online.longlian.app.mapper.OrganizationMapper;
+
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
@@ -31,13 +37,16 @@ public class ResourceServiceTest {
 
     @InjectMocks
     private ResourceService resourceService;
+    @Mock private OrganizationMapper organizationMapper;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(organizationMapper.selectById(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(Organization.builder().status(Status.ENABLED).build());
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setType(StorageType.OSS);
         storageProperties.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageServiceFactory,
+        resourceService = new ResourceService(resourceMapper, organizationMapper, storageServiceFactory,
                 new CdnUrlSigner("https://cdn.example", "test-secret", Clock.systemUTC()),
                 new LocalFileUrlSigner("test-local-signing-secret-32-bytes", storageProperties, Clock.systemUTC()),
                 storageProperties, Clock.systemUTC());

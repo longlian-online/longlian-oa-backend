@@ -46,7 +46,7 @@ import java.util.List;
 @RequestMapping("/orgadmin/members")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER', 'ORG_ADMIN')")
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;

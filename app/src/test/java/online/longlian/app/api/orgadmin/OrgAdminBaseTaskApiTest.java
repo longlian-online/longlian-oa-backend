@@ -18,7 +18,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
     @Test
     void shouldListEnabledAndDisabledBaseTasksWhenStatusIsOmitted() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createBaseTasksForStatusFiltering();
         String token = loginAs("orgadmin", "123456");
 
@@ -36,7 +36,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
     @ParameterizedTest
     @CsvSource({"ENABLED, 1", "DISABLED, 2"})
     void shouldListOnlyBaseTasksMatchingExplicitStatus(String status, String expectedId) {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createBaseTasksForStatusFiltering();
         String token = loginAs("orgadmin", "123456");
 
@@ -67,7 +67,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldCreateBaseTaskSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         createResource(12345L, 1L, 1L);
         jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
                 FileProcessStatus.Uploaded.getCode(), 12345L);
@@ -102,7 +102,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailCreateBaseTaskWithIconNameTooLong() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -122,7 +122,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailCreateBaseTaskWithDescriptionTooLong() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         String longDesc = "a".repeat(501);
@@ -143,7 +143,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldEnableBaseTaskSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -166,7 +166,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldDisableBaseTaskSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -245,7 +245,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailCreateBaseTaskWithEmptyName() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -262,7 +262,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailCreateBaseTaskWithNameTooLong() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         String longName = "a".repeat(101);
@@ -280,7 +280,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeBaseTaskStatusWithEmptyStatus() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -299,7 +299,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailChangeStatusForNonExistentTask() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -318,7 +318,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldListBaseTasksWithPaginationBoundaries() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -335,7 +335,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldListBaseTasksWithPageSizeExceedingMax() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -352,7 +352,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldListBaseTasksWithZeroPageSize() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -369,7 +369,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldListBaseTasksWithKeywordFilter() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -390,7 +390,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldListBaseTasksWithEmptyResult() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
