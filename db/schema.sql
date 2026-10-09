@@ -64,8 +64,7 @@ CREATE TABLE `group_application` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_group_application_otp_id` (`otp_id`),
-  `pending_register_email` varchar(100) GENERATED ALWAYS AS (IF(`deleted_at` IS NULL AND `application_type` = 0 AND `status` = 0, `email`, NULL)) STORED,
-  UNIQUE INDEX `uk_pending_register_email` (`org_id`, `pending_register_email`),
+  INDEX `idx_group_application_org_status_email` (`org_id`, `status`, `email`),
   CONSTRAINT `ck_application_password` CHECK (`password_hash` IS NULL OR (`application_type` = 0 AND `status` = 0)),
   CONSTRAINT `ck_application_user` CHECK (`user_id` IS NOT NULL OR (`application_type` = 0 AND `status` IN (0, 2))),
   CONSTRAINT `ck_application_snapshot` CHECK (`application_type` <> 0 OR `status` <> 0 OR `user_id` IS NOT NULL OR `password_hash` IS NOT NULL)
