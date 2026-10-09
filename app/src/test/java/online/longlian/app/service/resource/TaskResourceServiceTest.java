@@ -96,6 +96,17 @@ class TaskResourceServiceTest {
                 .isInstanceOf(AppException.class);
     }
 
+    /** 即使任务 ID 相同，已绑定的上传也不能用于重新提交。 */
+    @Test
+    void shouldRejectPreviouslyBoundTaskAttachment() {
+        when(resourceMapper.selectList(any())).thenReturn(List.of(activated(1L)));
+
+        assertThatThrownBy(() -> bind(List.of(1L)))
+                .isInstanceOf(AppException.class);
+        verify(resourceMapper, never()).update(isNull(), any());
+        verifyNoInteractions(storageFactory);
+    }
+
 
     @Test
     void allResourcesAreValidatedBeforeAnyUploadTransition() {
@@ -115,6 +126,7 @@ class TaskResourceServiceTest {
         Resource uploadedBound = uploaded(2L);
         uploadedBound.setBizId(TASK_ID);
         invalidResources.add(uploadedBound);
+        invalidResources.add(activated(2L));
         Resource crossTask = activated(2L);
         crossTask.setBizId(99L);
         invalidResources.add(crossTask);

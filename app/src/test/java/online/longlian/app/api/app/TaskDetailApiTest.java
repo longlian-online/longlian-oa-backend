@@ -210,7 +210,7 @@ class TaskDetailApiTest extends BaseApiTest {
         assertUnbound(102L, FileProcessStatus.Uploaded);
         assertUnsubmitted(token, 1L);
 
-        // Successful reuse by another task proves the failed submission did not bind the valid upload.
+        // 另一个任务仍可首次绑定该上传，证明失败提交没有留下绑定。
         createTaskInstance(2L, 1L);
         assertSuccess(submit(token, 2L, Map.of("first", file(101L))));
         detail(token, 2L).then().statusCode(200)
@@ -233,14 +233,20 @@ class TaskDetailApiTest extends BaseApiTest {
         assertUnsubmitted(token, 1L);
     }
 
+    /** 重置后必须重新上传，旧资源不能再次绑定到原任务或其他任务。 */
     @Test
-    void shouldReuseSameTaskAttachmentAfterResetButDenyCrossTaskReuse() {
+    void shouldRequireNewAttachmentAfterResetAndDenyPreviouslyBoundFiles() {
         String token = createTask(List.of(field("attachment", "附件", "file", true)));
         createTaskResource(101L, 1L, 1L, 0L, FileProcessStatus.Uploaded);
         assertSuccess(submit(token, 1L, Map.of("attachment", file(101L))));
         assertSuccess(authRequest(token).post("/app/task/instance/1/reset"));
         assertUnsubmitted(token, 1L);
-        assertSuccess(submit(token, 1L, Map.of("attachment", file(101L))));
+        submit(token, 1L, Map.of("attachment", file(101L))).then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        assertUnsubmitted(token, 1L);
+        createTaskResource(102L, 1L, 1L, 0L, FileProcessStatus.Uploaded);
+        jdbcTemplate.update("UPDATE resource SET file_name = '成果101.pdf' WHERE id = 102");
+        assertSuccess(submit(token, 1L, Map.of("attachment", file(102L))));
         createTaskInstance(2L, 1L);
 
         submit(token, 2L, Map.of("attachment", file(101L))).then().statusCode(200)
@@ -248,7 +254,8 @@ class TaskDetailApiTest extends BaseApiTest {
         assertUnsubmitted(token, 2L);
         detail(token, 1L).then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.submission.fields[0].file.id", equalTo("101"))
+                .body("data.submission.fields[0].file.id", equalTo("102"))
+                .body("data.submission.fields[0].file.name", equalTo("成果101.pdf"))
                 .body("data.submission.fields[0].file.availability", equalTo("available"));
     }
 

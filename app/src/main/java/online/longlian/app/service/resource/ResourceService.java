@@ -223,7 +223,7 @@ public class ResourceService {
             return;
         }
         if (isResourceId(params.getResourceId())) {
-            bindResources(List.of(params.getResourceId()), scope(params), false);
+            bindResources(List.of(params.getResourceId()), scope(params));
         }
         if (!Objects.equals(params.getResourceId(), params.getReplacedResourceId())) {
             deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
@@ -232,7 +232,7 @@ public class ResourceService {
 
     /**
      * 将多份上传绑定到同一业务对象。
-     * 未绑定的上传会被激活；已激活且业务 ID 相同的资源可以复用。不废弃其他资源。
+     * 仅绑定并激活未绑定的新上传，不废弃其他资源。
      */
     public void bindBizResources(ResourceBindBatchParamsBO params) {
         if (params.getBizId() == null || params.getResourceIds() == null || params.getResourceIds().isEmpty()) {
@@ -246,7 +246,7 @@ public class ResourceService {
         }
         if (!resourceIds.isEmpty()) {
             bindResources(resourceIds, new BindScope(
-                    params.getBizType(), params.getBizId(), params.getCreatorId(), params.getOrgId()), true);
+                    params.getBizType(), params.getBizId(), params.getCreatorId(), params.getOrgId()));
         }
     }
 
@@ -254,76 +254,48 @@ public class ResourceService {
         return new BindScope(params.getBizType(), params.getBizId(), params.getCreatorId(), params.getOrgId());
     }
 
-    private void bindResources(List<Long> resourceIds, BindScope scope, boolean reuseBound) {
+    private void bindResources(List<Long> resourceIds, BindScope scope) {
         if (scope.bizType() == null) {
             throw unauthorized();
         }
         Map<Long, Resource> resources = loadResources(resourceIds);
         for (Long resourceId : resourceIds) {
-            validateBind(resources.get(resourceId), scope, reuseBound);
+            validateBind(resources.get(resourceId), scope);
         }
         for (Long resourceId : resourceIds) {
-            activateBound(resources.get(resourceId), scope, reuseBound);
+            activateBound(resources.get(resourceId), scope);
         }
     }
 
-    private void validateBind(Resource resource, BindScope scope, boolean reuseBound) {
-        if (reuseBound) {
-            if (resource == null || !Objects.equals(resource.getOrgId(), scope.orgId())
-                    || !Objects.equals(resource.getCreatorId(), scope.creatorId())
-                    || !Objects.equals(resource.getBizType(), scope.bizType())) {
-                throw unauthorized();
-            }
-            boolean reusable = resource.getProcessStatus() == FileProcessStatus.Activated
-                    && Objects.equals(resource.getBizId(), scope.bizId());
-            boolean unboundUpload = Objects.equals(resource.getBizId(), 0L)
-                    && (resource.getProcessStatus() == FileProcessStatus.Pending
-                    || resource.getProcessStatus() == FileProcessStatus.Uploaded);
-            if (!reusable && !unboundUpload) {
-                throw unauthorized();
-            }
-            return;
-        }
+    private void validateBind(Resource resource, BindScope scope) {
         if (resource == null || !Objects.equals(resource.getCreatorId(), scope.creatorId())
                 || (scope.orgId() != null && !Objects.equals(resource.getOrgId(), scope.orgId()))
-                || !Objects.equals(resource.getBizType(), scope.bizType())) {
+                || !Objects.equals(resource.getBizType(), scope.bizType())
+                || !Objects.equals(resource.getBizId(), 0L)
+                || (resource.getProcessStatus() != FileProcessStatus.Pending
+                    && resource.getProcessStatus() != FileProcessStatus.Uploaded)) {
             throw unauthorized();
         }
     }
 
-    private void activateBound(Resource resource, BindScope scope, boolean reuseBound) {
-        if (reuseBound) {
-            if (resource.getProcessStatus() == FileProcessStatus.Activated) {
-                return;
-            }
-            if (resource.getProcessStatus() == FileProcessStatus.Pending) {
-                storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
-                        resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
-                int uploaded = resourceMapper.update(null, unboundUpdate(resource.getId(), scope)
-                        .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
-                        .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-                if (uploaded != 1) {
-                    throw unauthorized();
-                }
-            }
-            int activated = resourceMapper.update(null, unboundUpdate(resource.getId(), scope)
-                    .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                    .set(Resource::getBizId, scope.bizId())
-                    .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+    private void activateBound(Resource resource, BindScope scope) {
+        if (resource.getProcessStatus() == FileProcessStatus.Pending) {
+            storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                    resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+            int uploaded = resourceMapper.update(null, unboundUpdate(resource.getId(), scope)
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                    .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
                     .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-            if (activated != 1) {
+            if (uploaded != 1) {
                 throw unauthorized();
             }
-            return;
         }
-        ensureUploaded(resource, scope);
-        int updated = resourceMapper.update(null, ownedUpdate(resource.getId(), scope)
+        int activated = resourceMapper.update(null, unboundUpdate(resource.getId(), scope)
                 .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
                 .set(Resource::getBizId, scope.bizId())
                 .set(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .set(Resource::getUpdatedAt, LocalDateTime.now()));
-        if (updated == 0) {
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+        if (activated != 1) {
             throw unauthorized();
         }
     }
@@ -331,48 +303,10 @@ public class ResourceService {
     private LambdaUpdateWrapper<Resource> unboundUpdate(Long resourceId, BindScope scope) {
         return new LambdaUpdateWrapper<Resource>()
                 .eq(Resource::getId, resourceId)
-                .eq(Resource::getOrgId, scope.orgId())
+                .eq(scope.orgId() != null, Resource::getOrgId, scope.orgId())
                 .eq(Resource::getCreatorId, scope.creatorId())
                 .eq(Resource::getBizType, scope.bizType())
                 .eq(Resource::getBizId, 0L);
-    }
-
-    private LambdaUpdateWrapper<Resource> ownedUpdate(Long resourceId, BindScope scope) {
-        return new LambdaUpdateWrapper<Resource>()
-                .eq(Resource::getId, resourceId)
-                .eq(Resource::getCreatorId, scope.creatorId())
-                .eq(scope.orgId() != null, Resource::getOrgId, scope.orgId())
-                .eq(Resource::getBizType, scope.bizType());
-    }
-
-    private Resource loadOwnedResource(Long resourceId, BindScope scope) {
-        Resource resource = resourceMapper.selectOne(new LambdaQueryWrapper<Resource>()
-                .eq(Resource::getId, resourceId)
-                .eq(Resource::getCreatorId, scope.creatorId())
-                .eq(scope.orgId() != null, Resource::getOrgId, scope.orgId())
-                .eq(Resource::getBizType, scope.bizType()));
-        if (resource == null) {
-            throw unauthorized();
-        }
-        return resource;
-    }
-
-    private void ensureUploaded(Resource resource, BindScope scope) {
-        if (resource.getProcessStatus() == FileProcessStatus.Pending) {
-            storageFactory.get(resource.getStorageType()).probe(
-                    new ResourceProbeParamsBO(resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
-            int updated = resourceMapper.update(null, ownedUpdate(resource.getId(), scope)
-                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
-                    .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
-                    .set(Resource::getUpdatedAt, LocalDateTime.now()));
-            if (updated == 1) {
-                return;
-            }
-            resource = loadOwnedResource(resource.getId(), scope);
-        }
-        if (resource.getProcessStatus() != FileProcessStatus.Uploaded) {
-            throw unauthorized();
-        }
     }
 
     private record BindScope(String bizType, Long bizId, Long creatorId, Long orgId) {

@@ -190,7 +190,7 @@ public class ProjectApiTest extends BaseApiTest {
     void shouldCreateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
-        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', process_status = ? WHERE id = ?",
                 FileProcessStatus.Uploaded.getCode(), 1L);
         String token = loginAs("orgadmin", "123456");
 
@@ -248,9 +248,10 @@ public class ProjectApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
         createResource(2L, 1L, 1L);
-        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/2.png', process_status = ? WHERE id = ?",
                 FileProcessStatus.Uploaded.getCode(), 2L);
-        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1, process_status = ? WHERE id = 1",
+                FileProcessStatus.Activated.getCode());
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(

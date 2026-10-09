@@ -217,7 +217,6 @@ class ResourceServiceExtendedTest {
     void bindBizResource_updateFails_throws() {
         Resource pending = pendingResource(1L);
         when(resourceMapper.selectList(any())).thenReturn(List.of(pending));
-        when(resourceMapper.selectOne(any())).thenReturn(pending);
         when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
         when(resourceMapper.update(isNull(), any())).thenReturn(0);
 
@@ -225,6 +224,21 @@ class ResourceServiceExtendedTest {
                 .resourceId(1L).bizType("avatar").bizId(2L).creatorId(1L).orgId(1L).build()))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("无权使用该文件");
+    }
+
+    /** 新头像绑定只接受未绑定的上传，不能抢占已有业务资源。 */
+    @Test
+    void shouldRejectAlreadyBoundUploadForSingleResource() {
+        Resource bound = pendingResource(1L);
+        bound.setBizId(2L);
+        bound.setProcessStatus(FileProcessStatus.Uploaded);
+        when(resourceMapper.selectList(any())).thenReturn(List.of(bound));
+
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizType("avatar").bizId(2L).creatorId(1L).orgId(1L).build()))
+                .isInstanceOf(AppException.class);
+        verify(resourceMapper, never()).update(isNull(), any());
+        verifyNoInteractions(storageFactory);
     }
 
     @Test
@@ -372,7 +386,7 @@ class ResourceServiceExtendedTest {
 
     private Resource pendingResource(Long id) {
         return Resource.builder().id(id).creatorId(1L).orgId(1L).storageKey("avatar/1.png")
-                .storageType(StorageType.OSS).fileSize(3L).fileMime("image/png").bizType("avatar")
+                .storageType(StorageType.OSS).fileSize(3L).fileMime("image/png").bizType("avatar").bizId(0L)
                 .processStatus(FileProcessStatus.Pending).build();
     }
 
