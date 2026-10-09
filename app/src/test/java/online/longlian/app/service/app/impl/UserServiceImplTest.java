@@ -426,6 +426,37 @@ class UserServiceImplTest {
                         org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
     }
 
+    /** 可用头像仍通过资源批量查询返回地址，用户资料字段保持完整。 */
+    @Test
+    void shouldReturnProfileWithAvailableAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("user")
+                .email("user@example.com").nickname("Nickname").defaultOrgId(10L).avatarFileId(100L).build());
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of(
+                100L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 10L, "avatar.png")));
+
+        var result = service.getMyInfo(1L);
+        assertThat(result.getAvatarUrl()).isEqualTo("https://cdn.example/avatar.png");
+        assertThat(result.getUsername()).isEqualTo("user");
+        assertThat(result.getEmail()).isEqualTo("user@example.com");
+        assertThat(result.getNickname()).isEqualTo("Nickname");
+        assertThat(result.getDefaultOrgId()).isEqualTo(10L);
+    }
+
+    /** 头像资源不在可用集合中时不影响全局个人资料查询。 */
+    @Test
+    void shouldReturnProfileWithoutUnavailableAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("user")
+                .email("user@example.com").avatarFileId(100L).build());
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of());
+
+        var result = service.getMyInfo(1L);
+        assertThat(result.getAvatarUrl()).isNull();
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getUsername()).isEqualTo("user");
+        assertThat(result.getEmail()).isEqualTo("user@example.com");
+        verify(resourceService, never()).getResourceReadUrl(any());
+    }
+
     @Test
     void shouldIncludeAvatarWhenSwitchingToOrganizationWithAvatar() {
         when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(

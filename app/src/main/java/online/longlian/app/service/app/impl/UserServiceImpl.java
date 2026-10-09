@@ -25,6 +25,7 @@ import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
@@ -139,7 +140,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null && user.getAvatarFileId() > 0) {
-            builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
+            // 头像所属组织不可用时不签发资源地址，个人资料仍可正常读取。
+            ResourceReadUrlGetResultBO avatar = resourceService.getResourceReadUrls(List.of(user.getAvatarFileId()))
+                    .get(user.getAvatarFileId());
+            if (avatar != null) builder.avatarUrl(avatar.getUrl());
         }
         return builder.build();
     }

@@ -6,6 +6,10 @@ import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.common.exception.AppException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -18,6 +22,8 @@ public class UserApiTest extends BaseApiTest {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private ResourceService resources;
 
     // ========== 注册与创建组织 ==========
 
@@ -190,6 +196,38 @@ public class UserApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+    }
+
+    /** 头像所属组织禁用或解散后，全局资料可读，头像为空且资源仍不可签发。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"disabled", "dissolved"})
+    void shouldReturnProfileWhenAvatarOrganizationIsUnavailable(String state) {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_OWNER");
+        createResource(20L, 1L, 1L);
+        jdbcTemplate.update("UPDATE user SET avatar_file_id=20 WHERE id=1");
+        String token = loginAs("testuser", "123456");
+        userRequest(token).get("/app/user/").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode())).body("data.avatarUrl", notNullValue());
+
+        if (state.equals("dissolved")) {
+            authRequest(token, 1L).delete("/orgadmin/organizations/1").then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        } else {
+            jdbcTemplate.update("UPDATE organization SET status=0 WHERE id=1");
+        }
+
+        userRequest(token).get("/app/user/").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.id", equalTo("1"))
+                .body("data.username", equalTo("testuser"))
+                .body("data.email", equalTo("test@example.com"))
+                .body("data.avatarUrl", nullValue());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> resources.getResourceReadUrl(20L))
+                .isInstanceOfSatisfying(AppException.class, exception ->
+                        org.assertj.core.api.Assertions.assertThat(exception.getCode())
+                                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT avatar_file_id FROM user WHERE id=1", Long.class)).isEqualTo(20L);
     }
 
     /**
