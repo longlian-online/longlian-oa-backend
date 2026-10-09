@@ -314,7 +314,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 OTPValidateContextBO.builder().code(inviteCode).build());
         Organization organization = getJoinTargetOrganization(inviteOtp, true);
 
-        // 审批可能在等待组织锁期间建立成员关系，不能沿用邀请码查询的快照。
+        // 与审批保持申请→成员的锁顺序，避免先持有成员间隙锁再等待申请锁。
+        boolean hasPendingApplication = groupApplicationMapper.selectOne(
+                new LambdaQueryWrapper<GroupApplication>()
+                        .select(GroupApplication::getId)
+                        .eq(GroupApplication::getOrgId, organization.getId())
+                        .eq(GroupApplication::getUserId, userId)
+                        .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
+                        .last("LIMIT 1 FOR UPDATE")
+        ) != null;
+        if (hasPendingApplication) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
+        }
+
         OrganizationMember existedMember = organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, userId)
@@ -326,19 +338,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 throw new AppException(ResultCode.OPERATION_FAIL, "您已加入该组织");
             }
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
-        }
-
-        // 邀请码查询已建立一致性快照；组织锁后的判断必须读取最新提交的申请。
-        boolean hasPendingApplication = groupApplicationMapper.selectOne(
-                new LambdaQueryWrapper<GroupApplication>()
-                        .select(GroupApplication::getId)
-                        .eq(GroupApplication::getOrgId, organization.getId())
-                        .eq(GroupApplication::getUserId, userId)
-                        .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
-                        .last("LIMIT 1 FOR UPDATE")
-        ) != null;
-        if (hasPendingApplication) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
         }
 
         User user = userMapper.selectById(userId);

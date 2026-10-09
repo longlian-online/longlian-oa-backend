@@ -128,6 +128,25 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
 
+    /** 待审核状态不是审核结果，必须在写入前拒绝且保留注册密码快照。 */
+    @Test
+    void shouldRejectPendingReviewResultWithoutChangingApplication() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        String hash = passwordEncoder.encode("123456");
+        jdbcTemplate.update(
+                "INSERT INTO group_application (id, org_id, application_type, status, username, email, password_hash) " +
+                        "VALUES (?, ?, 0, 0, ?, ?, ?)", 1L, 1L, "candidate", "candidate@example.com", hash);
+
+        authRequest(token).body(Map.of("applicationStatus", "PENDING"))
+                .put("/orgadmin/members/applications/1/review")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id = ?", Integer.class, 1L)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT password_hash FROM group_application WHERE id = ?", String.class, 1L)).isEqualTo(hash);
+        assertThat(jdbcTemplate.queryForObject("SELECT reviewer_id FROM group_application WHERE id = ?", Long.class, 1L)).isNull();
+    }
+
     /**
      * 审核通过 EXISTING_USER 类型申请时申请人已是组织成员应失败
      */

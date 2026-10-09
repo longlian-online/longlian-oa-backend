@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
@@ -48,6 +49,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -400,6 +402,28 @@ class UserServiceImplTest {
                 .isInstanceOf(AppException.class)
                 .hasMessage("用户不存在");
         assertThat(service.getMyOrganizations(1L)).isEmpty();
+    }
+
+    /** 组织列表过滤禁用组织，并按资源 ID 匹配头像；没有头像的组织保留空值。 */
+    @Test
+    void shouldListEnabledOrganizationsWithMatchingAvatars() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().orgId(10L).build(),
+                OrganizationMember.builder().orgId(20L).build(),
+                OrganizationMember.builder().orgId(30L).build()));
+        when(organizationMapper.selectBatchIds(any())).thenReturn(List.of(
+                Organization.builder().id(10L).name("with avatar").status(Status.ENABLED).avatarFileId(100L).build(),
+                Organization.builder().id(20L).name("disabled").status(Status.DISABLED).avatarFileId(200L).build(),
+                Organization.builder().id(30L).name("without avatar").status(Status.ENABLED).build()));
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of(
+                100L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 10L, "avatar.png")));
+
+        assertThat(service.getMyOrganizations(1L))
+                .extracting("id", "name", "avatarUrl")
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple(10L, "with avatar", "https://cdn.example/avatar.png"),
+                        org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
     }
 
     @Test

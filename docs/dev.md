@@ -82,6 +82,8 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 
 审核入口使用 `@Transactional(rollbackFor = Exception.class)`，以默认 `REQUIRED` 传播方式
 将申请行锁、账号创建、成员创建和申请状态更新纳入同一事务。
+请求 DTO 仅接受 `APPROVED`、`REJECTED` 作为审核结果；`PENDING` 在参数校验阶段拒绝，
+不进入审核事务，也不清空注册密码快照。
 入口授权由 Controller 的 `@PreAuthorize` 及组织上下文校验负责；允许已通过鉴权的在途审核
 在组织禁用或审核人撤权后继续完成，不在事务内重复鉴权，也不获取组织行锁或组织级 Redis 锁。
 同一申请通过 `FOR UPDATE` 和待审核状态检查防止重复处理，身份及成员关系冲突由数据库唯一约束兜底。
@@ -92,6 +94,8 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 申请提交仍先锁目标组织，串行化同组织的查重与写入；`UserServiceImpl.getJoinTargetOrganization()`
 统一处理组织查询及存在、启用状态校验，提交使用 `FOR UPDATE`，邀请码信息展示使用普通查询。
 组织查询不再单独封装授权 Service，也不再先普通查询组织再重新锁定。
+已有用户提交时先锁定待审申请再检查成员，与审批保持申请→成员的锁顺序，避免成员间隙锁
+与申请行锁形成循环等待；审核入口仍不获取组织锁。
 
 ## ORM 代码生成
 
