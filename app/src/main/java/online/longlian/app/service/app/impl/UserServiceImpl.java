@@ -1,7 +1,5 @@
 package online.longlian.app.service.app.impl;
 
-import online.longlian.app.service.common.OrganizationAuthorizationService;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -66,7 +64,6 @@ import java.util.stream.Collectors;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final PasswordEncoder passwordEncoder;
-    private final OrganizationAuthorizationService organizationAuthorizationService;
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
@@ -274,8 +271,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OneTimePassword emailOtp = validateRegisterRequest(params);
         OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
                 OTPValidateContextBO.builder().code(params.getInviteCode()).build());
-        Organization organization = getJoinTargetOrganization(inviteOtp);
-        organizationAuthorizationService.lockOrganization(organization.getId(), true);
+        Organization organization = getJoinTargetOrganization(inviteOtp, true);
 
         // 邀请码查询已建立一致性快照；组织锁后的判断必须读取最新提交的申请。
         boolean hasPendingApplication = groupApplicationMapper.selectOne(
@@ -316,8 +312,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public void joinOrganizationByInvite(Long userId, String inviteCode) {
         OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
                 OTPValidateContextBO.builder().code(inviteCode).build());
-        Organization organization = getJoinTargetOrganization(inviteOtp);
-        organizationAuthorizationService.lockOrganization(organization.getId(), true);
+        Organization organization = getJoinTargetOrganization(inviteOtp, true);
 
         // 审批可能在等待组织锁期间建立成员关系，不能沿用邀请码查询的快照。
         OrganizationMember existedMember = organizationMemberMapper.selectOne(
@@ -407,6 +402,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     private Organization getJoinTargetOrganization(OneTimePassword inviteOtp) {
+        return getJoinTargetOrganization(inviteOtp, false);
+    }
+
+    private Organization getJoinTargetOrganization(OneTimePassword inviteOtp, boolean lock) {
         OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationJoinOtp>()
                         .eq(OrganizationJoinOtp::getOtpId, inviteOtp.getId())
@@ -415,11 +414,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (joinOtp == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
-        Organization organization = organizationMapper.selectById(joinOtp.getOrgId());
+        Organization organization;
+        if (lock) {
+            // 提交申请按组织串行化查重与写入；邀请码展示无需加锁。
+            organization = organizationMapper.selectOne(new LambdaQueryWrapper<Organization>()
+                    .eq(Organization::getId, joinOtp.getOrgId())
+                    .last("FOR UPDATE"));
+        } else {
+            organization = organizationMapper.selectById(joinOtp.getOrgId());
+        }
         if (organization == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在");
         }
-        if (organization.getStatus() == Status.DISABLED) {
+        if (organization.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "组织已被禁用");
         }
         return organization;

@@ -130,7 +130,6 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
     /**
      * 审核通过 EXISTING_USER 类型申请时申请人已是组织成员应失败
-     * （覆盖 getExistingApplicationUser existedMember!=null 分支）
      */
     @Test
     void shouldFailApproveApplicationWhenUserAlreadyMember() {
@@ -160,7 +159,14 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM group_application WHERE id = ?", Integer.class, 1L)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT reviewer_id FROM group_application WHERE id = ?", Long.class, 1L)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_member WHERE org_id = ? AND user_id = ?",
+                Integer.class, 1L, 2L)).isEqualTo(1);
     }
 
     // ========== 组员列表 ==========

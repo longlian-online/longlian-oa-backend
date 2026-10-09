@@ -3,7 +3,7 @@ package online.longlian.app.api.app;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.common.OrganizationAuthorizationService;
+import online.longlian.app.mapper.OrganizationMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.mock.mockito.SpyBean;
@@ -18,11 +18,11 @@ import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 
 class JoinApplicationConcurrencyApiTest extends BaseApiTest {
-    @SpyBean private OrganizationAuthorizationService authorization;
+    @SpyBean private OrganizationMapper organizations;
     private String managerToken;
 
     @BeforeEach
@@ -97,7 +97,8 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 assertThat(resume.await(15, TimeUnit.SECONDS)).isTrue();
             }
             return call.callRealMethod();
-        }).when(authorization).lockOrganization(eq(1L), eq(true));
+        }).when(organizations).selectOne(argThat(query ->
+                query != null && query.getSqlSegment().endsWith("FOR UPDATE")));
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> delayed = CompletableFuture.supplyAsync(delayedRequest, executor);

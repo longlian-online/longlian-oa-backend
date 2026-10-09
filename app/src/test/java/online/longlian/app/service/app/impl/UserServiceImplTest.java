@@ -1,7 +1,5 @@
 package online.longlian.app.service.app.impl;
 
-import online.longlian.app.service.common.OrganizationAuthorizationService;
-
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -62,7 +60,6 @@ class UserServiceImplTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
-    @Mock private OrganizationAuthorizationService organizationAuthorizationService;
     @Mock
     private OrganizationMapper organizationMapper;
     @Mock
@@ -94,9 +91,9 @@ class UserServiceImplTest {
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), GroupApplication.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Organization.class);
         service = new UserServiceImpl(
                 passwordEncoder,
-                organizationAuthorizationService,
                 organizationMapper,
                 organizationMemberMapper,
                 organizationJoinOtpMapper,
@@ -254,8 +251,9 @@ class UserServiceImplTest {
                 .hasMessageContaining("邀请码不存在");
     }
 
+    /** 目标组织不存在时不写入申请，也不消耗验证码。 */
     @Test
-    void shouldFailRegisterWhenJoinOrganizationDoesNotExist() {
+    void shouldRejectRegistrationForMissingOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
@@ -263,22 +261,30 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织不存在");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(groupApplicationMapper);
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
     }
 
+    /** 禁用组织不得接受注册申请，也不能消耗验证码。 */
     @Test
-    void shouldFailRegisterWhenJoinOrganizationIsDisabled() {
+    void shouldRejectRegistrationForDisabledOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.DISABLED).build());
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织已被禁用");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(groupApplicationMapper);
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
     }
+
 
     @Test
     void shouldDeprecatePreviousAvatarWhenReplacingIt() {
@@ -322,7 +328,7 @@ class UserServiceImplTest {
         when(groupApplicationMapper.selectOne(any())).thenReturn(null);
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(passwordEncoder.encode("password")).thenReturn("hashed-password");
         doAnswer(invocation -> {
@@ -426,7 +432,7 @@ class UserServiceImplTest {
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.selectOne(any())).thenReturn(GroupApplication.builder().id(1L).build());
 
@@ -465,7 +471,7 @@ class UserServiceImplTest {
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.insert(any(GroupApplication.class)))
                 .thenThrow(new org.springframework.dao.DuplicateKeyException("pending registration"));
