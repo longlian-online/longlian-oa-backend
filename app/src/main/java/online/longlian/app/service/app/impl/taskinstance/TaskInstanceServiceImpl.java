@@ -99,7 +99,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void submitTask(TaskInstanceSubmitParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getMetadata());
+        taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getOrgId(), params.getValues());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
     }
@@ -139,14 +139,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         TaskSubmission submission = taskSubmissionMapper.selectOne(
                 new LambdaQueryWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
+                        .eq(TaskSubmission::getStatus, online.longlian.common.enumeration.TaskSubmissionStatus.SUBMITTED)
                         .orderByDesc(TaskSubmission::getCreatedAt)
                         .last("LIMIT 1"));
 
-        TaskInstanceDetailVO taskInstanceDetailVO = new TaskInstanceDetailVO();
-        if (submission != null) {
-            taskInstanceDetailVO.setMetadata(submission.getMetadata());
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
         }
-        return taskInstanceDetailVO;
+        return taskInstanceAssembler.assembleDetail(instance, node, submission, params.getOrgId());
     }
 
     private TaskInstance getAndValidateInstance(Long instanceId, Long orgId) {

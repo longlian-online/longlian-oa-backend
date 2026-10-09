@@ -7,6 +7,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -21,6 +22,7 @@ public class ItemTaskFlowAssembler {
 
     private final BaseTaskMapper baseTaskMapper;
     private final ResourceService resourceService;
+    private final TaskFormService taskFormService;
 
     public List<ItemTaskNodeVO> assembleNodes(List<ItemTaskNode> nodes, List<TaskInstance> instances) {
         if (nodes.isEmpty()) {
@@ -55,7 +57,7 @@ public class ItemTaskFlowAssembler {
                             .name(node.getName())
                             .baseTaskIconUrl(iconUrl)
                             .baseTaskIconName(baseTask != null ? baseTask.getIconName() : null)
-                            .metaSchema(node.getMetaSchema())
+                            .submitFields(taskFormService.parseFields(node.getMetaSchema()))
                             .sort(node.getSort())
                             .parallelSort(node.getParallelSort());
 

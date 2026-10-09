@@ -161,6 +161,7 @@ public class ProjectServiceImpl implements ProjectService {
         projectMapper.insert(project);
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getCoverFileId())
+                .bizType("cover")
                 .bizId(project.getId())
                 .creatorId(params.getCreatorId())
                 .orgId(params.getOrgId())
@@ -193,6 +194,7 @@ public class ProjectServiceImpl implements ProjectService {
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getCoverFileId())
                 .replacedResourceId(project.getCoverFileId())
+                .bizType("cover")
                 .bizId(params.getProjectId())
                 .creatorId(params.getUserId())
                 .orgId(params.getOrgId())

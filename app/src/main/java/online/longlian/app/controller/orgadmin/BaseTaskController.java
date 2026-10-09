@@ -70,7 +70,7 @@ public class BaseTaskController {
 
     @Operation(
         summary = "创建原子任务",
-        description = "任务创建后不可编辑，请确认标题、图标、简介和元数据字段定义后提交"
+        description = "任务创建后不可编辑，请确认标题、图标、简介和提交字段定义后提交"
     )
     @PostMapping
     @ResponseMessage("创建成功")
@@ -84,7 +84,7 @@ public class BaseTaskController {
                         .description(baseTaskCreateDTO.getDescription())
                         .iconFileId(baseTaskCreateDTO.getIconFileId())
                         .iconName(baseTaskCreateDTO.getIconName())
-                        .metaSchema(baseTaskCreateDTO.getMetaSchema())
+                        .submitFields(baseTaskCreateDTO.getSubmitFields())
                         .build()
         );
     }

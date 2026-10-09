@@ -6,6 +6,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ class BaseTaskAssemblerTest {
 
     @BeforeEach
     void setUp() {
-        assembler = new BaseTaskAssembler(taskTemplateNodeMapper, resourceService);
+        assembler = new BaseTaskAssembler(taskTemplateNodeMapper, resourceService, new TaskFormService());
     }
 
     @Test
@@ -47,7 +48,7 @@ class BaseTaskAssemblerTest {
     void assembleBaseTaskList_withTasks_returnsAssembled() {
         BaseTask task = BaseTask.builder()
                 .id(1L).name("Draw").description("Draw something")
-                .iconFileId(100L).iconName("SquarePen").metaSchema("{}").status(Status.ENABLED)
+                .iconFileId(100L).iconName("SquarePen").metaSchema("[]").status(Status.ENABLED)
                 .createdAt(LocalDateTime.now())
                 .build();
         when(resourceService.getResourceReadUrls(anyList()))
@@ -67,7 +68,7 @@ class BaseTaskAssemblerTest {
     @Test
     void assembleBaseTaskList_noIcon_returnsNullUrl() {
         BaseTask task = BaseTask.builder()
-                .id(1L).name("NoIcon").iconFileId(null)
+                .id(1L).name("NoIcon").iconFileId(null).metaSchema("[]")
                 .status(Status.ENABLED).createdAt(LocalDateTime.now())
                 .build();
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(Collections.emptyList());

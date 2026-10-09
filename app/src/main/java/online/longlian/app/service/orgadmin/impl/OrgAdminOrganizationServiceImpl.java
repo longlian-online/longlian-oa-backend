@@ -55,6 +55,7 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
             resourceService.bindBizResource(ResourceBindParamsBO.builder()
                     .resourceId(params.getAvatarFileId())
                     .replacedResourceId(oldAvatarFileId)
+                    .bizType("avatar")
                     .bizId(params.getOrgId())
                     .creatorId(params.getUserId())
                     .orgId(params.getOrgId())
