@@ -173,7 +173,7 @@ CREATE TABLE `organization_member` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`),
-  CONSTRAINT `ck_org_member_role` CHECK (BINARY `org_role` IN (BINARY 'ORG_ADMIN', BINARY 'ORG_USER'))
+  CONSTRAINT `ck_org_member_role` CHECK (BINARY `org_role` IN (BINARY 'ORG_OWNER', BINARY 'ORG_ADMIN', BINARY 'ORG_USER'))
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table
 CREATE TABLE `permission` (
