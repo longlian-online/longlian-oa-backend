@@ -96,9 +96,9 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 .isEqualTo(1);
     }
 
-    /** 审批持有申请锁时重复提交不能先取得成员间隙锁，避免申请与成员锁形成循环等待。 */
+    /** 审批持有申请锁时重复提交读取待审状态并失败，不阻塞审批写入成员和状态。 */
     @Test
-    void shouldApproveWhileDuplicateJoinWaitsForApplicationLock() throws Exception {
+    void shouldApproveWhileDuplicateJoinChecksPendingApplication() throws Exception {
         String token = prepareExistingUser();
         join(token, "JOIN01").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application WHERE user_id = 2", Long.class);
@@ -114,7 +114,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
             duplicateBeforeApplicationRead.countDown();
             return call.callRealMethod();
         }).when(applications).selectOne(argThat(query ->
-                query != null && query.getSqlSegment().endsWith("LIMIT 1 FOR UPDATE")));
+                query != null && query.getSqlSegment().endsWith("LIMIT 1")));
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> approval = CompletableFuture.supplyAsync(() ->
