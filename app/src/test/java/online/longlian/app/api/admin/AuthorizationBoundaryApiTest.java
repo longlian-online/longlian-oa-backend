@@ -8,6 +8,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 class AuthorizationBoundaryApiTest extends BaseApiTest {
+
+    /** 共享普通管理员夹具必须能通过正式角色约束和登录，同时没有 root 权限。 */
+    @Test
+    void shouldCreateNormalAdminUsingSharedFixture() {
+        String token = createNormalAdmin();
+        assertThat(jdbcTemplate.queryForObject("SELECT role FROM admin", String.class)).isEqualTo("normal");
+        authRequest(token).get("/admin/organizations/").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode())).body("data.total", equalTo(0));
+        authRequest(token).post("/admin/organizations/invite-codes/create-org").then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
     /** 普通平台管理员可查看组织，但不能执行 root 治理。 */
     @Test
     void shouldRejectNormalAdminGovernanceAndAllowRead() {

@@ -93,6 +93,7 @@ class UserServiceImplTest {
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), GroupApplication.class);
         service = new UserServiceImpl(
                 passwordEncoder,
                 organizationAuthorizationService,
@@ -318,7 +319,7 @@ class UserServiceImplTest {
         when(emailVerifyService.getValid(any(OTPValidateContextBO.class))).thenReturn(emailOtp);
         when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(inviteOtp);
         when(userMapper.selectOne(any())).thenReturn(null);
-        when(groupApplicationMapper.selectCount(any())).thenReturn(0L);
+        when(groupApplicationMapper.selectOne(any())).thenReturn(null);
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectById(30L)).thenReturn(
@@ -427,7 +428,7 @@ class UserServiceImplTest {
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectById(30L)).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
-        when(groupApplicationMapper.selectCount(any())).thenReturn(1L);
+        when(groupApplicationMapper.selectOne(any())).thenReturn(GroupApplication.builder().id(1L).build());
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
@@ -455,6 +456,24 @@ class UserServiceImplTest {
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
+    }
+
+
+    @Test
+    void shouldConvertDuplicateRegistrationInsertToBusinessFailureWithoutConsumingCodes() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectById(30L)).thenReturn(
+                Organization.builder().id(30L).status(Status.ENABLED).build());
+        when(groupApplicationMapper.insert(any(GroupApplication.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("pending registration"));
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
+        verify(userMapper, never()).insert(any(User.class));
     }
 
     private void stubRegisterValidation() {
