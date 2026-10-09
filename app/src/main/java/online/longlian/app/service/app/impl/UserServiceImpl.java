@@ -48,6 +48,7 @@ import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TokenType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -276,13 +277,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Organization organization = getJoinTargetOrganization(inviteOtp);
         organizationAuthorizationService.lockOrganization(organization.getId(), true);
 
-        boolean hasPendingApplication = groupApplicationMapper.selectCount(
+        // 邀请码查询已建立一致性快照；组织锁后的判断必须读取最新提交的申请。
+        boolean hasPendingApplication = groupApplicationMapper.selectOne(
                 new LambdaQueryWrapper<GroupApplication>()
+                        .select(GroupApplication::getId)
                         .eq(GroupApplication::getOrgId, organization.getId())
                         .eq(GroupApplication::getEmail, params.getEmail())
                         .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
-                        .last("LIMIT 1")
-        ) > 0;
+                        .last("LIMIT 1 FOR UPDATE")
+        ) != null;
         if (hasPendingApplication) {
             throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
         }
@@ -300,7 +303,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        groupApplicationMapper.insert(groupApplication);
+        insertJoinApplication(groupApplication);
 
         otpServiceFactory.get(OTPType.EmailVerify).use(
                 OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
@@ -316,11 +319,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Organization organization = getJoinTargetOrganization(inviteOtp);
         organizationAuthorizationService.lockOrganization(organization.getId(), true);
 
+        // 审批可能在等待组织锁期间建立成员关系，不能沿用邀请码查询的快照。
         OrganizationMember existedMember = organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, userId)
                         .eq(OrganizationMember::getOrgId, organization.getId())
-                        .last("LIMIT 1")
+                        .last("LIMIT 1 FOR UPDATE")
         );
         if (existedMember != null) {
             if (existedMember.getStatus() == Status.ENABLED) {
@@ -329,13 +333,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
         }
 
-        boolean hasPendingApplication = groupApplicationMapper.selectCount(
+        // 邀请码查询已建立一致性快照；组织锁后的判断必须读取最新提交的申请。
+        boolean hasPendingApplication = groupApplicationMapper.selectOne(
                 new LambdaQueryWrapper<GroupApplication>()
+                        .select(GroupApplication::getId)
                         .eq(GroupApplication::getOrgId, organization.getId())
                         .eq(GroupApplication::getUserId, userId)
                         .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
-                        .last("LIMIT 1")
-        ) > 0;
+                        .last("LIMIT 1 FOR UPDATE")
+        ) != null;
         if (hasPendingApplication) {
             throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
         }
@@ -355,7 +361,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        groupApplicationMapper.insert(groupApplication);
+        insertJoinApplication(groupApplication);
 
         otpServiceFactory.get(OTPType.OrganizationUserInvite).use(
                 OTPUseContextBO.builder()
@@ -373,6 +379,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .orgId(organization.getId())
                 .orgName(organization.getName())
                 .build();
+    }
+
+
+    private void insertJoinApplication(GroupApplication application) {
+        try {
+            groupApplicationMapper.insert(application);
+        } catch (DuplicateKeyException e) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
+        }
     }
 
     private OneTimePassword validateRegisterRequest(UserRegisterByInviteParamsBO params) {
