@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl.projectworkshop;
 
 import online.longlian.app.mapper.BaseTaskMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -48,11 +49,14 @@ class WorkshopAssemblerTest {
     @Mock
     private ResourceService resourceService;
 
+    @Mock
+    private TaskSubmissionMapper taskSubmissionMapper;
+
     private WorkshopAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        assembler = new WorkshopAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService);
+        assembler = new WorkshopAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService, taskSubmissionMapper);
     }
 
     // ---- assembleProjectList ----
