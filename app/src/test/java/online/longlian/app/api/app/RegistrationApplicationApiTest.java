@@ -3,6 +3,8 @@ package online.longlian.app.api.app;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -89,5 +91,31 @@ class RegistrationApplicationApiTest extends BaseApiTest {
                 "email","new@example.com","inviteCode",invite,"code",code))
                 .post("/app/user/register/join-organization")
                 .then().statusCode(200).body("code",equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /** 无数据库 CHECK 时，无效快照由审批入口拒绝，并保持申请及账号不变。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"missing-password", "missing-user", "unexpected-password", "unknown-type"})
+    void shouldRejectMalformedApplicationBeforeCreatingUserOrMember(String scenario) {
+        createUserWithOrganization(1L, "manager", "123456", "manager@example.com", 1L, 1L, "ORG_ADMIN");
+        submit("JOIN01", "EMAIL1");
+        Long applicationId = jdbcTemplate.queryForObject("SELECT id FROM group_application", Long.class);
+        switch (scenario) {
+            case "missing-password" -> jdbcTemplate.update("UPDATE group_application SET password_hash=NULL");
+            case "missing-user" -> jdbcTemplate.update("UPDATE group_application SET application_type=1, password_hash=NULL");
+            case "unexpected-password" -> jdbcTemplate.update("UPDATE group_application SET application_type=1, user_id=1");
+            case "unknown-type" -> jdbcTemplate.update("UPDATE group_application SET application_type=NULL");
+            default -> throw new IllegalArgumentException(scenario);
+        }
+
+        authRequest(loginAs("manager", "123456"), 1L).body(Map.of("applicationStatus", "APPROVED"))
+                .put("/orgadmin/members/applications/" + applicationId + "/review")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT reviewer_id FROM group_application", Long.class)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_join_otp WHERE org_member_id IS NOT NULL", Integer.class)).isZero();
     }
 }

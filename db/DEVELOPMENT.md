@@ -158,6 +158,14 @@ MariaDB 10.11 使用 `DROP CONSTRAINT` 删除 CHECK；当前 Atlas 版本生成�
 
 ## Issue #169：注册申请快照切换
 
+申请的用户引用、类型和密码快照一致性由应用层维护，不新增数据库 CHECK。审批通过前校验注册快照或已有账号，审批终结时清空密码哈希；拒绝申请可清理不完整快照。曾部署旧版申请 CHECK 的库，按前述审核流程确认约束存在后清理：
+
+```sql
+ALTER TABLE group_application DROP CONSTRAINT ck_application_password;
+ALTER TABLE group_application DROP CONSTRAINT ck_application_user;
+ALTER TABLE group_application DROP CONSTRAINT ck_application_snapshot;
+```
+
 新结构兼容旧的待审 user_id，但新代码审批要求 REGISTER 快照 user_id 为空且 password_hash 非空。
 必须暂停注册、审批和组织治理，转换后才启动新实例。
 

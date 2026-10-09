@@ -46,6 +46,9 @@ public class ApplicationReviewHandler {
      * 通过申请：注册快照转为正式用户，已有用户仅建立成员关系
      */
     private OrganizationMember approveApplication(GroupApplication application, LocalDateTime now) {
+        if (application.getApplicationType() == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "申请类型无效");
+        }
         User user = switch (application.getApplicationType()) {
             case REGISTER -> createRegisteredUser(application, now);
             case EXISTING_USER -> getExistingApplicationUser(application);
@@ -78,6 +81,9 @@ public class ApplicationReviewHandler {
     }
 
     private User getExistingApplicationUser(GroupApplication application) {
+        if (application.getUserId() == null || application.getPasswordHash() != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "已有用户申请快照无效");
+        }
         User user = userMapper.selectById(application.getUserId());
         if (user == null) {
             throw new AppException(ResultCode.USER_NOT_EXIT);

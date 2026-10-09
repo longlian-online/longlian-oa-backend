@@ -171,6 +171,36 @@ class ApplicationReviewHandlerTest {
         handler.review(application, 10L, ApplicationStatus.APPROVED, 2L, "", reviewedAt);
     }
 
+    /** 数据库不设 CHECK 时，缺少账号引用的已有用户申请仍不能写入成员。 */
+    @Test
+    void shouldRejectExistingApplicationWithoutUserReference() {
+        GroupApplication application = existingUserApplication();
+        application.setUserId(null);
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
+    }
+
+    /** 已有用户申请不能携带注册密码快照。 */
+    @Test
+    void shouldRejectPasswordSnapshotOnExistingApplication() {
+        GroupApplication application = existingUserApplication();
+        application.setPasswordHash("hash");
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
+    }
+
+    /** 历史缺失或未知的申请类型不能进入审批写入流程。 */
+    @Test
+    void shouldRejectUnknownApplicationType() {
+        GroupApplication application = registration();
+        application.setApplicationType(null);
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
+    }
+
     private GroupApplication existingUserApplication() {
         GroupApplication application = registration();
         application.setApplicationType(ApplicationType.EXISTING_USER);
