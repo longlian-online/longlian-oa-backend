@@ -58,6 +58,6 @@ class OrganizationImplTest {
         when(admins.selectById(2L)).thenReturn(Admin.builder().id(2L).role("root").build());
         assertThatThrownBy(() -> service.updateOrgStatus(new AdminOrganizationUpdateStatusParamsBO(1L, Status.DISABLED, 2L)))
                 .isInstanceOf(AppException.class);
-        verify(organizations, never()).update(any(), any());
+        verify(organizations, never()).update(nullable(Organization.class), any());
     }
 }
