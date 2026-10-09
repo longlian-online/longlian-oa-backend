@@ -49,7 +49,8 @@ CREATE TABLE `group_application` (
   `id` bigint NOT NULL,
   `org_id` bigint NOT NULL COMMENT "目标组织ID",
   `otp_id` bigint NULL COMMENT "提交申请时使用的邀请码ID",
-  `user_id` bigint NOT NULL COMMENT "申请人ID",
+  `user_id` bigint NULL COMMENT "申请人ID（注册待审时为空）",
+  `password_hash` varchar(100) NULL COMMENT "注册待审密码哈希，审批后清空",
   `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态：0-待审核 1-通过 2-拒绝",
   `reviewer_id` bigint NULL COMMENT "审核人ID",
   `reviewed_at` datetime NULL COMMENT "审核时间",
@@ -62,7 +63,12 @@ CREATE TABLE `group_application` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_group_application_otp_id` (`otp_id`)
+  INDEX `idx_group_application_otp_id` (`otp_id`),
+  `pending_register_email` varchar(100) GENERATED ALWAYS AS (IF(`deleted_at` IS NULL AND `application_type` = 0 AND `status` = 0, `email`, NULL)) STORED,
+  UNIQUE INDEX `uk_pending_register_email` (`org_id`, `pending_register_email`),
+  CONSTRAINT `ck_application_password` CHECK (`password_hash` IS NULL OR (`application_type` = 0 AND `status` = 0)),
+  CONSTRAINT `ck_application_user` CHECK (`user_id` IS NOT NULL OR (`application_type` = 0 AND `status` IN (0, 2))),
+  CONSTRAINT `ck_application_snapshot` CHECK (`application_type` <> 0 OR `status` <> 0 OR `user_id` IS NOT NULL OR `password_hash` IS NOT NULL)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "入组申请表";
 -- Create "item" table
 CREATE TABLE `item` (

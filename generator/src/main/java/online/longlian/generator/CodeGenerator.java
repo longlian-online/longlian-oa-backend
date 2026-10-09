@@ -53,7 +53,9 @@ public class CodeGenerator {
                 .globalConfig(builder -> builder.author("longlian")
                         .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
-                .strategyConfig(builder -> builder.entityBuilder()
+                .strategyConfig(builder -> {
+                    if (args.length > 0) builder.addInclude(args);
+                    builder.entityBuilder()
                         .enableLombok(
                                 new ClassAnnotationAttributes("@Data","lombok.Data"),
                                 new ClassAnnotationAttributes("@Builder", "lombok.Builder"),
@@ -61,6 +63,7 @@ public class CodeGenerator {
                                 new ClassAnnotationAttributes("@AllArgsConstructor", "lombok.AllArgsConstructor")
                         )
                         .enableTableFieldAnnotation()
+                        .addIgnoreColumns("owner_org_id", "active_guard", "pending_register_email")
                         .naming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
                         .columnNaming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
                         .controllerBuilder().disable()
@@ -69,7 +72,12 @@ public class CodeGenerator {
                         .mapperBuilder()
                         .enableMapperAnnotation()
                         .formatMapperFileName("%sMapper")
-                        .formatXmlFileName("%sMapper"))
+                        .formatXmlFileName("%sMapper");
+                    if (args.length > 0) {
+                        builder.entityBuilder().enableFileOverride();
+                        builder.mapperBuilder().enableFileOverride();
+                    }
+                })
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
 

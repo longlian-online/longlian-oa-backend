@@ -47,7 +47,7 @@ public class ApplicationReviewHandler {
     }
 
     /**
-     * 通过申请：注册申请启用提交时创建的禁用用户
+     * 通过申请：注册快照转为正式用户，已有用户仅建立成员关系
      */
     public OrganizationMember approveApplication(GroupApplication application) {
         LocalDateTime now = LocalDateTime.now(clock);
@@ -77,28 +77,19 @@ public class ApplicationReviewHandler {
         }
     }
 
-    /**
-     * 注册申请提交时已创建禁用用户，审批通过只需启用该用户并绑定组织。
-     */
     public User activateRegisteredApplication(GroupApplication application, LocalDateTime now) {
-        User user = userMapper.selectById(application.getUserId());
-        if (user == null) {
-            throw new AppException(ResultCode.USER_NOT_EXIT);
+        if (application.getUserId() != null || application.getPasswordHash() == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "注册申请需要先完成快照转换");
         }
-        if (user.getStatus() != Status.DISABLED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "注册申请对应用户状态无效");
+        if (userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, application.getUsername())
+                .or().eq(User::getEmail, application.getEmail())) > 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "用户名或邮箱已被占用，请重新申请");
         }
-        if (organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, application.getOrgId())
-                .eq(OrganizationMember::getUserId, user.getId())
-                .last("LIMIT 1")) != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "申请人已加入该组织");
-        }
-
-        user.setStatus(Status.ENABLED);
-        user.setDefaultOrgId(application.getOrgId());
-        user.setUpdatedAt(now);
-        userMapper.updateById(user);
+        User user = User.builder().username(application.getUsername()).email(application.getEmail())
+                .nickname(application.getNickname()).password(application.getPasswordHash())
+                .status(Status.ENABLED).defaultOrgId(application.getOrgId()).createdAt(now).updatedAt(now).build();
+        userMapper.insert(user);
         return user;
     }
 
@@ -131,6 +122,7 @@ public class ApplicationReviewHandler {
                 .eq(GroupApplication::getId, application.getId())
                 .eq(GroupApplication::getStatus, ApplicationStatus.PENDING)
                 .set(GroupApplication::getStatus, status)
+                .set(GroupApplication::getPasswordHash, null)
                 .set(GroupApplication::getReviewerId, reviewerId)
                 .set(GroupApplication::getReviewedAt, now)
                 .set(GroupApplication::getReviewRemark, reviewRemark == null ? "" : reviewRemark)
@@ -138,7 +130,9 @@ public class ApplicationReviewHandler {
         if (approvedUserId != null) {
             updateWrapper.set(GroupApplication::getUserId, approvedUserId);
         }
-        groupApplicationMapper.update(null, updateWrapper);
+        if (groupApplicationMapper.update(null, updateWrapper) != 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该申请已审核");
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

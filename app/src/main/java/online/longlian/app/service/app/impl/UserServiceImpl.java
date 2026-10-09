@@ -1,5 +1,7 @@
 package online.longlian.app.service.app.impl;
 
+import online.longlian.app.service.common.OrganizationAuthorizationService;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -63,6 +65,7 @@ import java.util.stream.Collectors;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationAuthorizationService organizationAuthorizationService;
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
@@ -271,6 +274,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
                 OTPValidateContextBO.builder().code(params.getInviteCode()).build());
         Organization organization = getJoinTargetOrganization(inviteOtp);
+        organizationAuthorizationService.lockOrganization(organization.getId(), true);
 
         boolean hasPendingApplication = groupApplicationMapper.selectCount(
                 new LambdaQueryWrapper<GroupApplication>()
@@ -284,22 +288,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
-        User pendingUser = User.builder()
-                .username(params.getUsername())
-                .password(passwordEncoder.encode(params.getPassword()))
-                .nickname(params.getNickname())
-                .email(params.getEmail())
-                .status(Status.DISABLED)
-                .defaultOrgId(0L)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        userMapper.insert(pendingUser);
-
         GroupApplication groupApplication = GroupApplication.builder()
                 .orgId(organization.getId())
                 .otpId(inviteOtp.getId())
-                .userId(pendingUser.getId())
+                .passwordHash(passwordEncoder.encode(params.getPassword()))
                 .status(ApplicationStatus.PENDING)
                 .applicationType(ApplicationType.REGISTER)
                 .username(params.getUsername())
@@ -322,6 +314,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
                 OTPValidateContextBO.builder().code(inviteCode).build());
         Organization organization = getJoinTargetOrganization(inviteOtp);
+        organizationAuthorizationService.lockOrganization(organization.getId(), true);
 
         OrganizationMember existedMember = organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()

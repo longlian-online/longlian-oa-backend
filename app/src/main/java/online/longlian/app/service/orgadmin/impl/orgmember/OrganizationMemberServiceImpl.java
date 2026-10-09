@@ -1,5 +1,9 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
+import org.springframework.dao.DuplicateKeyException;
+
+import online.longlian.app.service.common.OrganizationAuthorizationService;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.NonNull;
@@ -60,6 +64,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final MemberSubmissionHandler memberSubmissionHandler;
     private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
+    private final OrganizationAuthorizationService organizationAuthorizationService;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -78,11 +83,20 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
      */
     @Override
     public void reviewApplication(@NonNull OrgAdminReviewApplicationParamsBO params) {
-        String lockKey = "org:application:review:" + params.getApplicationId();
-        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
-            GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
-            applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
-                    params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
+                "org:member:role:" + params.getOrgId(), 0, TimeUnit.SECONDS)) {
+            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            transaction.executeWithoutResult(status -> {
+                organizationAuthorizationService.lockOrganization(params.getOrgId(), true);
+                organizationAuthorizationService.requireManager(params.getOrgId(), params.getReviewerId());
+                GroupApplication application = groupApplicationMapper.selectOne(new LambdaQueryWrapper<GroupApplication>()
+                        .eq(GroupApplication::getId, params.getApplicationId()).last("FOR UPDATE"));
+                applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
+                        params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
+            });
+        } catch (DuplicateKeyException e) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "用户名、邮箱或成员关系已被占用");
         }
     }
 

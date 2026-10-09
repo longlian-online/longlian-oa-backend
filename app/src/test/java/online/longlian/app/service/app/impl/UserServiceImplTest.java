@@ -1,5 +1,7 @@
 package online.longlian.app.service.app.impl;
 
+import online.longlian.app.service.common.OrganizationAuthorizationService;
+
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -60,6 +62,7 @@ class UserServiceImplTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock private OrganizationAuthorizationService organizationAuthorizationService;
     @Mock
     private OrganizationMapper organizationMapper;
     @Mock
@@ -92,6 +95,7 @@ class UserServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
         service = new UserServiceImpl(
                 passwordEncoder,
+                organizationAuthorizationService,
                 organizationMapper,
                 organizationMemberMapper,
                 organizationJoinOtpMapper,
@@ -321,10 +325,6 @@ class UserServiceImplTest {
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(passwordEncoder.encode("password")).thenReturn("hashed-password");
         doAnswer(invocation -> {
-            invocation.getArgument(0, User.class).setId(99L);
-            return 1;
-        }).when(userMapper).insert(any(User.class));
-        doAnswer(invocation -> {
             invocation.getArgument(0, online.longlian.app.pojo.entity.GroupApplication.class).setId(123L);
             return 1;
         }).when(groupApplicationMapper).insert(any(GroupApplication.class));
@@ -334,9 +334,9 @@ class UserServiceImplTest {
         ArgumentCaptor<GroupApplication> applicationCaptor = ArgumentCaptor.forClass(GroupApplication.class);
         verify(groupApplicationMapper).insert(applicationCaptor.capture());
         assertThat(applicationCaptor.getValue().getOtpId()).isEqualTo(20L);
-        assertThat(applicationCaptor.getValue().getUserId()).isEqualTo(99L);
-        verify(userMapper).insert(argThat((User user) -> user.getStatus() == Status.DISABLED
-                && "hashed-password".equals(user.getPassword())));
+        assertThat(applicationCaptor.getValue().getUserId()).isNull();
+        assertThat(applicationCaptor.getValue().getPasswordHash()).isEqualTo("hashed-password");
+        verify(userMapper, never()).insert(any(User.class));
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));

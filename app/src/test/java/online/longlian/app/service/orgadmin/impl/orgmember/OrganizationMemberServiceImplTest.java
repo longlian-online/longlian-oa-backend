@@ -1,5 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
+import online.longlian.app.service.common.OrganizationAuthorizationService;
+
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -57,6 +59,7 @@ class OrganizationMemberServiceImplTest {
     @Mock private MemberStatusHandler memberStatusHandler;
     @Mock private MemberSubmissionHandler memberSubmissionHandler;
     @Mock private LockService lockService;
+    @Mock private OrganizationAuthorizationService organizationAuthorizationService;
 
     private OrganizationMemberServiceImpl service;
     private RecordingTransactionManager transactions;
@@ -71,7 +74,7 @@ class OrganizationMemberServiceImplTest {
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
                 otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
-                memberStatusHandler, memberSubmissionHandler, lockService, transactions);
+                memberStatusHandler, memberSubmissionHandler, lockService, transactions, organizationAuthorizationService);
     }
 
     @Test
