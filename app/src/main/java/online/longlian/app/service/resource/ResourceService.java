@@ -185,11 +185,7 @@ public class ResourceService {
         return matched;
     }
 
-    public boolean cdnEnabled() {
-        return isCdnEnabled();
-    }
-
-    /** 为调用方已经授权的已激活资源签名。是否必须启用 CDN 由调用方决定。 */
+    /** 为调用方已经授权的已激活资源签名；存在资源时必须启用 CDN。 */
     public Map<Long, ActivatedResourceRead> signActivated(Collection<ActivatedResource> resources) {
         if (resources.isEmpty()) {
             return Map.of();

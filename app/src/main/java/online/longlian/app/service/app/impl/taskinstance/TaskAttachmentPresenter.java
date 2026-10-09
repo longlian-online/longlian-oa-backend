@@ -27,9 +27,6 @@ public class TaskAttachmentPresenter {
             return attachments;
         }
         Map<Long, ActivatedResource> matched = resourceService.findActivated(TASK_SUBMIT, taskId, orgId, resourceIds);
-        if (!matched.isEmpty() && !resourceService.cdnEnabled()) {
-            throw new IllegalStateException("任务附件读取必须启用 CDN");
-        }
         Map<Long, ActivatedResourceRead> signed = matched.isEmpty()
                 ? Map.of()
                 : resourceService.signActivated(matched.values());
