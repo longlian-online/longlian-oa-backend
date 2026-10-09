@@ -33,6 +33,7 @@ import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.common.OrganizationAuthorizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -73,6 +74,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final ResourceService resourceService;
     private final UserMapper userMapper;
     private final OrganizationMembershipService organizationMembershipService;
+    private final OrganizationAuthorizationService organizationAuthorizationService;
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
     private final SessionService sessionService;
@@ -202,14 +204,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params) {
+        // 与解散、退出和移除保持相同的组织锁顺序，避免重新写入失效的默认组织。
+        Organization organization = organizationAuthorizationService.lockOrganization(params.getOrgId(), true);
         OrganizationMember member = organizationMembershipService.requireEnabledMember(
                 params.getUserId(), params.getOrgId());
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, params.getUserId())
                 .set(User::getDefaultOrgId, params.getOrgId()));
 
-        Organization organization = organizationMapper.selectById(params.getOrgId());
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
             avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
