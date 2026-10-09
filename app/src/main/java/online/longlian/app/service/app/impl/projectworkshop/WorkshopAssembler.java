@@ -3,6 +3,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.BaseTaskMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.BaseTask;
@@ -30,11 +31,16 @@ public class WorkshopAssembler {
     private final BaseTaskMapper baseTaskMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final ResourceService resourceService;
+    private final TaskSubmissionMapper taskSubmissionMapper;
 
     public List<WorkshopProjectInfoVO> assembleProjectList(List<Project> projects) {
         if (projects.isEmpty()) {
             return Collections.emptyList();
         }
+
+        Map<Long, WorkshopProjectInfoVO> latestSubmissionMap = taskSubmissionMapper.selectLatestForProjects(
+                        projects.stream().map(Project::getId).toList()).stream()
+                .collect(Collectors.toMap(WorkshopProjectInfoVO::getId, Function.identity()));
 
         List<Long> coverFileIds = projects.stream()
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
@@ -63,6 +69,11 @@ public class WorkshopAssembler {
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
                     if (creator != null && creator.getAvatarFileId() != null) {
                         workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
+                    }
+                    WorkshopProjectInfoVO latestSubmission = latestSubmissionMap.get(project.getId());
+                    if (latestSubmission != null) {
+                        workshopProjectInfoVO.setLastSubmitterUsername(latestSubmission.getLastSubmitterUsername());
+                        workshopProjectInfoVO.setLastSubmitterAt(latestSubmission.getLastSubmitterAt());
                     }
                     return workshopProjectInfoVO;
                 })

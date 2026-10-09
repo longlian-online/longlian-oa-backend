@@ -10,6 +10,10 @@
 [![DeepSource](https://app.deepsource.com/gh/longlian-online/longlian-oa-backend.svg/?label=code+coverage&show_trend=false&token=y6MhTlTi6rIPFrHHYU3JlkWj)](https://app.deepsource.com/gh/longlian-online/longlian-oa-backend/)
 
 ---
+## 工坊最近提交
+
+`POST /app/workshop/list` 的 `lastSubmitterUsername`、`lastSubmitterAt` 来自该企划最新的未删除任务提交记录，按提交时间倒序、记录 ID 倒序确定。同一时间多次提交时取 ID 最大的记录；打回或重置不抹去提交历史。无提交记录时字段为空，前端显示“暂无提交”。
+
 
 ## 项目架构
 

@@ -12,6 +12,38 @@ import static org.hamcrest.Matchers.*;
 
 public class WorkshopApiTest extends BaseApiTest {
 
+    @Test
+    void shouldReturnLatestSubmissionPerProject() {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "submitter", "123456", "submitter@example.com");
+        String token = loginAs("creator", "123456");
+        for (long id = 1; id <= 3; id++) {
+            jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (?, 1, 1, ?, 1)",
+                    id, "企划" + id);
+            jdbcTemplate.update("INSERT INTO project_workshop (id, project_id, user_id) VALUES (?, ?, 1)", id, id);
+        }
+        jdbcTemplate.update("""
+                INSERT INTO task_submission
+                    (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, status, created_at, deleted_at)
+                VALUES
+                    (1, 1, 1, 1, 1, 1, 1, '2026-01-01 10:00:00', NULL),
+                    (2, 1, 1, 1, 1, 2, 1, '2026-01-02 10:00:00', NULL),
+                    (3, 1, 1, 1, 1, 1, 1, '2026-01-03 10:00:00', '2026-01-04 10:00:00'),
+                    (4, 3, 3, 3, 3, 1, 1, '2026-01-02 10:00:00', NULL),
+                    (5, 3, 3, 3, 3, 2, 2, '2026-01-02 10:00:00', NULL)
+                """);
+
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list").then()
+                .statusCode(200).body("code", equalTo(0))
+                .body("data.list.find { it.id == '1' }.lastSubmitterUsername", equalTo("submitter"))
+                .body("data.list.find { it.id == '1' }.lastSubmitterAt", equalTo("2026-01-02 10:00:00"))
+                .body("data.list.find { it.id == '2' }.lastSubmitterAt", nullValue())
+                .body("data.list.find { it.id == '2' }.lastSubmitterUsername", nullValue())
+                .body("data.list.find { it.id == '3' }.lastSubmitterUsername", equalTo("submitter"))
+                .body("data.list.find { it.id == '3' }.lastSubmitterAt", equalTo("2026-01-02 10:00:00"));
+    }
+
     // ========== 成功路径 ==========
 
     /**
