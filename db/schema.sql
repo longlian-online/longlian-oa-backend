@@ -333,7 +333,8 @@ CREATE TABLE `task_submission` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_project_deleted_created` (`project_id`, `deleted_at`, `created_at`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "任务提交记录表";
 -- Create "task_template" table
 CREATE TABLE `task_template` (
