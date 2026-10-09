@@ -315,7 +315,8 @@ CREATE TABLE `task_instance` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_item_id` (`item_id`) COMMENT "按项目查询任务实例"
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务实例表";
 -- Create "task_submission" table
 CREATE TABLE `task_submission` (

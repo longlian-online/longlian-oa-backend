@@ -90,7 +90,7 @@ public class ItemController {
                         .build());
     }
 
-    @Operation(summary = "公布项目")
+    @Operation(summary = "公布项目", description = "需项目中所有任务均已完成，存在未完成任务时拒绝公布")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
     @PatchMapping("/{itemId}/publish")

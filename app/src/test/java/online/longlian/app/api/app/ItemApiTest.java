@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class ItemApiTest extends BaseApiTest {
@@ -143,8 +144,10 @@ public class ItemApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 2, 1L
+                1L, 1L, "测试项目", 0L, 1, 1L
         );
+
+        createTaskInstance(1L, 3);
 
         Response response = authRequest(token)
                 .patch("/app/projects/1/items/1/publish");
@@ -455,6 +458,114 @@ public class ItemApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", not(equalTo(0)));
+    }
+
+    /**
+     * 项目列表存在数据时返回组装后的项目信息
+     */
+    @Test
+    void shouldListItemsWithData() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        createProjectWithItem(1);
+        createTaskNode(1L);
+        createTaskInstance(1L, 3);
+
+        Response response = authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .get("/app/projects/1/items");
+
+        response
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.total", equalTo(1))
+                .body("data.list[0].title", equalTo("测试项目"))
+                .body("data.list[0].progressPercent", equalTo(100));
+    }
+
+    /**
+     * 存在未完成任务时不允许公布，且项目状态保持不变
+     */
+    @Test
+    void shouldFailPublishItemWithUnfinishedTask() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        createProjectWithItem(1);
+
+        // status=3 已完成 + status=1 待接取，项目仍有任务未完成
+        createTaskInstance(1L, 3);
+        createTaskInstance(2L, 1);
+
+        Response response = authRequest(token)
+                .patch("/app/projects/1/items/1/publish");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
+                .isEqualTo(1);
+    }
+
+    /**
+     * 项目没有任何任务实例时不允许公布
+     */
+    @Test
+    void shouldFailPublishItemWithoutTasks() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        createProjectWithItem(1);
+
+        Response response = authRequest(token)
+                .patch("/app/projects/1/items/1/publish");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
+                .isEqualTo(1);
+    }
+
+    /**
+     * 只创建企划与项目本身，任务实例按用例需要补充
+     */
+    private void createProjectWithItem(int itemStatus) {
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, itemStatus, 1L
+        );
+    }
+
+    private void createTaskNode(long id) {
+        jdbcTemplate.update(
+                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name) " +
+                        "VALUES (1, 1, 1, 0, '测试流程')"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, sort, parallel_sort) " +
+                        "VALUES (?, 1, 1, 1, 0, '测试节点', 1, 1)",
+                id
+        );
+    }
+
+    private void createTaskInstance(long id, int status) {
+        jdbcTemplate.update(
+                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                        "VALUES (?, 1, 1, ?, 1, NULL, ?, NOW(), NOW())",
+                id, id, status
+        );
     }
 
     /**

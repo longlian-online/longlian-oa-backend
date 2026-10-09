@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
@@ -14,15 +15,20 @@ import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
+import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,6 +39,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -100,6 +107,84 @@ class ItemServiceImplTest {
             assertThat(instance.getStatus()).isEqualTo(TaskInstanceStatus.PENDING);
             assertThat(instance.getAssigneeId()).isNull();
         });
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TaskInstanceStatus.class, names = {"PENDING", "CLAIMED"})
+    void publishProjectItem_unfinishedTask_rejectsPublication(TaskInstanceStatus status) {
+        preparePublishItem();
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().status(TaskInstanceStatus.COMPLETED).build(),
+                TaskInstance.builder().status(status).build()));
+
+        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void publishProjectItem_noTasks_rejectsPublication() {
+        preparePublishItem();
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void publishProjectItem_allTasksCompleted_preservesDuplicatePublicationFailure() {
+        preparePublishItem();
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().status(TaskInstanceStatus.COMPLETED).build()));
+        when(itemMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+    }
+
+    @Test
+    void deleteProjectItem_alreadyDeleted_rejectsRepeatOperation() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).build());
+        when(itemMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.deleteProjectItem(publishParams()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+    }
+
+    @Test
+    void publishProjectItem_missingItem_rejectsPublication() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(2L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+        verify(taskInstanceMapper, never()).selectList(any());
+    }
+
+    private void preparePublishItem() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(2L)).thenReturn(
+                Item.builder().id(2L).projectId(1L).status(ItemStatus.COMPLETED).build());
+    }
+
+    private ItemOperationParamsBO publishParams() {
+        return ItemOperationParamsBO.builder().projectId(1L).itemId(2L).orgId(1L).operatorId(1L).build();
     }
 
     private Project enabledProject() {
