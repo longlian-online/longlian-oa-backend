@@ -23,7 +23,7 @@ public class WorkshopProjectInfoVO {
     @Schema(description = "创建人头像URL")
     private String creatorAvatarUrl;
 
-    @Schema(description = "最近一次提交的用户名")
+    @Schema(description = "最近一次提交的昵称")
     private String lastSubmitterUsername;
 
     @Schema(description = "最近一次提交的时间")

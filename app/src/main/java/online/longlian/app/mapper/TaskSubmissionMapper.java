@@ -23,7 +23,7 @@ public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
     @Select("""
             <script>
             SELECT latest.project_id AS id,
-                   u.username AS last_submitter_username,
+                   u.nickname AS last_submitter_username,
                    latest.created_at AS last_submitter_at
             FROM (
                 SELECT project_id, submitter_id, created_at,
