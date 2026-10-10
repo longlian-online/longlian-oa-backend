@@ -136,22 +136,11 @@ MySQL 与 MariaDB 的数据目录格式不作为迁移接口，禁止把原 MySQ
 
 ## 注意事项
 
-### 应用层业务校验
-
-平台角色和组织角色由应用枚举、写入入口及鉴权入口校验，数据库不设置角色 CHECK 或业务外键。未知角色不会获得权限；历史非法值应人工审核修正，不能自动升级为管理员。
-
-如果测试或预发布库曾应用本 PR 的旧版角色 CHECK，先核对 `SHOW CREATE TABLE admin` 和 `SHOW CREATE TABLE organization_member`。确认约束存在后执行以下清理，再运行 `./db/migrate.sh dev apply`（生产环境仍遵循人工变更审核流程）：
-
-```sql
-ALTER TABLE admin DROP CONSTRAINT ck_admin_role;
-ALTER TABLE organization_member DROP CONSTRAINT ck_org_member_role;
-```
-
-MariaDB 10.11 使用 `DROP CONSTRAINT` 删除 CHECK；当前 Atlas 版本生成的 `DROP CHECK` 不兼容此版本。此清理仅针对旧版新增约束，原有主键、账号唯一索引和成员唯一索引保留。
-
 - `schema.sql` 是唯一真实来源，所有表结构变更必须通过修改此文件完成
 - `dev` 没有删除保护，执行前确认目标库可安全重建
 - `prod` 的 `diff.skip` 会阻止删除 Schema、表、字段、索引和外键；不要绕过 `atlas.hcl` 直接执行裸 Atlas 命令
 - 字段类型等非删除变更仍可能影响数据，生产环境始终先执行 `prod plan`
 - 种子数据（`seed/`）不纳入 schema 管理，仅用于开发环境初始化
+- MariaDB 10.11 删除 CHECK 需用 `DROP CONSTRAINT`，当前 Atlas 版本生成的 `DROP CHECK` 不兼容此版本
 - 每次变更前建议先 `git pull` 获取最新的 `schema.sql`
+

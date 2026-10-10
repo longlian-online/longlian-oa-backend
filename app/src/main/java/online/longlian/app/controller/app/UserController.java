@@ -87,7 +87,7 @@ public class UserController {
 
     @Operation(
         summary = "通过邀请码注册并加入组织",
-        description = "使用组织管理员生成的邀请码完成注册，并加入指定组织",
+        description = "使用邀请码提交注册入组申请，审批通过后创建账号并加入组织",
         security = {}
     )
     @PostMapping("/register/join-organization")

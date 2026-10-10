@@ -10,6 +10,7 @@ import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
@@ -20,6 +21,7 @@ import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
+import online.longlian.common.enumeration.ApplicationStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -229,6 +232,18 @@ class OrganizationMemberServiceImplTest {
                 OrgMemberBaseTaskSubmitCountParamsBO.builder().memberId(2L).orgId(9L).build()))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("无权操作该成员");
+    }
+
+    /** 唯一键冲突应返回业务失败，而不是暴露数据库异常。 */
+    @Test
+    void shouldReportReviewIdentityConflictAsBusinessFailure() {
+        when(groupApplicationMapper.selectOne(any())).thenThrow(new DuplicateKeyException("duplicate identity"));
+
+        assertThatThrownBy(() -> service.reviewApplication(OrgAdminReviewApplicationParamsBO.builder()
+                .applicationId(1L).orgId(1L).reviewerId(10L)
+                .applicationStatus(ApplicationStatus.APPROVED).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
     }
 
 
