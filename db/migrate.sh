@@ -299,85 +299,37 @@ bootstrap_base_data() {
   mariadb_exec "$DB_URL" "$url_db" < "$base_data_file"
 }
 
-validate_data_migrations() {
-  for phase in before-schema after-schema; do
-    for file in "${SCRIPT_DIR}/data-migrations/${phase}/"*.sql; do
-      [ -f "$file" ] || continue
-      filename=${file##*/}
-      case "$filename" in
-        *[!A-Za-z0-9_.-]*)
-          echo "错误: 迁移文件名只允许 ASCII 字母、数字、下划线、点和短横线: $filename" >&2
-          return 1
-          ;;
-      esac
-      if [ "${#filename}" -gt 255 ]; then
-        echo "错误: 迁移文件名超过 255 字符: $filename" >&2
-        return 1
-      fi
-      other_phase=before-schema
-      [ "$phase" = before-schema ] && other_phase=after-schema
-      if [ -f "${SCRIPT_DIR}/data-migrations/${other_phase}/${filename}" ]; then
-        echo "错误: 两个阶段存在同名迁移文件: $filename" >&2
-        return 1
-      fi
-    done
-  done
-}
-
-ensure_data_migration_table() {
-  # 前置迁移需要先记录成功状态；建表定义仍只维护在 schema.sql 中。
-  table_sql=$(awk '
-    { sub(/\r$/, "") }
-    /^CREATE TABLE `data_migration` / {
-      sub(/CREATE TABLE/, "CREATE TABLE IF NOT EXISTS")
-      printing = 1
-    }
-    printing { print }
-    printing && /;$/ { found = 1; exit }
-    END { if (!found) exit 1 }
-  ' "${SCRIPT_DIR}/schema.sql")
-  printf '%s\n' "$table_sql" | mariadb_exec "$DB_URL" "$url_db"
-}
-
-data_migration_record_count() {
-  printf "SELECT COUNT(*) FROM data_migration WHERE filename = '%s';\n" "$1" \
-    | mariadb_exec "$DB_URL" -N "$url_db"
-}
-
 run_data_migrations() {
-  phase=$1
-  for file in "${SCRIPT_DIR}/data-migrations/${phase}/"*.sql; do
+  parse_maria_url "$DB_URL"
+  has_records=1
+  if [ "$ACTION" = plan ]; then
+    has_records=$(printf '%s\n' "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'data_migration';" \
+      | mariadb_exec "$DB_URL" -N "$url_db")
+  fi
+  for file in "${SCRIPT_DIR}/data-migrations/"*.sql; do
     [ -f "$file" ] || continue
     filename=${file##*/}
-    recorded=$(data_migration_record_count "$filename")
-    if [ "$recorded" = 1 ]; then
-      echo "==> [${ENVIRONMENT}] 跳过已完成的数据迁移: $filename"
+    case "$filename" in
+      *[!A-Za-z0-9_.-]*) echo "错误: 迁移文件名含不支持的字符: $filename" >&2; return 1 ;;
+    esac
+    recorded=0
+    if [ "$has_records" = 1 ]; then
+      recorded=$(printf "SELECT COUNT(*) FROM data_migration WHERE filename = '%s';\n" "$filename" \
+        | mariadb_exec "$DB_URL" -N "$url_db")
+    fi
+    [ "$recorded" = 1 ] && continue
+    echo "==> [${ENVIRONMENT}] ${ACTION} 数据迁移: $filename"
+    if [ "$ACTION" = plan ]; then
+      cat "$file"
+      printf '\n'
       continue
     fi
-    echo "==> [${ENVIRONMENT}] 执行 ${phase} 数据迁移: $filename"
-    # 客户端遇错退出；纯 DML 与成功记录一起提交，DDL 中断则依赖文件可重入。
+    # 数据修改与成功记录一起提交；客户端遇错退出，不继续后续文件。
     (
       printf 'START TRANSACTION;\n'
       cat "$file" || exit 1
       printf "\nINSERT INTO data_migration (filename) VALUES ('%s');\nCOMMIT;\n" "$filename"
     ) | mariadb_exec "$DB_URL" "$url_db"
-  done
-}
-
-plan_data_migrations() {
-  phase=$1
-  has_records=$(printf "%s\n" "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'data_migration';" \
-    | mariadb_exec "$DB_URL" -N "$url_db")
-  for file in "${SCRIPT_DIR}/data-migrations/${phase}/"*.sql; do
-    [ -f "$file" ] || continue
-    filename=${file##*/}
-    if [ "$has_records" = 1 ]; then
-      recorded=$(data_migration_record_count "$filename")
-      [ "$recorded" = 1 ] && continue
-    fi
-    echo "==> [${ENVIRONMENT}] 待执行 ${phase} 数据迁移: $filename"
-    cat "$file"
-    printf '\n'
   done
 }
 
@@ -405,26 +357,19 @@ case "$ACTION" in
   apply)
     resolve_dev_url
     export LC_ALL=C
-    validate_data_migrations
-    parse_maria_url "$DB_URL"
-    ensure_data_migration_table
-    run_data_migrations before-schema
     echo "==> [${ENVIRONMENT}] 同步数据库到 schema.sql 声明状态..."
     run_atlas schema apply --env "$ENVIRONMENT" --auto-approve
     echo "==> [${ENVIRONMENT}] 同步完成"
-    run_data_migrations after-schema
+    run_data_migrations
     bootstrap_base_data
     seed_if_requested
     ;;
   plan)
     resolve_dev_url
     export LC_ALL=C
-    validate_data_migrations
-    parse_maria_url "$DB_URL"
-    plan_data_migrations before-schema
     echo "==> [${ENVIRONMENT}] 计划将执行的变更（不改动数据库）..."
     run_atlas schema apply --env "$ENVIRONMENT" --dry-run
-    plan_data_migrations after-schema
+    run_data_migrations
     ;;
   inspect)
     resolve_dev_url

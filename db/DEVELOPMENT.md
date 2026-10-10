@@ -11,7 +11,7 @@
 - 只维护一份目标结构 `schema.sql`，不维护版本式结构迁移链
 - 修改表结构 = 编辑 `schema.sql` + 在开发环境执行 `./db/migrate.sh dev apply`
 - Atlas 自动计算差异，避免手写 ALTER 语句
-- 多环境始终收敛到同一期望状态，无漂移
+- 自动同步目标结构，旧字段保留到数据转换完成后再显式清理
 - 轻量级：单二进制 / 小体积 Docker 镜像，无需 JVM
 
 ## 目录结构
@@ -24,8 +24,6 @@ db/
 ├── schema.sql              # 期望 schema 状态（唯一真实来源）
 ├── migrate.sh              # 同步脚本（本地 / CI 共用）
 ├── data-migrations/        # 按文件名记录成功状态的历史数据转换
-│   ├── before-schema/     # 结构同步前保护来源数据
-│   └── after-schema/      # 结构同步后转换或补齐数据
 ├── operations/            # 经审核手动执行的运维 SQL，不自动扫描
 ├── tests/                 # 真实 MariaDB + Atlas 迁移集成验证
 ├── seed/                   # 初始化数据
@@ -73,7 +71,7 @@ curl -sSf https://atlasgo.sh | sh
 # 4. 提交 schema.sql 到 Git
 ```
 
-开发环境允许删除已从 `schema.sql` 移除的 Schema、表、字段、索引和外键，因此只能指向可安全重建的开发数据库。
+开发环境不自动删除字段，以便在结构同步后读取旧数据；Schema、表、索引和外键仍允许删除，因此只能指向可安全重建的开发数据库。
 
 ### 生产变更
 
@@ -89,7 +87,7 @@ curl -sSf https://atlasgo.sh | sh
 | 命令 | 说明 |
 |---|---|
 | `./db/migrate.sh dev plan` | 预览开发环境变更，不改动数据库 |
-| `./db/migrate.sh dev apply` | 将开发数据库完整同步到 `schema.sql`，允许删除废弃对象 |
+| `./db/migrate.sh dev apply` | 同步开发数据库，保留旧字段，随后执行未完成的数据迁移 |
 | `./db/migrate.sh prod plan` | 预览生产环境变更，不改动数据库 |
 | `./db/migrate.sh prod apply` | 同步生产数据库，但不自动删除 Schema、表、字段、索引和外键 |
 | `./db/migrate.sh <dev\|prod> inspect` | 查看指定环境的当前结构 |
@@ -107,7 +105,7 @@ atlas schema inspect --env prod           # 查看生产环境结构
 
 `schema diff` 是通用的两端对比命令，`--from` / `--to` 必填，且不从 `--env` 继承端点。即使显式传 `--from env://url --to env://src`，由于 `schema.sql` 里没有 `CREATE DATABASE`，加载进暂存库后 schema 名与目标库不一致，Atlas 会报 `modify schema "" is not allowed when migration plan is scoped to one schema`。
 
-`apply --dry-run` 使用与结构同步相同的 Atlas 计算路径。`migrate.sh plan` 还会展示未记录的数据迁移文件内容，但不会执行文件或写成功记录；前置文件可能改变数据库状态，因此执行前置文件后，Atlas 实际生成的结构 SQL 可能与此前预览不同。生产部署须同时审核数据文件及声明式结构变更。
+`apply --dry-run` 使用与结构同步相同的 Atlas 计算路径。`migrate.sh plan` 在结构 SQL 后展示未记录的数据文件，但不会执行文件或写成功记录。生产部署须同时审核结构变更及数据 SQL。
 
 ## CI 集成
 
@@ -122,17 +120,17 @@ export DB_URL="maria://user:pass@host:3306/dbname"
 
 ### 自动数据迁移
 
-`apply` 的执行顺序为：引导记录表 → `before-schema` → Atlas 结构同步 → `after-schema` → 部署基础数据 → 可选种子数据。现有部署链路在迁移成功后才启动应用；单独重启应用进程不会再次运行迁移。对同一目标库的部署必须串行执行。
+`apply` 的执行顺序为：Atlas 结构同步 → 数据 SQL → 部署基础数据 → 可选种子数据。所有环境均保留旧字段，因此数据 SQL 可以在结构同步后读取旧字段。现有部署链路在迁移成功后才启动应用；单独重启应用进程不会再次运行迁移。对同一目标库的部署必须串行执行。
 
-记录表 `data_migration` 的定义只维护在 `schema.sql` 中。通用脚本从该定义引导记录表，使前置文件在旧库和新库中都能记录成功状态，不维护第二份建表定义；该表仅供迁移执行器使用，不生成应用业务 Entity/Mapper。
+记录表 `data_migration` 与其他表一起由 Atlas 从 `schema.sql` 创建，不需要单独引导；该表仅供迁移执行器使用，不生成应用业务 Entity/Mapper。
 
-- 文件放入对应阶段目录，各阶段按 ASCII 文件名顺序执行；文件名全局唯一，区分大小写，只允许 ASCII 字母、数字、下划线、点和短横线，最长 255 字符。
-- 每次 `apply` 查询记录表；已有记录则跳过，未记录则执行整个 SQL 文件，成功后写入 `filename` 和 `executed_at`。已执行文件不得修改、改名或换阶段，后续修正新增文件。
-- 文件失败立即终止部署，不写成功记录，也不继续后续迁移。纯 DML 和成功记录在同一事务中提交；文件不得自行提交事务、改写记录表或包含 MariaDB 客户端命令。
-- MariaDB DDL 会隐式提交，不能保证整份文件回滚；含 DDL 的文件必须可重入，以便失败或中断后再次执行。自动文件不得绕过生产删除保护，破坏性清理仍须单独审核执行。
-- 新库也执行并记录文件；文件需自行判断历史数据或来源结构是否存在，不能假定旧表、旧列一定存在。
+- 数据文件直接放在 `db/data-migrations/*.sql`，按 ASCII 文件名顺序执行；文件名区分大小写，只允许 ASCII 字母、数字、下划线、点和短横线。
+- 每次 `apply` 查询记录表；已有记录则跳过，未记录则执行整个 SQL 文件，成功后写入 `filename` 和 `executed_at`。已执行文件不得修改或改名，后续修正新增文件。
+- 数据修改与成功记录在同一事务中提交。文件失败立即终止部署，不写成功记录，也不继续后续文件。
+- 数据文件只做数据转换，不包含 DDL、事务提交、执行记录写入或 MariaDB 客户端命令。表结构由 `schema.sql` 管理，旧字段清理作为独立、经审核的运维操作。
+- 新库也执行并记录文件；只需在文件内判断来源旧字段是否存在，不需要判断或创建目标结构。
 
-集成测试入口是 `db/tests/migrate_test.sh`，需在具备 MariaDB 客户端和 Atlas 的环境中设置 `MYSQL_HOST`、`MYSQL_TCP_PORT`、`MYSQL_USER`、`MYSQL_PWD` 和不含库名的 `DB_SERVER_URL`。测试只创建并清理本次专用数据库，覆盖预览、首次执行、重复跳过、失败回滚与重入。
+集成测试入口是 `db/tests/migrate_test.sh`，需在具备 MariaDB 客户端和 Atlas 的环境中设置 `MYSQL_HOST`、`MYSQL_TCP_PORT`、`MYSQL_USER`、`MYSQL_PWD` 和不含库名的 `DB_SERVER_URL`。测试只创建并清理本次专用数据库，覆盖字段保留、结构先于数据同步、重复跳过、失败回滚与恢复。
 
 ## API 测试建表
 
@@ -154,7 +152,7 @@ MySQL 与 MariaDB 的数据目录格式不作为迁移接口，禁止把原 MySQ
 ## 注意事项
 
 - `schema.sql` 是唯一真实来源，所有表结构变更必须通过修改此文件完成
-- `dev` 没有删除保护，执行前确认目标库可安全重建
+- `dev` 只保护字段删除，其他对象仍可能删除，执行前确认目标库可安全重建
 - `prod` 的 `diff.skip` 会阻止删除 Schema、表、字段、索引和外键；不要绕过 `atlas.hcl` 直接执行裸 Atlas 命令
 - 字段类型等非删除变更仍可能影响数据，生产环境始终先执行 `prod plan`
 - 种子数据（`seed/`）不纳入 schema 管理，仅用于开发环境初始化
