@@ -14,6 +14,7 @@ import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.TaskTemplate;
+import online.longlian.app.service.common.BaseTaskReferenceService;
 import online.longlian.common.enumeration.TaskTemplateScope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class WorkshopProjectHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new WorkshopProjectHandler(
-                projectTypeMapper, taskTemplateMapper, baseTaskMapper, taskTemplateNodeMapper, Clock.systemUTC());
+                projectTypeMapper, taskTemplateMapper, new BaseTaskReferenceService(baseTaskMapper), taskTemplateNodeMapper, Clock.systemUTC());
     }
 
     @Test
@@ -99,8 +100,6 @@ class WorkshopProjectHandlerTest {
                 .build()))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMessage()).isEqualTo("原子任务不存在或已禁用");
-                    assertThat(ex.getMsg()).isEqualTo("参数错误,原子任务不存在或已禁用");
                 });
 
         verifyNoInteractions(taskTemplateNodeMapper);

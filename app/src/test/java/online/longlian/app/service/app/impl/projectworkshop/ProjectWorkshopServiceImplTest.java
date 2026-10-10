@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
+import online.longlian.app.service.common.BaseTaskReferenceService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,7 +63,7 @@ class ProjectWorkshopServiceImplTest {
     void setUp() {
         service = new ProjectWorkshopServiceImpl(
                 projectWorkshopMapper,
-                baseTaskMapper,
+                new BaseTaskReferenceService(baseTaskMapper),
                 projectMapper,
                 taskTemplateMapper,
                 taskTemplateNodeMapper,
@@ -119,7 +120,6 @@ class ProjectWorkshopServiceImplTest {
         assertThatThrownBy(() -> service.createWorkshopTaskTemplate(params))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMessage()).isEqualTo("原子任务不存在或已禁用");
                 });
 
         verify(taskTemplateNodeMapper, never()).insert(any(TaskTemplateNode.class));

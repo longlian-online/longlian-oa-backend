@@ -1,12 +1,10 @@
 package online.longlian.app.service.orgadmin.impl.tasktemplate;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -17,12 +15,12 @@ import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
-import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.common.BaseTaskReferenceService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
@@ -39,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class TaskTemplateServiceImpl implements TaskTemplateService {
 
     private final TaskTemplateMapper taskTemplateMapper;
-    private final BaseTaskMapper baseTaskMapper;
+    private final BaseTaskReferenceService baseTaskReferenceService;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
     private final TaskTemplateQueryBuilder taskTemplateQueryBuilder;
@@ -80,7 +78,7 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
                 .updatedAt(now)
                 .build();
         taskTemplateMapper.insert(template);
-        lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        baseTaskReferenceService.lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
 
         List<TaskTemplateNode> nodes = params.getNodes().stream()
                 .map(node -> buildNode(template.getId(), node, now))
@@ -127,17 +125,6 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
                 .build();
     }
 
-    private void lockBaseTasks(List<Long> baseTaskIds) {
-        List<Long> orderedIds = baseTaskIds.stream().filter(id -> id != null).distinct().sorted().toList();
-        for (Long baseTaskId : orderedIds) {
-            BaseTask baseTask = baseTaskMapper.selectOne(new LambdaQueryWrapper<BaseTask>()
-                    .eq(BaseTask::getId, baseTaskId)
-                    .last("FOR UPDATE"));
-            if (baseTask == null || baseTask.getStatus() != Status.ENABLED) {
-                throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
-            }
-        }
-    }
     private TaskTemplate validateAndGetTemplate(Long templateId, Long orgId) {
         TaskTemplate template = taskTemplateMapper.selectById(templateId);
         if (template == null) {

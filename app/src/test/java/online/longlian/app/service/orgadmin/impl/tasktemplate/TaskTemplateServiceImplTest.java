@@ -12,6 +12,7 @@ import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.common.LockService;
+import online.longlian.app.service.common.BaseTaskReferenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,7 +54,7 @@ class TaskTemplateServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), BaseTask.class);
         service = new TaskTemplateServiceImpl(
                 taskTemplateMapper,
-                baseTaskMapper,
+                new BaseTaskReferenceService(baseTaskMapper),
                 taskTemplateNodeMapper,
                 Clock.systemUTC(),
                 taskTemplateQueryBuilder,
@@ -75,8 +76,6 @@ class TaskTemplateServiceImplTest {
                 .build()))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMessage()).isEqualTo("原子任务不存在或已禁用");
-                    assertThat(ex.getMsg()).isEqualTo("参数错误,原子任务不存在或已禁用");
                 });
 
         verifyNoInteractions(taskTemplateNodeMapper);

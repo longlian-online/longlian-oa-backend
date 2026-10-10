@@ -120,6 +120,32 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
+    /** 禁用原子任务拒绝新增引用，创建和更新的模板写入必须一起回滚。 */
+    @Test
+    void shouldRollbackTemplateChangesWhenBaseTaskDisabled() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '禁用任务', '[]', 0, 1)");
+        Map<String, Object> body = Map.of("name", "新模板", "description", "说明",
+                "nodes", new Object[]{Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1)});
+
+        authRequest(token).body(body).post("/orgadmin/task/template").then()
+                .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, description, status, creator_id) VALUES (1, 1, '原模板', '原说明', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
+        authRequest(token).body(body).put("/orgadmin/task/template/1").then()
+                .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        authRequest(token).get("/orgadmin/task/template/1").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.name", equalTo("原模板"))
+                .body("data.description", equalTo("原说明"))
+                .body("data.nodes", hasSize(1))
+                .body("data.nodes[0].baseTaskId", equalTo("1"));
+    }
+
     /**
      * 启用任务模板成功
      */
