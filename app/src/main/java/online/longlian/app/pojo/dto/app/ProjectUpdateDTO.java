@@ -27,8 +27,7 @@ public class ProjectUpdateDTO {
     @Schema(description = "企划简介", requiredMode = Schema.RequiredMode.REQUIRED)
     private String description;
 
-    @NotNull(message = "封面不能为空")
     @JsonLongIdString
-    @Schema(type = "string", description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "封面文件ID；省略时保留原封面")
     private Long coverFileId;
 }

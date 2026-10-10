@@ -188,17 +188,19 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getAlias, params.getAlias())
                         .set(Project::getMetadata, params.getMetadata())
                         .set(Project::getDescription, params.getDescription())
-                        .set(Project::getCoverFileId, params.getCoverFileId())
+                        .set(params.getCoverFileId() != null, Project::getCoverFileId, params.getCoverFileId())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(params.getCoverFileId())
-                .replacedResourceId(project.getCoverFileId())
-                .bizType("cover")
-                .bizId(params.getProjectId())
-                .creatorId(params.getUserId())
-                .orgId(params.getOrgId())
-                .build());
+        if (params.getCoverFileId() != null) {
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getCoverFileId())
+                    .replacedResourceId(project.getCoverFileId())
+                    .bizType("cover")
+                    .bizId(params.getProjectId())
+                    .creatorId(params.getUserId())
+                    .orgId(params.getOrgId())
+                    .build());
+        }
     }
 
     @Override

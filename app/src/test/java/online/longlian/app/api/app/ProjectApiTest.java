@@ -289,6 +289,45 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 编辑时未提交封面 ID，应更新文字字段并保留原封面资源。
+     */
+    @Test
+    void shouldUpdateProjectWithoutCoverFileIdAndKeepExistingCover() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1, process_status = ? WHERE id = 1",
+                FileProcessStatus.Activated.getCode());
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 1L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "更新后的企划",
+                        "alias", "new_alias",
+                        "metadata", "{\"key\":\"value\"}",
+                        "description", "更新后的描述"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("更新后的企划");
+        assertThat(jdbcTemplate.queryForObject("SELECT cover_file_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 1", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
      * 添加企划到工坊成功
      */
     @Test
