@@ -1,6 +1,7 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -20,4 +21,11 @@ public class ApplicationReviewDTO {
     @Size(max = 500, message = "审核备注不能超过 500 个字符")
     @Schema(description = "审核备注（拒绝时建议填写原因）")
     private String reviewRemark;
+
+    @AssertTrue(message = "审核结果只能为 APPROVED 或 REJECTED")
+    @Schema(hidden = true)
+    public boolean isTerminalApplicationStatus() {
+        return applicationStatus == null || applicationStatus == ApplicationStatus.APPROVED
+                || applicationStatus == ApplicationStatus.REJECTED;
+    }
 }

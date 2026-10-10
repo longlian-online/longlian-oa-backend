@@ -41,14 +41,13 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
-        createTestUser(2L, "applyuser", "123456", "apply@example.com");
-        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = 2");
+
 
         // 插入待审核的入组申请
         jdbcTemplate.update(
-                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 2L, 0, 0, "applyuser", "申请人", "apply@example.com"
+                "INSERT INTO `group_application` (id, org_id, user_id, status, application_type, username, nickname, email, password_hash, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, null, 0, 0, "applyuser", "申请人", "apply@example.com", passwordEncoder.encode("123456")
         );
 
         Response response = authRequest(token)
@@ -61,6 +60,15 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long userId = jdbcTemplate.queryForObject(
+                "SELECT user_id FROM group_application WHERE id = ? AND status = 1 AND password_hash IS NULL",
+                Long.class, 1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT username FROM `user` WHERE id = ?", String.class, userId)).isEqualTo("applyuser");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_member WHERE org_id = ? AND user_id = ? AND status = 1",
+                Integer.class, 1L, userId)).isEqualTo(1);
     }
 
     /**
@@ -117,12 +125,30 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    /** 待审核状态不是审核结果，必须在写入前拒绝且保留注册密码快照。 */
+    @Test
+    void shouldRejectPendingReviewResultWithoutChangingApplication() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        String hash = passwordEncoder.encode("123456");
+        jdbcTemplate.update(
+                "INSERT INTO group_application (id, org_id, application_type, status, username, email, password_hash) " +
+                        "VALUES (?, ?, 0, 0, ?, ?, ?)", 1L, 1L, "candidate", "candidate@example.com", hash);
+
+        authRequest(token).body(Map.of("applicationStatus", "PENDING"))
+                .put("/orgadmin/members/applications/1/review")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id = ?", Integer.class, 1L)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT password_hash FROM group_application WHERE id = ?", String.class, 1L)).isEqualTo(hash);
+        assertThat(jdbcTemplate.queryForObject("SELECT reviewer_id FROM group_application WHERE id = ?", Long.class, 1L)).isNull();
     }
 
     /**
      * 审核通过 EXISTING_USER 类型申请时申请人已是组织成员应失败
-     * （覆盖 getExistingApplicationUser existedMember!=null 分支）
      */
     @Test
     void shouldFailApproveApplicationWhenUserAlreadyMember() {
@@ -152,7 +178,14 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM group_application WHERE id = ?", Integer.class, 1L)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT reviewer_id FROM group_application WHERE id = ?", Long.class, 1L)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM organization_member WHERE org_id = ? AND user_id = ?",
+                Integer.class, 1L, 2L)).isEqualTo(1);
     }
 
     // ========== 组员列表 ==========

@@ -141,4 +141,6 @@ MySQL 与 MariaDB 的数据目录格式不作为迁移接口，禁止把原 MySQ
 - `prod` 的 `diff.skip` 会阻止删除 Schema、表、字段、索引和外键；不要绕过 `atlas.hcl` 直接执行裸 Atlas 命令
 - 字段类型等非删除变更仍可能影响数据，生产环境始终先执行 `prod plan`
 - 种子数据（`seed/`）不纳入 schema 管理，仅用于开发环境初始化
+- MariaDB 10.11 删除 CHECK 需用 `DROP CONSTRAINT`，当前 Atlas 版本生成的 `DROP CHECK` 不兼容此版本
 - 每次变更前建议先 `git pull` 获取最新的 `schema.sql`
+

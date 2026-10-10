@@ -164,7 +164,7 @@ public class OrganizationMemberController {
 
     @Operation(
             summary = "启用/禁用组员",
-            description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
+            description = "仅限制成员访问当前组织，不改变用户全局账号状态。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{memberId}/status")
     @ResponseMessage("状态修改成功")
