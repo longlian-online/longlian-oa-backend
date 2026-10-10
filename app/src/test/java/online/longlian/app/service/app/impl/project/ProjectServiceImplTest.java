@@ -1,5 +1,8 @@
 package online.longlian.app.service.app.impl.project;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectMapper;
@@ -7,6 +10,7 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Project;
@@ -14,6 +18,7 @@ import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +62,8 @@ class ProjectServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
         service = new ProjectServiceImpl(
                 projectMapper,
                 projectTypeMapper,
@@ -139,6 +146,49 @@ class ProjectServiceImplTest {
                 .build()))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @Test
+    void updateProject_withoutCoverFileId_preservesCoverAndBinding() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L)
+                .coverFileId(20L).resourceStatus(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{}").description("新描述").build());
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(projectMapper).update(any(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet())
+                .contains("title", "alias", "metadata", "description", "updated_at")
+                .doesNotContain("cover_file_id");
+        verify(resourceService, never()).bindBizResource(any());
+    }
+
+    @Test
+    void updateProject_withCoverFileId_replacesCoverAndBinding() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L)
+                .coverFileId(20L).resourceStatus(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{}").description("新描述")
+                .coverFileId(21L).build());
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(projectMapper).update(any(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet()).contains("cover_file_id");
+        assertThat(updateCaptor.getValue().getParamNameValuePairs().values()).contains(21L);
+        ArgumentCaptor<ResourceBindParamsBO> bindCaptor = ArgumentCaptor.forClass(ResourceBindParamsBO.class);
+        verify(resourceService).bindBizResource(bindCaptor.capture());
+        assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(21L);
+        assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(20L);
     }
 
     @Test
