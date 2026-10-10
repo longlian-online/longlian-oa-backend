@@ -5,16 +5,14 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
-import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.TaskTemplate;
-import online.longlian.app.service.common.BaseTaskReferenceService;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.common.enumeration.TaskTemplateScope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +26,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -39,7 +38,7 @@ class WorkshopProjectHandlerTest {
     @Mock
     private ProjectTypeMapper projectTypeMapper;
     @Mock
-    private BaseTaskMapper baseTaskMapper;
+    private BaseTaskService baseTaskService;
     @Mock
     private TaskTemplateMapper taskTemplateMapper;
     @Mock
@@ -50,7 +49,7 @@ class WorkshopProjectHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new WorkshopProjectHandler(
-                projectTypeMapper, taskTemplateMapper, new BaseTaskReferenceService(baseTaskMapper), taskTemplateNodeMapper, Clock.systemUTC());
+                projectTypeMapper, taskTemplateMapper, baseTaskService, taskTemplateNodeMapper, Clock.systemUTC());
     }
 
     @Test
@@ -80,13 +79,12 @@ class WorkshopProjectHandlerTest {
     void updateWorkshopTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
         MybatisConfiguration configuration = new MybatisConfiguration();
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), TaskTemplate.class);
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), BaseTask.class);
         when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
                 .id(8L)
                 .scope(TaskTemplateScope.PERSONAL)
                 .creatorId(3L)
                 .build());
-        when(baseTaskMapper.selectOne(any())).thenReturn(null);
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
 
         assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
                 .templateId(8L)

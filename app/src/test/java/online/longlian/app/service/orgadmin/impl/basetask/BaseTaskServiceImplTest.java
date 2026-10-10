@@ -9,6 +9,13 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
+import online.longlian.app.service.orgadmin.BaseTaskService;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.IllegalTransactionStateException;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,10 +25,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,5 +96,51 @@ class BaseTaskServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         verify(baseTaskMapper, never()).deleteById(10L);
+    }
+    // 部分任务存在也不能接受整个引用集合，重复 ID 不应掩盖缺失任务。
+    @Test
+    void shouldRejectPartiallyMissingTasks() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(10L).status(Status.ENABLED).build()));
+
+        assertThatThrownBy(() -> service.lockBaseTasks(List.of(20L, 10L, 20L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    // 缺失任务不能被新增引用。
+    @Test
+    void shouldRejectMissingTask() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.lockBaseTasks(List.of(10L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    // 禁用任务即使仍存在也不能用于新模板节点。
+    @Test
+    void shouldRejectDisabledTask() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(10L).status(Status.ENABLED).build(),
+                BaseTask.builder().id(20L).status(Status.DISABLED).build()));
+
+        assertThatThrownBy(() -> service.lockBaseTasks(List.of(10L, 20L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    // 脱离引用写入事务会提前释放锁，必须在执行查询前拒绝。
+    @Test
+    void shouldRejectLockingOutsideCallerTransaction() {
+        ProxyFactory factory = new ProxyFactory(service);
+        factory.addAdvice(new TransactionInterceptor(
+                new DataSourceTransactionManager(new DriverManagerDataSource()),
+                new AnnotationTransactionAttributeSource()));
+        BaseTaskService proxy = (BaseTaskService) factory.getProxy();
+
+        assertThatThrownBy(() -> proxy.lockBaseTasks(List.of(10L)))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        verifyNoInteractions(baseTaskMapper);
     }
 }

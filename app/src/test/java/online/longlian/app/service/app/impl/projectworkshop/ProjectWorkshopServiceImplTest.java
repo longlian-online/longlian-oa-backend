@@ -2,7 +2,6 @@ package online.longlian.app.service.app.impl.projectworkshop;
 
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
@@ -12,12 +11,10 @@ import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
-import online.longlian.app.service.common.BaseTaskReferenceService;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.common.LockService;
-import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +28,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,7 +39,7 @@ class ProjectWorkshopServiceImplTest {
     @Mock
     private ProjectWorkshopMapper projectWorkshopMapper;
     @Mock
-    private BaseTaskMapper baseTaskMapper;
+    private BaseTaskService baseTaskService;
     @Mock
     private ProjectMapper projectMapper;
     @Mock
@@ -63,7 +61,7 @@ class ProjectWorkshopServiceImplTest {
     void setUp() {
         service = new ProjectWorkshopServiceImpl(
                 projectWorkshopMapper,
-                new BaseTaskReferenceService(baseTaskMapper),
+                baseTaskService,
                 projectMapper,
                 taskTemplateMapper,
                 taskTemplateNodeMapper,
@@ -102,9 +100,7 @@ class ProjectWorkshopServiceImplTest {
 
     @Test
     void createWorkshopTaskTemplate_lockedBaseTaskDisappears_rejectsWithoutNodes() {
-        when(baseTaskMapper.selectOne(any()))
-                .thenReturn(BaseTask.builder().id(21L).status(Status.ENABLED).build())
-                .thenReturn(null);
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
         WorkshopTaskTemplateCreateParamsBO params = WorkshopTaskTemplateCreateParamsBO.builder()
                 .orgId(1L)
                 .creatorId(2L)

@@ -22,6 +22,7 @@ import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -91,6 +92,23 @@ public class BaseTaskServiceImpl implements BaseTaskService {
             throw new AppException(ResultCode.PARAM_ERROR, "该原子任务已被任务模板或项目任务节点引用，请改为禁用");
         }
         baseTaskMapper.deleteById(params.getTaskId());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockBaseTasks(List<Long> baseTaskIds) {
+        List<Long> orderedIds = baseTaskIds.stream().filter(id -> id != null).distinct().sorted().toList();
+        if (orderedIds.isEmpty()) {
+            return;
+        }
+        List<BaseTask> tasks = baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
+                .in(BaseTask::getId, orderedIds)
+                .orderByAsc(BaseTask::getId)
+                .last("FOR UPDATE"));
+        if (tasks.size() != orderedIds.size()
+                || tasks.stream().anyMatch(task -> task.getStatus() != Status.ENABLED)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+        }
     }
 
     @Override

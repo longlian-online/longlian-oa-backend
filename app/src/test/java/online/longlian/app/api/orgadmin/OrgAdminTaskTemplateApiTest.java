@@ -69,13 +69,16 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 1, '原子任务2', '[]', 1, 1)");
 
         Response response = authRequest(token)
                 .body(Map.of(
                         "name", "测试模板",
                         "description", "模板描述",
                         "nodes", new Object[]{
-                                Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1)
+                                Map.of("baseTaskId", 2L, "sort", 1, "parallelSort", 1),
+                                Map.of("baseTaskId", 1L, "sort", 2, "parallelSort", 1),
+                                Map.of("baseTaskId", 2L, "sort", 3, "parallelSort", 1)
                         }
                 ))
                 .post("/orgadmin/task/template");
@@ -83,6 +86,27 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long templateId = jdbcTemplate.queryForObject("SELECT id FROM task_template WHERE name = '测试模板'", Long.class);
+        authRequest(token).get("/orgadmin/task/template/" + templateId).then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.nodes.baseTaskId", equalTo(java.util.List.of("2", "1", "2")))
+                .body("data.nodes.baseTaskName", equalTo(java.util.List.of("原子任务2", "原子任务1", "原子任务2")));
+    }
+
+    /** 批量引用中只要有一个任务缺失，就不能留下模板或部分节点。 */
+    @Test
+    void shouldRejectTemplateWithPartiallyMissingBaseTasks() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '可用任务', '[]', 1, 1)");
+        authRequest(token).body(Map.of("name", "不完整模板", "description", "说明",
+                "nodes", new Object[]{
+                        Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1),
+                        Map.of("baseTaskId", 999L, "sort", 2, "parallelSort", 1)}))
+                .post("/orgadmin/task/template").then()
+                .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template_node", Long.class)).isZero();
     }
 
     /**

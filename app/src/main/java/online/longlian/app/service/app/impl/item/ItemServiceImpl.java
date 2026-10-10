@@ -93,16 +93,17 @@ public class ItemServiceImpl implements ItemService {
 
         List<Long> baseTaskIds = templateNodes.stream()
                 .map(TaskTemplateNode::getBaseTaskId).filter(id -> id != null).distinct().sorted().toList();
-        Map<Long, BaseTask> baseTaskMap = new java.util.LinkedHashMap<>();
-        for (Long baseTaskId : baseTaskIds) {
-            BaseTask baseTask = baseTaskMapper.selectOne(new LambdaQueryWrapper<BaseTask>()
-                    .eq(BaseTask::getId, baseTaskId)
-                    .last("FOR UPDATE"));
-            if (baseTask == null) {
-                throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
-            }
-            baseTaskMap.put(baseTaskId, baseTask);
+        List<BaseTask> baseTasks = baseTaskIds.isEmpty()
+                ? Collections.emptyList()
+                : baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
+                        .in(BaseTask::getId, baseTaskIds)
+                        .orderByAsc(BaseTask::getId)
+                        .last("FOR UPDATE"));
+        if (baseTasks.size() != baseTaskIds.size()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
         }
+        Map<Long, BaseTask> baseTaskMap = baseTasks.stream()
+                .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
         LocalDateTime now = LocalDateTime.now(clock);
 

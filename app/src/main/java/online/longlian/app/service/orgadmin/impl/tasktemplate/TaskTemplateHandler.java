@@ -11,7 +11,7 @@ import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.common.enumeration.Status;
-import online.longlian.app.service.common.BaseTaskReferenceService;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 public class TaskTemplateHandler {
 
     private final TaskTemplateMapper taskTemplateMapper;
-    private final BaseTaskReferenceService baseTaskReferenceService;
+    private final BaseTaskService baseTaskService;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
 
@@ -48,7 +48,7 @@ public class TaskTemplateHandler {
                         .set(TaskTemplate::getDescription, params.getDescription())
                         .set(TaskTemplate::getUpdatedAt, now));
 
-        baseTaskReferenceService.lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        baseTaskService.lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
 
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()
