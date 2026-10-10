@@ -1,6 +1,6 @@
--- 一次性发布操作，不由 migrate.sh 自动执行。
--- 先备份并停止旧应用写入，再选择目标数据库执行本文件；随后审核 Atlas plan 并 apply。
--- 新库无需预处理；旧库新增目标列而不删除来源列，以便先核对数据再部署新应用。
+-- 在声明式同步之前保留来源数据，避免开发环境同步时先删除来源列。
+-- 新库无需预处理；生产环境的来源列由声明式删除保护保留。
+-- MariaDB DDL 隐式提交，因此在写入成功记录前中断时，文件必须能够重新执行。
 SET @has_base_task = (SELECT COUNT(*) FROM information_schema.TABLES
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'base_task');
 SET @sql = IF(@has_base_task = 1,

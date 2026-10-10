@@ -26,6 +26,12 @@ CREATE TABLE `base_task` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "原子任务表（最小任务单元）";
+-- Create "data_migration" table
+CREATE TABLE `data_migration` (
+  `filename` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT "迁移 SQL 文件名，成功后不可改名或修改",
+  `executed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "成功执行时间",
+  PRIMARY KEY (`filename`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "已成功执行的数据迁移记录";
 -- Create "email_verify_otp" table
 CREATE TABLE `email_verify_otp` (
   `id` bigint NOT NULL COMMENT "邮箱验证码ID",
