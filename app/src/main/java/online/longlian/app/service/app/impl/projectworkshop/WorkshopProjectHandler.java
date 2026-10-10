@@ -15,6 +15,7 @@ import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -29,6 +30,7 @@ public class WorkshopProjectHandler {
 
     private final ProjectTypeMapper projectTypeMapper;
     private final TaskTemplateMapper taskTemplateMapper;
+    private final BaseTaskService baseTaskService;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
 
@@ -69,6 +71,8 @@ public class WorkshopProjectHandler {
                         .set(TaskTemplate::getDescription, params.getDescription())
                         .set(TaskTemplate::getUpdatedAt, now));
 
+        baseTaskService.lockBaseTasks(params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTemplateId())
@@ -90,4 +94,5 @@ public class WorkshopProjectHandler {
                             .build());
         }
     }
+
 }

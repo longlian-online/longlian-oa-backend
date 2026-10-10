@@ -54,18 +54,11 @@ public class BaseTask implements Serializable {
     private String name;
 
     /**
-     * 图标标识
-     */
-    @ApiModelProperty("图标标识")
-    @TableField("icon_file_id")
-    private Long iconFileId;
-
-    /**
      * Lucide 图标组件名
      */
-    @TableField("icon_name")
+    @TableField("icon")
     @ApiModelProperty("Lucide 图标组件名")
-    private String iconName;
+    private String icon;
 
     /**
      * 任务说明（简介）

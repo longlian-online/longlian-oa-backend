@@ -15,8 +15,7 @@ public class TaskTemplateNodeResultBO {
     private Long id;
     private Long baseTaskId;
     private String baseTaskName;
-    private String baseTaskIconUrl;
-    private String baseTaskIconName;
+    private String baseTaskIcon;
     private List<TaskFormField> submitFields;
     private Integer sort;
     private Integer parallelSort;

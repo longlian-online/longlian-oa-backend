@@ -165,14 +165,11 @@ class WorkshopAssemblerTest {
         BaseTask baseTask = BaseTask.builder()
                 .id(200L)
                 .name("绘制")
-                .iconFileId(300L)
-                .iconName("SquarePen")
+                .icon("SquarePen")
                 .build();
 
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
         when(baseTaskMapper.selectBatchIds(List.of(200L))).thenReturn(List.of(baseTask));
-        when(resourceService.getResourceReadUrls(List.of(300L)))
-                .thenReturn(Map.of(300L, new ResourceReadUrlGetResultBO("https://cdn/icon.png", 1L, "i")));
 
         List<WorkshopTaskTemplateVO> result = assembler.assembleTemplateList(List.of(template), 99L);
 
@@ -183,8 +180,7 @@ class WorkshopAssemblerTest {
         assertEquals(1, vo.getTaskCount());
         assertEquals(1, vo.getNodes().size());
         assertEquals("绘制", vo.getNodes().get(0).getBaseTaskName());
-        assertEquals("https://cdn/icon.png", vo.getNodes().get(0).getBaseTaskIconUrl());
-        assertEquals("SquarePen", vo.getNodes().get(0).getBaseTaskIconName());
+        assertEquals("SquarePen", vo.getNodes().get(0).getBaseTaskIcon());
         // creatorId(50L) != currentUserId(99L)
         assertEquals(false, vo.getIsMine());
     }

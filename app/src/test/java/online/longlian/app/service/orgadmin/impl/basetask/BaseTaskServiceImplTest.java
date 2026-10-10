@@ -1,40 +1,51 @@
 package online.longlian.app.service.orgadmin.impl.basetask;
 
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.BaseTaskMapper;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.TaskTemplateNodeMapper;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.common.TaskFormService;
+import online.longlian.common.enumeration.Status;
+import online.longlian.app.service.orgadmin.BaseTaskService;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.IllegalTransactionStateException;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BaseTaskServiceImplTest {
 
     @Mock
     private BaseTaskMapper baseTaskMapper;
-
     @Mock
-    private ResourceService resourceService;
-
+    private TaskTemplateNodeMapper taskTemplateNodeMapper;
+    @Mock
+    private ItemTaskNodeMapper itemTaskNodeMapper;
     @Mock
     private BaseTaskQueryBuilder baseTaskQueryBuilder;
-
     @Mock
     private BaseTaskAssembler baseTaskAssembler;
 
@@ -45,39 +56,91 @@ class BaseTaskServiceImplTest {
         Clock clock = Clock.fixed(Instant.parse("2026-08-31T00:00:00Z"), ZoneOffset.UTC);
         service = new BaseTaskServiceImpl(
                 baseTaskMapper,
-                resourceService,
+                taskTemplateNodeMapper,
+                itemTaskNodeMapper,
                 clock,
                 baseTaskQueryBuilder,
-                baseTaskAssembler, new TaskFormService()
+                baseTaskAssembler,
+                new TaskFormService()
         );
     }
 
+
     @Test
-    void createBaseTask_withImageAndLucideIcon_persistsBoth() {
-        doAnswer(invocation -> {
-            BaseTask task = invocation.getArgument(0);
-            task.setId(100L);
-            return 1;
-        }).when(baseTaskMapper).insert(any(BaseTask.class));
+    void deleteBaseTask_withoutReferences_softDeletesTask() {
+        when(baseTaskMapper.selectOne(any())).thenReturn(BaseTask.builder().id(10L).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectCount(any())).thenReturn(0L);
+        when(itemTaskNodeMapper.selectCount(any())).thenReturn(0L);
 
-        service.createBaseTask(BaseTaskCreateParamsBO.builder()
-                .orgId(1L)
-                .creatorId(2L)
-                .name("翻译")
-                .description("翻译内容")
-                .iconFileId(20L)
-                .iconName("Languages")
-                .submitFields(java.util.List.of())
-                .build());
+        service.deleteBaseTask(BaseTaskDeleteParamsBO.builder().taskId(10L).orgId(1L).build());
 
-        ArgumentCaptor<BaseTask> taskCaptor = ArgumentCaptor.forClass(BaseTask.class);
-        verify(baseTaskMapper).insert(taskCaptor.capture());
-        assertThat(taskCaptor.getValue().getIconFileId()).isEqualTo(20L);
-        assertThat(taskCaptor.getValue().getIconName()).isEqualTo("Languages");
-        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
-                && resource.getReplacedResourceId() == null
-                && resource.getBizId().equals(100L)
-                && "avatar".equals(resource.getBizType())
-                && resource.getOrgId().equals(1L)));
+        verify(baseTaskMapper).deleteById(10L);
+    }
+
+    @Test
+    void deleteBaseTask_referencedByTemplateOrItem_rejectsWithoutDelete() {
+        when(baseTaskMapper.selectOne(any())).thenReturn(BaseTask.builder().id(10L).orgId(1L).status(Status.ENABLED).build());
+        when(taskTemplateNodeMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteBaseTask(BaseTaskDeleteParamsBO.builder().taskId(10L).orgId(1L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(baseTaskMapper, never()).deleteById(10L);
+    }
+
+    @Test
+    void deleteBaseTask_fromAnotherOrganization_rejectsWithoutDelete() {
+        when(baseTaskMapper.selectOne(any())).thenReturn(BaseTask.builder().id(10L).orgId(2L).build());
+
+        assertThatThrownBy(() -> service.deleteBaseTask(BaseTaskDeleteParamsBO.builder().taskId(10L).orgId(1L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        verify(baseTaskMapper, never()).deleteById(10L);
+    }
+    // 部分任务存在也不能接受整个引用集合，重复 ID 不应掩盖缺失任务。
+    @Test
+    void shouldRejectPartiallyMissingTasks() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(10L).status(Status.ENABLED).build()));
+
+        assertThatThrownBy(() -> service.lockBaseTasks(List.of(20L, 10L, 20L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    // 缺失任务不能被新增引用。
+    @Test
+    void shouldRejectMissingTask() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.lockBaseTasks(List.of(10L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    // 禁用任务即使仍存在也不能用于新模板节点。
+    @Test
+    void shouldRejectDisabledTask() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(10L).status(Status.ENABLED).build(),
+                BaseTask.builder().id(20L).status(Status.DISABLED).build()));
+
+        assertThatThrownBy(() -> service.lockBaseTasks(List.of(10L, 20L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    // 脱离引用写入事务会提前释放锁，必须在执行查询前拒绝。
+    @Test
+    void shouldRejectLockingOutsideCallerTransaction() {
+        ProxyFactory factory = new ProxyFactory(service);
+        factory.addAdvice(new TransactionInterceptor(
+                new DataSourceTransactionManager(new DriverManagerDataSource()),
+                new AnnotationTransactionAttributeSource()));
+        BaseTaskService proxy = (BaseTaskService) factory.getProxy();
+
+        assertThatThrownBy(() -> proxy.lockBaseTasks(List.of(10L)))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        verifyNoInteractions(baseTaskMapper);
     }
 }

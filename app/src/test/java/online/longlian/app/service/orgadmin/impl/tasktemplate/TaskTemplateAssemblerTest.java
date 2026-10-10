@@ -3,14 +3,12 @@ package online.longlian.app.service.orgadmin.impl.tasktemplate;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,14 +35,12 @@ class TaskTemplateAssemblerTest {
     private BaseTaskMapper baseTaskMapper;
     @Mock
     private TaskTemplateNodeMapper taskTemplateNodeMapper;
-    @Mock
-    private ResourceService resourceService;
 
     private TaskTemplateAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        assembler = new TaskTemplateAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService, new TaskFormService());
+        assembler = new TaskTemplateAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, new TaskFormService());
     }
 
     @Test
@@ -86,11 +81,9 @@ class TaskTemplateAssemblerTest {
                 .build();
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
 
-        BaseTask baseTask = BaseTask.builder().id(100L).name("Draw").iconFileId(200L)
-                .iconName("SquarePen").metaSchema("[]").build();
+        BaseTask baseTask = BaseTask.builder().id(100L).name("Draw")
+                .icon("SquarePen").metaSchema("[]").build();
         when(baseTaskMapper.selectBatchIds(anyList())).thenReturn(List.of(baseTask));
-        when(resourceService.getResourceReadUrls(anyList()))
-                .thenReturn(Map.of(200L, new ResourceReadUrlGetResultBO("https://cdn/icon.png", 1L, "icon/200")));
 
         TaskTemplateDetailResultBO result = assembler.assembleDetail(template);
 
@@ -98,8 +91,7 @@ class TaskTemplateAssemblerTest {
         assertThat(result.getCreatorNickname()).isEqualTo("Bob");
         assertThat(result.getNodes()).hasSize(1);
         assertThat(result.getNodes().get(0).getBaseTaskName()).isEqualTo("Draw");
-        assertThat(result.getNodes().get(0).getBaseTaskIconUrl()).isEqualTo("https://cdn/icon.png");
-        assertThat(result.getNodes().get(0).getBaseTaskIconName()).isEqualTo("SquarePen");
+        assertThat(result.getNodes().get(0).getBaseTaskIcon()).isEqualTo("SquarePen");
     }
 
     @Test

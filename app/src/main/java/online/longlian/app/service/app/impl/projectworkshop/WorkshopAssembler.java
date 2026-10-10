@@ -104,12 +104,7 @@ public class WorkshopAssembler {
                 : baseTaskMapper.selectBatchIds(baseTaskIds).stream()
                         .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
-        List<Long> iconFileIds = baseTaskMap.values().stream()
-                .map(BaseTask::getIconFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> iconUrlMap = iconFileIds.isEmpty()
-                ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(iconFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+
 
         return templates.stream()
                 .map(template -> {
@@ -124,7 +119,7 @@ public class WorkshopAssembler {
                     workshopTaskTemplateVO.setTaskCount(nodes.size());
 
                     List<WorkshopTaskTemplateNodeVO> nodeVOs = nodes.stream()
-                            .map(node -> toNodeVO(node, baseTaskMap, iconUrlMap))
+                            .map(node -> toNodeVO(node, baseTaskMap))
                             .toList();
                     workshopTaskTemplateVO.setNodes(nodeVOs);
                     return workshopTaskTemplateVO;
@@ -132,7 +127,7 @@ public class WorkshopAssembler {
                 .toList();
     }
 
-    private WorkshopTaskTemplateNodeVO toNodeVO(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap, Map<Long, String> iconUrlMap) {
+    private WorkshopTaskTemplateNodeVO toNodeVO(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap) {
         WorkshopTaskTemplateNodeVO vo = new WorkshopTaskTemplateNodeVO();
         vo.setBaseTaskId(node.getBaseTaskId());
         vo.setSort(node.getSort());
@@ -141,10 +136,7 @@ public class WorkshopAssembler {
         BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
         if (baseTask != null) {
             vo.setBaseTaskName(baseTask.getName());
-            vo.setBaseTaskIconName(baseTask.getIconName());
-            if (baseTask.getIconFileId() != null) {
-                vo.setBaseTaskIconUrl(iconUrlMap.get(baseTask.getIconFileId()));
-            }
+            vo.setBaseTaskIcon(baseTask.getIcon());
         }
         return vo;
     }

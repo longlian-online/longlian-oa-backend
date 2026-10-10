@@ -195,7 +195,7 @@ mariadb_exec() {
   shift
   MYSQL_PWD="$url_pass" mariadb --protocol=TCP \
     -h "$url_host" -P "$url_port" -u "$url_user" \
-    --connect-timeout=10 "$@"
+    --default-character-set=utf8mb4 --connect-timeout=10 "$@"
 }
 
 ensure_mariadb_database() {
@@ -299,6 +299,40 @@ bootstrap_base_data() {
   mariadb_exec "$DB_URL" "$url_db" < "$base_data_file"
 }
 
+run_data_migrations() {
+  parse_maria_url "$DB_URL"
+  has_records=1
+  if [ "$ACTION" = plan ]; then
+    has_records=$(printf '%s\n' "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'data_migration';" \
+      | mariadb_exec "$DB_URL" -N "$url_db")
+  fi
+  for file in "${SCRIPT_DIR}/data-migrations/"*.sql; do
+    [ -f "$file" ] || continue
+    filename=${file##*/}
+    case "$filename" in
+      *[!A-Za-z0-9_.-]*) echo "错误: 迁移文件名含不支持的字符: $filename" >&2; return 1 ;;
+    esac
+    recorded=0
+    if [ "$has_records" = 1 ]; then
+      recorded=$(printf "SELECT COUNT(*) FROM data_migration WHERE filename = '%s';\n" "$filename" \
+        | mariadb_exec "$DB_URL" -N "$url_db")
+    fi
+    [ "$recorded" = 1 ] && continue
+    echo "==> [${ENVIRONMENT}] ${ACTION} 数据迁移: $filename"
+    if [ "$ACTION" = plan ]; then
+      cat "$file"
+      printf '\n'
+      continue
+    fi
+    # 数据修改与成功记录一起提交；客户端遇错退出，不继续后续文件。
+    (
+      printf 'START TRANSACTION;\n'
+      cat "$file" || exit 1
+      printf "\nINSERT INTO data_migration (filename) VALUES ('%s');\nCOMMIT;\n" "$filename"
+    ) | mariadb_exec "$DB_URL" "$url_db"
+  done
+}
+
 case "$ENVIRONMENT" in
   dev|prod) ;;
   *)
@@ -322,16 +356,20 @@ cd "$SCRIPT_DIR"
 case "$ACTION" in
   apply)
     resolve_dev_url
+    export LC_ALL=C
     echo "==> [${ENVIRONMENT}] 同步数据库到 schema.sql 声明状态..."
     run_atlas schema apply --env "$ENVIRONMENT" --auto-approve
     echo "==> [${ENVIRONMENT}] 同步完成"
+    run_data_migrations
     bootstrap_base_data
     seed_if_requested
     ;;
   plan)
     resolve_dev_url
+    export LC_ALL=C
     echo "==> [${ENVIRONMENT}] 计划将执行的变更（不改动数据库）..."
     run_atlas schema apply --env "$ENVIRONMENT" --dry-run
+    run_data_migrations
     ;;
   inspect)
     resolve_dev_url

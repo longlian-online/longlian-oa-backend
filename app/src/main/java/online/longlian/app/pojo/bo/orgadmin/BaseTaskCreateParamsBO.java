@@ -16,7 +16,6 @@ public class BaseTaskCreateParamsBO {
     private Long creatorId;
     private String name;
     private String description;
-    private Long iconFileId;
-    private String iconName;
+    private String icon;
     private List<TaskFormField> submitFields;
 }

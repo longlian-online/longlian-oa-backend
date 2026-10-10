@@ -16,11 +16,13 @@ import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
+import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -43,6 +45,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,19 +97,48 @@ class ItemServiceImplTest {
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED).build());
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
-                TaskTemplateNode.builder().id(11L).baseTaskId(21L).sort(1).parallelSort(1).build(),
-                TaskTemplateNode.builder().id(12L).baseTaskId(22L).sort(2).parallelSort(1).build()));
-        when(baseTaskMapper.selectBatchIds(any())).thenReturn(List.of());
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(13L).baseTaskId(22L).sort(3).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(21L).name("禁用任务").status(Status.DISABLED).metaSchema("[]").build(),
+                BaseTask.builder().id(22L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
 
         service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
 
         ArgumentCaptor<TaskInstance> captor = ArgumentCaptor.forClass(TaskInstance.class);
-        verify(taskInstanceMapper, times(2)).insert(captor.capture());
+        verify(taskInstanceMapper, times(3)).insert(captor.capture());
         assertThat(captor.getAllValues()).allSatisfy(instance -> {
             assertThat(instance.getStatus()).isEqualTo(TaskInstanceStatus.PENDING);
             assertThat(instance.getAssigneeId()).isNull();
         });
+        ArgumentCaptor<ItemTaskNode> nodes = ArgumentCaptor.forClass(ItemTaskNode.class);
+        verify(itemTaskNodeMapper, times(3)).insert(nodes.capture());
+        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getBaseTaskId).containsExactly(22L, 21L, 22L);
+        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getName).containsExactly("启用任务", "禁用任务", "启用任务");
+    }
+
+    @Test
+    void createProjectItem_lockedBaseTaskDisappears_rejectsWithoutPersisting() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(2).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(1).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any()))
+                .thenReturn(List.of(BaseTask.builder().id(21L).name("绘制").status(Status.ENABLED).metaSchema("[]").build()));
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+        verify(taskTemplateMapper, never()).update(isNull(), any());
     }
 
     @ParameterizedTest
