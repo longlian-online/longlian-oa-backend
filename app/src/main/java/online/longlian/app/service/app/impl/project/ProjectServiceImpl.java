@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.ProjectSearchResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
@@ -82,6 +83,10 @@ public class ProjectServiceImpl implements ProjectService {
             typeId = projectType.getId();
         }
 
+        if (StringUtils.hasText(params.getKeyword())) {
+            return searchProjects(params, typeId);
+        }
+
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
         LambdaQueryWrapper<Project> queryWrapper = projectQueryBuilder.buildListQuery(params, typeId);
         Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
@@ -90,6 +95,24 @@ public class ProjectServiceImpl implements ProjectService {
             return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());
         }
         return new PageResultBO<>(projectAssembler.assembleList(projects), projectPage.getTotal());
+    }
+
+    private PageResultBO<ProjectListResultBO> searchProjects(ProjectListParamsBO params, Long typeId) {
+        Page<ProjectSearchResultBO> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        Page<ProjectSearchResultBO> searchPage = projectMapper.selectSearchPage(
+                page, ProjectSearchSupport.buildParams(params, typeId));
+        List<ProjectSearchResultBO> records = searchPage.getRecords();
+        if (records.isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), searchPage.getTotal());
+        }
+        List<ProjectListResultBO> results = projectAssembler.assembleList(
+                records.stream().map(ProjectSearchResultBO::getProject).toList());
+        for (int i = 0; i < results.size(); i++) {
+            ProjectListResultBO result = results.get(i);
+            result.setMetadata(ProjectSearchSupport.prioritizeMetadata(
+                    result.getMetadata(), records.get(i).getMatchedMetadataPaths()));
+        }
+        return new PageResultBO<>(results, searchPage.getTotal());
     }
 
     @Override
@@ -142,6 +165,7 @@ public class ProjectServiceImpl implements ProjectService {
                 || projectType.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
         }
+        ProjectMetadataValidator.validate(params.getMetadata());
 
         LocalDateTime now = LocalDateTime.now(clock);
         Project project = Project.builder()
@@ -161,6 +185,7 @@ public class ProjectServiceImpl implements ProjectService {
         projectMapper.insert(project);
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
                 .resourceId(params.getCoverFileId())
+                .bizType("cover")
                 .bizId(project.getId())
                 .creatorId(params.getCreatorId())
                 .orgId(params.getOrgId())
@@ -179,6 +204,7 @@ public class ProjectServiceImpl implements ProjectService {
         if (!project.getCreatorId().equals(params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑企划");
         }
+        ProjectMetadataValidator.validate(params.getMetadata());
 
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()
@@ -187,16 +213,19 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getAlias, params.getAlias())
                         .set(Project::getMetadata, params.getMetadata())
                         .set(Project::getDescription, params.getDescription())
-                        .set(Project::getCoverFileId, params.getCoverFileId())
+                        .set(params.getCoverFileId() != null, Project::getCoverFileId, params.getCoverFileId())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(params.getCoverFileId())
-                .replacedResourceId(project.getCoverFileId())
-                .bizId(params.getProjectId())
-                .creatorId(params.getUserId())
-                .orgId(params.getOrgId())
-                .build());
+        if (params.getCoverFileId() != null) {
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getCoverFileId())
+                    .replacedResourceId(project.getCoverFileId())
+                    .bizType("cover")
+                    .bizId(params.getProjectId())
+                    .creatorId(params.getUserId())
+                    .orgId(params.getOrgId())
+                    .build());
+        }
     }
 
     @Override

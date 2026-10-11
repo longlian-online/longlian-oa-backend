@@ -61,6 +61,7 @@ public class ProjectAssembler {
                     return ProjectListResultBO.builder()
                             .id(project.getId())
                             .title(project.getTitle())
+                            .alias(project.getAlias())
                             .description(project.getDescription())
                             .coverUrl(coverUrlMap.get(project.getCoverFileId()))
                             .projectType(typeNameMap.get(project.getTypeId()))

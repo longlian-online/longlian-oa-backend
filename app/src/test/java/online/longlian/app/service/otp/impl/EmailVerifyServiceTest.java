@@ -1,6 +1,8 @@
 package online.longlian.app.service.otp.impl;
 
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
@@ -32,6 +34,8 @@ class EmailVerifyServiceTest {
     private OneTimePasswordService oneTimePasswordService;
     @Mock
     private EmailVerifyOtpMapper emailVerifyOtpMapper;
+    @Mock
+    private UserMapper userMapper;
     @Mock
     private EmailVerifyCodeAsyncSender emailVerifyCodeAsyncSender;
 
@@ -68,10 +72,54 @@ class EmailVerifyServiceTest {
         verify(emailVerifyCodeAsyncSender, never()).send(any(), anyString(), anyString());
     }
 
+    @Test
+    void shouldRejectRegisterCodeForExistingEmailBeforeCreatingOtp() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service().generate(params(EmailVerifyBusinessType.REGISTER)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已存在");
+
+        verify(emailVerifyOtpMapper, never()).selectCount(any());
+        verify(oneTimePasswordService, never()).generateOTP(any());
+        verify(emailVerifyOtpMapper, never()).insert(any(EmailVerifyOtp.class));
+        verify(emailVerifyCodeAsyncSender, never()).send(any(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldAllowRegisterCodeForUnusedEmail() {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params(EmailVerifyBusinessType.REGISTER));
+
+        verify(oneTimePasswordService).generateOTP(any());
+        verify(emailVerifyOtpMapper).insert(any(EmailVerifyOtp.class));
+    }
+
+    @Test
+    void shouldAllowForgotPasswordCodeWithoutCheckingRegistration() {
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params(EmailVerifyBusinessType.FORGOT_PASSWORD));
+
+        verify(userMapper, never()).selectCount(any());
+        verify(oneTimePasswordService).generateOTP(any());
+    }
+
     private EmailVerifyService service() {
         return new EmailVerifyService(
                 oneTimePasswordService,
                 emailVerifyOtpMapper,
+                userMapper,
                 emailVerifyCodeAsyncSender,
                 Clock.systemUTC()
         );
@@ -85,9 +133,13 @@ class EmailVerifyServiceTest {
     }
 
     private OTPGenerateContextBO params() {
+        return params(EmailVerifyBusinessType.LOGIN);
+    }
+
+    private OTPGenerateContextBO params(EmailVerifyBusinessType businessType) {
         return OTPGenerateContextBO.builder()
                 .receiver("user@example.com")
-                .businessType(EmailVerifyBusinessType.LOGIN)
+                .businessType(businessType)
                 .creatorId(1L)
                 .build();
     }

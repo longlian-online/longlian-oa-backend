@@ -20,7 +20,8 @@ import online.longlian.app.pojo.vo.app.ProjectItemListVO;
  *             状态均为 {@code PENDING}，不指定接取人</li>
  *       </ul>
  *   </li>
- *   <li><b>项目发布</b>：将项目状态从 {@code IN_PROGRESS} 切换为 {@code PUBLISHED}，已发布的项目不可重复发布</li>
+ *   <li><b>项目发布</b>：项目中所有任务实例均为已完成（{@code COMPLETED}）时才可将项目状态切换为 {@code PUBLISHED}，
+ *       已发布的项目不可重复发布</li>
  *   <li><b>项目删除</b>：软删除，设置 deletedAt 时间戳</li>
  * </ol>
  */
@@ -52,7 +53,10 @@ public interface ItemService {
     void deleteProjectItem(ItemOperationParamsBO params);
 
     /**
-     * 发布项目，将状态切换为 {@code PUBLISHED}，已发布的项目不可重复发布。
+     * 发布项目，将状态切换为 {@code PUBLISHED}。
+     * <p>
+     * 仅当项目下所有任务实例均已完成时才允许发布，存在未完成任务或没有任务时拒绝发布；
+     * 已发布的项目不可重复发布。
      *
      * @param params 包含项目 ID 和所属企划 ID 的操作参数
      */

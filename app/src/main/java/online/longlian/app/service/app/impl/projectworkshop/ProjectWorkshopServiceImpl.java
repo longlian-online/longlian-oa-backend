@@ -23,6 +23,7 @@ import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
 import online.longlian.app.service.app.ProjectWorkshopService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMapper, ProjectWorkshop> implements ProjectWorkshopService {
 
     private final ProjectWorkshopMapper projectWorkshopMapper;
+    private final BaseTaskService baseTaskService;
     private final ProjectMapper projectMapper;
     private final TaskTemplateMapper taskTemplateMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
@@ -110,7 +112,7 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
                 .updatedAt(now)
                 .build();
         taskTemplateMapper.insert(template);
-
+        baseTaskService.lockBaseTasks(params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
         for (WorkshopTaskTemplateNodeCreateParamsBO node : params.getNodes()) {
             TaskTemplateNode taskTemplateNode = buildNode(template.getId(), node, now);
             taskTemplateNodeMapper.insert(taskTemplateNode);
@@ -135,4 +137,5 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
                 .updatedAt(now)
                 .build();
     }
+
 }
