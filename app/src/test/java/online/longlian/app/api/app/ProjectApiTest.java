@@ -5,6 +5,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.Map;
 
@@ -34,6 +36,27 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("code", equalTo(0))
                 .body("data.list", notNullValue())
                 .body("data.total", notNullValue());
+    }
+
+    /** 创建时间和更新时间顺序不同，验证每种显式排序返回真实数据库顺序。 */
+    @ParameterizedTest
+    @CsvSource({"CREATE, ASC, 1|2|3", "CREATE, DESC, 3|2|1",
+            "UPDATE, ASC, 2|3|1", "UPDATE, DESC, 1|3|2"})
+    void shouldListProjectsInRequestedTimeOrder(String sortByTime, String orderDir, String expectedIds) {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '类型', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id, created_at, updated_at) VALUES "
+                + "(1, 1, 1, '企划一', 1, '2026-01-01', '2026-02-03'), "
+                + "(2, 1, 1, '企划二', 1, '2026-01-02', '2026-02-01'), "
+                + "(3, 1, 1, '企划三', 1, '2026-01-03', '2026-02-02')");
+
+        authRequest(loginAs("orgadmin", "123456"))
+                .queryParam("sortByTime", sortByTime).queryParam("orderDir", orderDir)
+                .get("/app/projects")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.list.id", contains(expectedIds.split("\\|")));
     }
 
     /**

@@ -79,6 +79,28 @@ class TaskResourceServiceTest {
         verifyNoInteractions(storageFactory);
     }
 
+    /** 空批次不依赖 CDN 配置，也不会读取数据库或签发链接。 */
+    @Test
+    void shouldReturnNoResourcesOrSignedLinksForEmptyBatchWithoutCdn() {
+        properties.setCdn(null);
+        ResourceService withoutCdn = serviceAt(1_000L);
+
+        assertThat(withoutCdn.findActivated("task_submit", TASK_ID, ORG_ID, List.of())).isEmpty();
+        assertThat(withoutCdn.signActivated(List.of())).isEmpty();
+        verifyNoInteractions(resourceMapper, organizationMapper, storageFactory);
+    }
+
+    /** 缺少业务归属的绑定请求不能激活上传。 */
+    @Test
+    void shouldRejectBindingWithoutBusinessType() {
+        ResourceBindBatchParamsBO params = ResourceBindBatchParamsBO.builder()
+                .resourceIds(List.of(1L)).bizId(TASK_ID).orgId(ORG_ID).creatorId(CREATOR_ID).build();
+
+        assertThatThrownBy(() -> service.bindBizResources(params)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+        verifyNoInteractions(resourceMapper, organizationMapper, storageFactory);
+    }
+
 
     @Test
     void probeFailureDoesNotChangePendingResource() {
