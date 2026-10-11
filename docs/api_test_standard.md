@@ -68,7 +68,7 @@ shouldListOrganizationsWithNameFilter      # 条件查询
 使用 `BaseApiTest` 提供的辅助方法：
 
 ```java
-// 创建管理员（角色：root / ADMIN / SUPER_ADMIN）
+// 创建管理员（角色：root / normal）
 createAdmin(long id, String username, String password, String role)
 
 // 创建用户端用户
@@ -100,12 +100,12 @@ createUserWithOrganization(long userId, String username, String password,
 
 ```java
 // 良好示例
-createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
-createAdmin(2L, "admin2", "123456", "SUPER_ADMIN");  // ID 偏移
+createAdmin(1L, "admin", "123456", "root");
+createAdmin(2L, "admin2", "123456", "root");  // ID 偏移
 
 // 禁止示例 - 可能与 BeforeEach 清空前的数据冲突
-createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
-createAdmin(1L, "another", "123456", "SUPER_ADMIN");  // ID 重复
+createAdmin(1L, "admin", "123456", "root");
+createAdmin(1L, "another", "123456", "root");  // ID 重复
 ```
 
 ### 3.4 密码规范
@@ -296,7 +296,7 @@ public class XxxApiTest extends BaseApiTest {
 
     @Test
     void shouldDoSomethingSuccessfully() {
-        createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "admin", "123456", "root");
         String token = adminLoginAs("admin", "123456");
 
         Response response = authRequest(token)
@@ -328,7 +328,7 @@ public class XxxApiTest extends BaseApiTest {
 
     @Test
     void shouldFailWithUnauthorizedOperation() {
-        createAdmin(1L, "normal_admin", "123456", "ADMIN");
+        createAdmin(1L, "normal_admin", "123456", "normal");
         String token = adminLoginAs("normal_admin", "123456");
 
         Response response = authRequest(token)
@@ -345,7 +345,7 @@ public class XxxApiTest extends BaseApiTest {
 
     @Test
     void shouldFailWithInvalidParams() {
-        createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "admin", "123456", "root");
         String token = adminLoginAs("admin", "123456");
 
         Response response = authRequest(token)
@@ -372,7 +372,7 @@ private static String sharedToken;  // 类变量会被其他测试污染
 
 // 推荐 - 每个测试独立创建
 void shouldDoSomething() {
-    createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+    createAdmin(1L, "admin", "123456", "root");
     String token = adminLoginAs("admin", "123456");
     // 使用 token
 }

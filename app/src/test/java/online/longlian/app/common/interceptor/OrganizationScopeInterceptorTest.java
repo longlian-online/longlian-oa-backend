@@ -101,8 +101,8 @@ class OrganizationScopeInterceptorTest {
     @Test
     void shouldIgnoreHeaderWhenHandlerHasNoDeclaration() throws Exception {
         UsernamePasswordAuthenticationToken incoming = new UsernamePasswordAuthenticationToken(
-                AdminUserDetails.from(1L, "admin", "ADMIN"), null,
-                AdminUserDetails.from(1L, "admin", "ADMIN").getAuthorities());
+                AdminUserDetails.from(1L, "admin", "normal"), null,
+                AdminUserDetails.from(1L, "admin", "normal").getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(incoming);
         request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "abc");
 
@@ -148,7 +148,7 @@ class OrganizationScopeInterceptorTest {
         authenticateUser();
         request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "8");
         when(organizationMembershipService.requireEnabledMember(1L, 8L)).thenReturn(
-                OrganizationMember.builder().id(9L).orgId(8L).userId(1L).orgRole("MEMBER").status(Status.ENABLED).build());
+                OrganizationMember.builder().id(9L).orgId(8L).userId(1L).orgRole("INVALID").status(Status.ENABLED).build());
 
         assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isFalse();
 

@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.bo.orgadmin;
 
+import online.longlian.app.common.enumeration.OrganizationRole;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,5 +15,5 @@ public class OrgMemberChangeRoleParamsBO {
     private Long orgId;
     private Long operatorUserId;
     private Long memberId;
-    private String orgRole;
+    private OrganizationRole orgRole;
 }

@@ -1,5 +1,7 @@
 package online.longlian.app.controller.admin;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,6 +34,7 @@ public class AdminController {
     private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "创建管理员")
+    @PreAuthorize("hasRole('root')")
     @PostMapping("/")
     @ResponseMessage("创建成功")
     public String create(@RequestBody @Valid AdminCreateDTO dto) {
@@ -46,6 +49,7 @@ public class AdminController {
     }
 
     @Operation(summary = "删除管理员")
+    @PreAuthorize("hasRole('root')")
     @DeleteMapping("/{id}")
     @ResponseMessage("删除成功")
     public void delete(@PathVariable Long id) {

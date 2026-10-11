@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Mapper;
  * </p>
  *
  * @author longlian
- * @since 2026-03-17
+ * @since
  */
 @Mapper
 public interface GroupApplicationMapper extends BaseMapper<GroupApplication> {

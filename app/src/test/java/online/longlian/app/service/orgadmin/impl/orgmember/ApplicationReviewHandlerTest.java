@@ -3,17 +3,10 @@ package online.longlian.app.service.orgadmin.impl.orgmember;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationJoinOtpMapper;
-import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.entity.GroupApplication;
-import online.longlian.app.pojo.entity.OrganizationJoinOtp;
-import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.pojo.entity.User;
-import online.longlian.common.enumeration.ApplicationStatus;
-import online.longlian.common.enumeration.ApplicationType;
-import online.longlian.common.enumeration.Status;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.*;
+import online.longlian.app.pojo.entity.*;
+import online.longlian.common.enumeration.*;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,264 +14,204 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationReviewHandlerTest {
-
-    @Mock
-    private UserMapper userMapper;
-    @Mock
-    private OrganizationMemberMapper organizationMemberMapper;
-    @Mock
-    private GroupApplicationMapper groupApplicationMapper;
-    @Mock
-    private OrganizationJoinOtpMapper organizationJoinOtpMapper;
-    private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("UTC"));
+    @Mock private UserMapper users;
+    @Mock private OrganizationMemberMapper members;
+    @Mock private GroupApplicationMapper applications;
+    @Mock private OrganizationJoinOtpMapper otps;
+    private final LocalDateTime reviewedAt = LocalDateTime.of(2026, 1, 1, 0, 0);
     private ApplicationReviewHandler handler;
 
     @BeforeEach
     void setUp() {
-        MybatisConfiguration config = new MybatisConfiguration();
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(config, ""), GroupApplication.class);
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(config, ""), OrganizationMember.class);
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(config, ""), OrganizationJoinOtp.class);
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(config, ""), User.class);
-        handler = new ApplicationReviewHandler(userMapper, organizationMemberMapper,
-                groupApplicationMapper, organizationJoinOtpMapper, clock);
+        for (Class<?> entity : List.of(User.class, OrganizationMember.class, GroupApplication.class, OrganizationJoinOtp.class)) {
+            TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), entity);
+        }
+        handler = new ApplicationReviewHandler(users, members, applications, otps);
     }
 
+    /** 注册审批创建正式账号和成员，并使用统一的审核时间。 */
     @Test
-    void validatePendingApplication_nullApplication_throws() {
-        assertThatThrownBy(() -> handler.validatePendingApplication(null, 1L))
+    void shouldCreateEnabledUserAndMemberFromRegistrationSnapshot() {
+        when(users.insert(any(User.class))).thenAnswer(call -> {
+            call.getArgument(0, User.class).setId(5L);
+            return 1;
+        });
+        when(applications.update(isNull(), any())).thenReturn(1);
+
+        approve(registration());
+
+        ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
+        ArgumentCaptor<OrganizationMember> member = ArgumentCaptor.forClass(OrganizationMember.class);
+        verify(users).insert(user.capture());
+        verify(members).insert(member.capture());
+        assertThat(user.getValue().getUsername()).isEqualTo("newuser");
+        assertThat(user.getValue().getEmail()).isEqualTo("new@example.com");
+        assertThat(user.getValue().getStatus()).isEqualTo(Status.ENABLED);
+        assertThat(user.getValue().getDefaultOrgId()).isEqualTo(10L);
+        assertThat(user.getValue().getPassword()).isEqualTo("hash");
+        assertThat(user.getValue().getCreatedAt()).isEqualTo(reviewedAt);
+        assertThat(user.getValue().getUpdatedAt()).isEqualTo(reviewedAt);
+        assertThat(member.getValue().getUserId()).isEqualTo(5L);
+        assertThat(member.getValue().getOrgId()).isEqualTo(10L);
+        assertThat(member.getValue().getOrgRole()).isEqualTo("ORG_USER");
+        assertThat(member.getValue().getStatus()).isEqualTo(Status.ENABLED);
+        assertThat(member.getValue().getJoinedAt()).isEqualTo(reviewedAt);
+        assertThat(member.getValue().getCreatedAt()).isEqualTo(reviewedAt);
+        assertThat(member.getValue().getUpdatedAt()).isEqualTo(reviewedAt);
+    }
+
+    /** 身份唯一键冲突不得继续创建成员或更新申请。 */
+    @Test
+    void shouldStopApprovalWhenIdentityInsertConflicts() {
+        when(users.insert(any(User.class))).thenThrow(new DuplicateKeyException("identity"));
+
+        assertThatThrownBy(() -> approve(registration())).isInstanceOf(DuplicateKeyException.class);
+        verifyNoInteractions(members, applications, otps);
+    }
+
+    /** 未转换的历史占位账号不能按新快照流程审批。 */
+    @Test
+    void shouldRejectUnconvertedLegacyRegistration() {
+        GroupApplication application = registration();
+        application.setUserId(5L);
+
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
+    }
+
+    /** 缺少密码快照时不能创建正式账号。 */
+    @Test
+    void shouldRejectRegistrationWithoutPasswordSnapshot() {
+        GroupApplication application = registration();
+        application.setPasswordHash(null);
+
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
+    }
+
+    /** 拒绝只终结申请，不创建或删除账号和成员。 */
+    @Test
+    void shouldRejectRegistrationWithoutChangingAnyUser() {
+        when(applications.update(isNull(), any())).thenReturn(1);
+
+        handler.review(registration(), 10L, ApplicationStatus.REJECTED, 2L, "", reviewedAt);
+
+        verifyNoInteractions(users, members, otps);
+    }
+
+    /** 条件更新未命中时审核必须失败。 */
+    @Test
+    void shouldFailWhenApplicationIsNoLongerPending() {
+        assertThatThrownBy(() -> handler.review(registration(), 10L, ApplicationStatus.REJECTED, 2L, "", reviewedAt))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("入组申请不存在");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
     }
 
+    /** 已有用户审批只建立成员关系，不新建账号。 */
     @Test
-    void validatePendingApplication_wrongOrg_throws() {
-        GroupApplication app = GroupApplication.builder().id(1L).orgId(2L).status(ApplicationStatus.PENDING).build();
-        assertThatThrownBy(() -> handler.validatePendingApplication(app, 99L))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("入组申请不存在");
+    void shouldApproveExistingUserWithoutCreatingAccount() {
+        when(users.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.ENABLED).build());
+        when(applications.update(isNull(), any())).thenReturn(1);
+
+        approve(existingUserApplication());
+
+        verify(users, never()).insert(any(User.class));
+        ArgumentCaptor<OrganizationMember> member = ArgumentCaptor.forClass(OrganizationMember.class);
+        verify(members).insert(member.capture());
+        assertThat(member.getValue().getUserId()).isEqualTo(5L);
+        assertThat(member.getValue().getOrgId()).isEqualTo(10L);
     }
 
+    /** 申请人被禁用后不能批准其加入组织。 */
     @Test
-    void validatePendingApplication_alreadyReviewed_throws() {
-        GroupApplication app = GroupApplication.builder().id(1L).orgId(1L).status(ApplicationStatus.APPROVED).build();
-        assertThatThrownBy(() -> handler.validatePendingApplication(app, 1L))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("该申请已审核");
+    void shouldRejectDisabledExistingAccount() {
+        when(users.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> approve(existingUserApplication())).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(members, applications, otps);
     }
 
+    /** 申请人不存在时不能建立成员关系。 */
     @Test
-    void validatePendingApplication_valid_noException() {
-        GroupApplication app = GroupApplication.builder().id(1L).orgId(1L).status(ApplicationStatus.PENDING).build();
-        handler.validatePendingApplication(app, 1L);
+    void shouldRejectMissingExistingAccount() {
+        assertThatThrownBy(() -> approve(existingUserApplication())).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+        verifyNoInteractions(members, applications, otps);
     }
 
+    /** 非本组织或不存在的申请不得被审核，已处理的申请不得再次审核。 */
     @Test
-    void approveApplication_existingUser_createsMember() {
-        GroupApplication app = GroupApplication.builder()
-                .id(1L).orgId(10L).userId(5L)
-                .applicationType(ApplicationType.EXISTING_USER)
-                .build();
-        User user = User.builder().id(5L).status(Status.ENABLED).build();
-        when(userMapper.selectById(5L)).thenReturn(user);
-        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
-        when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
-
-        OrganizationMember member = handler.approveApplication(app);
-
-        assertThat(member.getOrgId()).isEqualTo(10L);
-        assertThat(member.getUserId()).isEqualTo(5L);
-        assertThat(member.getStatus()).isEqualTo(Status.ENABLED);
+    void shouldRejectForeignMissingOrAlreadyReviewedApplication() {
+        GroupApplication application = registration();
+        assertThatThrownBy(() -> handler.review(application, 11L, ApplicationStatus.APPROVED, 2L, "", reviewedAt))
+                .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+        application.setStatus(ApplicationStatus.APPROVED);
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        assertThatThrownBy(() -> approve(null)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+        verifyNoInteractions(users, members, applications, otps);
     }
 
-    @Test
-    void approveApplication_registerType_createsUserAndMember() {
-        GroupApplication app = GroupApplication.builder()
-                .id(1L).orgId(10L).userId(5L)
-                .applicationType(ApplicationType.REGISTER)
-                .email("test@example.com").username("testuser")
-                .nickname("Test")
-                .build();
-        User user = User.builder().id(5L).status(Status.DISABLED).build();
-        when(userMapper.selectById(5L)).thenReturn(user);
-        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
-        when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
-
-        OrganizationMember member = handler.approveApplication(app);
-
-        assertThat(member.getOrgId()).isEqualTo(10L);
-        assertThat(user.getStatus()).isEqualTo(Status.ENABLED);
-        assertThat(user.getDefaultOrgId()).isEqualTo(10L);
-        verify(userMapper).updateById(user);
+    private void approve(GroupApplication application) {
+        handler.review(application, 10L, ApplicationStatus.APPROVED, 2L, "", reviewedAt);
     }
 
+    /** 数据库不设 CHECK 时，缺少账号引用的已有用户申请仍不能写入成员。 */
     @Test
-    void activateRegisteredApplication_userNotFound_throws() {
-        GroupApplication app = GroupApplication.builder().userId(99L).orgId(1L).build();
-        when(userMapper.selectById(99L)).thenReturn(null);
-
-        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
-                .isInstanceOf(AppException.class);
+    void shouldRejectExistingApplicationWithoutUserReference() {
+        GroupApplication application = existingUserApplication();
+        application.setUserId(null);
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
     }
 
+    /** 已有用户申请不能携带注册密码快照。 */
     @Test
-    void activateRegisteredApplication_enabledUser_throws() {
-        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
-        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.ENABLED).build());
-
-        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("注册申请对应用户状态无效");
+    void shouldRejectPasswordSnapshotOnExistingApplication() {
+        GroupApplication application = existingUserApplication();
+        application.setPasswordHash("hash");
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
     }
 
+    /** 历史缺失或未知的申请类型不能进入审批写入流程。 */
     @Test
-    void activateRegisteredApplication_existingMember_throws() {
-        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
-        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
-        when(organizationMemberMapper.selectOne(any())).thenReturn(OrganizationMember.builder().id(8L).build());
-
-        assertThatThrownBy(() -> handler.activateRegisteredApplication(app, LocalDateTime.now(clock)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("申请人已加入该组织");
+    void shouldRejectUnknownApplicationType() {
+        GroupApplication application = registration();
+        application.setApplicationType(null);
+        assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(users, members, applications, otps);
     }
 
-    @Test
-    void getExistingApplicationUser_userNotFound_throws() {
-        GroupApplication app = GroupApplication.builder().userId(99L).orgId(1L).build();
-        when(userMapper.selectById(99L)).thenReturn(null);
-
-        assertThatThrownBy(() -> handler.getExistingApplicationUser(app))
-                .isInstanceOf(AppException.class);
+    private GroupApplication existingUserApplication() {
+        GroupApplication application = registration();
+        application.setApplicationType(ApplicationType.EXISTING_USER);
+        application.setUserId(5L);
+        application.setPasswordHash(null);
+        return application;
     }
 
-    @Test
-    void getExistingApplicationUser_userDisabled_throws() {
-        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
-        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
-
-        assertThatThrownBy(() -> handler.getExistingApplicationUser(app))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("申请人已被禁用");
-    }
-
-    @Test
-    void getExistingApplicationUser_alreadyMember_throws() {
-        GroupApplication app = GroupApplication.builder().userId(5L).orgId(1L).build();
-        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.ENABLED).build());
-        when(organizationMemberMapper.selectOne(any())).thenReturn(OrganizationMember.builder().build());
-
-        assertThatThrownBy(() -> handler.getExistingApplicationUser(app))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("申请人已加入该组织");
-    }
-
-    @Test
-    void rejectApplication_null_throws() {
-        assertThatThrownBy(() -> handler.rejectApplication(null))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("入组申请不存在");
-    }
-
-    @Test
-    void review_approved_fullFlow() {
-        GroupApplication app = GroupApplication.builder()
-                .id(1L).orgId(10L).userId(5L)
-                .applicationType(ApplicationType.EXISTING_USER)
-                .status(ApplicationStatus.PENDING)
-                .build();
-        User user = User.builder().id(5L).status(Status.ENABLED).build();
-        when(userMapper.selectById(5L)).thenReturn(user);
-        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
-        when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
-
-        Page<OrganizationJoinOtp> emptyPage = new Page<>(1, 1);
-        emptyPage.setRecords(List.of());
-        when(organizationJoinOtpMapper.selectPage(any(), any())).thenReturn(emptyPage);
-
-        handler.review(app, 10L, ApplicationStatus.APPROVED, 2L, "ok", LocalDateTime.now(clock));
-
-        verify(groupApplicationMapper).update(isNull(), any());
-    }
-
-    @Test
-    void review_rejected_updatesStatus() {
-        GroupApplication app = GroupApplication.builder()
-                .id(1L).orgId(10L)
-                .applicationType(ApplicationType.EXISTING_USER)
-                .status(ApplicationStatus.PENDING)
-                .build();
-
-        handler.review(app, 10L, ApplicationStatus.REJECTED, 2L, "不符合", LocalDateTime.now(clock));
-
-        verify(groupApplicationMapper).update(isNull(), any());
-        verify(organizationMemberMapper, never()).insert(any(OrganizationMember.class));
-    }
-
-    @Test
-    void review_approved_backfillsOtpForExistingUser() {
-        GroupApplication app = GroupApplication.builder()
-                .id(1L).orgId(10L).userId(5L)
-                .applicationType(ApplicationType.EXISTING_USER)
-                .status(ApplicationStatus.PENDING)
-                .build();
-        User user = User.builder().id(5L).status(Status.ENABLED).build();
-        when(userMapper.selectById(5L)).thenReturn(user);
-        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
-        when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
-
-        OrganizationJoinOtp otp = OrganizationJoinOtp.builder().id(99L).build();
-        Page<OrganizationJoinOtp> page = new Page<>(1, 1);
-        page.setRecords(List.of(otp));
-        when(organizationJoinOtpMapper.selectPage(any(), any())).thenReturn(page);
-
-        handler.review(app, 10L, ApplicationStatus.APPROVED, 2L, null, LocalDateTime.now(clock));
-
-        verify(organizationJoinOtpMapper).update(isNull(), any());
-    }
-
-    @Test
-    void review_approved_backfillsTheInviteUsedByRegisterApplication() {
-        GroupApplication app = GroupApplication.builder()
-                .id(42L).orgId(10L).otpId(88L)
-                .userId(5L)
-                .applicationType(ApplicationType.REGISTER)
-                .status(ApplicationStatus.PENDING)
-                .email("new@example.com").username("newuser")
-                .nickname("New")
-                .build();
-        when(userMapper.selectById(5L)).thenReturn(User.builder().id(5L).status(Status.DISABLED).build());
-        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
-        when(organizationMemberMapper.insert(any(OrganizationMember.class))).thenReturn(1);
-
-        OrganizationJoinOtp matchedOtp = OrganizationJoinOtp.builder().id(7L).build();
-        Page<OrganizationJoinOtp> page = new Page<>(1, 1);
-        page.setRecords(List.of(matchedOtp));
-        when(organizationJoinOtpMapper.selectPage(any(), any())).thenReturn(page);
-
-        handler.review(app, 10L, ApplicationStatus.APPROVED, 2L, null, LocalDateTime.now(clock));
-
-        ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OrganizationJoinOtp>> queryCaptor =
-                ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
-        verify(organizationJoinOtpMapper).selectPage(any(), queryCaptor.capture());
-        assertThat(queryCaptor.getValue().getSqlSegment())
-                .contains("otp_id")
-                .doesNotContain("IS NULL");
-        verify(organizationJoinOtpMapper).update(isNull(), any());
+    private GroupApplication registration() {
+        return GroupApplication.builder().id(1L).orgId(10L).status(ApplicationStatus.PENDING)
+                .applicationType(ApplicationType.REGISTER).username("newuser").email("new@example.com")
+                .nickname("New").passwordHash("hash").build();
     }
 }

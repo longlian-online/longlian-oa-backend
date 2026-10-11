@@ -300,7 +300,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementBizId).isEqualTo(1L);
 
-        createAdmin(2L, "resource_cleanup_admin", "123456", "SUPER_ADMIN");
+        createAdmin(2L, "resource_cleanup_admin", "123456", "root");
         String adminToken = adminLoginAs("resource_cleanup_admin", "123456");
         authRequest(adminToken)
                 .body("{}")

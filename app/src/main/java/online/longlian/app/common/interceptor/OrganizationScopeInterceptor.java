@@ -1,5 +1,7 @@
 package online.longlian.app.common.interceptor;
 
+import online.longlian.app.common.enumeration.OrganizationRole;
+
 import com.alibaba.fastjson2.JSON;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -8,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.annotation.UserSessionDeclarations;
 import online.longlian.app.common.constants.CommonConstants;
-import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
@@ -72,10 +73,7 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
         try {
             long orgId = parseOrgId(header);
             OrganizationMember member = organizationMembershipService.requireEnabledMember(user.getId(), orgId);
-            if (!InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
-                    && !InviteConstants.ROLE_ORG_USER.equals(member.getOrgRole())) {
-                throw new AppException(ResultCode.OPERATION_FAIL, "组织角色无效");
-            }
+            OrganizationRole.fromValue(member.getOrgRole());
             // 替换而不是追加：登录缓存里的旧角色不能跟到这次声明的组织。
             UsernamePasswordAuthenticationToken replaced = new UsernamePasswordAuthenticationToken(
                     user,

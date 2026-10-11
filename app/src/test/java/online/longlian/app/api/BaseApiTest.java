@@ -226,7 +226,7 @@ public abstract class BaseApiTest {
 
     protected String createNormalAdmin() {
         long id = System.currentTimeMillis();
-        createAdmin(id, "admin_" + id, "123456", "ADMIN");
+        createAdmin(id, "admin_" + id, "123456", "normal");
         return adminLoginAs("admin_" + id, "123456");
     }
 
