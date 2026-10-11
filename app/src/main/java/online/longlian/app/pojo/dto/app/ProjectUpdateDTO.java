@@ -20,15 +20,14 @@ public class ProjectUpdateDTO {
     private String alias;
 
     @NotBlank(message = "扩展信息不能为空")
-    @Schema(description = "扩展信息(JSON字符串)", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "扩展信息(JSON对象字符串)：tags 数组可为空；每项仅含 key、value，key 为非空白字符串且可重复，value 为字符串且可为空", example = "{\"tags\":[{\"key\":\"作者\",\"value\":\"smile_snow\"}]}", requiredMode = Schema.RequiredMode.REQUIRED)
     private String metadata;
 
     @NotNull(message = "企划简介不能为空")
     @Schema(description = "企划简介", requiredMode = Schema.RequiredMode.REQUIRED)
     private String description;
 
-    @NotNull(message = "封面不能为空")
     @JsonLongIdString
-    @Schema(type = "string", description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "封面文件ID；省略时保留原封面")
     private Long coverFileId;
 }

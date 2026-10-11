@@ -52,7 +52,7 @@ public class TaskInstanceController {
 
     @Operation(
             summary = "查看任务实例详情",
-            description = "返回任务实例信息及最近一次提交的元数据详情"
+            description = "返回任务信息及服务器组装的提交字段和附件"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @GetMapping("/{instanceId}/detail")
@@ -102,7 +102,7 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "提交任务",
-        description = "提交待提交（CLAIMED）的任务，提交后任务状态变为 COMPLETED。提交内容通过 metadata(JSON对象) 传递"
+        description = "提交待提交（CLAIMED）的任务，提交后任务状态变为 COMPLETED。提交内容通过 values 传递"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/submit")
@@ -115,7 +115,7 @@ public class TaskInstanceController {
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
-                        .metadata(taskSubmitDTO.getMetadata())
+                        .values(taskSubmitDTO.getValues())
                         .build());
     }
 

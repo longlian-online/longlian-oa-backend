@@ -38,6 +38,16 @@ YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥�
 构建时由 `spring-boot:build-info` 自动生成版本信息；直接通过 IDE 启动前，先运行
 `mvn -pl app -am compile`，确保 `META-INF/build-info.properties` 已生成。修改项目版本后也需重新构建。
 
+## 企划关键词搜索
+
+`GET /app/projects?keyword=...` 按标题、别名或 tag 命中返回企划，组织、状态、软删除和类型过滤对所有搜索分支生效。
+
+- 标题和别名使用去掉首尾空白后的完整关键词做子串匹配，保留内部空白，不分词，也不使用自然语言全文召回。排序保留标题、别名、tag 的 5/3/1 命中权重及标题、别名整值匹配加分，同分按指定时间和 ID 排序。
+- tag 仅搜索 `metadata.tags[*].value`，使用去掉首尾空白后的完整关键词匹配整个 value；不分词、不匹配子串，也不搜索 tag key 或其他 metadata 字段。
+- tag 比较沿用 `utf8mb4_unicode_520_ci`，忽略大小写和重音；关键词中的 `%`、`_`、`!` 按字面字符处理。
+- 任一 tag 整值命中即获得元数据加分；响应中的命中 tag 按原顺序前置，不修改数据库中的 metadata。标题或别名单独命中时，即使没有 tag 命中也会返回。
+
+
 ## 可选本地日志采集
 
 需要 Docker Desktop 和 Task。`task dev-observability` 在开发环境基础上启动 VictoriaLogs；Java Agent 通过 OTLP/HTTP 直接写入，导出配置见 [otel-agent.md](otel-agent.md)。

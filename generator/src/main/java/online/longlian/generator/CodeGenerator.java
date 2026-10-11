@@ -2,6 +2,7 @@ package online.longlian.generator;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
+import com.baomidou.mybatisplus.generator.config.OutputFile;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import online.longlian.generator.internal.EnumFieldMeta;
@@ -51,8 +52,9 @@ public class CodeGenerator {
                         .typeConvertHandler(new TypeConverter())
                 )
                 .globalConfig(builder -> builder.author("longlian")
-                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate("yyyy-MM-dd"))
-                .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
+                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
+                .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity")
+                        .pathInfo(Map.of(OutputFile.xml, Paths.get("app", "src", "main", "resources", "mapper").toString())))
                 .strategyConfig(builder -> {
                     if (args.length > 0) builder.addInclude(args);
                     builder.entityBuilder()

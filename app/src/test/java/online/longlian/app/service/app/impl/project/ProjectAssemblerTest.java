@@ -60,12 +60,13 @@ class ProjectAssemblerTest {
         Project project = Project.builder()
                 .id(1L)
                 .title("龙连漫画")
+                .alias("Dragon Comic")
                 .description("OA协作企划")
                 .typeId(5L)
                 .creatorId(10L)
                 .coverFileId(200L)
                 .status(ProjectStatus.IN_PROGRESS)
-                .metadata("{}")
+                .metadata("{\"tags\":[]}")
                 .build();
         ProjectType type = ProjectType.builder().id(5L).name("漫画").build();
         User creator = User.builder().id(10L).avatarFileId(300L).build();
@@ -83,12 +84,12 @@ class ProjectAssemblerTest {
         ProjectListResultBO bo = result.get(0);
         assertEquals(1L, bo.getId());
         assertEquals("龙连漫画", bo.getTitle());
+        assertEquals("Dragon Comic", bo.getAlias());
         assertEquals("OA协作企划", bo.getDescription());
         assertEquals("漫画", bo.getProjectType());
         assertEquals(ProjectStatus.IN_PROGRESS, bo.getProjectStatus());
         assertEquals("https://cdn/cover.png", bo.getCoverUrl());
         assertEquals("https://cdn/avatar.png", bo.getCreatorAvatarUrl());
-        assertEquals("{}", bo.getMetadata());
     }
 
     @Test

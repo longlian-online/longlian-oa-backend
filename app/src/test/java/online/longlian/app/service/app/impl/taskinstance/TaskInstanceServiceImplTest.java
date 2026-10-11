@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -185,7 +186,7 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(10L);
         params.setUserId(1L);
-        params.setMetadata("{\"key\":\"value\"}");
+        params.setValues(Map.of("key", "value"));
 
         TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
@@ -193,7 +194,7 @@ class TaskInstanceServiceImplTest {
 
         service.submitTask(params);
 
-        verify(taskInstanceCommandHandler).submit(instance, 1L, "{\"key\":\"value\"}");
+        verify(taskInstanceCommandHandler).submit(instance, 1L, 10L, Map.of("key", "value"));
     }
 
     @Test
@@ -253,37 +254,39 @@ class TaskInstanceServiceImplTest {
         assertThatThrownBy(() -> service.getTaskInstanceDetail(params))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("任务实例不存在");
+        verifyNoInteractions(taskSubmissionMapper, taskInstanceAssembler);
     }
 
     @Test
-    void getTaskInstanceDetail_withSubmission_returnsMetadata() {
-        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+    void getTaskInstanceDetail_withSubmission_assemblesAuthorizedDetail() {
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
+        TaskInstance instance = TaskInstance.builder().id(100L).itemId(1L).itemTaskNodeId(3L).build();
+        ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        TaskSubmission submission = TaskSubmission.builder().metadata("{\"data\":1}").build();
+        when(itemTaskNodeMapper.selectById(3L)).thenReturn(node);
+        TaskSubmission submission = TaskSubmission.builder().metadata("{}").build();
         when(taskSubmissionMapper.selectOne(any())).thenReturn(submission);
+        TaskInstanceDetailVO expected = new TaskInstanceDetailVO();
+        when(taskInstanceAssembler.assembleDetail(instance, node, submission, 10L)).thenReturn(expected);
 
-        TaskInstanceDetailVO result = service.getTaskInstanceDetail(params);
-
-        assertThat(result.getMetadata()).isEqualTo("{\"data\":1}");
+        assertThat(service.getTaskInstanceDetail(params)).isSameAs(expected);
     }
 
     @Test
-    void getTaskInstanceDetail_noSubmission_returnsEmptyVO() {
-        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+    void getTaskInstanceDetail_noSubmission_assemblesTaskWithoutSubmission() {
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
+        TaskInstance instance = TaskInstance.builder().id(100L).itemId(1L).itemTaskNodeId(3L).build();
+        ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(taskSubmissionMapper.selectOne(any())).thenReturn(null);
+        when(itemTaskNodeMapper.selectById(3L)).thenReturn(node);
+        TaskInstanceDetailVO expected = new TaskInstanceDetailVO();
+        when(taskInstanceAssembler.assembleDetail(instance, node, null, 10L)).thenReturn(expected);
 
-        TaskInstanceDetailVO result = service.getTaskInstanceDetail(params);
-
-        assertThat(result.getMetadata()).isNull();
+        assertThat(service.getTaskInstanceDetail(params)).isSameAs(expected);
     }
 
     @Test

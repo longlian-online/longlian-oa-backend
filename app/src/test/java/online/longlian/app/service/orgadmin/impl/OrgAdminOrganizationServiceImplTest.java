@@ -95,7 +95,7 @@ class OrgAdminOrganizationServiceImplTest {
                 resource.getResourceId().equals(0L)
                         && resource.getReplacedResourceId().equals(12345L)
                         && resource.getBizId().equals(1L)
-                        && resource.getCreatorId().equals(2L)
+                        && "avatar".equals(resource.getBizType())
                         && resource.getOrgId().equals(1L)));
         @SuppressWarnings("rawtypes")
         ArgumentCaptor<LambdaUpdateWrapper> wrapperCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
