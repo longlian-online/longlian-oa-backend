@@ -29,14 +29,31 @@ class ProjectSearchSupportTest {
     }
 
     @Test
-    void buildParams_collectsDistinctFulltextWordsAndPreservesShortWholeQuery() {
+    void buildParams_collectsDistinctLongAndShortTerms() {
         ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
                 .orgId(1L).keyword("database performance database go").build(), null);
 
         assertThat(result.getMatchPatterns()).containsExactly(
-                "%database performance database go%", "%database%", "%performance%");
+                "%database performance database go%", "%database%", "%performance%", "%go%");
         assertThat(ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
                 .keyword("星海").build(), null).getMatchPatterns()).containsExactly("%星海%");
+    }
+
+    @Test
+    void buildParams_preservesShortTermsAcrossUnicodeWhitespace() {
+        ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .keyword("星海　银河\tGo OA 星海").build(), null);
+
+        assertThat(result.getMatchPatterns()).containsExactly(
+                "%星海　银河\tGo OA 星海%", "%星海%", "%银河%", "%Go%", "%OA%");
+    }
+
+    @Test
+    void buildParams_preservesLiteralWildcardsInShortMultiwordTerms() {
+        ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .keyword("50%_! Go").build(), null);
+
+        assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!! Go%", "%50!%!_!!%", "%Go%");
     }
 
     @Test

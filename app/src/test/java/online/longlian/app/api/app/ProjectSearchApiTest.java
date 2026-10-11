@@ -227,6 +227,52 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .containsExactly("series", "author");
     }
 
+    /** 多个中文短词分别召回标题、别名和元数据，命中元数据稳定前置。 */
+    @Test
+    void shouldSearchMultipleShortChineseTermsAcrossAllFields() {
+        createProject(1, "星海远征", "voyage", "{}");
+        createProject(2, "普通企划", "银河之旅", "{}");
+        createProject(3, "普通企划", "world", "{\"author\":\"山田\",\"series\":\"星海\",\"tag\":\"银河\"}");
+        createProject(4, "山间日记", "diary", "{}");
+
+        Response response = search("星海 银河");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.list.id", equalTo(List.of("1", "2", "3")));
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata")).keySet())
+                .containsExactly("series", "tag", "author");
+    }
+
+    /** 英文短词组合不依赖全文索引收录，保持字段权重及数组元数据顺序。 */
+    @Test
+    void shouldSearchMultipleShortEnglishTermsAcrossAllFields() {
+        createProject(1, "Go project", "voyage", "{}");
+        createProject(2, "普通企划", "OA system", "{}");
+        createProject(3, "普通企划", "world", "[\"other\",\"Go language\",\"OA tool\"]");
+        createProject(4, "无匹配企划", "unrelated", "{}");
+
+        Response response = search("go oa");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.list.id", equalTo(List.of("1", "2", "3")));
+        assertThat(JSON.parseArray(response.jsonPath().getString("data.list[2].metadata"), String.class))
+                .containsExactly("Go language", "OA tool", "other");
+    }
+
+    /** 长词与短词混合查询时，短词不能在别名和元数据召回中被忽略。 */
+    @Test
+    void shouldSearchMixedLongAndShortTermsAcrossAllFields() {
+        createProject(1, "Database guide", "guide", "{}");
+        createProject(2, "普通企划", "OA system", "{}");
+        createProject(3, "普通企划", "world", "{\"series\":\"OA\"}");
+        createProject(4, "无匹配企划", "unrelated", "{}");
+
+        search("database OA").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.list.id", equalTo(List.of("1", "2", "3")));
+    }
+
     /** JSON 结构键不是业务元数据值，不能单独导致结果入选。 */
     @Test
     void shouldNotReturnProjectsMatchingOnlyMetadataKeys() {
@@ -391,14 +437,15 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
-    /** 注入文本使用绑定参数，不能扩大查询范围。 */
+    /** 注入文本使用绑定参数，仅返回合法 OR 子串命中，不能扩大到全部记录。 */
     @Test
     void shouldBindSearchKeywordAsData() {
         createProject(1, "普通企划", "ordinary", "{}");
+        createProject(2, "无匹配企划", "neutral", "{}");
 
         search("' OR 1=1 --").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(0)).body("data.list", hasSize(0));
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
     }
 
     private Response search(String keyword) {

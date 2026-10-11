@@ -19,6 +19,7 @@ import java.util.stream.IntStream;
 public final class ProjectSearchSupport {
 
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}_]+");
+    private static final Pattern SEARCH_TERM = Pattern.compile("\\S+", Pattern.UNICODE_CHARACTER_CLASS);
 
     private ProjectSearchSupport() {
     }
@@ -27,6 +28,10 @@ public final class ProjectSearchSupport {
         String keyword = params.getKeyword().trim();
         Set<String> terms = new LinkedHashSet<>();
         terms.add(keyword);
+        // 子串召回保留短词和字面通配符
+        SEARCH_TERM.matcher(keyword).results()
+                .map(match -> match.group())
+                .forEach(terms::add);
         WORD.matcher(keyword).results()
                 .map(match -> match.group())
                 .filter(term -> term.codePointCount(0, term.length()) >= 3)
