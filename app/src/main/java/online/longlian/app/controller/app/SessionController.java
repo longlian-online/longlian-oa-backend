@@ -7,6 +7,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
@@ -30,9 +33,11 @@ import org.springframework.web.bind.annotation.*;
 public class SessionController {
     private final SessionService sessionService;
     private final OTPServiceFactory otpServiceFactory;
+    private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("登录成功")
     public LoginVO loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
         SessionLoginResultBO resultBO = sessionService.loginByPwd(
@@ -48,6 +53,7 @@ public class SessionController {
 
     @Operation(summary = "验证码登录", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/email")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("登录成功")
     public LoginVO loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {
         SessionLoginResultBO resultBO = sessionService.loginByCode(
@@ -63,6 +69,7 @@ public class SessionController {
 
     @Operation(summary = "发送邮箱验证码", security = {})
     @PostMapping("/email/code")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("验证码发送请求已提交，请注意查收邮箱")
     public void sendCode(@RequestBody @Valid EmailCodeDTO emailCodeDTO) {
         otpServiceFactory.get(OTPType.EmailVerify).generate(
@@ -76,6 +83,7 @@ public class SessionController {
 
     @Operation(summary = "退出登录")
     @DeleteMapping("/")
+    @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("登出成功")
     public void logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
@@ -85,7 +93,7 @@ public class SessionController {
         String token = authHeader.substring(7);
         sessionService.logout(
                 SessionLogoutParamsBO.builder()
-                        .userId(sessionService.getCurrentUserId())
+                        .userId(currentUserContext.requireUserId())
                         .token(token)
                         .build()
         );

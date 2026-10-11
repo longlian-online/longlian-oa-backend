@@ -10,6 +10,7 @@ import online.longlian.common.enumeration.EmailVerifySendStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -21,6 +22,7 @@ public class EmailVerifyCodeAsyncSender {
 
     private final EmailVerifyOtpMapper emailVerifyOtpMapper;
     private final NotificationManager notificationManager;
+    private final Clock clock;
 
     @Async("verifyCodeExecutor")
     public void send(Long emailVerifyOtpId, String receiver, String code) {
@@ -34,7 +36,7 @@ public class EmailVerifyCodeAsyncSender {
     }
 
     private void markSent(Long emailVerifyOtpId) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         emailVerifyOtpMapper.update(
                 null,
                 new LambdaUpdateWrapper<EmailVerifyOtp>()
@@ -47,7 +49,7 @@ public class EmailVerifyCodeAsyncSender {
     }
 
     private void markFailed(Long emailVerifyOtpId, Exception e) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         emailVerifyOtpMapper.update(
                 null,
                 new LambdaUpdateWrapper<EmailVerifyOtp>()

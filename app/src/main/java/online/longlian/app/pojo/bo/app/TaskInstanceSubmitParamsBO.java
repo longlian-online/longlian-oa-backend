@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.Map;
 
 @Data
 @Builder
@@ -13,5 +14,5 @@ public class TaskInstanceSubmitParamsBO {
     private Long instanceId;
     private Long userId;
     private Long orgId;
-    private String metadata;
+    private Map<String, Object> values;
 }

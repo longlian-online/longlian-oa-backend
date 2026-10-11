@@ -1,5 +1,13 @@
 package online.longlian.app.service.admin.impl;
 
+import org.springframework.transaction.annotation.Transactional;
+
+import online.longlian.app.common.enumeration.AdminRole;
+
+import online.longlian.app.pojo.entity.Admin;
+
+import online.longlian.app.mapper.AdminMapper;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -35,6 +43,7 @@ public class OrganizationImpl implements OrganizationService {
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
     private final OrganizationMapper organizationMapper;
+    private final AdminMapper adminMapper;
     private final ResourceService resourceService;
     private final OTPServiceFactory otpServiceFactory;
 
@@ -75,6 +84,7 @@ public class OrganizationImpl implements OrganizationService {
 
     @Override
     public AdminGenerateInviteCodeResultBO generateCreateOrgInviteCode(@NonNull AdminGenerateCreateOrgInviteCodeParamsBO params) {
+        requireRoot(params.getCreatorId());
         OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationInvite).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
@@ -86,14 +96,21 @@ public class OrganizationImpl implements OrganizationService {
                 .build();
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void updateOrgStatus(@NonNull AdminOrganizationUpdateStatusParamsBO params) {
-        LambdaQueryWrapper<Organization> queryWrapper = lambdaQuery(Organization.class)
-                .select(Organization::getId)
-                .eq(Organization::getId, params.getOrganizationId());
-        if (organizationMapper.selectCount(queryWrapper) == 0) {
+        requireRoot(params.getOperatorAdminId());
+        Organization organization = organizationMapper.selectOne(lambdaQuery(Organization.class)
+                .eq(Organization::getId, params.getOrganizationId()).last("FOR UPDATE"));
+        if (organization == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在");
         }
         LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getStatus, params.getStatus());
         organizationMapper.update(null, wrapper);
+    }
+    private void requireRoot(Long operatorId) {
+        Admin operator = adminMapper.selectById(operatorId);
+        if (operator == null || !AdminRole.ROOT.getValue().equals(operator.getRole())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "只有root管理员可以管理平台组织");
+        }
     }
 }

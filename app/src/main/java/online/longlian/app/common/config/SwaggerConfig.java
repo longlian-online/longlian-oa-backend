@@ -6,12 +6,18 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
+import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.properties.LonglianProperties;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class SwaggerConfig {
+    private final LonglianProperties longlianProperties;
 
     /**
      * 自定义 OpenAPI 文档信息
@@ -35,6 +41,9 @@ public class SwaggerConfig {
                         .description("longlian的接口文档示例")
                         .version("v1.0.0")
                         .contact(new Contact().name("longlian")))
+                .servers(List.of(new Server()
+                        .url(longlianProperties.getServerUrl())
+                        .description("Configured server URL")))
                 .components(components)
                 // 全局启用 Token 授权（所有接口默认携带 Token 请求头）
                 .addSecurityItem(new SecurityRequirement().addList("Authorization"));

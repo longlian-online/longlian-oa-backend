@@ -23,6 +23,7 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
+import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +55,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         }
 
         Project project = projectMapper.selectById(item.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
 
@@ -97,7 +99,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Transactional(rollbackFor = Exception.class)
     public void submitTask(TaskInstanceSubmitParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
-        taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getMetadata());
+        taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getOrgId(), params.getValues());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
     }
@@ -129,21 +131,23 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
         Item item = itemMapper.selectById(instance.getItemId());
         Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
 
         TaskSubmission submission = taskSubmissionMapper.selectOne(
                 new LambdaQueryWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
+                        .eq(TaskSubmission::getStatus, online.longlian.common.enumeration.TaskSubmissionStatus.SUBMITTED)
                         .orderByDesc(TaskSubmission::getCreatedAt)
                         .last("LIMIT 1"));
 
-        TaskInstanceDetailVO taskInstanceDetailVO = new TaskInstanceDetailVO();
-        if (submission != null) {
-            taskInstanceDetailVO.setMetadata(submission.getMetadata());
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
         }
-        return taskInstanceDetailVO;
+        return taskInstanceAssembler.assembleDetail(instance, node, submission, params.getOrgId());
     }
 
     private TaskInstance getAndValidateInstance(Long instanceId, Long orgId) {
@@ -152,7 +156,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
         Project project = projectMapper.selectById(instance.getProjectId());
-        if (project == null) {
+        if (project == null || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
         if (!project.getOrgId().equals(orgId)) {

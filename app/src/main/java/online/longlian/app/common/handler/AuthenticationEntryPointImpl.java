@@ -1,6 +1,6 @@
 package online.longlian.app.common.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.security.RequestAuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -26,7 +27,6 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
 
-    private final ObjectMapper objectMapper;
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
 
     @Override
@@ -43,18 +43,20 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                         request.getMethod());
                 response.setContentType(CommonConstants.CONTENT_TYPE);
                 response.setStatus(HttpStatus.OK.value());
-                response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.NOT_FOUND)));
+                response.getWriter().write(JSON.toJSONString(Result.fail(ResultCode.NOT_FOUND)));
                 return;
             }
         } catch (Exception e) {
             log.error("获取对应 handler 失败, err: {}", e.getMessage());
             response.setContentType(CommonConstants.CONTENT_TYPE);
             response.setStatus(HttpStatus.OK.value());
-            response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.FAIL)));
+            response.getWriter().write(JSON.toJSONString(Result.fail(ResultCode.FAIL)));
             return;
         }
 
-        String msg = (authException != null) ? authException.getMessage() : "未认证访问";
+        RequestAuthenticationException publicError = authException instanceof RequestAuthenticationException error ? error : null;
+        String msg = publicError != null ? publicError.getMessage() : ResultCode.UNAUTHORIZED.getMsg();
+        int code = publicError != null ? publicError.getCode() : ResultCode.UNAUTHORIZED.getCode();
         log.warn("认证失败 | msg={} | uri={} | method={}",
                 msg,
                 request.getRequestURI(),
@@ -62,6 +64,6 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
         );
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.setStatus(HttpStatus.OK.value());
-        response.getWriter().write(objectMapper.writeValueAsString(Result.fail(ResultCode.UNAUTHORIZED)));
+        response.getWriter().write(JSON.toJSONString(Result.fail(code, msg)));
     }
 }

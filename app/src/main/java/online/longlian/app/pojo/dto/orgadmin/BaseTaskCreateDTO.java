@@ -1,11 +1,12 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import java.util.List;
 
 @Data
 @Schema(description = "创建/更新原子任务请求参数")
@@ -20,10 +21,11 @@ public class BaseTaskCreateDTO {
     @Schema(description = "任务说明")
     private String description;
 
-    @JsonLongIdString
-    @Schema(type = "string", description = "图标文件ID")
-    private Long iconFileId;
+    @Size(max = 100, message = "Lucide 图标组件名不能超过 100 个字符")
+    @Schema(description = "Lucide 图标组件名")
+    private String icon;
 
-    @Schema(description = "元数据字段定义(JSON数组)，示例：[{\"name\":\"附件\",\"fieldType\":\"file\",\"required\":true},{\"name\":\"作者\",\"fieldType\":\"text\",\"required\":true},{\"name\":\"源链接\",\"fieldType\":\"text\",\"required\":true}]")
-    private String metaSchema;
+    @NotNull
+    @Schema(description = "提交表单字段", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<TaskFormField> submitFields;
 }

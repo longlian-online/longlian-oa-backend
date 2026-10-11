@@ -1,14 +1,19 @@
 package online.longlian.app.service.app.impl.projectworkshop;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.entity.TaskTemplate;
+import online.longlian.common.enumeration.Status;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -21,6 +26,8 @@ class WorkshopQueryBuilderTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
         queryBuilder = new WorkshopQueryBuilder();
     }
 
@@ -38,7 +45,9 @@ class WorkshopQueryBuilderTest {
     void buildFilteredProjectQuery_noOptionalParams_shouldReturnWrapper() {
         LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
                 1L, List.of(10L), null, null, null, null);
-        assertNotNull(wrapper);
+
+        assertThat(wrapper.getSqlSegment()).contains("resource_status");
+        assertThat(wrapper.getParamNameValuePairs()).containsValue(Status.ENABLED);
     }
 
     @Test

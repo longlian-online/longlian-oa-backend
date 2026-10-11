@@ -8,11 +8,13 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.orgadmin.OrgAdminOrganizationService;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 @Slf4j
 @Service
@@ -42,13 +44,26 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateOrganizationInfo(OrgAdminUpdateOrganizationInfoParamsBO params) {
-        resourceService.bindBizId(params.getAvatarFileId(), params.getOrgId(), params.getUserId(), params.getOrgId());
-        organizationMapper.update(null,
-                new LambdaUpdateWrapper<Organization>()
-                        .eq(Organization::getId, params.getOrgId())
-                        .set(Organization::getName, params.getName())
-                        .set(Organization::getAvatarFileId, params.getAvatarFileId())
-                        .set(Organization::getDescription, params.getDescription())
-        );
+        Organization organization = organizationMapper.selectById(params.getOrgId());
+        LambdaUpdateWrapper<Organization> updateWrapper = new LambdaUpdateWrapper<Organization>()
+                .eq(Organization::getId, params.getOrgId())
+                .set(Organization::getName, params.getName())
+                .set(Organization::getDescription, params.getDescription());
+
+        if (params.getAvatarFileId() != null) {
+            Long oldAvatarFileId = organization.getAvatarFileId();
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getAvatarFileId())
+                    .replacedResourceId(oldAvatarFileId)
+                    .bizType("avatar")
+                    .bizId(params.getOrgId())
+                    .creatorId(params.getUserId())
+                    .orgId(params.getOrgId())
+                    .build());
+            updateWrapper.set(Organization::getAvatarFileId,
+                    params.getAvatarFileId() > 0 ? params.getAvatarFileId() : null);
+        }
+
+        organizationMapper.update(null, updateWrapper);
     }
 }

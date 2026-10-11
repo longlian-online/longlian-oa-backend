@@ -1,6 +1,0 @@
-branch:
-  - buttons:
-      - name: 构建并推送
-        description: 构建当前分支 Docker 镜像并推送到制品库
-        event: web_trigger_build_and_push
-        isDefault: true

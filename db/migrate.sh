@@ -2,57 +2,339 @@
 # 数据库同步脚本（声明式）
 # 用法: ./migrate.sh <dev|prod> [apply|plan|inspect]
 #
-# 环境变量:
-#   DB_URL       - 目标数据库连接地址 (必须)
-#   DEV_DB_URL   - Atlas 暂存库地址 (必须，会被反复清空，须为专用空库)
+# 连接:
+#   DB_URL            目标库 maria://user:pass@host:3306/db
+#                     可省略：缺省时从 APPLICATION_YML 的 spring.datasource 推导
+#   APPLICATION_YML   Spring YAML 路径，默认 /app/config/application.yml
+#   DEV_DB_URL        可选。不设则在同一 MariaDB 实例自动创建 {db}_atlas
+#   SEED_FILE         可选。apply 成功后导入种子数据
 #
 # 示例:
-#   export DB_URL="mysql://root:pass@db:3306/longlian_oa"
-#   export DEV_DB_URL="mysql://root:pass@db:3306/longlian_oa_diff"
-#   ./db/migrate.sh dev plan    # 预览开发环境变更
-#   ./db/migrate.sh dev apply   # 开发环境完整同步，允许删除废弃对象
-#   ./db/migrate.sh prod plan   # 生产环境变更预览
-#   ./db/migrate.sh prod apply  # 生产环境同步，不自动删除对象
+#   export DB_URL="maria://root:pass@127.0.0.1:3306/longlian_oa_dev"
+#   ./db/migrate.sh dev plan
+#   ./db/migrate.sh dev apply
 
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENVIRONMENT="${1:-}"
 ACTION="${2:-apply}"
-
-# 检查 Atlas 是否可用（优先本地 CLI，否则用 Docker）
-if command -v atlas >/dev/null 2>&1; then
-  run_atlas() {
-    atlas "$@"
-  }
-elif command -v docker >/dev/null 2>&1; then
-  run_atlas() {
-    docker run --rm -v "${SCRIPT_DIR}:/work" -w /work --network=host \
-      -e DB_URL -e DEV_DB_URL arigaio/atlas:1.2.3 "$@"
-  }
-else
-  echo "错误: 需要安装 atlas CLI 或 docker" >&2
-  exit 1
-fi
-
-check_env() {
-  if [ -z "${DB_URL:-}" ]; then
-    echo "错误: 需要设置 DB_URL 环境变量" >&2
-    exit 1
-  fi
-  if [ -z "${DEV_DB_URL:-}" ]; then
-    echo "错误: 需要设置 DEV_DB_URL 环境变量" >&2
-    exit 1
-  fi
-}
+ATLAS_IMAGE="arigaio/atlas:1.2.3"
 
 usage() {
   echo "用法: $0 <dev|prod> [apply|plan|inspect]" >&2
 }
 
+urlencode() {
+  printf '%s' "$1" | awk '
+    BEGIN {
+      for (i = 1; i < 256; i++) {
+        hex[sprintf("%c", i)] = sprintf("%%%02X", i)
+      }
+    }
+    {
+      n = length($0)
+      for (i = 1; i <= n; i++) {
+        c = substr($0, i, 1)
+        if (c ~ /[A-Za-z0-9._~-]/) printf "%s", c
+        else printf "%s", hex[c]
+      }
+    }
+  '
+}
+
+urldecode() {
+  decoded=$(printf '%s' "$1" | sed 's/%/\\x/g')
+  printf '%b' "$decoded"
+}
+
+# 从 spring.datasource 抽出 url / username / password（本仓库 YAML 子集）
+yaml_spring_datasource() {
+  awk '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    function yamlval(s) {
+      s = trim(s)
+      if (s ~ /^".*"$/) return substr(s, 2, length(s) - 2)
+      if (s ~ /^'\''.*'\''$/) return substr(s, 2, length(s) - 2)
+      if (match(s, /[[:space:]]+#/)) s = substr(s, 1, RSTART - 1)
+      return trim(s)
+    }
+    {
+      sub(/\r$/, "")
+      if ($0 ~ /^[[:space:]]*(#|$)/) next
+      if ($0 ~ /^[^[:space:]#]/) {
+        spring = ($0 ~ /^spring:[[:space:]]*$/)
+        ds = 0
+        next
+      }
+      if (!spring) next
+      if ($0 ~ /^  [^[:space:]#]/) {
+        ds = ($0 ~ /^  datasource:[[:space:]]*$/)
+        next
+      }
+      if (!ds) next
+      if (match($0, /^    url:[[:space:]]*/)) url = yamlval(substr($0, RSTART + RLENGTH))
+      else if (match($0, /^    username:[[:space:]]*/)) user = yamlval(substr($0, RSTART + RLENGTH))
+      else if (match($0, /^    password:[[:space:]]*/)) pass = yamlval(substr($0, RSTART + RLENGTH))
+    }
+    END {
+      if (url == "") exit 1
+      printf "url=%s\n", url
+      printf "user=%s\n", user
+      printf "pass=%s\n", pass
+    }
+  ' "$1"
+}
+
+jdbc_to_atlas_url() {
+  jdbc=$1
+  user=$2
+  pass=$3
+  rest=${jdbc#jdbc:mariadb://}
+  if [ "$rest" = "$jdbc" ]; then
+    echo "错误: 只支持 jdbc:mariadb:// 数据源，收到: $jdbc" >&2
+    return 1
+  fi
+  rest=${rest%%\?*}
+  hostport=${rest%%/*}
+  dbname=${rest#*/}
+  if [ -z "$dbname" ] || [ "$dbname" = "$rest" ]; then
+    echo "错误: JDBC URL 缺少数据库名" >&2
+    return 1
+  fi
+  case "$hostport" in
+    *:*)
+      host=${hostport%:*}
+      port=${hostport##*:}
+      ;;
+    *)
+      host=$hostport
+      port=3306
+      ;;
+  esac
+  printf 'maria://%s:%s@%s:%s/%s\n' "$(urlencode "$user")" "$(urlencode "$pass")" "$host" "$port" "$dbname"
+}
+
+field_from() {
+  printf '%s\n' "$1" | sed -n "s/^$2=//p"
+}
+
+resolve_db_url() {
+  if [ -n "${DB_URL:-}" ]; then
+    return 0
+  fi
+  yml="${APPLICATION_YML:-/app/config/application.yml}"
+  if [ ! -f "$yml" ]; then
+    echo "错误: 需要 DB_URL，或把 Spring YAML 挂到 $yml" >&2
+    return 1
+  fi
+  echo "==> 从 $yml 的 spring.datasource 推导 DB_URL"
+  ds=$(yaml_spring_datasource "$yml") || {
+    echo "错误: 无法从 $yml 读取 spring.datasource.url" >&2
+    return 1
+  }
+  jdbc_url=$(field_from "$ds" url)
+  jdbc_user=$(field_from "$ds" user)
+  jdbc_pass=$(field_from "$ds" pass)
+  DB_URL=$(jdbc_to_atlas_url "$jdbc_url" "$jdbc_user" "$jdbc_pass")
+  export DB_URL
+}
+
+# 拆 maria://user:pass@host:port/db ，凭据解码后放入 url_* 变量
+parse_maria_url() {
+  raw=$1
+  noquery=${raw%%\?*}
+  body=${noquery#maria://}
+  if [ "$body" = "$noquery" ]; then
+    echo "错误: 不是 maria:// URL" >&2
+    return 1
+  fi
+  case "$body" in
+    *@*)
+      auth=${body%%@*}
+      hostpart=${body#*@}
+      url_user=$(urldecode "${auth%%:*}")
+      case "$auth" in
+        *:*) url_pass=$(urldecode "${auth#*:}") ;;
+        *) url_pass= ;;
+      esac
+      ;;
+    *)
+      echo "错误: maria:// URL 缺少用户信息" >&2
+      return 1
+      ;;
+  esac
+  url_db=${hostpart#*/}
+  hostport=${hostpart%%/*}
+  if [ -z "$url_db" ] || [ "$url_db" = "$hostpart" ]; then
+    echo "错误: maria:// URL 缺少数据库名" >&2
+    return 1
+  fi
+  case "$hostport" in
+    *:*)
+      url_host=${hostport%:*}
+      url_port=${hostport##*:}
+      ;;
+    *)
+      url_host=$hostport
+      url_port=3306
+      ;;
+  esac
+}
+
+mariadb_exec() {
+  if ! command -v mariadb >/dev/null 2>&1; then
+    echo "错误: 需要 MariaDB 客户端才能连接数据库" >&2
+    return 1
+  fi
+  parse_maria_url "$1"
+  shift
+  MYSQL_PWD="$url_pass" mariadb --protocol=TCP \
+    -h "$url_host" -P "$url_port" -u "$url_user" \
+    --default-character-set=utf8mb4 --connect-timeout=10 "$@"
+}
+
+ensure_mariadb_database() {
+  if ! command -v mariadb >/dev/null 2>&1; then
+    return 1
+  fi
+  parse_maria_url "$1"
+  echo "==> 确保影子库 \`$url_db\` 存在于 $url_host:$url_port"
+  MYSQL_PWD="$url_pass" mariadb --protocol=TCP \
+    -h "$url_host" -P "$url_port" -u "$url_user" \
+    --connect-timeout=10 \
+    -e "CREATE DATABASE IF NOT EXISTS \`$url_db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci"
+}
+
+derive_shadow_url() {
+  url=$1
+  prefix=${url%%\?*}
+  suffix=
+  case "$url" in
+    *\?*) suffix="?${url#*\?}" ;;
+  esac
+  db=${prefix##*/}
+  rest=${prefix%/*}
+  printf '%s/%s_atlas%s\n' "$rest" "$db" "$suffix"
+}
+
+resolve_dev_url() {
+  if [ -n "${DEV_DB_URL:-}" ]; then
+    case "$DEV_DB_URL" in
+      maria://*)
+        if ! ensure_mariadb_database "$DEV_DB_URL"; then
+          echo "错误: DEV_DB_URL 指向的库不存在且无法自动创建" >&2
+          exit 1
+        fi
+        ;;
+    esac
+    export DEV_DB_URL
+    return 0
+  fi
+
+  derived=$(derive_shadow_url "$DB_URL")
+  if ensure_mariadb_database "$derived"; then
+    DEV_DB_URL=$derived
+    export DEV_DB_URL
+    return 0
+  fi
+
+  parse_maria_url "$derived"
+  echo "错误: 无法自动创建影子库 \`$url_db\`。" >&2
+  echo "请授予 CREATE DATABASE，或预先建好该库并设置 DEV_DB_URL。" >&2
+  exit 1
+}
+
+rewrite_localhost_for_docker() {
+  printf '%s' "$1" | sed 's/@localhost/@host.docker.internal/g; s/@127.0.0.1/@host.docker.internal/g'
+}
+
+setup_atlas() {
+  if command -v atlas >/dev/null 2>&1; then
+    run_atlas() {
+      atlas "$@"
+    }
+    return 0
+  fi
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "错误: 需要安装 atlas CLI 或 docker" >&2
+    exit 1
+  fi
+  docker_db_url=$(rewrite_localhost_for_docker "$DB_URL")
+  run_atlas() {
+    docker_dev_url=$(rewrite_localhost_for_docker "${DEV_DB_URL}")
+    docker run --rm \
+      -v "${SCRIPT_DIR}:/work" -w /work \
+      --add-host host.docker.internal:host-gateway \
+      -e "DB_URL=${docker_db_url}" \
+      -e "DEV_DB_URL=${docker_dev_url}" \
+      "${ATLAS_IMAGE}" "$@"
+  }
+}
+
+seed_if_requested() {
+  if [ -z "${SEED_FILE:-}" ]; then
+    return 0
+  fi
+  if [ ! -f "$SEED_FILE" ]; then
+    echo "错误: SEED_FILE 不存在: $SEED_FILE" >&2
+    exit 1
+  fi
+  parse_maria_url "$DB_URL"
+  echo "==> 导入种子数据 $SEED_FILE"
+  mariadb_exec "$DB_URL" "$url_db" < "$SEED_FILE"
+}
+bootstrap_base_data() {
+  base_data_file="${SCRIPT_DIR}/seed/base_data.sql"
+  if [ ! -f "$base_data_file" ]; then
+    echo "错误: 部署基础数据文件不存在: $base_data_file" >&2
+    exit 1
+  fi
+  parse_maria_url "$DB_URL"
+  echo "==> 导入部署基础数据 $base_data_file"
+  mariadb_exec "$DB_URL" "$url_db" < "$base_data_file"
+}
+
+run_data_migrations() {
+  parse_maria_url "$DB_URL"
+  has_records=1
+  if [ "$ACTION" = plan ]; then
+    has_records=$(printf '%s\n' "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'data_migration';" \
+      | mariadb_exec "$DB_URL" -N "$url_db")
+  fi
+  for file in "${SCRIPT_DIR}/data-migrations/"*.sql; do
+    [ -f "$file" ] || continue
+    filename=${file##*/}
+    case "$filename" in
+      *[!A-Za-z0-9_.-]*) echo "错误: 迁移文件名含不支持的字符: $filename" >&2; return 1 ;;
+    esac
+    recorded=0
+    if [ "$has_records" = 1 ]; then
+      recorded=$(printf "SELECT COUNT(*) FROM data_migration WHERE filename = '%s';\n" "$filename" \
+        | mariadb_exec "$DB_URL" -N "$url_db")
+    fi
+    [ "$recorded" = 1 ] && continue
+    echo "==> [${ENVIRONMENT}] ${ACTION} 数据迁移: $filename"
+    if [ "$ACTION" = plan ]; then
+      cat "$file"
+      printf '\n'
+      continue
+    fi
+    # 数据修改与成功记录一起提交；客户端遇错退出，不继续后续文件。
+    (
+      printf 'START TRANSACTION;\n'
+      cat "$file" || exit 1
+      printf "\nINSERT INTO data_migration (filename) VALUES ('%s');\nCOMMIT;\n" "$filename"
+    ) | mariadb_exec "$DB_URL" "$url_db"
+  done
+}
+
 case "$ENVIRONMENT" in
-  dev|prod)
-    ;;
+  dev|prod) ;;
   *)
     usage
     exit 1
@@ -60,30 +342,37 @@ case "$ENVIRONMENT" in
 esac
 
 case "$ACTION" in
-  apply|plan|inspect)
-    ;;
+  apply|plan|inspect) ;;
   *)
     usage
     exit 1
     ;;
 esac
 
+resolve_db_url
+setup_atlas
 cd "$SCRIPT_DIR"
 
 case "$ACTION" in
   apply)
-    check_env
+    resolve_dev_url
+    export LC_ALL=C
     echo "==> [${ENVIRONMENT}] 同步数据库到 schema.sql 声明状态..."
     run_atlas schema apply --env "$ENVIRONMENT" --auto-approve
     echo "==> [${ENVIRONMENT}] 同步完成"
+    run_data_migrations
+    bootstrap_base_data
+    seed_if_requested
     ;;
   plan)
-    check_env
+    resolve_dev_url
+    export LC_ALL=C
     echo "==> [${ENVIRONMENT}] 计划将执行的变更（不改动数据库）..."
     run_atlas schema apply --env "$ENVIRONMENT" --dry-run
+    run_data_migrations
     ;;
   inspect)
-    check_env
+    resolve_dev_url
     run_atlas schema inspect --env "$ENVIRONMENT"
     ;;
 esac

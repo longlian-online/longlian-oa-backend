@@ -40,6 +40,7 @@ class UserAuthenticationStrategyTest {
         Authentication authentication = strategy.authenticate(1L);
 
         Assertions.assertNotNull(authentication.getPrincipal());
+        Assertions.assertTrue(authentication.getAuthorities().isEmpty());
         verifyNoInteractions(userDetailsService);
     }
 

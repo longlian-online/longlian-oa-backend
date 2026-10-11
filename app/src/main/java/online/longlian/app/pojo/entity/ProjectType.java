@@ -54,6 +54,13 @@ public class ProjectType implements Serializable {
     private String name;
 
     /**
+     * 优先级，仅用户端类型列表按值降序
+     */
+    @TableField("priority")
+    @ApiModelProperty("优先级，仅用户端类型列表按值降序")
+    private Integer priority;
+
+    /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")

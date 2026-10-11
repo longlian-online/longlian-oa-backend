@@ -1,2 +1,3 @@
 /mvnw text eol=lf
+/db/migrate.sh text eol=lf
 *.cmd text eol=crlf

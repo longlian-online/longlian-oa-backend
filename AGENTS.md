@@ -4,7 +4,7 @@
 
 - **类型**: Spring Boot 3.3.5 REST API 后端
 - **Java**: 21
-- **数据库**: MySQL + MyBatis Plus 3.5.15 ORM
+- **数据库**: MariaDB 10.11 + MyBatis Plus 3.5.15 ORM
 - **认证**: Spring Security + JWT (jjwt 0.11.5)
 - **构建**: Maven 多模块 (app, generator)
 - **缓存**: Redis 缓存
@@ -69,6 +69,8 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 
 ## 数据库变更规范
 
+详细规范见 [`docs/standard.md`](docs/standard.md) 和 [`db/DEVELOPMENT.md`](db/DEVELOPMENT.md)。
+
 1. 数据库采用 Atlas 声明式管理，`db/schema.sql` 是唯一真实来源
 2. **禁止直接修改 entity 类**，变更流程：修改 `db/schema.sql` → 开发环境执行 `./db/migrate.sh dev apply` 同步数据库 → 使用 `generator` 模块重新生成 entity/mapper/XML
 3. generator 模块通过注解驱动代码生成（如 `@ModelEnum` / `@ModelEnums` 生成枚举类）
@@ -90,22 +92,33 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 ```
 异常统一通过 `AppException` 抛出，由 `GlobalExceptionHandler` 捕获转换为 `Result`。
 
+### 响应包装与序列化约定
+
+- Controller 的业务方法只返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 自动包装为 `Result<T>`。
+- 需要覆盖默认成功提示时使用 `@ResponseMessage`；文件下载等原始响应使用 `@NotWrap`。
+- Controller 禁止手动返回 `Result.success(...)`，异常处理器返回的 `Result` 保留原样，避免重复包装。
+- HTTP JSON 响应统一由 Fastjson2 Spring 6 消息转换器序列化，时间格式使用 `yyyy-MM-dd HH:mm:ss`；Jackson 仅保留给缓存等内部兼容场景。
+
 ## 已有基础设施（可直接复用）
 
 | 能力 | 关键类/方式 |
 |---|---|
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`），如邮件发送 |
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT；支持邮箱验证码 + 用户名密码两种登录 |
-| JWT 黑名单 | 登出时 JWT 加入 MySQL 黑名单表 `token_blacklist` (`TokenBlacklistService`)，按 `expired_at` 实现 TTL 过期 |
+| JWT 黑名单 | 登出时 JWT 加入 MariaDB 黑名单表 `token_blacklist` (`TokenBlacklistService`)，按 `expired_at` 实现 TTL 过期 |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
 | 定时任务 | `ScheduledTask` 接口定义任务，`ScheduledTaskEngine` 调度引擎（Spring Cron），手动触发通过 `admin/ScheduledTaskController` |
+| 分布式锁 | `RedissonConfig` 提供 `RedissonClient`，`DistributedLockService` 和 `LockService` 封装业务锁 |
 
 ## 项目中不具备的基础设施（如需使用需从零搭建）
 
-- 分布式锁（Redis 可用但无封装）
 - 消息队列
+
+## 授权模型
+
+当前业务授权使用 `organization_member.org_role` 和管理员的 `admin.role`，控制器通过 `@PreAuthorize` 校验组织角色。`role`、`permission`、`role_permission`、`user_role` 表及对应生成代码属于冻结的历史 RBAC 模型，不参与登录、鉴权或权限查询；新增授权需求应先完成模型迁移决策，再解除冻结。
 
 ## Pull Request
 

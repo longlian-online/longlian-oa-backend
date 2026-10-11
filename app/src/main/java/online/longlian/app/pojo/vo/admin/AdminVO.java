@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.app.common.annotation.JsonLongIdString;
 
 import java.time.LocalDateTime;
 
@@ -13,7 +14,8 @@ import java.time.LocalDateTime;
 @Schema(description = "管理员信息视图对象")
 public class AdminVO {
 
-    @Schema(description = "管理员ID")
+    @JsonLongIdString
+    @Schema(type = "string", description = "管理员ID")
     private Long id;
 
     @Schema(description = "用户名")

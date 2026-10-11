@@ -5,6 +5,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.common.enumeration.ProjectStatus;
+import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
 
@@ -28,6 +29,9 @@ public class ProjectAdminInfoVO {
 
     @Schema(description = "企划状态：IN_PROGRESS-进行中，COMPLETED-已完成，ARCHIVED-已归档")
     private ProjectStatus status;
+
+    @Schema(description = "资源状态：ENABLED-启用，DISABLED-禁用")
+    private Status resourceStatus;
 
     @JsonLongIdString
     @Schema(type = "string", description = "创建人ID")

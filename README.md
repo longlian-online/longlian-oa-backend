@@ -82,6 +82,10 @@ longlian-oa-backend/
 | 链路追踪 | OpenTelemetry |
 | 序列化 | Fastjson2 |
 
+### 响应约定
+
+Controller 业务方法返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 统一包装为 `Result<T>`；通过 `@ResponseMessage` 指定成功提示，文件下载等原始响应使用 `@NotWrap`。HTTP JSON 统一使用 Fastjson2 Spring 6 消息转换器，避免 Fastjson2 与 Jackson 在同一响应链路中并存。
+
 ---
 
 ## 关键基础设施
@@ -90,7 +94,7 @@ longlian-oa-backend/
 |------|----------|
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`）|
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT |
-| JWT 黑名单 | 登出时加入 MySQL 黑名单表 `token_blacklist`（`TokenBlacklistService`），按 `expired_at` 实现 TTL 过期 |
+| JWT 黑名单 | 登出时加入 MariaDB 黑名单表 `token_blacklist`（`TokenBlacklistService`），按 `expired_at` 实现 TTL 过期 |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 自动选择 |
 | 通知 | `NotificationManager` + `EmailNotificationService` |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId |
@@ -105,3 +109,23 @@ longlian-oa-backend/
 - 期望状态：`db/schema.sql`（唯一真实来源）
 - CI 脚本：`db/migrate.sh`
 - 开发文档：`db/DEVELOPMENT.md`
+
+---
+
+## 配置
+
+应用不再读取 `.env`，只使用 YAML。
+
+本地：
+
+```
+cp app/src/main/resources/application.yml.example app/src/main/resources/application.yml
+```
+
+`application.yml` 不要提交。字段说明写在模板注释里。
+
+Docker 开发环境挂载本模板，compose 用环境变量覆盖 MariaDB/Redis 主机名。生产复制 `devops/application-prod.yml.example` 后 `task prod`。测试使用已提交的 `app/src/test/resources/application-test.yml`。
+
+存储与 CDN 项直接写在 YAML 中。CDN 接入与签名算法见 [docs/cdn.md](docs/cdn.md)。
+
+详见 [docs/dev.md](docs/dev.md)。

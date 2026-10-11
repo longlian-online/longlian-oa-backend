@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -54,11 +54,11 @@ public class BaseTask implements Serializable {
     private String name;
 
     /**
-     * 图标标识
+     * Lucide 图标组件名
      */
-    @ApiModelProperty("图标标识")
-    @TableField("icon_file_id")
-    private Long iconFileId;
+    @TableField("icon")
+    @ApiModelProperty("Lucide 图标组件名")
+    private String icon;
 
     /**
      * 任务说明（简介）

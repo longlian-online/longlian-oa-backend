@@ -61,7 +61,8 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params) {
         Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
 
@@ -91,11 +92,18 @@ public class ItemServiceImpl implements ItemService {
                         .orderByAsc(TaskTemplateNode::getParallelSort));
 
         List<Long> baseTaskIds = templateNodes.stream()
-                .map(TaskTemplateNode::getBaseTaskId).distinct().toList();
-        Map<Long, BaseTask> baseTaskMap = baseTaskIds.isEmpty()
-                ? Collections.emptyMap()
-                : baseTaskMapper.selectBatchIds(baseTaskIds).stream()
-                        .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
+                .map(TaskTemplateNode::getBaseTaskId).filter(id -> id != null).distinct().sorted().toList();
+        List<BaseTask> baseTasks = baseTaskIds.isEmpty()
+                ? Collections.emptyList()
+                : baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
+                        .in(BaseTask::getId, baseTaskIds)
+                        .orderByAsc(BaseTask::getId)
+                        .last("FOR UPDATE"));
+        if (baseTasks.size() != baseTaskIds.size()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+        }
+        Map<Long, BaseTask> baseTaskMap = baseTasks.stream()
+                .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
         LocalDateTime now = LocalDateTime.now(clock);
 
@@ -128,8 +136,7 @@ public class ItemServiceImpl implements ItemService {
                 .build();
         itemTaskFlowMapper.insert(flow);
 
-        for (int i = 0; i < templateNodes.size(); i++) {
-            TaskTemplateNode templateNode = templateNodes.get(i);
+        for (TaskTemplateNode templateNode : templateNodes) {
             BaseTask baseTask = baseTaskMap.get(templateNode.getBaseTaskId());
             ItemTaskNode node = ItemTaskNode.builder()
                     .itemTaskFlowId(flow.getId())
@@ -145,14 +152,13 @@ public class ItemServiceImpl implements ItemService {
                     .build();
             itemTaskNodeMapper.insert(node);
 
-            boolean isFirstNode = i == 0;
             TaskInstance instance = TaskInstance.builder()
                     .projectId(params.getProjectId())
                     .itemId(item.getId())
                     .itemTaskNodeId(node.getId())
                     .taskFlowId(flow.getId())
-                    .status(isFirstNode ? TaskInstanceStatus.CLAIMED : TaskInstanceStatus.PENDING)
-                    .assigneeId(isFirstNode ? params.getCreatorId() : null)
+                    .status(TaskInstanceStatus.PENDING)
+                    .assigneeId(null)
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
@@ -201,6 +207,18 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
         }
 
+        // 锁定任务直到发布事务提交，避免校验后被并发重置或打回。
+        List<TaskInstance> instances = taskInstanceMapper.selectList(
+                new LambdaQueryWrapper<TaskInstance>()
+                        .select(TaskInstance::getStatus)
+                        .eq(TaskInstance::getItemId, params.getItemId())
+                        .orderByAsc(TaskInstance::getId)
+                        .last("FOR UPDATE"));
+        if (instances.isEmpty() || instances.stream().anyMatch(
+                instance -> instance.getStatus() != TaskInstanceStatus.COMPLETED)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目中所有任务完成后才能发布");
+        }
+
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, params.getItemId())
@@ -214,7 +232,8 @@ public class ItemServiceImpl implements ItemService {
 
     private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
         Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)) {
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
         if (!project.getCreatorId().equals(userId)) {

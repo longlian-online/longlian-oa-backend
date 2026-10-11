@@ -1,0 +1,71 @@
+# =============================================================================
+# longlian-oa Ingress（Traefik）
+#
+# 默认使用 Traefik 原生 IngressRoute CRD：
+#   - 需要集群已部署 Traefik（含 traefik.io/v1alpha1 CRD，Traefik >= 2.6）
+#   - tls.certResolver 对应 Traefik 静态配置中的 resolver 名称（如 letsencrypt，
+#     HTTP-01 challenge 需要集群可被对应域名解析访问）
+#   - 没有配 certResolver 时，删除 tls 段即走 http（web entrypoint）
+#
+# 备选方案（标准 Ingress + cert-manager，注释在文件末尾）：
+#   使用 Traefik 的 kubernetesingress provider（默认开启），ingressClassName 填
+#   traefik，TLS 证书由 cert-manager 签发后放入 Secret。使用前提：集群已部署
+#   cert-manager 且配置了 ClusterIssuer。
+#
+# 应用配置（Secret 内 application-prod.yml）的 cors.allowed-origins 需包含本域名。
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: longlian-oa
+  namespace: longlian-oa
+  labels:
+    app: longlian-oa
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`oa.longlian.online`)
+      kind: Rule
+      # 可选：按需挂中间件（限流、CORS 等），如 middlewares: [{name: rate-limit}]
+      services:
+        - name: longlian-oa
+          port: 8080
+  tls:
+    # 对应 Traefik 配置的 certResolver 名称；没用 ACME 时改引 cert-manager 签发的 Secret：
+    # secretName: longlian-oa-tls
+    certResolver: letsencrypt
+---
+# =============================================================================
+# 备选：标准 Ingress + cert-manager（与 Traefik IngressRoute 二选一，启用时
+# 删除上方 IngressRoute 文档，并取消下面注释）
+# =============================================================================
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: longlian-oa
+#   namespace: longlian-oa
+#   labels:
+#     app: longlian-oa
+#   annotations:
+#     # 按实际 ClusterIssuer 名称修改
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#     # 上传大文件时按需放开请求体大小限制
+#     # nginx.ingress.kubernetes.io/proxy-body-size: 100m
+# spec:
+#   ingressClassName: traefik
+#   tls:
+#     - hosts:
+#         - oa.longlian.online
+#       secretName: longlian-oa-tls
+#   rules:
+#     - host: oa.longlian.online
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: longlian-oa
+#                 port:
+#                   number: 8080

@@ -16,7 +16,7 @@ public class AdminSessionApiTest extends BaseApiTest {
      */
     @Test
     void shouldLoginSuccessfully() {
-        createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "admin", "123456", "root");
 
         Response response = request()
                 .body(Map.of("username", "admin", "password", "123456"))
@@ -36,7 +36,7 @@ public class AdminSessionApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithWrongPassword() {
-        createAdmin(2L, "admin2", "123456", "SUPER_ADMIN");
+        createAdmin(2L, "admin2", "123456", "root");
 
         Response response = request()
                 .body(Map.of("username", "admin2", "password", "wrongpassword"))
@@ -68,7 +68,7 @@ public class AdminSessionApiTest extends BaseApiTest {
      */
     @Test
     void shouldLogoutSuccessfully() {
-        createAdmin(3L, "admin3", "123456", "SUPER_ADMIN");
+        createAdmin(3L, "admin3", "123456", "root");
         String token = adminLoginAs("admin3", "123456");
 
         Response response = authRequest(token)
@@ -85,7 +85,7 @@ public class AdminSessionApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailWithBlacklistedToken() {
-        createAdmin(4L, "admin4", "123456", "SUPER_ADMIN");
+        createAdmin(4L, "admin4", "123456", "root");
         String token = adminLoginAs("admin4", "123456");
 
         authRequest(token).delete("/admin/session");

@@ -1,0 +1,44 @@
+# =============================================================================
+# 生产 Overlay（服务器本地部署入口）
+#
+# 本文件提交到仓库；引用的本地文件（application-prod.yml / mysql-init.sql /
+# mysql-root-password）被 .gitignore 忽略，真实值只存在服务器本地：
+#
+#   ```bash
+#   # 首次（服务器上，仅一次）
+#   cp devops/k8s/overlays/prod/application-prod.yml.example \
+#      devops/k8s/overlays/prod/application-prod.yml
+#   cp devops/k8s/overlays/prod/mysql-init.sql.example \
+#      devops/k8s/overlays/prod/mysql-init.sql
+#   cp devops/k8s/overlays/prod/mysql-root-password.example \
+#      devops/k8s/overlays/prod/mysql-root-password
+#   # 编辑三个文件填写真实值
+#
+#   # 日常部署（仓库更新与本地配置自动合并，git pull 不会冲突）
+#   git pull
+#   kubectl apply -k devops/k8s/overlays/prod
+#   ```
+#
+# 已有外部 MariaDB / Redis 时：在 base/kustomization.yaml 中注释对应行（见 README）。
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: longlian-oa
+
+resources:
+  - ../../base
+
+# 从本地文件生成 Secret（文件名即 key）：
+#   application-prod.yml → key application-prod.yml（应用/迁移配置）
+#   mysql-init.sql       → key mysql-init.sql（MariaDB 首次初始化）
+#   mysql-root-password  → key mysql-root-password（MariaDB root 密码，文件勿带尾换行）
+#
+# kustomize 会给 Secret 名称追加内容哈希：本地配置一变 → 新 Secret → 应用自动滚动
+# 更新（无需手动 rollout restart）；升级 schema 时需按 README 重跑迁移 Job。
+secretGenerator:
+  - name: longlian-oa-config
+    files:
+      - application-prod.yml
+      - mysql-init.sql
+      - mysql-root-password

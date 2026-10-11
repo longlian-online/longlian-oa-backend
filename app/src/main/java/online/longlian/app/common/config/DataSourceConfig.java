@@ -26,36 +26,23 @@ public class DataSourceConfig {
     }
 
     @Bean(destroyMethod = "close")
-    @ConditionalOnProperty(
-            prefix = "longlian.datasource",
-            name = "type",
-            havingValue = "mysql",
-            matchIfMissing = true
-    )
-    public DruidDataSource mysqlDataSource(
-            @Value("${DB_HOST}") String host,
-            @Value("${DB_PORT}") int port,
-            @Value("${DB_DATABASE}") String database,
-            @Value("${DB_USERNAME}") String username,
-            @Value("${DB_PASSWORD}") String password
-    ) {
-        DruidDataSource ds = new DruidDataSource();
-        ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        ds.setUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false");
-        ds.setUsername(username);
-        ds.setPassword(password);
-        return ds;
-    }
-
-    @Bean
     @Primary
     @ConditionalOnProperty(
             prefix = "longlian.datasource",
             name = "type",
-            havingValue = "mysql",
+            havingValue = "mariadb",
             matchIfMissing = true
     )
-    public DataSource dataSource(DruidDataSource mysqlDataSource) {
-        return mysqlDataSource;
+    public DataSource mariadbDataSource(
+            @Value("${spring.datasource.url}") String url,
+            @Value("${spring.datasource.username}") String username,
+            @Value("${spring.datasource.password:}") String password
+    ) {
+        DruidDataSource ds = new DruidDataSource();
+        ds.setDriverClassName("org.mariadb.jdbc.Driver");
+        ds.setUrl(url);
+        ds.setUsername(username);
+        ds.setPassword(password);
+        return ds;
     }
 }

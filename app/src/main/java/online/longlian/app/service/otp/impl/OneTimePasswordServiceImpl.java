@@ -14,6 +14,7 @@ import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMapper, OneTimePassword> implements OneTimePasswordService {
 
     private final OneTimePasswordMapper oneTimePasswordMapper;
+    private final Clock clock;
 
     @Override
     public OneTimePassword generateOTP(OneTimePasswordCreateParamsBO params) {
@@ -63,8 +65,8 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                         .eq(OneTimePassword::getId, otpId)
                         .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
                         .isNull(OneTimePassword::getUsedAt)
-                        .gt(OneTimePassword::getExpiredAt, LocalDateTime.now())
-                        .set(OneTimePassword::getUsedAt, LocalDateTime.now())
+                        .gt(OneTimePassword::getExpiredAt, LocalDateTime.now(clock))
+                        .set(OneTimePassword::getUsedAt, LocalDateTime.now(clock))
                         .set(OneTimePassword::getStatus, OTPStatus.USED)
         );
         if (rows == 0) {
@@ -79,7 +81,7 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
         if (oneTimePassword.getUsedAt() != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "已使用");
         }
-        if (oneTimePassword.getExpiredAt() == null || !oneTimePassword.getExpiredAt().isAfter(LocalDateTime.now())) {
+        if (oneTimePassword.getExpiredAt() == null || !oneTimePassword.getExpiredAt().isAfter(LocalDateTime.now(clock))) {
             throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "已过期");
         }
     }

@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 @TableName("role")
 @AllArgsConstructor
 @ApiModel(value = "Role对象", description = "角色表")
+@Deprecated(since = "2026-09", forRemoval = false)
 public class Role implements Serializable {
 
     private static final long serialVersionUID = 1L;

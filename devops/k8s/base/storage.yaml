@@ -1,0 +1,27 @@
+# =============================================================================
+# 本地文件存储 PVC（storage.type=LOCAL 时使用）
+#
+# 说明：
+#   - 与 docker-compose.prod.yml 的 ./data/storage bind 等价，用于持久化上传文件。
+#   - 默认 ReadWriteOnce + 单副本：本文件与 deployment.yaml 的 replicas=1 配套。
+#   - 多副本（高可用）改造二选一：
+#       1) storage.type 改为 OSS / COS（推荐），此时可删除本文件、
+#          deployment.yaml 中名为 storage 的 volumeMount/volume；
+#       2) 将 accessModes 改为 ReadWriteMany（如 NFS / 云厂商 RWX 能力），
+#          再上调 replicas。
+#   - 不指定 storageClassName 时使用集群默认 StorageClass；
+#     无默认 StorageClass 时需先由管理员创建 PV 或调整 storageClassName。
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-pvc
+  namespace: longlian-oa
+  labels:
+    app: longlian-oa
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

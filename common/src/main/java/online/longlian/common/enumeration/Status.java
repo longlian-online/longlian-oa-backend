@@ -12,6 +12,7 @@ import online.longlian.common.annotation.ModelEnum;
 @ModelEnum(model = "organization", field = "status")
 @ModelEnum(model = "organization_member", field = "status")
 @ModelEnum(model = "project_type", field = "status")
+@ModelEnum(model = "project", field = "resource_status")
 @ModelEnum(model = "base_task", field = "status")
 @ModelEnum(model = "task_template", field = "status")
 @ModelEnum(model = "resource", field = "is_referenced")
