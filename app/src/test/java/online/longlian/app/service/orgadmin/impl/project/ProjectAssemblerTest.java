@@ -7,6 +7,7 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.ProjectStatus;
+import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +46,7 @@ class ProjectAssemblerTest {
     void assembleAdminList_withProjects_returnsAssembled() {
         Project project = Project.builder()
                 .id(1L).title("Test Project").typeId(10L)
-                .status(ProjectStatus.IN_PROGRESS).creatorId(5L)
+                .status(ProjectStatus.IN_PROGRESS).resourceStatus(Status.DISABLED).creatorId(5L)
                 .createdAt(LocalDateTime.now())
                 .build();
         ProjectType type = ProjectType.builder().id(10L).name("Design").build();
@@ -59,6 +60,8 @@ class ProjectAssemblerTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getTitle()).isEqualTo("Test Project");
         assertThat(result.get(0).getTypeName()).isEqualTo("Design");
+        assertThat(result.get(0).getStatus()).isEqualTo(ProjectStatus.IN_PROGRESS);
+        assertThat(result.get(0).getResourceStatus()).isEqualTo(Status.DISABLED);
         assertThat(result.get(0).getCreatorNickname()).isEqualTo("Alice");
     }
 

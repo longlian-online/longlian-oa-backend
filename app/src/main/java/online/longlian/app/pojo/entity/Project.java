@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.ProjectStatus;
+import online.longlian.common.enumeration.Status;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -90,6 +91,13 @@ public class Project implements Serializable {
     @TableField("status")
     @ApiModelProperty("状态 1-进行中 2-已完成 3-已归档")
     private ProjectStatus status;
+
+    /**
+     * 资源状态 1-启用 0-禁用
+     */
+    @TableField("resource_status")
+    @ApiModelProperty("资源状态 1-启用 0-禁用")
+    private Status resourceStatus;
 
     /**
      * 创建人ID

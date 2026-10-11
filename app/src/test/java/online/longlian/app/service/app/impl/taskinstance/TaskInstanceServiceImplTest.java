@@ -19,6 +19,7 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.impl.UserOperationLogService;
+import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,7 +95,7 @@ class TaskInstanceServiceImplTest {
         params.setItemId(1L);
         params.setOrgId(10L);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(taskInstanceMapper.selectList(any())).thenReturn(Collections.emptyList());
 
         List<ItemTaskInstanceVO> result = service.listItemTaskInstances(params);
@@ -107,7 +109,7 @@ class TaskInstanceServiceImplTest {
         params.setItemId(1L);
         params.setOrgId(10L);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         TaskInstance instance = TaskInstance.builder().id(100L).itemTaskNodeId(5L).build();
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of(instance));
@@ -129,7 +131,7 @@ class TaskInstanceServiceImplTest {
 
         TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         service.claimTask(params);
 
@@ -155,7 +157,7 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(99L);
         when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).projectId(2L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         assertThatThrownBy(() -> service.claimTask(params))
                 .isInstanceOf(AppException.class)
@@ -171,7 +173,7 @@ class TaskInstanceServiceImplTest {
 
         TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         service.abandonTask(params);
 
@@ -184,15 +186,15 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(10L);
         params.setUserId(1L);
-        params.setMetadata("{\"key\":\"value\"}");
+        params.setValues(Map.of("key", "value"));
 
         TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         service.submitTask(params);
 
-        verify(taskInstanceCommandHandler).submit(instance, 1L, "{\"key\":\"value\"}");
+        verify(taskInstanceCommandHandler).submit(instance, 1L, 10L, Map.of("key", "value"));
     }
 
     @Test
@@ -204,7 +206,7 @@ class TaskInstanceServiceImplTest {
 
         TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         service.resetTask(params);
 
@@ -221,7 +223,7 @@ class TaskInstanceServiceImplTest {
 
         TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         service.rejectTask(params);
 
@@ -247,42 +249,44 @@ class TaskInstanceServiceImplTest {
         params.setOrgId(99L);
         when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         assertThatThrownBy(() -> service.getTaskInstanceDetail(params))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("任务实例不存在");
+        verifyNoInteractions(taskSubmissionMapper, taskInstanceAssembler);
     }
 
     @Test
-    void getTaskInstanceDetail_withSubmission_returnsMetadata() {
-        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+    void getTaskInstanceDetail_withSubmission_assemblesAuthorizedDetail() {
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
+        TaskInstance instance = TaskInstance.builder().id(100L).itemId(1L).itemTaskNodeId(3L).build();
+        ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
-        TaskSubmission submission = TaskSubmission.builder().metadata("{\"data\":1}").build();
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
+        when(itemTaskNodeMapper.selectById(3L)).thenReturn(node);
+        TaskSubmission submission = TaskSubmission.builder().metadata("{}").build();
         when(taskSubmissionMapper.selectOne(any())).thenReturn(submission);
+        TaskInstanceDetailVO expected = new TaskInstanceDetailVO();
+        when(taskInstanceAssembler.assembleDetail(instance, node, submission, 10L)).thenReturn(expected);
 
-        TaskInstanceDetailVO result = service.getTaskInstanceDetail(params);
-
-        assertThat(result.getMetadata()).isEqualTo("{\"data\":1}");
+        assertThat(service.getTaskInstanceDetail(params)).isSameAs(expected);
     }
 
     @Test
-    void getTaskInstanceDetail_noSubmission_returnsEmptyVO() {
-        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+    void getTaskInstanceDetail_noSubmission_assemblesTaskWithoutSubmission() {
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
+        TaskInstance instance = TaskInstance.builder().id(100L).itemId(1L).itemTaskNodeId(3L).build();
+        ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L).build());
-        when(taskSubmissionMapper.selectOne(any())).thenReturn(null);
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
+        when(itemTaskNodeMapper.selectById(3L)).thenReturn(node);
+        TaskInstanceDetailVO expected = new TaskInstanceDetailVO();
+        when(taskInstanceAssembler.assembleDetail(instance, node, null, 10L)).thenReturn(expected);
 
-        TaskInstanceDetailVO result = service.getTaskInstanceDetail(params);
-
-        assertThat(result.getMetadata()).isNull();
+        assertThat(service.getTaskInstanceDetail(params)).isSameAs(expected);
     }
 
     @Test
@@ -296,5 +300,51 @@ class TaskInstanceServiceImplTest {
         assertThatThrownBy(() -> service.claimTask(params))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("任务实例不存在");
+    }
+
+    @Test
+    void listItemTaskInstances_disabledProject_throws() {
+        TaskInstanceListParamsBO params = new TaskInstanceListParamsBO();
+        params.setItemId(1L);
+        params.setOrgId(10L);
+        when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
+        when(projectMapper.selectById(2L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.listItemTaskInstances(params)).isInstanceOf(AppException.class);
+        verify(taskInstanceMapper, never()).selectList(any());
+    }
+
+    @Test
+    void getTaskInstanceDetail_disabledProject_throws() {
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
+        params.setInstanceId(100L);
+        params.setOrgId(10L);
+        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+        when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
+        when(projectMapper.selectById(2L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.getTaskInstanceDetail(params)).isInstanceOf(AppException.class);
+        verify(taskSubmissionMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void claimTask_disabledProject_throws() {
+        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
+        params.setInstanceId(100L);
+        params.setOrgId(10L);
+        when(taskInstanceMapper.selectById(100L)).thenReturn(
+                TaskInstance.builder().id(100L).projectId(2L).build());
+        when(projectMapper.selectById(2L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.claimTask(params)).isInstanceOf(AppException.class);
+        verify(taskInstanceCommandHandler, never()).claim(any(), anyLong());
+    }
+
+    private Project enabledProject() {
+        return Project.builder().id(2L).orgId(10L).resourceStatus(Status.ENABLED).build();
+    }
+
+    private Project disabledProject() {
+        return Project.builder().id(2L).orgId(10L).resourceStatus(Status.DISABLED).build();
     }
 }

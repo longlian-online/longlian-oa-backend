@@ -14,6 +14,48 @@ import static org.hamcrest.Matchers.*;
 
 public class OrgAdminProjectTypeApiTest extends BaseApiTest {
 
+    @Test
+    void shouldSortOnlyAppTypesByPriorityAndPreserveFilters() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "其他组织");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, priority, status, creator_id, created_at, deleted_at) VALUES " +
+                "(1,1,'默认',0,1,1,'2026-01-01',NULL)," +
+                "(2,1,'高优先级',10,1,1,'2026-01-02',NULL)," +
+                "(3,1,'同优先级',10,1,1,'2026-01-03',NULL)," +
+                "(4,1,'负优先级',-1,1,1,'2026-01-04',NULL)," +
+                "(5,1,'禁用',100,0,1,'2026-01-05',NULL)," +
+                "(6,2,'跨组织',100,1,1,'2026-01-06',NULL)," +
+                "(7,1,'已删除',100,1,1,'2026-01-07','2026-01-08')");
+
+        authRequest(token).get("/app/projects/types").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.id", contains("2", "3", "1", "4"));
+        authRequest(token).get("/orgadmin/project-types?orderDir=DESC").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.list.id", contains("5", "4", "3", "2", "1"))
+                .body("data.list.priority", contains(100, -1, 10, 10, 0));
+    }
+
+    @Test
+    void shouldDefaultCreatePriorityAndPreserveOmittedUpdatePriority() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        authRequest(token).body(Map.of("name", "默认类型")).post("/orgadmin/project-types")
+                .then().body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT priority FROM project_type WHERE name = '默认类型'", Integer.class)).isZero();
+        authRequest(token).body(Map.of("name", "优先类型", "priority", 20)).post("/orgadmin/project-types")
+                .then().body("code", equalTo(0));
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM project_type WHERE name = '优先类型'", Long.class);
+        authRequest(token).body(Map.of("name", "重命名")).put("/orgadmin/project-types/" + id)
+                .then().body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT priority FROM project_type WHERE id = ?", Integer.class, id)).isEqualTo(20);
+        authRequest(token).body(Map.of("name", "重命名", "priority", 0)).put("/orgadmin/project-types/" + id)
+                .then().body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT priority FROM project_type WHERE id = ?", Integer.class, id)).isZero();
+        authRequest(token).body(Map.of("name", "重命名", "priority", -10)).put("/orgadmin/project-types/" + id)
+                .then().body("code", equalTo(0));
+        authRequest(token).get("/app/projects/types").then()
+                .body("data.name", contains("默认类型", "重命名"));
+    }
     // ========== 成功路径 ==========
 
     /**
@@ -401,7 +443,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailListProjectTypesWithoutAdminRole() {
-        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "MEMBER");
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("regular", "123456");
 
         Response response = authRequest(token)

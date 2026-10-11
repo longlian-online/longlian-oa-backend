@@ -19,6 +19,9 @@ public class ProjectTypeAdminVO {
     @Schema(description = "类型名称")
     private String name;
 
+    @Schema(description = "优先级，仅影响用户端类型列表顺序，越大越靠前")
+    private Integer priority;
+
     @Schema(description = "状态：ENABLED-启用，DISABLED-禁用")
     private Status status;
 

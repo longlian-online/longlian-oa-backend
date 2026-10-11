@@ -15,9 +15,11 @@ import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.ProjectSearchResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
@@ -58,6 +60,8 @@ public class ProjectServiceImpl implements ProjectService {
                 new LambdaQueryWrapper<ProjectType>()
                         .eq(ProjectType::getOrgId, orgId)
                         .eq(ProjectType::getStatus, Status.ENABLED)
+                        .orderByDesc(ProjectType::getPriority)
+                        .orderByAsc(ProjectType::getId)
         );
         return types.stream()
                 .map(t -> new ProjectTypeInfoVO(t.getId(), t.getName()))
@@ -81,6 +85,10 @@ public class ProjectServiceImpl implements ProjectService {
             typeId = projectType.getId();
         }
 
+        if (StringUtils.hasText(params.getKeyword())) {
+            return searchProjects(params, typeId);
+        }
+
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
         LambdaQueryWrapper<Project> queryWrapper = projectQueryBuilder.buildListQuery(params, typeId);
         Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
@@ -91,12 +99,27 @@ public class ProjectServiceImpl implements ProjectService {
         return new PageResultBO<>(projectAssembler.assembleList(projects), projectPage.getTotal());
     }
 
+    private PageResultBO<ProjectListResultBO> searchProjects(ProjectListParamsBO params, Long typeId) {
+        Page<ProjectSearchResultBO> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        Page<ProjectSearchResultBO> searchPage = projectMapper.selectSearchPage(
+                page, ProjectSearchSupport.buildParams(params, typeId));
+        List<ProjectSearchResultBO> records = searchPage.getRecords();
+        if (records.isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), searchPage.getTotal());
+        }
+        List<ProjectListResultBO> results = projectAssembler.assembleList(
+                records.stream().map(ProjectSearchResultBO::getProject).toList());
+        for (int i = 0; i < results.size(); i++) {
+            ProjectListResultBO result = results.get(i);
+            result.setMetadata(ProjectSearchSupport.prioritizeMetadata(
+                    result.getMetadata(), records.get(i).getMatchedMetadataPaths()));
+        }
+        return new PageResultBO<>(results, searchPage.getTotal());
+    }
+
     @Override
     public ProjectDetailResultBO getProjectDetail(Long projectId, Long userId, Long orgId) {
-        Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        Project project = getVisibleProject(projectId, orgId);
 
         String coverUrl = null;
         if (project.getCoverFileId() != null && project.getCoverFileId() > 0) {
@@ -144,6 +167,7 @@ public class ProjectServiceImpl implements ProjectService {
                 || projectType.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
         }
+        ProjectMetadataValidator.validate(params.getMetadata());
 
         LocalDateTime now = LocalDateTime.now(clock);
         Project project = Project.builder()
@@ -155,24 +179,34 @@ public class ProjectServiceImpl implements ProjectService {
                 .coverFileId(params.getCoverFileId())
                 .description(params.getDescription())
                 .status(ProjectStatus.IN_PROGRESS)
+                .resourceStatus(Status.ENABLED)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
         projectMapper.insert(project);
-        resourceService.bindBizId(params.getCoverFileId(), project.getId(), params.getCreatorId(), params.getOrgId());
+        resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(params.getCoverFileId())
+                .bizType("cover")
+                .bizId(project.getId())
+                .creatorId(params.getCreatorId())
+                .orgId(params.getOrgId())
+                .build());
+        projectProgressHandler.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
+                .projectId(project.getId())
+                .userId(params.getCreatorId())
+                .orgId(params.getOrgId())
+                .build());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateProject(ProjectUpdateParamsBO params) {
-        Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
         if (!project.getCreatorId().equals(params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑企划");
         }
+        ProjectMetadataValidator.validate(params.getMetadata());
 
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()
@@ -181,18 +215,24 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getAlias, params.getAlias())
                         .set(Project::getMetadata, params.getMetadata())
                         .set(Project::getDescription, params.getDescription())
-                        .set(Project::getCoverFileId, params.getCoverFileId())
+                        .set(params.getCoverFileId() != null, Project::getCoverFileId, params.getCoverFileId())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
-        resourceService.bindBizId(params.getCoverFileId(), params.getProjectId(), params.getUserId(), params.getOrgId());
+        if (params.getCoverFileId() != null) {
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getCoverFileId())
+                    .replacedResourceId(project.getCoverFileId())
+                    .bizType("cover")
+                    .bizId(params.getProjectId())
+                    .creatorId(params.getUserId())
+                    .orgId(params.getOrgId())
+                    .build());
+        }
     }
 
     @Override
     public void addToWorkshop(ProjectWorkshopAddParamsBO params) {
-        Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
+        getVisibleProject(params.getProjectId(), params.getOrgId());
 
         String lockKey = "workshop:add:" + params.getProjectId() + ":" + params.getUserId();
         try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
@@ -203,16 +243,24 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params) {
-        Project project = projectMapper.selectById(params.getProjectId());
-        if (project == null || !project.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
+        if (project.getCreatorId().equals(params.getUserId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "企划负责人不能退出企划");
         }
-
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
+    }
+
+    private Project getVisibleProject(Long projectId, Long orgId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
+        }
+        return project;
     }
 }

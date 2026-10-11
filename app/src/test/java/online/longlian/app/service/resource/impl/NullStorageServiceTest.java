@@ -1,15 +1,16 @@
 package online.longlian.app.service.resource.impl;
 
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
 import online.longlian.app.service.resource.StorageServiceFactory;
 import online.longlian.common.enumeration.StorageType;
 import org.junit.jupiter.api.Test;
-
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,21 +40,16 @@ class NullStorageServiceTest {
 
     @Test
     void getResourceReadUrls_returnsEmptyMap() {
-        Map<String, String> result = service.getResourceReadUrls(List.of("a.png", "b.png"));
-        assertThat(result).isEmpty();
+        assertThat(service.getResourceReadUrls(List.of("a.png", "b.png"))).isEmpty();
     }
 
-    @Test
-    void upload_throwsUnsupported() {
-        assertThatThrownBy(() -> service.upload("key", new byte[]{}))
-                .isInstanceOf(UnsupportedOperationException.class);
-    }
 
     @Test
-    void getResource_throwsUnsupported() {
-        assertThatThrownBy(() -> service.getResource("key"))
-                .isInstanceOf(UnsupportedOperationException.class);
+    void probe_rejectsUnsupportedStorage() {
+        assertThatThrownBy(() -> service.probe(new ResourceProbeParamsBO("a.png", 1L, "image/png")))
+                .isInstanceOf(AppException.class);
     }
+
 }
 
 class StorageServiceFactoryTest {

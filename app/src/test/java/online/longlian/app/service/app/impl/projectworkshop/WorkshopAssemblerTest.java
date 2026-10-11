@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl.projectworkshop;
 
 import online.longlian.app.mapper.BaseTaskMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -48,11 +49,14 @@ class WorkshopAssemblerTest {
     @Mock
     private ResourceService resourceService;
 
+    @Mock
+    private TaskSubmissionMapper taskSubmissionMapper;
+
     private WorkshopAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        assembler = new WorkshopAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService);
+        assembler = new WorkshopAssembler(userMapper, baseTaskMapper, taskTemplateNodeMapper, resourceService, taskSubmissionMapper);
     }
 
     // ---- assembleProjectList ----
@@ -161,13 +165,11 @@ class WorkshopAssemblerTest {
         BaseTask baseTask = BaseTask.builder()
                 .id(200L)
                 .name("绘制")
-                .iconFileId(300L)
+                .icon("SquarePen")
                 .build();
 
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
         when(baseTaskMapper.selectBatchIds(List.of(200L))).thenReturn(List.of(baseTask));
-        when(resourceService.getResourceReadUrls(List.of(300L)))
-                .thenReturn(Map.of(300L, new ResourceReadUrlGetResultBO("https://cdn/icon.png", 1L, "i")));
 
         List<WorkshopTaskTemplateVO> result = assembler.assembleTemplateList(List.of(template), 99L);
 
@@ -178,7 +180,7 @@ class WorkshopAssemblerTest {
         assertEquals(1, vo.getTaskCount());
         assertEquals(1, vo.getNodes().size());
         assertEquals("绘制", vo.getNodes().get(0).getBaseTaskName());
-        assertEquals("https://cdn/icon.png", vo.getNodes().get(0).getBaseTaskIconUrl());
+        assertEquals("SquarePen", vo.getNodes().get(0).getBaseTaskIcon());
         // creatorId(50L) != currentUserId(99L)
         assertEquals(false, vo.getIsMine());
     }

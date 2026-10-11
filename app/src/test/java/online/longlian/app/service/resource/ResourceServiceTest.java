@@ -16,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+
 @ExtendWith(MockitoExtension.class)
 public class ResourceServiceTest {
     @Mock
@@ -35,12 +37,15 @@ public class ResourceServiceTest {
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setType(StorageType.OSS);
         storageProperties.setOss(new StorageProperties.OssConfig());
-        resourceService = new ResourceService(resourceMapper, storageServiceFactory, storageProperties);
+        resourceService = new ResourceService(resourceMapper, storageServiceFactory,
+                new CdnUrlSigner("https://cdn.example", "test-secret", Clock.systemUTC()),
+                new LocalFileUrlSigner("test-local-signing-secret-32-bytes", storageProperties, Clock.systemUTC()),
+                storageProperties, Clock.systemUTC());
     }
 
     @Test
     void testCreate() {
-        ResourceCreateParamsBO params = new ResourceCreateParamsBO(1L, 1L, "test_file", "txt", 100L, "", "biz", 1L);
+        ResourceCreateParamsBO params = new ResourceCreateParamsBO(1L, 1L, "test_file", "txt", 100L, "", "biz");
         PresignedUploadUrlResultBO presignedUploadUrlResult= PresignedUploadUrlResultBO.builder().uploadUrl("xxxxxx").key("xxxxxx").build();
         Mockito.when(resourceMapper.insert(Mockito.any(Resource.class))).thenReturn(1);
         Mockito.when(storageServiceFactory.get(Mockito.any())).thenReturn(ossStorageService);

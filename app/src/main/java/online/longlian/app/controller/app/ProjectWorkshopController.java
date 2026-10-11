@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -43,7 +44,7 @@ public class ProjectWorkshopController {
     @PostMapping("/list")
     @ResponseMessage("查询成功")
     public PageResultVO<WorkshopProjectInfoVO> getMyWorkshopList(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid WorkshopListDTO workshopListDTO) {
         PageResultBO<WorkshopProjectInfoVO> resultBO = projectWorkshopService.getMyWorkshopList(
                 WorkshopListParamsBO.builder()
@@ -64,7 +65,7 @@ public class ProjectWorkshopController {
     @PostMapping("/task-template/list")
     @ResponseMessage("查询成功")
     public PageResultVO<WorkshopTaskTemplateVO> getWorkshopTaskTemplateList(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid WorkshopTaskTemplateDTO workshopTaskTemplateDTO) {
         PageResultBO<WorkshopTaskTemplateVO> resultBO = projectWorkshopService.getWorkshopTaskTemplateList(
                 WorkshopTaskTemplateListParamsBO.builder()
@@ -84,7 +85,7 @@ public class ProjectWorkshopController {
     @PostMapping("/task-template")
     @ResponseMessage("创建成功")
     public void createWorkshopTaskTemplate(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid WorkshopTaskTemplateCreateDTO workshopTaskTemplateCreateDTO) {
         List<WorkshopTaskTemplateNodeCreateParamsBO> nodeBOs = workshopTaskTemplateCreateDTO.getNodes().stream()
                 .map(nodeDTO -> WorkshopTaskTemplateNodeCreateParamsBO.builder()
@@ -113,7 +114,7 @@ public class ProjectWorkshopController {
     @PutMapping("/task-template/{templateId}")
     @ResponseMessage("更新成功")
     public void updateWorkshopTaskTemplate(
-            @UserSession SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long templateId,
             @RequestBody @Valid WorkshopTaskTemplateCreateDTO workshopTaskTemplateCreateDTO) {
         List<WorkshopTaskTemplateNodeCreateParamsBO> nodeBOs = workshopTaskTemplateCreateDTO.getNodes().stream()

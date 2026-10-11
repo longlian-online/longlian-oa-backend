@@ -6,7 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.mapper.AdminMapper;
 import online.longlian.app.pojo.bo.admin.AdminLoginParamsBO;
@@ -16,8 +15,6 @@ import online.longlian.app.pojo.entity.Admin;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.admin.AdminSessionService;
 import online.longlian.common.enumeration.TokenType;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,12 +89,4 @@ public class AdminSessionServiceImpl implements AdminSessionService {
         );
     }
 
-    @Override
-    public Long getCurrentAdminId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof AdminUserDetails adminUserDetails) {
-            return adminUserDetails.getId();
-        }
-        return null;
-    }
 }

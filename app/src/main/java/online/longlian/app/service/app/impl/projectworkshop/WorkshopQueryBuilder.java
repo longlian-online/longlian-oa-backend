@@ -26,7 +26,8 @@ public class WorkshopQueryBuilder {
             String keyword, Long typeId, Boolean isMyCreated, Long userId) {
         LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<Project>()
                 .in(Project::getId, projectIds)
-                .eq(Project::getOrgId, orgId);
+                .eq(Project::getOrgId, orgId)
+                .eq(Project::getResourceStatus, Status.ENABLED);
         if (StringUtils.hasText(keyword)) {
             wrapper.like(Project::getTitle, keyword.trim());
         }

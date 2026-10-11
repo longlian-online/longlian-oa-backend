@@ -9,8 +9,9 @@ import online.longlian.common.annotation.ModelEnum;
 @ModelEnum(model = "resource", field = "process_status")
 public enum FileProcessStatus implements CodeEnum {
     Pending(0, "待上传"),
-    Activated(1, "处理中"),
-    Deprecated(2, "已废弃");
+    Activated(1, "已激活"),
+    Deprecated(2, "已废弃"),
+    Uploaded(3, "已上传待绑定");
 
     private final Integer code;
     private final String desc;

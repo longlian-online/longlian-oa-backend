@@ -8,6 +8,7 @@ import java.util.List;
 
 public class SecurityConstants {
     private static final List<RequestMatcher> PERMIT_ALL_MATCHERS = List.of(
+            new AntPathRequestMatcher("/common/system/info", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/admin/session", HttpMethod.POST.name()),
@@ -20,7 +21,9 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/swagger-ui/**"),
             new AntPathRequestMatcher("/v3/api-docs/**"),
             new AntPathRequestMatcher("/swagger-resources/**"),
+            // 使用带有效期的 HMAC 签名授权读取，确保浏览器图片请求也能安全访问。
             new AntPathRequestMatcher("/common/file/local", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/common/file/local", HttpMethod.PUT.name()),
             new AntPathRequestMatcher("/error")
     );
 

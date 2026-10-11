@@ -16,6 +16,6 @@ public class CommonConfig {
 
     @Bean
     public Clock clock() {
-        return Clock.systemDefaultZone();
+        return Clock.system(java.time.ZoneId.of("Asia/Shanghai"));
     }
 }

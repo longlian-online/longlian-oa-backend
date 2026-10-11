@@ -6,6 +6,7 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.api.util.DatabaseCleanupUtil;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
@@ -18,6 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
@@ -33,6 +35,12 @@ import static org.hamcrest.Matchers.equalTo;
 @Slf4j
 public abstract class BaseApiTest {
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
+
+    protected LocalDateTime testNow() {
+        return LocalDateTime.now(BUSINESS_ZONE);
+    }
+
     @LocalServerPort
     protected int port;
 
@@ -44,6 +52,12 @@ public abstract class BaseApiTest {
 
     @Autowired
     protected PasswordEncoder passwordEncoder;
+
+    private Long requestOrgId;
+
+    protected void useRequestOrg(long orgId) {
+        this.requestOrgId = orgId;
+    }
 
     @BeforeAll
     void baseBeforeAll() {
@@ -72,6 +86,7 @@ public abstract class BaseApiTest {
 
     @BeforeEach
     void baseSetUp() {
+        requestOrgId = null;
         try {
             RestAssured.port = port;
             RestAssured.baseURI = "http://localhost";
@@ -171,6 +186,7 @@ public abstract class BaseApiTest {
         createTestUser(userId, username, password, email);
         jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", orgId, userId);
         createOrganizationMember(orgMemberId, orgId, userId, orgRole);
+        useRequestOrg(orgId);
     }
 
     /**
@@ -181,12 +197,25 @@ public abstract class BaseApiTest {
     }
 
     /**
-     * 创建带 Bearer Token 认证头的请求规范
+     * 只带登录令牌，不声明组织。用户级接口用这个。
+     */
+    protected RequestSpecification userRequest(String token) {
+        return request().header("Authorization", "Bearer " + token);
+    }
+
+    /**
+     * 带登录令牌；若当前用例通过 {@link #useRequestOrg(long)} 指定了组织，则附带 X-Org-Id。
      */
     protected RequestSpecification authRequest(String token) {
-        return given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token);
+        RequestSpecification spec = userRequest(token);
+        if (requestOrgId != null) {
+            spec.header(OrganizationScopeInterceptor.ORG_ID_HEADER, Long.toString(requestOrgId));
+        }
+        return spec;
+    }
+
+    protected RequestSpecification authRequest(String token, long orgId) {
+        return userRequest(token).header(OrganizationScopeInterceptor.ORG_ID_HEADER, Long.toString(orgId));
     }
 
     protected String createRootAdmin() {
@@ -197,7 +226,7 @@ public abstract class BaseApiTest {
 
     protected String createNormalAdmin() {
         long id = System.currentTimeMillis();
-        createAdmin(id, "admin_" + id, "123456", "ADMIN");
+        createAdmin(id, "admin_" + id, "123456", "normal");
         return adminLoginAs("admin_" + id, "123456");
     }
 
@@ -230,7 +259,7 @@ public abstract class BaseApiTest {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
-                otpId, code, LocalDateTime.now().plusMinutes(30), 3, creatorId
+                otpId, code, testNow().plusMinutes(30), 3, creatorId
         );
         jdbcTemplate.update(
                 "INSERT INTO `email_verify_otp` (id, otp_id, receiver, business_type, send_status) VALUES (?, ?, ?, ?, ?)",
@@ -245,7 +274,7 @@ public abstract class BaseApiTest {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
-                otpId, code, LocalDateTime.now().plusMinutes(30), 2
+                otpId, code, testNow().plusMinutes(30), 2
         );
         jdbcTemplate.update(
                 "INSERT INTO `organization_join_otp` (id, otp_id, org_id) VALUES (?, ?, ?)",
@@ -260,7 +289,7 @@ public abstract class BaseApiTest {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
                 "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
-                otpId, code, LocalDateTime.now().plusMinutes(30), 1
+                otpId, code, testNow().plusMinutes(30), 1
         );
         jdbcTemplate.update(
                 "INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)",

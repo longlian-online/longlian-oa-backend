@@ -12,6 +12,7 @@ import org.apache.ibatis.annotations.Mapper;
  * @author longlian
  * @since 2026-02-04
  */
+@Deprecated(since = "2026-09", forRemoval = false)
 @Mapper
 public interface RoleMapper extends BaseMapper<Role> {
 

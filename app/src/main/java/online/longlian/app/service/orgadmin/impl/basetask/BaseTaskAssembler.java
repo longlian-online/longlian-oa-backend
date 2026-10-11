@@ -6,7 +6,7 @@ import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
-import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.service.common.TaskFormService;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -19,25 +19,14 @@ import java.util.stream.Collectors;
 public class BaseTaskAssembler {
 
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
-    private final ResourceService resourceService;
+    private final TaskFormService taskFormService;
 
     public List<BaseTaskListResultBO> assembleBaseTaskList(List<BaseTask> tasks) {
         if (tasks.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Map<Long, String> iconUrlMap;
-        List<Long> iconFileIds = tasks.stream()
-                .map(BaseTask::getIconFileId)
-                .filter(fileId -> fileId != null && fileId > 0)
-                .distinct()
-                .toList();
-        if (iconFileIds.isEmpty()) {
-            iconUrlMap = Collections.emptyMap();
-        } else {
-            iconUrlMap = resourceService.getResourceReadUrls(iconFileIds).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getUrl()));
-        }
+
 
         List<Long> baseTaskIds = tasks.stream().map(BaseTask::getId).toList();
         List<TaskTemplateNode> nodes = taskTemplateNodeMapper.selectList(
@@ -53,8 +42,8 @@ public class BaseTaskAssembler {
                         .id(task.getId())
                         .name(task.getName())
                         .description(task.getDescription())
-                        .iconUrl(task.getIconFileId() != null ? iconUrlMap.get(task.getIconFileId()) : null)
-                        .metaSchema(task.getMetaSchema())
+                        .icon(task.getIcon())
+                        .submitFields(taskFormService.parseFields(task.getMetaSchema()))
                         .refCount(refCountMap.getOrDefault(task.getId(), 0L).intValue())
                         .status(task.getStatus())
                         .createdAt(task.getCreatedAt())

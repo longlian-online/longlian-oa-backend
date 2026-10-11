@@ -4,11 +4,13 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class OrgAdminOrganizationApiTest extends BaseApiTest {
@@ -21,6 +23,9 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldGetOrganizationInfoSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -30,7 +35,8 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.id", notNullValue())
-                .body("data.name", notNullValue());
+                .body("data.name", notNullValue())
+                .body("data.avatarFileId", equalTo("12345"));
     }
 
     /**
@@ -39,7 +45,12 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     @Test
     void shouldUpdateOrganizationInfoSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
         createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 12345L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 1 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 1");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -53,6 +64,12 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 1", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     @Test
@@ -66,7 +83,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 99L, 2L, 1, "avatar/99.png", "avatar.png", "png", 1L, "avatar", 2L, 1, 2L
         );
 
-        Response response = authRequest(token)
+        Response response = authRequest(token, 1L)
                 .body(Map.of(
                         "name", "组织一",
                         "description", "组织描述",
@@ -189,11 +206,14 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
     }
 
     /**
-     * 更新组织信息时avatarFileId为空应失败
+     * 更新组织信息时不传 avatarFileId 应保留原头像
      */
     @Test
-    void shouldFailUpdateOrganizationInfoWithNullAvatarFileId() {
+    void shouldPreserveAvatarWhenUpdateOmitsAvatarFileId() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
@@ -205,25 +225,86 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT avatar_file_id FROM organization WHERE id = 1", Long.class)).isEqualTo(12345L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
+     * avatarFileId 为 0 时应清空组织头像
+     */
+    @Test
+    void shouldClearAvatarWithZeroAvatarFileId() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(12345L, 1L, 1L);
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12345 WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 12345");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of(
+                        "name", "组织名",
+                        "avatarFileId", 0,
+                        "description", "描述"
+                ))
+                .put("/orgadmin/organizations")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT avatar_file_id FROM organization WHERE id = 1", Long.class)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+    }
+
+    /**
+     * avatarFileId 为负数时应校验失败
+     */
+    @Test
+    void shouldFailUpdateOrganizationInfoWithNegativeAvatarFileId() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body(Map.of(
+                        "name", "组织名",
+                        "avatarFileId", -1,
+                        "description", "描述"
+                ))
+                .put("/orgadmin/organizations")
+                .then()
+                .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     // ========== 业务规则失败 ==========
 
     /**
-     * 无组织用户获取组织信息应失败
-     * 注：用户端登录需要组织关联，因此此场景通过直接调用接口验证
+     * 没有组织的用户可以登录，但未声明组织时不能读取组织信息。
      */
     @Test
     void shouldFailGetOrganizationInfoWithoutOrganization() {
         createTestUser(1L, "user_no_org", "123456", "user@example.com");
 
-        Response response = given()
-                .contentType(ContentType.JSON)
+        Response login = request()
                 .body(Map.of("username", "user_no_org", "password", "123456"))
                 .post("/app/session/pwd");
 
-        response.then()
+        login.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.defaultOrgId", nullValue())
+                .body("data.role", nullValue())
+                .body("data.token", notNullValue());
+
+        userRequest(login.jsonPath().getString("data.token"))
+                .get("/orgadmin/organizations")
+                .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
@@ -264,7 +345,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailGetOrganizationInfoWithoutAdminRole() {
-        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "MEMBER");
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("regular", "123456");
 
         Response response = authRequest(token)

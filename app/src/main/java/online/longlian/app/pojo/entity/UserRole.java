@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @TableName("user_role")
 @ApiModel(value = "UserRole对象", description = "用户角色关联表")
+@Deprecated(since = "2026-09", forRemoval = false)
 public class UserRole implements Serializable {
 
     private static final long serialVersionUID = 1L;

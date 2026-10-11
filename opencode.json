@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "custom/default",
+  "small_model": "custom/default",
+  "provider": {
+    "custom": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Custom OpenAI-Compatible Provider",
+      "options": {
+        "baseURL": "{env:OPENCODE_BASE_URL}",
+        "apiKey": "{env:OPENCODE_API_KEY}"
+      },
+      "models": {
+        "default": {
+          "id": "{env:OPENCODE_DEFAULT_MODEL_ID}",
+          "name": "Default Model"
+        }
+      }
+    }
+  }
+}

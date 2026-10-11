@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.ProjectStatus;
+import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
 
@@ -18,6 +19,7 @@ public class ProjectAdminListResultBO {
     private Long typeId;
     private String typeName;
     private ProjectStatus status;
+    private Status resourceStatus;
     private Long creatorId;
     private String creatorNickname;
     private LocalDateTime createdAt;

@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import java.util.List;
 
 @Data
 @Builder
@@ -16,8 +18,8 @@ public class BaseTaskListResultBO {
     private Long id;
     private String name;
     private String description;
-    private String iconUrl;
-    private String metaSchema;
+    private String icon;
+    private List<TaskFormField> submitFields;
     private Integer refCount;
     private Status status;
     private LocalDateTime createdAt;

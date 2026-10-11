@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.common.result.Result;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeChangeStatusParamsBO;
@@ -44,7 +44,7 @@ public class ProjectTypeController {
     @GetMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectTypeAdminVO> listProjectTypes(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @ModelAttribute @Valid ProjectTypeListDTO projectTypeListDTO) {
         PageResultBO<ProjectTypeListResultBO> resultBO = projectTypeService.listProjectTypes(
                 ProjectTypeListParamsBO.builder()
@@ -67,31 +67,33 @@ public class ProjectTypeController {
     @Operation(summary = "创建企划类型")
     @PostMapping("")
     @ResponseMessage("创建成功")
-    public void createProjectType(@UserSession(required = true) SessionContext sessionContext,
+    public void createProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                    @RequestBody @Valid ProjectTypeCreateDTO projectTypeCreateDTO) {
         projectTypeService.createProjectType(
                 ProjectTypeCreateParamsBO.builder()
                         .orgId(sessionContext.orgId())
                         .creatorId(sessionContext.userId())
                         .name(projectTypeCreateDTO.getName().trim())
+                        .priority(projectTypeCreateDTO.getPriority() == null ? 0 : projectTypeCreateDTO.getPriority())
                         .build()
         );
     }
 
-    @Operation(summary = "修改企划类型名称")
+    @Operation(summary = "修改企划类型名称与优先级")
     @PutMapping("/{typeId}")
     @ResponseMessage("修改成功")
-    public void updateProjectType(@UserSession(required = true) SessionContext sessionContext,
+    public void updateProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                   @PathVariable Long typeId,
                                   @RequestBody @Valid ProjectTypeUpdateDTO projectTypeUpdateDTO) {
         projectTypeService.updateProjectType(ProjectTypeUpdateParamsBO.builder()
-                .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim()).build());
+                .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim())
+                .priority(projectTypeUpdateDTO.getPriority()).build());
     }
 
     @Operation(summary = "删除企划类型", description = "仅允许删除未被企划引用的类型")
     @DeleteMapping("/{typeId}")
     @ResponseMessage("删除成功")
-    public void deleteProjectType(@UserSession(required = true) SessionContext sessionContext,
+    public void deleteProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                   @PathVariable Long typeId) {
         projectTypeService.deleteProjectType(ProjectTypeDeleteParamsBO.builder()
                 .typeId(typeId)
@@ -101,7 +103,8 @@ public class ProjectTypeController {
 
     @Operation(summary = "启用/禁用企划类型", description = "禁用后用户端不展示该类型，但已有数据保留。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{typeId}/status")
-    public Result<Void> changeProjectTypeStatus(@UserSession(required = true) SessionContext sessionContext,
+    @ResponseMessage("状态修改成功")
+    public void changeProjectTypeStatus(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                  @PathVariable Long typeId,
                                                  @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         projectTypeService.changeProjectTypeStatus(
@@ -111,6 +114,5 @@ public class ProjectTypeController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
-        return Result.success(null);
     }
 }

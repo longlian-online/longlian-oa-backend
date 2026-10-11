@@ -10,13 +10,12 @@
             "request": "launch",
             "mainClass": "${file}"
         },
-        // 主程序
+        // 主程序。启动前复制 application.yml.example 为 application.yml
         {
             "type": "java",
             "name": "AppApplication",
             "request": "launch",
             "mainClass": "online.longlian.app.AppApplication",
-            "envFile": "${workspaceFolder}/.env",
             "projectName": "app"
         },
         // 附加 otel agent
@@ -26,16 +25,16 @@
             "request": "launch",
             "mainClass": "online.longlian.app.AppApplication",
             "projectName": "app",
-            "envFile": "${workspaceFolder}/.env",
             "vmArgs": "-javaagent:opentelemetry-javaagent.jar"
         },
-        // 代码生成
+        // 代码生成。从仓库根目录读取 app/src/main/resources/application.yml
         {
             "type": "java",
             "name": "CodeGenerator",
             "request": "launch",
             "mainClass": "online.longlian.generator.CodeGenerator",
-            "projectName": "generator"
+            "projectName": "generator",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

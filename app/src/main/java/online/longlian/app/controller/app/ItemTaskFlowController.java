@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.service.app.ItemTaskFlowService;
@@ -27,7 +28,7 @@ public class ItemTaskFlowController {
     )
     @GetMapping("/{itemId}/flow")
     @ResponseMessage("查询成功")
-    public ItemTaskFlowVO getItemTaskFlow(@UserSession SessionContext sessionContext,
+    public ItemTaskFlowVO getItemTaskFlow(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                            @PathVariable Long itemId) {
         return itemTaskFlowService.getItemTaskFlow(itemId, sessionContext.orgId());
     }

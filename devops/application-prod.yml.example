@@ -1,0 +1,130 @@
+# =============================================================================
+# longlian-oa 生产环境配置模板
+#
+# 使用方法：
+#   cp devops/application-prod.yml.example devops/application-prod.yml
+#   按外部 MariaDB / Redis / 邮件 / 存储填写真实值。
+#
+# 重要：
+#   - application-prod.yml 已被 gitignore，禁止提交
+#   - compose 把它挂到应用和迁移容器的 /app/config/application.yml
+#   - MariaDB、Redis、邮件不由 compose 启动，必须指向已有外部实例
+#   - 迁移从下方 spring.datasource 推导连接，不必再配 DB_URL
+#   - 会在同一实例自动创建 `{数据库名}_atlas` 空库作暂存；
+#     账号没有 CREATE DATABASE 时需预先建好，或设 DEV_DB_URL
+# =============================================================================
+
+server:
+  shutdown: graceful
+
+longlian:
+  display-name: "longlian-oa"
+  # 对外部署地址；部署时替换为当前环境域名。
+  server-url: https://api.example.com
+  datasource:
+    type: mariadb
+  cache:
+    type: redis
+
+spring:
+  application:
+    name: longlian-oa
+  profiles:
+    active: prod
+  main:
+    # 现有部分 Bean 存在环依赖，关闭会导致启动失败
+    allow-circular-references: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: jdbc:mariadb://mariadb.example.com:3306/longlian_oa?sslMode=verify-full&timezone=+08:00
+    username: user
+    password: pass
+
+  data:
+    redis:
+      host: redis.example.com
+      port: 6379
+      password: ""
+      database: 1
+  mail:
+    host: ""
+    username: ""
+    password: ""
+    # 465 配 ssl.enable=true；587 配 starttls.enable=true
+    port: 465
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: false
+          ssl:
+            enable: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deletedAt
+      logic-delete-value: now()
+      logic-not-delete-value: 'null'
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+    default-enum-type-handler: online.longlian.app.common.handler.CodeEnumTypeHandler
+
+debug: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    enabled: true
+  api-docs:
+    enabled: true
+
+storage:
+  # LOCAL | OSS | COS
+  type: LOCAL
+  # 存储服务生成的预签名 URL 有效期（秒）
+  presigned-url-ttl-seconds: 300
+  # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
+  cdn:
+    enabled: false
+    url-prefix: ""
+    auth-key: ""
+    # 与 EdgeOne Type D 控制台有效期必须一致。
+    auth-ttl-seconds: 300
+    # 同一 URL 在鉴权期内的复用比例；必须介于 1 和 99 之间。
+    url-reuse-percent: 80
+  local:
+    signing-secret: ${jwt.secret}
+    directory: /app/data/storage
+  oss:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+    base-url: ""
+  cos:
+    bucket: ""
+    region: ""
+    secret-id: ""
+    secret-key: ""
+
+cors:
+  allowed-origins: https://oa.longlian.online
+
+notify:
+  type: EMAIL
+  email:
+    template:
+      path: classpath:templates/verify-code.html
+
+jwt:
+  # HS256 至少 32 字节。生产必须换成高强度随机串
+  secret: change-me-to-a-long-random-secret-at-least-32-bytes
+  expiration: 86400
+  header: Authorization
+  prefix: Bearer

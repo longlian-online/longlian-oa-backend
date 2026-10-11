@@ -1,11 +1,14 @@
 package online.longlian.app.controller.admin;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -14,7 +17,6 @@ import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
-import online.longlian.app.service.admin.AdminSessionService;
 import online.longlian.app.service.admin.OrganizationService;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +30,7 @@ import java.util.List;
 public class AdminOrganizationController {
 
     private final OrganizationService organizationService;
-    private final AdminSessionService sessionService;
+    private final CurrentUserContext currentUserContext;
 
     @Operation(summary = "分页查询组织列表")
     @GetMapping("/")
@@ -62,11 +64,12 @@ public class AdminOrganizationController {
             summary = "生成邀请码（超管）",
             description = "生成一次性邀请码，有效期30分钟；供超管邀请新用户注册并创建组织使用"
     )
+    @PreAuthorize("hasRole('root')")
     @PostMapping("/invite-codes/create-org")
     @ResponseMessage("生成成功")
     public InviteCodeVO generateCreateOrgInviteCode() {
         AdminGenerateInviteCodeResultBO resultBO = organizationService.generateCreateOrgInviteCode(
-                new AdminGenerateCreateOrgInviteCodeParamsBO(sessionService.getCurrentAdminId())
+                new AdminGenerateCreateOrgInviteCodeParamsBO(currentUserContext.getAdminId())
         );
         return InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())
@@ -75,10 +78,11 @@ public class AdminOrganizationController {
     }
 
     @Operation(summary = "操作组织状态", description = "启用或禁用指定组织。status: ENABLED-启用，DISABLED-禁用")
+    @PreAuthorize("hasRole('root')")
     @PatchMapping("/{orgId}/status")
     @ResponseMessage("ok")
     public void changeOrgStatus(@PathVariable Long orgId, @RequestBody @Valid ChangeStatusDTO dto) {
-        AdminOrganizationUpdateStatusParamsBO bo = new AdminOrganizationUpdateStatusParamsBO(orgId, dto.getStatus());
+        AdminOrganizationUpdateStatusParamsBO bo = new AdminOrganizationUpdateStatusParamsBO(orgId, dto.getStatus(), currentUserContext.getAdminId());
         organizationService.updateOrgStatus(bo);
     }
 }

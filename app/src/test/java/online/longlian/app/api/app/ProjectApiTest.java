@@ -3,10 +3,12 @@ package online.longlian.app.api.app;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class ProjectApiTest extends BaseApiTest {
@@ -50,7 +52,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -137,7 +139,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -182,12 +184,14 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
-     * 创建企划成功
+     * 创建企划成功，并默认加入创建者工坊
      */
     @Test
     void shouldCreateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 1L);
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -201,7 +205,7 @@ public class ProjectApiTest extends BaseApiTest {
                         "title", "测试企划",
                         "alias", "alias",
                         "typeId", "1",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "测试描述",
                         "coverFileId", "1"
                 ))
@@ -210,7 +214,30 @@ public class ProjectApiTest extends BaseApiTest {
         response
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM `project` WHERE title = ? AND creator_id = ?",
+                Long.class, "测试企划", 1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project_workshop` WHERE project_id = ? AND user_id = ?",
+                Long.class, projectId, 1L)).isEqualTo(1L);
+
+        authRequest(token)
+                .get("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.inWorkshop", equalTo(true));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].title", equalTo("测试企划"));
     }
 
     /**
@@ -219,7 +246,12 @@ public class ProjectApiTest extends BaseApiTest {
     @Test
     void shouldUpdateProjectSuccessfully() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
         createResource(2L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/2.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 2L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1, process_status = ? WHERE id = 1",
+                FileProcessStatus.Activated.getCode());
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
@@ -231,14 +263,14 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
                 .body(Map.of(
                         "title", "更新后的企划",
                         "alias", "new_alias",
-                        "metadata", "{\"key\":\"value\"}",
+                        "metadata", "{\"tags\":[{\"key\":\"key\",\"value\":\"value\"}]}",
                         "description", "更新后的描述",
                         "coverFileId", "2"
                 ))
@@ -248,6 +280,51 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 1", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 2", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
+     * 编辑时未提交封面 ID，应更新文字字段并保留原封面资源。
+     */
+    @Test
+    void shouldUpdateProjectWithoutCoverFileIdAndKeepExistingCover() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1, process_status = ? WHERE id = 1",
+                FileProcessStatus.Activated.getCode());
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "更新后的企划",
+                        "alias", "new_alias",
+                        "metadata", "{\"tags\":[{\"key\":\"key\",\"value\":\"value\"}]}",
+                        "description", "更新后的描述"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("更新后的企划");
+        assertThat(jdbcTemplate.queryForObject("SELECT cover_file_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 1", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     /**
@@ -267,7 +344,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -280,10 +357,48 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
-     * 从工坊移除企划成功
+     * 非负责人可以从工坊移除企划
      */
     @Test
     void shouldRemoveProjectFromWorkshopSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("member", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
+        );
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_workshop` (id, project_id, user_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+                1L, 1L, 2L
+        );
+
+        authRequest(token)
+                .delete("/app/projects/1/workshop")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project_workshop` WHERE id = 1 AND deleted_at IS NOT NULL",
+                Integer.class)).isEqualTo(1);
+    }
+
+    /**
+     * 企划负责人不能退出自己的企划
+     */
+    @Test
+    void shouldRejectCreatorRemovingProjectFromWorkshop() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -296,7 +411,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -304,13 +419,14 @@ public class ProjectApiTest extends BaseApiTest {
                 1L, 1L, 1L
         );
 
-        Response response = authRequest(token)
-                .delete("/app/projects/1/workshop");
-
-        response
+        authRequest(token)
+                .delete("/app/projects/1/workshop")
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project_workshop` WHERE id = 1 AND deleted_at IS NULL",
+                Integer.class)).isEqualTo(1);
     }
 
     // ========== 认证失败 ==========
@@ -462,7 +578,7 @@ public class ProjectApiTest extends BaseApiTest {
                         "title", "企划",
                         "alias", "",
                         "typeId", "1",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "描述",
                         "coverFileId", "1"
                 ))
@@ -512,6 +628,80 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 获取已禁用企划详情应失败
+     */
+    @Test
+    void shouldFailGetDisabledProjectDetail() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "禁用企划", 1, 0, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
+     * 已禁用企划不能继续从用户端更新
+     */
+    @Test
+    void shouldFailUpdateDisabledProject() {
+        String token = createDisabledProjectAndLogin();
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "更新后的企划",
+                        "alias", "new_alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "描述",
+                        "coverFileId", "1"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
+     * 已禁用企划不能继续加入用户工坊
+     */
+    @Test
+    void shouldFailAddDisabledProjectToWorkshop() {
+        String token = createDisabledProjectAndLogin();
+
+        authRequest(token)
+                .post("/app/projects/1/workshop")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    /**
+     * 已禁用企划不能继续从用户工坊移除
+     */
+    @Test
+    void shouldFailRemoveDisabledProjectFromWorkshop() {
+        String token = createDisabledProjectAndLogin();
+        jdbcTemplate.update(
+                "INSERT INTO project_workshop (id, project_id, user_id) VALUES (?, ?, ?)",
+                1L, 1L, 1L);
+
+        authRequest(token)
+                .delete("/app/projects/1/workshop")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM project_workshop WHERE id = 1 AND deleted_at IS NULL", Integer.class))
+                .isEqualTo(1);
+    }
+
+    /**
      * 更新不存在的企划应失败
      */
     @Test
@@ -523,7 +713,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .body(Map.of(
                         "title", "更新后的企划",
                         "alias", "new_alias",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "描述",
                         "coverFileId", "1"
                 ))
@@ -595,4 +785,14 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("data.list", hasSize(0))
                 .body("data.total", equalTo(0));
     }
+
+    private String createDisabledProjectAndLogin() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "禁用企划", 1, 0, 1L);
+        return loginAs("orgadmin", "123456");
+    }
+
 }

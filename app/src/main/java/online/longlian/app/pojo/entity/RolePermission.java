@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @TableName("role_permission")
 @ApiModel(value = "RolePermission对象", description = "角色权限关联表")
+@Deprecated(since = "2026-09", forRemoval = false)
 public class RolePermission implements Serializable {
 
     private static final long serialVersionUID = 1L;

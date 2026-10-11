@@ -2,8 +2,8 @@ package online.longlian.app.service.resource;
 
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
+import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.common.enumeration.StorageType;
-import org.springframework.core.io.Resource;
 
 import java.util.List;
 import java.util.Map;
@@ -34,10 +34,10 @@ public interface StorageService {
     PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params);
 
     /**
-     * 获取单个文件的访问 URL。
+     * 获取单个文件的读取 URL。
      *
      * @param key 文件存储 key
-     * @return 可公开访问的文件 URL
+     * @return 按存储策略生成的可访问 URL；私有存储返回短时授权链接
      */
     String getResourceReadUrl(String key);
 
@@ -49,11 +49,16 @@ public interface StorageService {
      */
     Map<String, String> getResourceReadUrls(List<String> keys);
 
-    default void upload(String key, byte[] content) {
-        throw new UnsupportedOperationException("当前存储不支持服务端上传");
-    }
+    /**
+     * 确认文件已由存储后端完整保存。
+     */
+    void probe(ResourceProbeParamsBO params);
 
-    default Resource getResource(String key) {
-        throw new UnsupportedOperationException("当前存储不支持本地文件读取");
-    }
+    /**
+     * 删除精确存储 key 对应的实际文件或对象。
+     *
+     * @param key 文件存储 key
+     */
+    void delete(String key);
+
 }
