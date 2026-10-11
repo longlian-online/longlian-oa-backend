@@ -86,14 +86,6 @@ longlian-oa-backend/
 
 Controller 业务方法返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 统一包装为 `Result<T>`；通过 `@ResponseMessage` 指定成功提示，文件下载等原始响应使用 `@NotWrap`。HTTP JSON 统一使用 Fastjson2 Spring 6 消息转换器，避免 Fastjson2 与 Jackson 在同一响应链路中并存。
 
-### 企划类型优先级
-
-- `project_type.priority` 为整数，数据库默认值为 `0`；已有类型在结构同步后默认 `0`。
-- `POST /orgadmin/project-types` 支持 `priority`，省略或 `null` 时使用 `0`；`PUT /orgadmin/project-types/{typeId}` 支持修改优先级，省略或 `null` 时保留原值，显式 `0` 可重置。
-- 管理端类型列表返回 `priority`，仍按原有创建时间规则排序。
-- 仅 `GET /app/projects/types` 使用优先级降序，同优先级按 ID 升序；组织、启用状态与软删除过滤保持不变，其他企划/工坊列表排序不变。
-- 部署时先通过 `db/migrate.sh` 同步 `db/schema.sql`，再部署后端；前端类型管理表单依赖管理列表返回的 `priority`。
-
 ---
 
 ## 关键基础设施
