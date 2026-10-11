@@ -211,7 +211,9 @@ CREATE TABLE `project` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_org_type` (`org_id`, `type_id`)
+  INDEX `idx_org_type` (`org_id`, `type_id`),
+  FULLTEXT INDEX `ft_project_title` (`title`),
+  FULLTEXT INDEX `ft_project_alias` (`alias`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划表";
 -- Create "project_type" table
 CREATE TABLE `project_type` (

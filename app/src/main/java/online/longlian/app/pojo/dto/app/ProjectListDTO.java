@@ -14,7 +14,7 @@ import online.longlian.app.pojo.dto.common.PageRequestDTO;
 public class ProjectListDTO extends PageRequestDTO {
 
     @Size(max = 50, message = "搜索关键词长度不能超过50")
-    @Schema(description = "搜索关键词（标题）")
+    @Schema(description = "搜索关键词（标题、别名、元数据），按加权相关性优先排序")
     private String keyword;
 
     @Size(max = 20, message = "企划类型名称长度不能超过20")

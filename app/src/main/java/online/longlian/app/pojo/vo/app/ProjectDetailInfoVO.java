@@ -26,7 +26,7 @@ public class ProjectDetailInfoVO {
     @Schema(description = "企划类型名称")
     private String typeName;
 
-    @Schema(description = "扩展信息(JSON字符串)")
+    @Schema(description = "扩展信息(JSON对象字符串，包含 tags 数组，每项仅含 key、value)")
     private String metadata;
 
     @Schema(description = "企划简介")
