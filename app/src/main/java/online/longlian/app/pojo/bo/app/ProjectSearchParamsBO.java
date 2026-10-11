@@ -13,8 +13,7 @@ public class ProjectSearchParamsBO {
     private Long orgId;
     private Long typeId;
     private String keyword;
-    private String likePattern;
-    private List<String> metadataPatterns;
+    private List<String> matchPatterns;
     private SortByTime sortByTime;
     private SortDirection orderDir;
 }

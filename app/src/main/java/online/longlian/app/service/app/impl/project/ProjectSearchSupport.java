@@ -3,6 +3,7 @@ package online.longlian.app.service.app.impl.project;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
 
@@ -34,8 +35,7 @@ public final class ProjectSearchSupport {
                 .orgId(params.getOrgId())
                 .typeId(typeId)
                 .keyword(keyword)
-                .likePattern(likePattern(keyword))
-                .metadataPatterns(terms.stream().map(ProjectSearchSupport::likePattern).toList())
+                .matchPatterns(terms.stream().map(ProjectSearchSupport::likePattern).toList())
                 .sortByTime(params.getSortByTime())
                 .orderDir(params.getOrderDir())
                 .build();
@@ -58,12 +58,12 @@ public final class ProjectSearchSupport {
                 Map.Entry<String, Object> entry = entries.get(index);
                 ordered.put(entry.getKey(), entry.getValue());
             });
-            return JSON.toJSONString(ordered);
+            return JSON.toJSONString(ordered, JSONWriter.Feature.WriteNulls);
         }
         if (parsed instanceof JSONArray array) {
             JSONArray ordered = new JSONArray();
             orderedIndices(array.size(), paths).forEach(index -> ordered.add(array.get(index)));
-            return JSON.toJSONString(ordered);
+            return JSON.toJSONString(ordered, JSONWriter.Feature.WriteNulls);
         }
         return metadata;
     }

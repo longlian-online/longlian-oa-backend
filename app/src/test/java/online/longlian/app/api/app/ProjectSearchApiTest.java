@@ -114,6 +114,40 @@ class ProjectSearchApiTest extends BaseApiTest {
         assertThat(metadata.getJSONObject(2).getString("label")).isEqualTo("语言");
     }
 
+    /** 搜索重排对象时，根字段和嵌套字段的显式 null 必须保留。 */
+    @Test
+    void shouldPreserveNullFieldsWhenReorderingObjectMetadata() {
+        String original = "{\"author\":null,\"series\":\"星海\",\"publication\":{\"year\":null}}";
+        createProject(1, "普通企划", "ordinary", original);
+
+        Response response = search("星海");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1));
+        var metadata = JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"));
+        assertThat(metadata.keySet()).containsExactly("series", "author", "publication");
+        assertThat(metadata).containsEntry("author", null);
+        assertThat(metadata.getJSONObject("publication")).containsEntry("year", null);
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
+                .isEqualTo(original);
+    }
+
+    /** 数组内命中和未命中的对象字段及数组 null 元素均应保留。 */
+    @Test
+    void shouldPreserveNullFieldsWhenReorderingArrayMetadata() {
+        String original = "[{\"author\":null},{\"value\":\"星海\",\"optional\":null},null]";
+        createProject(1, "普通企划", "ordinary", original);
+
+        Response response = search("星海");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1));
+        var metadata = JSON.parseArray(response.jsonPath().getString("data.list[0].metadata"));
+        assertThat(metadata.getJSONObject(0)).containsEntry("value", "星海").containsEntry("optional", null);
+        assertThat(metadata.getJSONObject(1)).containsEntry("author", null);
+        assertThat(metadata.get(2)).isNull();
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
+                .isEqualTo(original);
+    }
+
     /** 嵌套数字值可以被搜索，所属顶层元数据前置。 */
     @Test
     void shouldSearchNestedNumericMetadataAndMoveItsParentFirst() {
@@ -174,6 +208,22 @@ class ProjectSearchApiTest extends BaseApiTest {
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1));
         assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata")).keySet())
+                .containsExactly("series", "author");
+    }
+
+    /** 相同内容放在标题、别名或元数据时，多词子串召回一致且按字段权重排序。 */
+    @Test
+    void shouldApplySameMultiwordSubstringRulesToAllSearchFields() {
+        createProject(1, "foobar", "ordinary", "{}");
+        createProject(2, "普通企划", "foobar", "{}");
+        createProject(3, "普通企划", "ordinary", "{\"author\":\"山田\",\"series\":\"foobar\"}");
+        createProject(4, "无匹配企划", "unrelated", "{}");
+
+        Response response = search("foo bar");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.list.id", equalTo(List.of("1", "2", "3")));
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata")).keySet())
                 .containsExactly("series", "author");
     }
 

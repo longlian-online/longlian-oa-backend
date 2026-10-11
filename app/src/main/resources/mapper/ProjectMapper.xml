@@ -15,10 +15,18 @@
                 MATCH(p.title) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS title_score,
                 MATCH(p.alias) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS alias_score,
                 MATCH(p.metadata_search_text) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS metadata_score,
-                CASE WHEN p.title LIKE #{params.likePattern} ESCAPE '!' THEN 1 ELSE 0 END AS title_hit,
-                CASE WHEN p.alias LIKE #{params.likePattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
+                CASE WHEN
+                    <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
+                        p.title LIKE #{pattern} ESCAPE '!'
+                    </foreach>
+                THEN 1 ELSE 0 END AS title_hit,
+                CASE WHEN
+                    <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
+                        p.alias LIKE #{pattern} ESCAPE '!'
+                    </foreach>
+                THEN 1 ELSE 0 END AS alias_hit,
                 JSON_MERGE_PRESERVE('[]',
-                    <foreach collection="params.metadataPatterns" item="pattern" separator=",">
+                    <foreach collection="params.matchPatterns" item="pattern" separator=",">
                         COALESCE(JSON_SEARCH((CASE WHEN JSON_TYPE(p.metadata) IN ('OBJECT', 'ARRAY')
                             THEN NULLIF(p.metadata_search_text, '') ELSE p.metadata END) COLLATE utf8mb4_unicode_520_ci,
                             'all', #{pattern}, '!'), '[]')

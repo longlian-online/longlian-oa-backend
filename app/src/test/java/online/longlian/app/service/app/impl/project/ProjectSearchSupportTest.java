@@ -23,8 +23,7 @@ class ProjectSearchSupportTest {
         assertThat(result.getOrgId()).isEqualTo(7L);
         assertThat(result.getTypeId()).isEqualTo(9L);
         assertThat(result.getKeyword()).isEqualTo("50%_!");
-        assertThat(result.getLikePattern()).isEqualTo("%50!%!_!!%");
-        assertThat(result.getMetadataPatterns()).containsExactly("%50!%!_!!%");
+        assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!!%");
         assertThat(result.getSortByTime()).isEqualTo(SortByTime.UPDATE);
         assertThat(result.getOrderDir()).isEqualTo(SortDirection.ASC);
     }
@@ -34,10 +33,10 @@ class ProjectSearchSupportTest {
         ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
                 .orgId(1L).keyword("database performance database go").build(), null);
 
-        assertThat(result.getMetadataPatterns()).containsExactly(
+        assertThat(result.getMatchPatterns()).containsExactly(
                 "%database performance database go%", "%database%", "%performance%");
         assertThat(ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
-                .keyword("星海").build(), null).getMetadataPatterns()).containsExactly("%星海%");
+                .keyword("星海").build(), null).getMatchPatterns()).containsExactly("%星海%");
     }
 
     @Test
@@ -48,6 +47,30 @@ class ProjectSearchSupportTest {
 
         assertThat(JSON.parseObject(result).keySet()).containsExactly("series", "tag", "author", "language");
         assertThat(JSON.parseObject(result).getString("author")).isEqualTo("山田");
+    }
+
+    @Test
+    void prioritizeMetadata_preservesNullObjectFieldsIncludingNestedValues() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "{\"author\":null,\"series\":\"星海\",\"publication\":{\"year\":null}}",
+                "[\"$[1]\"]");
+
+        var object = JSON.parseObject(result);
+        assertThat(object.keySet()).containsExactly("series", "author", "publication");
+        assertThat(object).containsEntry("author", null);
+        assertThat(object.getJSONObject("publication")).containsEntry("year", null);
+    }
+
+    @Test
+    void prioritizeMetadata_preservesNullFieldsInMatchingAndNonMatchingArrayObjects() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "[{\"author\":null},{\"value\":\"星海\",\"optional\":null},null]",
+                "[\"$[1].value\"]");
+
+        var array = JSON.parseArray(result);
+        assertThat(array.getJSONObject(0)).containsEntry("value", "星海").containsEntry("optional", null);
+        assertThat(array.getJSONObject(1)).containsEntry("author", null);
+        assertThat(array.get(2)).isNull();
     }
 
     @Test
