@@ -87,6 +87,33 @@ class ProjectServiceImplTest {
         );
     }
 
+    /** 非法 metadata 不应创建项目或绑定资源。 */
+    @Test
+    void shouldRejectInvalidMetadataOnCreate() {
+        when(projectTypeMapper.selectById(10L)).thenReturn(
+                ProjectType.builder().id(10L).orgId(1L).status(Status.ENABLED).build());
+        assertThatThrownBy(() -> service.createProject(ProjectCreateParamsBO.builder()
+                .orgId(1L).typeId(10L).metadata("{\"tags\":[{\"key\":\"作者\",\"value\":1}]}").build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).insert(any(Project.class));
+        verify(resourceService, never()).bindBizResource(any());
+    }
+
+    /** 非法 metadata 不应修改现有项目或封面绑定。 */
+    @Test
+    void shouldRejectInvalidMetadataOnUpdate() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).resourceStatus(Status.ENABLED).build());
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .metadata("{\"tags\":[{\"key\":\"作者\",\"value\":\"山田\",\"extra\":true}]}").build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any(LambdaUpdateWrapper.class));
+        verify(resourceService, never()).bindBizResource(any());
+    }
+
     @Test
     void createProject_addsCreatorToWorkshop() {
         when(projectTypeMapper.selectById(10L)).thenReturn(
@@ -102,7 +129,7 @@ class ProjectServiceImplTest {
                 .title("测试企划")
                 .alias("alias")
                 .typeId(10L)
-                .metadata("{}")
+                .metadata("{\"tags\":[]}")
                 .description("描述")
                 .coverFileId(20L)
                 .build());
@@ -128,7 +155,7 @@ class ProjectServiceImplTest {
                 .title("测试企划")
                 .alias("alias")
                 .typeId(10L)
-                .metadata("{}")
+                .metadata("{\"tags\":[]}")
                 .description("描述")
                 .coverFileId(20L)
                 .build()))
@@ -167,7 +194,7 @@ class ProjectServiceImplTest {
         service.updateProject(ProjectUpdateParamsBO.builder()
                 .projectId(100L).orgId(1L).userId(2L)
                 .title("新标题").alias("new_alias")
-                .metadata("{}").description("新描述").build());
+                .metadata("{\"tags\":[]}").description("新描述").build());
 
         @SuppressWarnings("rawtypes")
         ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
@@ -187,7 +214,7 @@ class ProjectServiceImplTest {
         service.updateProject(ProjectUpdateParamsBO.builder()
                 .projectId(100L).orgId(1L).userId(2L)
                 .title("新标题").alias("new_alias")
-                .metadata("{}").description("新描述")
+                .metadata("{\"tags\":[]}").description("新描述")
                 .coverFileId(21L).build());
 
         @SuppressWarnings("rawtypes")
@@ -322,11 +349,11 @@ class ProjectServiceImplTest {
 
     @Test
     void getProjectList_searchUsesDatabasePaginationAndOnlyReordersReturnedMetadata() {
-        String original = "{\"author\":\"山田\",\"series\":\"星海\"}";
+        String original = "{\"tags\":[{\"key\":\"author\",\"value\":\"山田\"},{\"key\":\"series\",\"value\":\"星海\"}]}";
         Project project = Project.builder().id(1L).metadata(original).build();
         ProjectSearchResultBO row = new ProjectSearchResultBO();
         row.setProject(project);
-        row.setMatchedMetadataPaths("[\"$[1]\"]");
+        row.setMatchedMetadataPaths("[\"$.tags[1].value\"]");
         Page<ProjectSearchResultBO> page = new Page<>(2, 10, 12);
         page.setRecords(List.of(row));
         when(projectMapper.selectSearchPage(any(), any())).thenReturn(page);
@@ -341,8 +368,8 @@ class ProjectServiceImplTest {
         assertThat(searchCaptor.getValue().getOrgId()).isEqualTo(7L);
         assertThat(searchCaptor.getValue().getKeyword()).isEqualTo("星海");
         assertThat(result.getTotal()).isEqualTo(12);
-        assertThat(result.getList().getFirst().getMetadata()).isEqualTo(
-                "{\"series\":\"星海\",\"author\":\"山田\"}");
+        assertThat(com.alibaba.fastjson2.JSON.parseObject(result.getList().getFirst().getMetadata())
+                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
         assertThat(project.getMetadata()).isEqualTo(original);
         verify(projectMapper, never()).selectPage(any(), any());
     }
@@ -366,7 +393,7 @@ class ProjectServiceImplTest {
                 .orgId(1L).keyword("  ").orderDir(SortDirection.DESC).page(new PageParamsBO(1, 10)).build();
         LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<>();
         Page<Project> page = new Page<>(1, 10, 1);
-        Project project = Project.builder().id(1L).metadata("{ \"a\": 1 }").build();
+        Project project = Project.builder().id(1L).metadata("{ \"tags\": [] }").build();
         page.setRecords(List.of(project));
         when(projectQueryBuilder.buildListQuery(params, null)).thenReturn(wrapper);
         when(projectMapper.selectPage(any(), any())).thenReturn(page);
@@ -375,7 +402,7 @@ class ProjectServiceImplTest {
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(params);
 
-        assertThat(result.getList().getFirst().getMetadata()).isEqualTo("{ \"a\": 1 }");
+        assertThat(result.getList().getFirst().getMetadata()).isEqualTo("{ \"tags\": [] }");
         verify(projectMapper, never()).selectSearchPage(any(), any());
     }
 

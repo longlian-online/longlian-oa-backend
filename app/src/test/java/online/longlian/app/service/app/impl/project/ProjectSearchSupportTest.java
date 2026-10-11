@@ -7,7 +7,7 @@ import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,75 +56,37 @@ class ProjectSearchSupportTest {
         assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!! Go%", "%50!%!_!!%", "%Go%");
     }
 
+    /** 命中项稳定前置，重复路径不重复输出，保留顶层额外字段。 */
     @Test
-    void prioritizeMetadata_movesAllMatchingObjectEntriesStably() {
+    void shouldMoveMatchingTagsStably() {
         String result = ProjectSearchSupport.prioritizeMetadata(
-                "{\"author\":\"山田\",\"series\":\"星海\",\"language\":\"中文\",\"tag\":\"星海\"}",
-                "[\"$[3]\",\"$[1]\",\"$[1]\"]");
-
-        assertThat(JSON.parseObject(result).keySet()).containsExactly("series", "tag", "author", "language");
-        assertThat(JSON.parseObject(result).getString("author")).isEqualTo("山田");
-    }
-
-    @Test
-    void prioritizeMetadata_preservesNullObjectFieldsIncludingNestedValues() {
-        String result = ProjectSearchSupport.prioritizeMetadata(
-                "{\"author\":null,\"series\":\"星海\",\"publication\":{\"year\":null}}",
-                "[\"$[1]\"]");
-
+                "{\"note\":\"保留\",\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"系列\",\"value\":\"星海\"},{\"key\":\"语言\",\"value\":\"中文\"},{\"key\":\"系列\",\"value\":\"星海\"}]}",
+                "[\"$.tags[3].value\",\"$.tags[1].value\",\"$.tags[1].value\"]");
         var object = JSON.parseObject(result);
-        assertThat(object.keySet()).containsExactly("series", "author", "publication");
-        assertThat(object).containsEntry("author", null);
-        assertThat(object.getJSONObject("publication")).containsEntry("year", null);
+        assertThat(object.getString("note")).isEqualTo("保留");
+        assertThat(object.getJSONArray("tags").toJavaList(Map.class)).containsExactly(
+                Map.of("key", "系列", "value", "星海"),
+                Map.of("key", "系列", "value", "星海"),
+                Map.of("key", "作者", "value", "山田"),
+                Map.of("key", "语言", "value", "中文"));
     }
 
+    /** 无命中时保留原始 JSON 格式。 */
     @Test
-    void prioritizeMetadata_preservesNullFieldsInMatchingAndNonMatchingArrayObjects() {
-        String result = ProjectSearchSupport.prioritizeMetadata(
-                "[{\"author\":null},{\"value\":\"星海\",\"optional\":null},null]",
-                "[\"$[1].value\"]");
-
-        var array = JSON.parseArray(result);
-        assertThat(array.getJSONObject(0)).containsEntry("value", "星海").containsEntry("optional", null);
-        assertThat(array.getJSONObject(1)).containsEntry("author", null);
-        assertThat(array.get(2)).isNull();
-    }
-
-    @Test
-    void prioritizeMetadata_movesNestedArrayMatchesWithoutConfusingIndices() {
-        String result = ProjectSearchSupport.prioritizeMetadata(
-                "[{\"value\":\"A\"},{\"value\":\"B\"},{\"nested\":{\"year\":2025}}]",
-                "[\"$[2].nested.year\"]");
-
-        assertThat(JSON.parseArray(result).getJSONObject(0).getJSONObject("nested").getInteger("year"))
-                .isEqualTo(2025);
-        assertThat(JSON.parseArray(result).getJSONObject(1).getString("value")).isEqualTo("A");
-        assertThat(JSON.parseArray(result).getJSONObject(2).getString("value")).isEqualTo("B");
-    }
-
-    @Test
-    void prioritizeMetadata_preservesNonMatchingInputAndScalarMetadata() {
-        String original = "{ \"author\": \"山田\" }";
+    void shouldPreserveNonMatchingMetadata() {
+        String original = "{ \"tags\": [] }";
         assertThat(ProjectSearchSupport.prioritizeMetadata(original, "[]")).isEqualTo(original);
-        assertThat(ProjectSearchSupport.prioritizeMetadata(null, "[]")).isNull();
-        assertThat(ProjectSearchSupport.prioritizeMetadata("\"星海\"", "[\"$\"]")).isEqualTo("\"星海\"");
     }
 
+    /** 第十项命中不能误将第一项前置。 */
     @Test
-    void prioritizeMetadata_respectsPathBoundariesAndEscapedKeys() {
+    void shouldNotConfuseTagIndices() {
+        var original = IntStream.rangeClosed(0, 10)
+                .mapToObj(i -> Map.of("key", "tag", "value", Integer.toString(i))).toList();
         String result = ProjectSearchSupport.prioritizeMetadata(
-                "{\"abc\":\"one\",\"abcd\":\"two\",\"a\\\"b\":\"three\"}",
-                JSON.toJSONString(List.of("$[1]", "$[2]")));
-
-        assertThat(JSON.parseObject(result).keySet()).containsExactly("abcd", "a\"b", "abc");
-    }
-
-    @Test
-    void prioritizeMetadata_doesNotConfuseFirstAndTenthArrayIndices() {
-        List<Integer> original = IntStream.rangeClosed(0, 10).boxed().toList();
-
-        String result = ProjectSearchSupport.prioritizeMetadata(JSON.toJSONString(original), "[\"$[10]\"]");
-
-        assertThat(JSON.parseArray(result, Integer.class)).containsExactly(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+                JSON.toJSONString(Map.of("tags", original)), "[\"$.tags[10].value\"]");
+        assertThat(JSON.parseObject(result).getJSONArray("tags").stream()
+                .map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("value")))
+                .containsExactly("10", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
     }
 }

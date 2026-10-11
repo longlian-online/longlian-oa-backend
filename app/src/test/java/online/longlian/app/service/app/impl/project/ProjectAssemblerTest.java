@@ -66,7 +66,7 @@ class ProjectAssemblerTest {
                 .creatorId(10L)
                 .coverFileId(200L)
                 .status(ProjectStatus.IN_PROGRESS)
-                .metadata("{}")
+                .metadata("{\"tags\":[]}")
                 .build();
         ProjectType type = ProjectType.builder().id(5L).name("漫画").build();
         User creator = User.builder().id(10L).avatarFileId(300L).build();
@@ -90,7 +90,6 @@ class ProjectAssemblerTest {
         assertEquals(ProjectStatus.IN_PROGRESS, bo.getProjectStatus());
         assertEquals("https://cdn/cover.png", bo.getCoverUrl());
         assertEquals("https://cdn/avatar.png", bo.getCreatorAvatarUrl());
-        assertEquals("{}", bo.getMetadata());
     }
 
     @Test

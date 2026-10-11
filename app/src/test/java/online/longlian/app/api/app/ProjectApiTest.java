@@ -52,7 +52,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -139,7 +139,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -205,7 +205,7 @@ public class ProjectApiTest extends BaseApiTest {
                         "title", "测试企划",
                         "alias", "alias",
                         "typeId", "1",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "测试描述",
                         "coverFileId", "1"
                 ))
@@ -263,14 +263,14 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 1L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
                 .body(Map.of(
                         "title", "更新后的企划",
                         "alias", "new_alias",
-                        "metadata", "{\"key\":\"value\"}",
+                        "metadata", "{\"tags\":[{\"key\":\"key\",\"value\":\"value\"}]}",
                         "description", "更新后的描述",
                         "coverFileId", "2"
                 ))
@@ -306,13 +306,13 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 1L, "测试描述", 1, 1L);
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L);
 
         authRequest(token)
                 .body(Map.of(
                         "title", "更新后的企划",
                         "alias", "new_alias",
-                        "metadata", "{\"key\":\"value\"}",
+                        "metadata", "{\"tags\":[{\"key\":\"key\",\"value\":\"value\"}]}",
                         "description", "更新后的描述"))
                 .put("/app/projects/1")
                 .then()
@@ -344,7 +344,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         Response response = authRequest(token)
@@ -376,7 +376,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -411,7 +411,7 @@ public class ProjectApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "测试描述", 1, 1L
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
         );
 
         jdbcTemplate.update(
@@ -578,7 +578,7 @@ public class ProjectApiTest extends BaseApiTest {
                         "title", "企划",
                         "alias", "",
                         "typeId", "1",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "描述",
                         "coverFileId", "1"
                 ))
@@ -658,7 +658,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .body(Map.of(
                         "title", "更新后的企划",
                         "alias", "new_alias",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "描述",
                         "coverFileId", "1"))
                 .put("/app/projects/1")
@@ -713,7 +713,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .body(Map.of(
                         "title", "更新后的企划",
                         "alias", "new_alias",
-                        "metadata", "{}",
+                        "metadata", "{\"tags\":[]}",
                         "description", "描述",
                         "coverFileId", "1"
                 ))

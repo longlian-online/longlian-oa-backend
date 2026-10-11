@@ -14,7 +14,6 @@
             SELECT p.*,
                 MATCH(p.title) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS title_score,
                 MATCH(p.alias) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS alias_score,
-                MATCH(p.metadata_search_text) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS metadata_score,
                 CASE WHEN
                     <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
                         p.title LIKE #{pattern} ESCAPE '!'
@@ -27,9 +26,8 @@
                 THEN 1 ELSE 0 END AS alias_hit,
                 JSON_MERGE_PRESERVE('[]',
                     <foreach collection="params.matchPatterns" item="pattern" separator=",">
-                        COALESCE(JSON_SEARCH((CASE WHEN JSON_TYPE(p.metadata) IN ('OBJECT', 'ARRAY')
-                            THEN NULLIF(p.metadata_search_text, '') ELSE p.metadata END) COLLATE utf8mb4_unicode_520_ci,
-                            'all', #{pattern}, '!'), '[]')
+                        COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
+                            'all', #{pattern}, '!', '$.tags[*].value'), '[]')
                     </foreach>
                 ) AS matched_metadata_paths
             FROM project p
@@ -45,7 +43,7 @@
         ORDER BY (
             5 * (title_score + CASE WHEN title_score &gt; 0 OR title_hit = 1 THEN 1 ELSE 0 END)
             + 3 * (alias_score + CASE WHEN alias_score &gt; 0 OR alias_hit = 1 THEN 1 ELSE 0 END)
-            + CASE WHEN JSON_LENGTH(matched_metadata_paths) &gt; 0 THEN metadata_score + 1 ELSE 0 END
+            + CASE WHEN JSON_LENGTH(matched_metadata_paths) &gt; 0 THEN 1 ELSE 0 END
             + CASE WHEN title = #{params.keyword} THEN 20 ELSE 0 END
             + CASE WHEN alias = #{params.keyword} THEN 10 ELSE 0 END
         ) DESC,

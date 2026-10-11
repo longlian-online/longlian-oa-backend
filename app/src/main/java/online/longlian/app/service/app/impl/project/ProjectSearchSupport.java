@@ -7,14 +7,10 @@ import com.alibaba.fastjson2.JSONWriter;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.IntStream;
 
 public final class ProjectSearchSupport {
 
@@ -55,33 +51,21 @@ public final class ProjectSearchSupport {
         if (paths.isEmpty()) {
             return metadata;
         }
-        Object parsed = JSON.parse(metadata);
-        if (parsed instanceof JSONObject object) {
-            List<Map.Entry<String, Object>> entries = new ArrayList<>(object.entrySet());
-            JSONObject ordered = new JSONObject();
-            orderedIndices(entries.size(), paths).forEach(index -> {
-                Map.Entry<String, Object> entry = entries.get(index);
-                ordered.put(entry.getKey(), entry.getValue());
-            });
-            return JSON.toJSONString(ordered, JSONWriter.Feature.WriteNulls);
+        JSONObject object = JSON.parseObject(metadata);
+        JSONArray tags = object.getJSONArray("tags");
+        Set<String> matched = new LinkedHashSet<>(paths);
+        JSONArray ordered = new JSONArray();
+        for (int i = 0; i < tags.size(); i++) {
+            if (matched.contains("$.tags[" + i + "].value")) {
+                ordered.add(tags.get(i));
+            }
         }
-        if (parsed instanceof JSONArray array) {
-            JSONArray ordered = new JSONArray();
-            orderedIndices(array.size(), paths).forEach(index -> ordered.add(array.get(index)));
-            return JSON.toJSONString(ordered, JSONWriter.Feature.WriteNulls);
+        for (int i = 0; i < tags.size(); i++) {
+            if (!matched.contains("$.tags[" + i + "].value")) {
+                ordered.add(tags.get(i));
+            }
         }
-        return metadata;
-    }
-
-    private static List<Integer> orderedIndices(int size, List<String> paths) {
-        // 对象的值投影为数组，以数据库命中路径排序，避免键名及字符比较规则的歧义。
-        return IntStream.range(0, size).boxed()
-                .sorted(Comparator.comparing(index -> !matches(paths, "$[" + index + "]")))
-                .toList();
-    }
-
-    private static boolean matches(List<String> paths, String prefix) {
-        return paths.stream().anyMatch(path -> path.equals(prefix)
-                || path.startsWith(prefix + ".") || path.startsWith(prefix + "["));
+        object.put("tags", ordered);
+        return JSON.toJSONString(object, JSONWriter.Feature.WriteNulls);
     }
 }

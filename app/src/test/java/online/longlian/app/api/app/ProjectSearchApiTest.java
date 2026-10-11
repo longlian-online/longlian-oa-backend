@@ -29,10 +29,10 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 中文子串按标题、别名、元数据的权重排序，多字段命中累加。 */
     @Test
     void shouldRankChineseMatchesByFieldWeightsAndCombineHits() {
-        createProject(1, "星海远征", "Voyage", "{}");
-        createProject(2, "银河旅行", "星海之旅", "{}");
-        createProject(3, "遥远世界", "World", "{\"series\":\"星海\"}");
-        createProject(4, "星海设定", "星海故事", "{\"series\":\"星海\"}");
+        createProject(1, "星海远征", "Voyage", metadata());
+        createProject(2, "银河旅行", "星海之旅", metadata());
+        createProject(3, "遥远世界", "World", metadata("series", "星海"));
+        createProject(4, "星海设定", "星海故事", metadata("series", "星海"));
 
         search(" 星海 ").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -44,9 +44,9 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 英文全文相关性按 5/3/1 字段权重排序。 */
     @Test
     void shouldRankEnglishFulltextMatchesByFieldWeights() {
-        createProject(1, "Database guide", "Guide", "{}");
-        createProject(2, "Galaxy travel", "Database voyage", "{}");
-        createProject(3, "Distant world", "World", "{\"series\":\"Database\"}");
+        createProject(1, "Database guide", "Guide", metadata());
+        createProject(2, "Galaxy travel", "Database voyage", metadata());
+        createProject(3, "Distant world", "World", metadata("series", "Database"));
 
         search("database").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -57,9 +57,9 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 同字段命中仍使用数据库原生相关性，不能退化为仅按时间排序。 */
     @Test
     void shouldUseNativeRelevanceBeforeRequestedTimeOrder() {
-        createProject(1, "database database database reference", "one", "{}");
-        createProject(2, "database introduction", "two", "{}");
-        createProject(3, "unrelated astronomy", "three", "{}");
+        createProject(1, "database database database reference", "one", metadata());
+        createProject(2, "database introduction", "two", metadata());
+        createProject(3, "unrelated astronomy", "three", metadata());
         jdbcTemplate.update("UPDATE project SET created_at = '2025-01-01' WHERE id = 1");
         jdbcTemplate.update("UPDATE project SET created_at = '2026-01-01' WHERE id = 2");
         List<Double> scores = jdbcTemplate.query(
@@ -75,197 +75,149 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 标题和别名完全匹配获得额外加分，短词也能入选。 */
     @Test
     void shouldBoostExactTitleAndAliasMatches() {
-        createProject(1, "星海", "one", "{}");
-        createProject(2, "银河旅行", "星海", "{}");
-        createProject(3, "星海远征", "three", "{}");
+        createProject(1, "星海", "one", metadata());
+        createProject(2, "银河旅行", "星海", metadata());
+        createProject(3, "星海远征", "three", metadata());
 
         search("星海").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list.id", equalTo(List.of("1", "2", "3")));
     }
 
-    /** 标题也命中时，返回的全部命中元数据仍稳定前置，数据库原值不变。 */
+    /** 重复命中的 tags 稳定前置，顶层额外字段及数据库原值不变。 */
     @Test
-    void shouldMoveMatchingObjectMetadataFirstWithoutChangingStoredJson() {
-        String original = "{\"author\":\"山田\",\"series\":\"星海\",\"language\":\"中文\",\"tag\":\"星海\"}";
+    void shouldMoveMatchingTagsFirstWithoutChangingStoredJson() {
+        String original = "{\"note\":\"保留\",\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"系列\",\"value\":\"星海\"},{\"key\":\"语言\",\"value\":\"中文\"},{\"key\":\"系列\",\"value\":\"星海\"}]}";
         createProject(1, "星海远征", "Voyage", original);
 
         Response response = search("星海");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list", hasSize(1));
-        String returned = response.jsonPath().getString("data.list[0].metadata");
-        assertThat(JSON.parseObject(returned).keySet()).containsExactly("series", "tag", "author", "language");
+        var returned = JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"));
+        assertThat(returned.getString("note")).isEqualTo("保留");
+        assertThat(returned.getJSONArray("tags").stream()
+                .map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("key")))
+                .containsExactly("系列", "系列", "作者", "语言");
         assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
                 .isEqualTo(original);
     }
 
-    /** 元数据数组中的命中元素整体前置，未命中元素维持原顺序。 */
+    /** 重排 tags 时保留顶层额外字段及其嵌套显式 null。 */
     @Test
-    void shouldMoveMatchingArrayMetadataFirst() {
-        createProject(1, "遥远世界", "World",
-                "[{\"label\":\"作者\",\"value\":\"山田\"},{\"label\":\"系列\",\"value\":\"星海\"},{\"label\":\"语言\",\"value\":\"中文\"}]");
-
-        Response response = search("星海");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1));
-        var metadata = JSON.parseArray(response.jsonPath().getString("data.list[0].metadata"));
-        assertThat(metadata.getJSONObject(0).getString("label")).isEqualTo("系列");
-        assertThat(metadata.getJSONObject(1).getString("label")).isEqualTo("作者");
-        assertThat(metadata.getJSONObject(2).getString("label")).isEqualTo("语言");
-    }
-
-    /** 搜索重排对象时，根字段和嵌套字段的显式 null 必须保留。 */
-    @Test
-    void shouldPreserveNullFieldsWhenReorderingObjectMetadata() {
-        String original = "{\"author\":null,\"series\":\"星海\",\"publication\":{\"year\":null}}";
+    void shouldPreserveNullExtraFieldsWhenReorderingTags() {
+        String original = "{\"note\":null,\"publication\":{\"year\":null},\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"系列\",\"value\":\"星海\"}]}";
         createProject(1, "普通企划", "ordinary", original);
-
         Response response = search("星海");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1));
-        var metadata = JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"));
-        assertThat(metadata.keySet()).containsExactly("series", "author", "publication");
-        assertThat(metadata).containsEntry("author", null);
-        assertThat(metadata.getJSONObject("publication")).containsEntry("year", null);
+        var returned = JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"));
+        assertThat(returned).containsEntry("note", null);
+        assertThat(returned.getJSONObject("publication")).containsEntry("year", null);
+        assertThat(returned.getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("系列");
         assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
                 .isEqualTo(original);
     }
 
-    /** 数组内命中和未命中的对象字段及数组 null 元素均应保留。 */
+    /** 仅命中 value，忽略 key 和顶层额外字段。 */
     @Test
-    void shouldPreserveNullFieldsWhenReorderingArrayMetadata() {
-        String original = "[{\"author\":null},{\"value\":\"星海\",\"optional\":null},null]";
-        createProject(1, "普通企划", "ordinary", original);
-
-        Response response = search("星海");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1));
-        var metadata = JSON.parseArray(response.jsonPath().getString("data.list[0].metadata"));
-        assertThat(metadata.getJSONObject(0)).containsEntry("value", "星海").containsEntry("optional", null);
-        assertThat(metadata.getJSONObject(1)).containsEntry("author", null);
-        assertThat(metadata.get(2)).isNull();
-        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
-                .isEqualTo(original);
+    void shouldSearchOnlyTagValues() {
+        createProject(1, "普通企划", "ordinary", "{\"note\":\"database\",\"tags\":[{\"key\":\"database\",\"value\":\"山田\"}]}");
+        createProject(2, "遥远世界", "World", metadata("series", "database"));
+        search("database").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("2")));
     }
 
-    /** 嵌套数字值可以被搜索，所属顶层元数据前置。 */
+    /** 空 tags 和空 value 不影响标题命中，也不产生额外元数据命中。 */
     @Test
-    void shouldSearchNestedNumericMetadataAndMoveItsParentFirst() {
-        createProject(1, "遥远世界", "World", "{\"author\":\"山田\",\"publication\":{\"year\":2025}}");
-
-        Response response = search("2025");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata")).keySet())
-                .containsExactly("publication", "author");
-    }
-
-    /** 元数据键名中的点号和引号不应与真实嵌套路径混淆。 */
-    @Test
-    void shouldPreserveSpecialMetadataKeysWhenMovingNestedMatches() {
-        createProject(1, "普通企划", "ordinary",
-                "{\"a.b\":\"other\",\"a\":{\"b\":\"星海\"},\"a\\\"b\":\"other\"}");
-
-        Response response = search("星海");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata")).keySet())
-                .containsExactly("a", "a.b", "a\"b");
-    }
-
-    /** 空元数据和历史空别名不影响标题命中，标量 JSON 保持原类型和内容。 */
-    @Test
-    void shouldHandleNullAndScalarMetadata() {
-        createProject(1, "星海远征", null, null);
-        createProject(2, "普通企划", "ordinary", "\"星海\"");
-        createProject(3, "无元数据企划", "none", "[]");
-
+    void shouldHandleEmptyTagsAndValues() {
+        createProject(1, "星海远征", "one", "{\"tags\":[]}");
+        createProject(2, "普通企划", "two", metadata("星海", ""));
         search("星海").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(2))
-                .body("data.list.id", equalTo(List.of("1", "2")))
-                .body("data.list[1].metadata", equalTo("\"星海\""));
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")))
+                .body("data.list[0].metadata", equalTo("{\"tags\":[]}"));
     }
 
-    /** 使用数据库命中路径处理大小写与重音，不依赖 Java 的字符串比较。 */
+    /** 数据库匹配大小写与重音后，将对应 tag 前置。 */
     @Test
     void shouldSearchMetadataIgnoringCaseAndAccents() {
-        createProject(1, "遥远世界", "World", "{\"author\":\"山田\",\"series\":\"CAFÉ\"}");
-
+        createProject(1, "遥远世界", "World", metadata("author", "山田", "series", "CAFÉ"));
         Response response = search("cafe");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata")).keySet())
-                .containsExactly("series", "author");
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"))
+                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
     }
 
-    /** 多词查询可命中元数据中的其中一个全文词，并前置该项。 */
+    /** 多词查询可命中其中一个较长片段，并前置对应 tag。 */
     @Test
     void shouldSearchIndividualMetadataWordsInMultiwordQuery() {
-        createProject(1, "遥远世界", "World", "{\"author\":\"山田\",\"series\":\"database\"}");
-
+        createProject(1, "遥远世界", "World", metadata("author", "山田", "series", "database"));
         Response response = search("database performance");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata")).keySet())
-                .containsExactly("series", "author");
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"))
+                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
     }
 
     /** 相同内容放在标题、别名或元数据时，多词子串召回一致且按字段权重排序。 */
     @Test
     void shouldApplySameMultiwordSubstringRulesToAllSearchFields() {
-        createProject(1, "foobar", "ordinary", "{}");
-        createProject(2, "普通企划", "foobar", "{}");
-        createProject(3, "普通企划", "ordinary", "{\"author\":\"山田\",\"series\":\"foobar\"}");
-        createProject(4, "无匹配企划", "unrelated", "{}");
+        createProject(1, "foobar", "ordinary", metadata());
+        createProject(2, "普通企划", "foobar", metadata());
+        createProject(3, "普通企划", "ordinary", metadata("author", "山田", "series", "foobar"));
+        createProject(4, "无匹配企划", "unrelated", metadata());
 
         Response response = search("foo bar");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
                 .body("data.list.id", equalTo(List.of("1", "2", "3")));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata")).keySet())
-                .containsExactly("series", "author");
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata"))
+                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
     }
 
     /** 多个中文短词分别召回标题、别名和元数据，命中元数据稳定前置。 */
     @Test
     void shouldSearchMultipleShortChineseTermsAcrossAllFields() {
-        createProject(1, "星海远征", "voyage", "{}");
-        createProject(2, "普通企划", "银河之旅", "{}");
-        createProject(3, "普通企划", "world", "{\"author\":\"山田\",\"series\":\"星海\",\"tag\":\"银河\"}");
-        createProject(4, "山间日记", "diary", "{}");
+        createProject(1, "星海远征", "voyage", metadata());
+        createProject(2, "普通企划", "银河之旅", metadata());
+        createProject(3, "普通企划", "world", metadata("author", "山田", "series", "星海", "tag", "银河"));
+        createProject(4, "山间日记", "diary", metadata());
 
         Response response = search("星海 银河");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
                 .body("data.list.id", equalTo(List.of("1", "2", "3")));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata")).keySet())
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata"))
+                .getJSONArray("tags").stream().map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("key")))
                 .containsExactly("series", "tag", "author");
     }
 
     /** 英文短词组合不依赖全文索引收录，保持字段权重及数组元数据顺序。 */
     @Test
     void shouldSearchMultipleShortEnglishTermsAcrossAllFields() {
-        createProject(1, "Go project", "voyage", "{}");
-        createProject(2, "普通企划", "OA system", "{}");
-        createProject(3, "普通企划", "world", "[\"other\",\"Go language\",\"OA tool\"]");
-        createProject(4, "无匹配企划", "unrelated", "{}");
+        createProject(1, "Go project", "voyage", metadata());
+        createProject(2, "普通企划", "OA system", metadata());
+        createProject(3, "普通企划", "world", metadata("first", "other", "second", "Go language", "third", "OA tool"));
+        createProject(4, "无匹配企划", "unrelated", metadata());
 
         Response response = search("go oa");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
                 .body("data.list.id", equalTo(List.of("1", "2", "3")));
-        assertThat(JSON.parseArray(response.jsonPath().getString("data.list[2].metadata"), String.class))
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata"))
+                .getJSONArray("tags").stream().map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("value")))
                 .containsExactly("Go language", "OA tool", "other");
     }
 
     /** 长词与短词混合查询时，短词不能在别名和元数据召回中被忽略。 */
     @Test
     void shouldSearchMixedLongAndShortTermsAcrossAllFields() {
-        createProject(1, "Database guide", "guide", "{}");
-        createProject(2, "普通企划", "OA system", "{}");
-        createProject(3, "普通企划", "world", "{\"series\":\"OA\"}");
-        createProject(4, "无匹配企划", "unrelated", "{}");
+        createProject(1, "Database guide", "guide", metadata());
+        createProject(2, "普通企划", "OA system", metadata());
+        createProject(3, "普通企划", "world", metadata("series", "OA"));
+        createProject(4, "无匹配企划", "unrelated", metadata());
 
         search("database OA").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -273,20 +225,11 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("data.list.id", equalTo(List.of("1", "2", "3")));
     }
 
-    /** JSON 结构键不是业务元数据值，不能单独导致结果入选。 */
-    @Test
-    void shouldNotReturnProjectsMatchingOnlyMetadataKeys() {
-        createProject(1, "遥远世界", "World", "{\"database\":\"山田\"}");
-
-        search("database").then().statusCode(200)
-                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(0)).body("data.list", hasSize(0));
-    }
 
     /** 子串搜索支持单字、英文短词和全文停用词。 */
     @Test
     void shouldPreserveShortWordAndStopwordSearch() {
-        createProject(1, "海洋日记", "go", "{\"series\":\"the\"}");
+        createProject(1, "海洋日记", "go", metadata("series", "the"));
 
         for (String keyword : List.of("海", "go", "the")) {
             search(keyword).then().statusCode(200)
@@ -298,10 +241,10 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 通配符按字面值查询，不能扩大为所有企划。 */
     @Test
     void shouldTreatPercentUnderscoreAndEscapeAsLiteralCharacters() {
-        createProject(1, "50%", "one", "{}");
-        createProject(2, "ordinary", "two", "{\"series\":\"under_score\"}");
-        createProject(3, "exclamation!", "three", "{}");
-        createProject(4, "other", "four", "{}");
+        createProject(1, "50%", "one", metadata());
+        createProject(2, "ordinary", "two", metadata("series", "under_score"));
+        createProject(3, "exclamation!", "three", metadata());
+        createProject(4, "other", "four", metadata());
 
         List<String> keywords = List.of("%", "_", "!");
         for (int i = 0; i < keywords.size(); i++) {
@@ -316,7 +259,7 @@ class ProjectSearchApiTest extends BaseApiTest {
     @Test
     void shouldExcludeOtherOrganizationsDisabledAndDeletedProjects() {
         for (int i = 1; i <= 4; i++) {
-            createProject(i, "普通企划", "ordinary", "{\"series\":\"星海\"}");
+            createProject(i, "普通企划", "ordinary", metadata("series", "星海"));
         }
         jdbcTemplate.update("UPDATE project SET org_id = 2 WHERE id = 2");
         jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 3");
@@ -330,8 +273,8 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 类型过滤同样作用于元数据命中结果。 */
     @Test
     void shouldFilterSearchResultsByProjectType() {
-        createProject(1, "普通企划", "one", "{\"series\":\"星海\"}");
-        createProject(2, "普通企划", "two", "{\"series\":\"星海\"}");
+        createProject(1, "普通企划", "one", metadata("series", "星海"));
+        createProject(2, "普通企划", "two", metadata("series", "星海"));
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (2, 1, '小说', 1, 1)");
         jdbcTemplate.update("UPDATE project SET type_id = 2 WHERE id = 2");
 
@@ -344,9 +287,9 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 数据库先排序再分页；超出末页时仍返回准确的总数。 */
     @Test
     void shouldPaginateRankedResultsAndKeepTotalOnEmptyPage() {
-        createProject(1, "普通企划", "one", "{\"series\":\"星海\"}");
-        createProject(2, "普通企划", "星海故事", "{}");
-        createProject(3, "星海远征", "three", "{}");
+        createProject(1, "普通企划", "one", metadata("series", "星海"));
+        createProject(2, "普通企划", "星海故事", metadata());
+        createProject(3, "星海远征", "three", metadata());
 
         for (int page = 1; page <= 3; page++) {
             authRequest(token).queryParam("keyword", "星海").queryParam("pageSize", 1).queryParam("pageNum", page)
@@ -365,7 +308,7 @@ class ProjectSearchApiTest extends BaseApiTest {
     @Test
     void shouldUseRequestedTimeAndIdToBreakRelevanceTies() {
         for (int i = 1; i <= 3; i++) {
-            createProject(i, "星海远征", "ordinary", "{}");
+            createProject(i, "星海远征", "ordinary", metadata());
         }
         jdbcTemplate.update("UPDATE project SET updated_at = '2026-01-01' WHERE id IN (1, 2)");
         jdbcTemplate.update("UPDATE project SET updated_at = '2025-01-01' WHERE id = 3");
@@ -379,9 +322,9 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 空白关键词保留原有时间排序和元数据文本。 */
     @Test
     void shouldKeepOriginalListBehaviorWithoutKeyword() {
-        String metadata = "{ \"author\": \"山田\", \"series\": \"星海\" }";
+        String metadata = "{ \"tags\": [{\"key\":\"series\",\"value\":\"星海\"}] }";
         createProject(1, "星海", "one", metadata);
-        createProject(2, "普通企划", "two", "{}");
+        createProject(2, "普通企划", "two", metadata());
         jdbcTemplate.update("UPDATE project SET created_at = '2025-01-01' WHERE id = 1");
         jdbcTemplate.update("UPDATE project SET created_at = '2026-01-01' WHERE id = 2");
 
@@ -391,14 +334,14 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("data.list[1].metadata", equalTo(metadata));
     }
 
-    /** 创建和修改后生成列与全文索引自动更新，无需额外同步或回填。 */
+    /** 创建和修改后直接搜索当前 tags 值，无需同步或回填。 */
     @Test
     void shouldSearchCreatedAndUpdatedMetadataImmediately() {
         createResource(1L, 1L, 1L);
         jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', process_status = ? WHERE id = 1",
                 FileProcessStatus.Uploaded.getCode());
         authRequest(token).body(Map.of("title", "普通企划", "alias", "ordinary", "typeId", "1",
-                        "metadata", "{\"series\":\"Oldtoken\"}", "description", "简介", "coverFileId", "1"))
+                        "metadata", metadata("series", "Oldtoken"), "description", "简介", "coverFileId", "1"))
                 .post("/app/projects").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         Long projectId = jdbcTemplate.queryForObject("SELECT id FROM project", Long.class);
@@ -406,7 +349,7 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).body("data.total", equalTo(1));
 
         authRequest(token).body(Map.of("title", "普通企划", "alias", "ordinary",
-                        "metadata", "{\"series\":\"Newtoken\"}", "description", "简介"))
+                        "metadata", metadata("series", "Newtoken"), "description", "简介"))
                 .put("/app/projects/" + projectId).then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         search("oldtoken").then().statusCode(200)
@@ -440,8 +383,8 @@ class ProjectSearchApiTest extends BaseApiTest {
     /** 注入文本使用绑定参数，仅返回合法 OR 子串命中，不能扩大到全部记录。 */
     @Test
     void shouldBindSearchKeywordAsData() {
-        createProject(1, "普通企划", "ordinary", "{}");
-        createProject(2, "无匹配企划", "neutral", "{}");
+        createProject(1, "普通企划", "ordinary", metadata());
+        createProject(2, "无匹配企划", "neutral", metadata());
 
         search("' OR 1=1 --").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -450,6 +393,14 @@ class ProjectSearchApiTest extends BaseApiTest {
 
     private Response search(String keyword) {
         return authRequest(token).queryParam("keyword", keyword).get("/app/projects");
+    }
+
+    private String metadata(String... entries) {
+        var tags = new java.util.ArrayList<Map<String, String>>();
+        for (int i = 0; i < entries.length; i += 2) {
+            tags.add(Map.of("key", entries[i], "value", entries[i + 1]));
+        }
+        return JSON.toJSONString(Map.of("tags", tags));
     }
 
     private void createProject(long id, String title, String alias, String metadata) {

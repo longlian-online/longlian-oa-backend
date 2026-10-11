@@ -165,6 +165,7 @@ public class ProjectServiceImpl implements ProjectService {
                 || projectType.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
         }
+        ProjectMetadataValidator.validate(params.getMetadata());
 
         LocalDateTime now = LocalDateTime.now(clock);
         Project project = Project.builder()
@@ -203,6 +204,7 @@ public class ProjectServiceImpl implements ProjectService {
         if (!project.getCreatorId().equals(params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑企划");
         }
+        ProjectMetadataValidator.validate(params.getMetadata());
 
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()

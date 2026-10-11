@@ -32,7 +32,7 @@ public class ProjectInfoVO {
     @Schema(description = "企划状态，1-进行中 2-已完成 3-已归档")
     private ProjectStatus projectStatus;
 
-    @Schema(description = "扩展信息(JSON字符串)")
+    @Schema(description = "扩展信息(JSON对象字符串，包含 tags 数组；搜索结果中命中 value 的 tags 稳定前置)")
     private String metadata;
 
     @Schema(description = "创建人头像URL")
