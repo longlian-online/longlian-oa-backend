@@ -25,7 +25,6 @@ db/
 ├── migrate.sh              # 同步脚本（本地 / CI 共用）
 ├── data-migrations/        # 按文件名记录成功状态的历史数据转换
 ├── operations/            # 经审核手动执行的运维 SQL，不自动扫描
-├── tests/                 # 真实 MariaDB + Atlas 迁移集成验证
 ├── seed/                   # 初始化数据
 │   ├── base_data.sql       # 每次 apply 均幂等导入的部署基础数据
 │   └── dev_data.sql        # 仅本地开发的用户端与组织种子
@@ -129,8 +128,6 @@ export DB_URL="maria://user:pass@host:3306/dbname"
 - 数据修改与成功记录在同一事务中提交。文件失败立即终止部署，不写成功记录，也不继续后续文件。
 - 数据文件只做数据转换，不包含 DDL、事务提交、执行记录写入或 MariaDB 客户端命令。表结构由 `schema.sql` 管理，旧字段清理作为独立、经审核的运维操作。
 - 新库也执行并记录文件；只需在文件内判断来源旧字段是否存在，不需要判断或创建目标结构。
-
-集成测试入口是 `db/tests/migrate_test.sh`，需在具备 MariaDB 客户端和 Atlas 的环境中设置 `MYSQL_HOST`、`MYSQL_TCP_PORT`、`MYSQL_USER`、`MYSQL_PWD` 和不含库名的 `DB_SERVER_URL`。测试只创建并清理本次专用数据库，覆盖字段保留、结构先于数据同步、重复跳过、失败回滚与恢复。
 
 ## API 测试建表
 
