@@ -6,12 +6,15 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
 import online.longlian.app.service.app.impl.taskinstance.TaskAttachmentPresenter;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
+import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +43,7 @@ class TaskResourceServiceTest {
 
     @Mock
     private ResourceMapper resourceMapper;
+    @Mock private OrganizationMapper organizationMapper;
     @Mock
     private StorageServiceFactory storageFactory;
     @Mock
@@ -51,6 +55,8 @@ class TaskResourceServiceTest {
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Resource.class);
+        lenient().when(organizationMapper.selectById(ORG_ID))
+                .thenReturn(Organization.builder().status(Status.ENABLED).build());
         properties = new StorageProperties();
         StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
         cdn.setEnabled(true);
@@ -58,6 +64,28 @@ class TaskResourceServiceTest {
         cdn.setAuthKey("test-secret");
         properties.setCdn(cdn);
         service = serviceAt(1_000L);
+    }
+
+    /** 失效组织的附件只显示不可用，不签名也不泄露文件元数据。 */
+    @Test
+    void shouldHideAttachmentsForUnavailableOrganization() {
+        when(organizationMapper.selectById(ORG_ID)).thenReturn(null);
+        TaskAttachmentVO attachment = present(service, List.of(1L)).get(1L);
+        assertThat(attachment.getAvailability()).isEqualTo("unavailable");
+        assertThat(attachment.getReadUrl()).isNull();
+        assertThat(attachment.getName()).isEqualTo("附件不可用");
+        verifyNoInteractions(resourceMapper, storageFactory);
+    }
+
+    /** 不可用组织的上传不得通过绑定重新激活。 */
+    @Test
+    void shouldRejectBindingUploadsFromUnavailableOrganization() {
+        when(resourceMapper.selectList(any())).thenReturn(List.of(uploaded(1L)));
+        when(organizationMapper.selectById(ORG_ID)).thenReturn(null);
+        assertThatThrownBy(() -> bind(List.of(1L))).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+        verify(resourceMapper, never()).update(isNull(), any());
+        verifyNoInteractions(storageFactory);
     }
 
 
@@ -320,7 +348,7 @@ class TaskResourceServiceTest {
 
     private ResourceService serviceAt(long epochSeconds) {
         Clock clock = Clock.fixed(Instant.ofEpochSecond(epochSeconds), ZoneOffset.UTC);
-        return new ResourceService(resourceMapper, storageFactory, new CdnUrlSigner(properties, clock),
+        return new ResourceService(resourceMapper, organizationMapper, storageFactory, new CdnUrlSigner(properties, clock),
                 new LocalFileUrlSigner("test-local-signing-secret-32-bytes", properties, clock), properties, clock);
     }
 

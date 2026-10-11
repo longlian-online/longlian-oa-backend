@@ -8,6 +8,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
@@ -19,9 +20,11 @@ import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
+import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriUtils;
 
@@ -45,6 +48,7 @@ import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
 public class ResourceService {
 
     private final ResourceMapper resourceMapper;
+    private final OrganizationMapper organizationMapper;
     private final StorageServiceFactory storageFactory;
     private final CdnUrlSigner cdnUrlSigner;
     private final LocalFileUrlSigner localFileUrlSigner;
@@ -116,7 +120,17 @@ public class ResourceService {
         ).in(Resource::getId, resourceIds);
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
-        List<Resource> resources = resourceMapper.selectList(query);
+        Map<Long, Boolean> availability = new HashMap<>();
+        List<Resource> resources = new ArrayList<>();
+        for (Resource resource : resourceMapper.selectList(query)) {
+            Long orgId = resource.getOrgId();
+            Boolean available = availability.get(orgId);
+            if (available == null) {
+                available = organizationAvailable(orgId);
+                availability.put(orgId, available);
+            }
+            if (available) resources.add(resource);
+        }
         long cdnTimestamp = isCdnEnabled() && !resources.isEmpty() ? currentCdnTimestamp() : 0;
 
         Map<String, Long> resourceIdKeyMap = resources.stream().collect(Collectors.toMap(Resource::getStorageKey, Resource::getId));
@@ -168,6 +182,7 @@ public class ResourceService {
         if (resourceIds == null || resourceIds.isEmpty()) {
             return Map.of();
         }
+        if (!organizationAvailable(orgId)) return Map.of();
         Map<Long, Resource> resources = loadResources(resourceIds);
         Map<Long, ActivatedResource> matched = new HashMap<>();
         for (Long resourceId : resourceIds) {
@@ -276,6 +291,7 @@ public class ResourceService {
                     && resource.getProcessStatus() != FileProcessStatus.Uploaded)) {
             throw unauthorized();
         }
+        if (!organizationAvailable(resource.getOrgId())) throw new AppException(ResultCode.DATA_NOT_EXIT);
     }
 
     private void activateBound(Resource resource, BindScope scope) {
@@ -346,6 +362,7 @@ public class ResourceService {
         if (resource == null) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权上传或文件已完成上传");
         }
+        if (!organizationAvailable(resource.getOrgId())) throw new AppException(ResultCode.DATA_NOT_EXIT);
         return resource;
     }
 
@@ -357,6 +374,7 @@ public class ResourceService {
         if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
+        if (!organizationAvailable(resource.getOrgId())) throw new AppException(ResultCode.DATA_NOT_EXIT);
         return resource;
     }
 
@@ -366,6 +384,12 @@ public class ResourceService {
 
     private boolean isImageBusiness(String bizType) {
         return "avatar".equals(bizType) || "cover".equals(bizType);
+    }
+
+    private boolean organizationAvailable(Long orgId) {
+        if (orgId == null || orgId == 0) return true;
+        Organization organization = organizationMapper.selectById(orgId);
+        return organization != null && organization.getStatus() == Status.ENABLED;
     }
 
 }

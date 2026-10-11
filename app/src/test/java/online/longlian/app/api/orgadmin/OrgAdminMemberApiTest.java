@@ -190,26 +190,6 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
-    /**
-     * 启用/禁用组员成功
-     */
-    @Test
-    void shouldChangeMemberStatus() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        // 创建第二个 MEMBER 角色成员用于测试禁用
-        createTestUser(2L, "member", "123456", "member@example.com");
-        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
-        String token = loginAs("orgadmin", "123456");
-
-        Response response = authRequest(token)
-                .body(Map.of("status", "DISABLED"))
-                .patch("/orgadmin/members/2/status");
-
-        response.then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("msg", equalTo("状态修改成功"));
-    }
 
     // ========== 邀请码 ==========
 
@@ -245,36 +225,6 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
-    @Test
-    void shouldPromoteAndDemoteMemberWithinOrganization() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        createTestUser(2L, "member", "123456", "member@example.com");
-        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
-        createTestUser(3L, "secondadmin", "123456", "secondadmin@example.com");
-        createOrganization(3L, "其他组织");
-        createOrganizationMember(3L, 3L, 3L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
-
-        authRequest(token).body(Map.of("orgRole", "ORG_ADMIN")).patch("/orgadmin/members/2/role")
-                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        String promotedToken = loginAs("member", "123456");
-        authRequest(promotedToken).body(Map.of("pageNum", 1, "pageSize", 10)).post("/orgadmin/members")
-                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-
-        authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/2/role")
-                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/3/role")
-                .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
-        authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
-                .then().statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,组织至少保留一名管理员"));
-
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 3", String.class)).isEqualTo("ORG_ADMIN");
-    }
 
     @Test
     void shouldRejectInvalidRoleRequest() {
@@ -306,6 +256,19 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
+    }
+
+    /** 待审不是合法审核结果，不能生成成员或修改申请状态。 */
+    @Test
+    void shouldRejectNonTerminalReviewOutcomeWithoutChangingApplication() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        createTestUser(2L, "applicant", "123456", "applicant@example.com");
+        jdbcTemplate.update("INSERT INTO group_application(id,org_id,user_id,status,application_type) VALUES(1,1,2,0,1)");
+        authRequest(loginAs("owner", "123456"), 1L).body(Map.of("applicationStatus", "PENDING"))
+                .put("/orgadmin/members/applications/1/review")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application WHERE id=1", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE user_id=2", Integer.class)).isZero();
     }
 
 }

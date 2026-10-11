@@ -46,7 +46,7 @@ import java.util.List;
 @RequestMapping("/orgadmin/members")
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ORG_ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_OWNER','ORG_ADMIN')")
 public class OrganizationMemberController {
 
     private final OrganizationMemberService organizationMemberService;
@@ -164,7 +164,7 @@ public class OrganizationMemberController {
 
     @Operation(
             summary = "启用/禁用组员",
-            description = "禁用后用户无法登录；超管身份不可被禁用。status: ENABLED-启用，DISABLED-禁用"
+            description = "禁用后禁止访问当前组织，不影响全局账号和其他组织；所有者不能直接禁用。status: ENABLED-启用，DISABLED-禁用"
     )
     @PatchMapping("/{memberId}/status")
     @ResponseMessage("状态修改成功")

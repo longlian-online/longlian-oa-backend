@@ -90,10 +90,8 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 
 ## ORM 代码生成
 
-本项目依赖 Mybatis-Plus 代码生成器(generator)，默认不覆盖旧代码，在新增功能和表结构字段改动时需用到代码生成
+本项目使用 MyBatis Plus generator 生成 Entity、Mapper 和 XML。先修改 `db/schema.sql`，执行 `./db/migrate.sh dev apply`，再运行 `online.longlian.generator.CodeGenerator`；不要手动修改 Entity 或删除整个 Entity 目录。
 
-1. 当新增新表时，运行生成器，将生成对应的 Controller、Service、Mapper 相关代码
-
-2. 当表结构发生变动时，由于默认不覆盖旧代码，所以需要删除原有的 entity 文件夹（或对应的实体类代码文件），重新生成即可，其他代码不受影响
-
-3. 数据库中枚举统一使用 TINYINT 类型，生成代码前，应在 app\src\main\java\online\longlian\app\common\enumeration 中定义枚举类型，并使用 ModelEnum 注解声明对应的表和字段，以便代码生成器为枚举字段生成正确的类型声明
+- 不传参数时沿用默认生成策略，不覆盖既有文件；传入表名时只生成并覆盖所选表的 Entity、Mapper 和 XML。例如程序参数 `organization_member` 用于组织成员模型更新。
+- 生成器默认读取应用 YAML；设置 `APPLICATION_YML` 可明确选择专用开发数据库配置，不需要覆盖或提交本机应用配置。数据库账号和密钥仍只放在被忽略的 YAML 中。
+- 数值枚举在 `common` 模块的 `online.longlian.common.enumeration` 中定义，通过 `@ModelEnum / @ModelEnums` 声明对应表和字段，供生成器映射。组织和平台角色保留字符串业务编码，不改成数值枚举。

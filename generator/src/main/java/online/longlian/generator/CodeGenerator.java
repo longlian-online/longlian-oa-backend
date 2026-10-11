@@ -55,7 +55,9 @@ public class CodeGenerator {
                         .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity")
                         .pathInfo(Map.of(OutputFile.xml, Paths.get("app", "src", "main", "resources", "mapper").toString())))
-                .strategyConfig(builder -> builder.entityBuilder()
+                .strategyConfig(builder -> {
+                    if (args.length > 0) builder.addInclude(args);
+                    builder.entityBuilder()
                         .enableLombok(
                                 new ClassAnnotationAttributes("@Data","lombok.Data"),
                                 new ClassAnnotationAttributes("@Builder", "lombok.Builder"),
@@ -71,7 +73,12 @@ public class CodeGenerator {
                         .mapperBuilder()
                         .enableMapperAnnotation()
                         .formatMapperFileName("%sMapper")
-                        .formatXmlFileName("%sMapper"))
+                        .formatXmlFileName("%sMapper");
+                    if (args.length > 0) {
+                        builder.entityBuilder().enableFileOverride();
+                        builder.mapperBuilder().enableFileOverride();
+                    }
+                })
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
 
@@ -92,6 +99,8 @@ public class CodeGenerator {
     }
 
     private static Path resolveApplicationYml() {
+        String configured = System.getenv("APPLICATION_YML");
+        if (configured != null) return Paths.get(configured);
         Path[] candidates = {
                 Paths.get("app/src/main/resources/application.yml"),
                 Paths.get("../app/src/main/resources/application.yml"),

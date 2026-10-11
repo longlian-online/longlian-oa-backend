@@ -1,5 +1,7 @@
 package online.longlian.app.common.security;
 
+import online.longlian.app.common.enumeration.AdminRole;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,9 +30,10 @@ public class AdminUserDetails implements UserDetails {
     private List<GrantedAuthority> authorities = new ArrayList<>();
 
     public static AdminUserDetails from(Long id, String username, String role) {
+        AdminRole validRole = AdminRole.fromValue(role);
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority(SYSTEM_ADMIN_AUTHORITY));
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + validRole.getValue()));
         return AdminUserDetails.builder()
                 .id(id)
                 .username(username)

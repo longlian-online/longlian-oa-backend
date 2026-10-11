@@ -49,7 +49,7 @@ public class DatabaseCleanupUtil {
         }
     }
 
-    private Path findSchemaFile() {
+    public Path findSchemaFile() {
         Path currentDirectory = Path.of("").toAbsolutePath();
         while (currentDirectory != null) {
             Path schemaFile = currentDirectory.resolve("db/schema.sql");

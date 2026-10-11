@@ -129,6 +129,19 @@ export DB_URL="maria://user:pass@host:3306/dbname"
 - 数据文件只做数据转换，不包含 DDL、事务提交、执行记录写入或 MariaDB 客户端命令。表结构由 `schema.sql` 管理，旧字段清理作为独立、经审核的运维操作。
 - 新库也执行并记录文件；只需在文件内判断来源旧字段是否存在，不需要判断或创建目标结构。
 
+### 组织所有者发布切换
+
+`organization_owner.sql` 仅提升有效创建者成员；已有有效所有者保持不变。创建者成员缺失或禁用、账号不可用、重复所有者、非法角色或重复有效成员均输出 `organization_owner_errors / organization_member_errors` 并阻断迁移，不写成功记录。需先人工核对和修复，不自动选择其他管理员。
+
+历史库升级顺序：
+
+1. 停止所有旧应用实例，备份并审核 `./db/migrate.sh prod plan`，避免旧写入路径与新成员约束同时运行。
+2. 执行 `./db/migrate.sh prod apply`；所有者回填失败时不得启动新应用。
+3. 生产 Atlas 不自动删除旧索引，审核后通过 MariaDB 客户端执行 `db/operations/organization_member_unique_cleanup.sql`。该操作要求所有者迁移成功记录存在，移除阻止软删除历史重新入组的 `uk_org_member_user`；目标普通索引已经由 `schema.sql` 同步。
+4. 确认旧唯一索引已移除后启动新应用，验证所有者、管理员权限及移除后重新入组。开发库使用 `dev apply` 自动同步索引，无需额外执行清理。
+
+旧应用不识别 `ORG_OWNER`，不能直接回滚旧二进制；已有重新入组历史时也不能直接重建旧唯一索引。回滚需要单独审核角色和历史数据恢复方案。
+
 ## API 测试建表
 
 API 测试在测试数据库为空时会直接执行根目录的 `db/schema.sql` 建表。Atlas 声明式模式不再维护独立的 `manifest/migrate/*.sql` 版本化迁移文件，因此不要新增第二份测试建表脚本。

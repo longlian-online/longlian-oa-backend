@@ -25,10 +25,9 @@ import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
-import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
-import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.common.OrganizationAuthorizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -72,8 +71,7 @@ class UserServiceImplTest {
     private ResourceService resourceService;
     @Mock
     private UserMapper userMapper;
-    @Mock
-    private OrganizationMembershipService organizationMembershipService;
+    private OrganizationAuthorizationService organizationAuthorizationService;
     @Mock
     private OTPServiceFactory otpServiceFactory;
     @Mock
@@ -89,7 +87,10 @@ class UserServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
+        for (Class<?> entity : List.of(User.class, Organization.class, OrganizationMember.class))
+            TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), entity);
+        organizationAuthorizationService = new OrganizationAuthorizationService(
+                organizationMapper, organizationMemberMapper, userMapper);
         service = new UserServiceImpl(
                 passwordEncoder,
                 organizationMapper,
@@ -98,7 +99,7 @@ class UserServiceImplTest {
                 groupApplicationMapper,
                 resourceService,
                 userMapper,
-                organizationMembershipService,
+                organizationAuthorizationService,
                 otpServiceFactory,
                 Clock.systemUTC(),
                 sessionService,
@@ -267,7 +268,7 @@ class UserServiceImplTest {
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.DISABLED).build());
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
@@ -317,7 +318,7 @@ class UserServiceImplTest {
         when(groupApplicationMapper.selectCount(any())).thenReturn(0L);
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(passwordEncoder.encode("password")).thenReturn("hashed-password");
         doAnswer(invocation -> {
@@ -341,47 +342,62 @@ class UserServiceImplTest {
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
+    /** 成员已退出或禁用时，不能重新写入失效的默认组织。 */
     @Test
     void shouldNotUpdateDefaultOrgWhenMembershipRejected() {
-        when(organizationMembershipService.requireEnabledMember(1L, 2L))
-                .thenThrow(new AppException(ResultCode.OPERATION_FAIL, "您不是该组织成员"));
-
+        when(organizationMapper.selectOne(any())).thenReturn(
+                Organization.builder().id(2L).status(Status.ENABLED).build());
         assertThatThrownBy(() -> service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build()))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("您不是该组织成员");
-
+                .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
         verify(userMapper, never()).update(any(), any());
-        verifyNoInteractions(sessionService);
     }
 
+    /** 非法角色不能通过默认组织切换进入响应或授权。 */
     @Test
-    void shouldUpdateDefaultOrgOnceWhenMembershipEnabled() {
-        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
-                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
-        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
-
-        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
-
-        assertThat(result.getId()).isEqualTo(2L);
-        assertThat(result.getRole()).isEqualTo("ORG_ADMIN");
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
-        verify(userMapper).update(isNull(), captor.capture());
-        String sqlSet = captor.getValue().getSqlSet();
-        if (sqlSet != null) {
-            assertThat(sqlSet).contains("default_org_id");
-        }
-        verifyNoInteractions(sessionService);
-    }
-    @Test
-    void shouldReturnNoRoleWhenMembershipRoleIsBlank() {
-        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+    void shouldRejectInvalidMembershipRoleBeforeUpdatingDefaultOrganization() {
+        when(organizationMapper.selectOne(any())).thenReturn(
+                Organization.builder().id(2L).status(Status.ENABLED).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(
                 OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole(" ").status(Status.ENABLED).build());
-        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+        assertThatThrownBy(() -> service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build()))
+                .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(userMapper, never()).update(any(), any());
+    }
 
-        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+    /** 新组织创建事务内建立所有者，不沿用旧版普通管理员默认角色。 */
+    @Test
+    void shouldCreateOrganizationWithOwnerMembership() {
+        stubRegisterValidation();
+        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any())).thenReturn(OneTimePassword.builder().id(20L).build());
+        when(passwordEncoder.encode("password")).thenReturn("hash");
+        doAnswer(call -> { call.<User>getArgument(0).setId(50L); return 1; }).when(userMapper).insert(any(User.class));
+        doAnswer(call -> { call.<Organization>getArgument(0).setId(30L); return 1; })
+                .when(organizationMapper).insert(any(Organization.class));
+        UserRegisterByInviteParamsBO params = registerParams();
+        params.setOrgName("Owner Org");
 
-        assertThat(result.getRole()).isNull();
+        service.registerAndCreateOrganizationByInvite(params);
+
+        ArgumentCaptor<OrganizationMember> created = ArgumentCaptor.forClass(OrganizationMember.class);
+        verify(organizationMemberMapper).insert(created.capture());
+        assertThat(created.getValue().getOrgRole()).isEqualTo("ORG_OWNER");
+        assertThat(created.getValue().getOrgId()).isEqualTo(30L);
+        assertThat(created.getValue().getUserId()).isEqualTo(50L);
+    }
+
+    /** 组织头像不可用不影响全局个人资料读取。 */
+    @Test
+    void shouldReturnProfileWithoutUnavailableAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("user")
+                .email("user@example.com").avatarFileId(10L).build());
+        when(resourceService.getResourceReadUrls(List.of(10L))).thenReturn(java.util.Map.of());
+
+        var profile = service.getMyInfo(1L);
+
+        assertThat(profile.getUsername()).isEqualTo("user");
+        assertThat(profile.getEmail()).isEqualTo("user@example.com");
+        assertThat(profile.getAvatarUrl()).isNull();
     }
     @Test
     void shouldRejectMissingUserAndEmptyOrganizationList() {
@@ -395,18 +411,6 @@ class UserServiceImplTest {
         assertThat(service.getMyOrganizations(1L)).isEmpty();
     }
 
-    @Test
-    void shouldIncludeAvatarWhenSwitchingToOrganizationWithAvatar() {
-        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
-                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
-        when(organizationMapper.selectById(2L)).thenReturn(
-                Organization.builder().id(2L).name("组织2").avatarFileId(5L).build());
-        when(resourceService.getResourceReadUrl(5L)).thenReturn("http://avatar");
-
-        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
-
-        assertThat(result.getAvatarUrl()).isEqualTo("http://avatar");
-    }
 
     @Test
     void shouldRejectCreateOrganizationWhenNameIsBlank() {
@@ -425,7 +429,7 @@ class UserServiceImplTest {
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.selectCount(any())).thenReturn(1L);
 

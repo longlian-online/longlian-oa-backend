@@ -22,23 +22,19 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
-import online.longlian.app.service.common.LockService;
+import online.longlian.app.service.common.OrganizationAuthorizationService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.OTPType;
-import online.longlian.common.enumeration.Status;
-import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 
 @Service
@@ -58,8 +54,8 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final ApplicationReviewHandler applicationReviewHandler;
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
-    private final LockService lockService;
-    private final PlatformTransactionManager transactionManager;
+    private final OrganizationAuthorizationService authorization;
+    private final OrganizationMemberPolicy policy;
 
     @Override
     public PageResultBO<OrgAdminApplicationInfoResultBO> listApplications(@NonNull OrgAdminApplicationListParamsBO params) {
@@ -73,17 +69,15 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         return new PageResultBO<>(memberAssembler.assembleApplications(applications), applicationPage.getTotal());
     }
 
-    /**
-     * 先校验申请有效性，再根据审批结果执行通过/拒绝操作，
-     */
     @Override
-    public void reviewApplication(@NonNull OrgAdminReviewApplicationParamsBO params) {
-        String lockKey = "org:application:review:" + params.getApplicationId();
-        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
-            GroupApplication application = groupApplicationMapper.selectById(params.getApplicationId());
-            applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
-                    params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
-        }
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
+    public void reviewApplication(OrgAdminReviewApplicationParamsBO params) {
+        authorization.lockOrganization(params.getOrgId(), true);
+        authorization.requireManager(params.getOrgId(), params.getReviewerId());
+        GroupApplication application = groupApplicationMapper.selectOne(new LambdaQueryWrapper<GroupApplication>()
+                .eq(GroupApplication::getId, params.getApplicationId()).last("FOR UPDATE"));
+        applicationReviewHandler.review(application, params.getOrgId(), params.getApplicationStatus(),
+                params.getReviewerId(), params.getReviewRemark(), LocalDateTime.now(clock));
     }
 
     @Override
@@ -99,72 +93,24 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
-    public void changeMemberStatus(@NonNull OrgMemberChangeStatusParamsBO params) {
-        changeMemberUnderLock(params.getOrgId(), () -> {
-            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
-            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-            memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
-            memberStatusHandler.updateMemberStatus(member, params.getStatus());
-        });
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
+    public void changeMemberStatus(OrgMemberChangeStatusParamsBO params) {
+        authorization.lockOrganization(params.getOrgId(), true);
+        OrganizationMember operator = authorization.requireManager(params.getOrgId(), params.getOperatorUserId());
+        OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
+        policy.requireManageableTarget(operator, member);
+        memberStatusHandler.updateMemberStatus(member, params.getStatus());
     }
 
-    /**
-     * 调整成员在当前组织内的角色。
-     */
     @Override
-    public void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params) {
-        changeMemberUnderLock(params.getOrgId(), () -> {
-            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
-            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-            if (isDemotingEnabledAdmin(member, params.getOrgRole())) {
-                validateNotLastEnabledAdmin(params.getOrgId());
-            }
-            updateMemberRole(member.getId(), params.getOrgRole());
-        });
-    }
-
-    /**
-     * 锁必须先于事务内的首次读取，并保持到事务提交；否则并发请求可能沿用锁前建立的旧快照。
-     */
-    private void changeMemberUnderLock(Long orgId, Runnable mutation) {
-        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
-                "org:member:role:" + orgId, 0, TimeUnit.SECONDS)) {
-            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            transaction.executeWithoutResult(status -> mutation.run());
-        }
-    }
-
-    /**
-     * 入口鉴权可能早于另一管理员的降级操作，修改前必须按数据库中的当前身份重新授权。
-     */
-    private void validateRoleOperator(Long orgId, Long operatorUserId) {
-        OrganizationMember operator = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getUserId, operatorUserId));
-        if (operator == null || operator.getStatus() != Status.ENABLED
-                || !InviteConstants.ROLE_ORG_ADMIN.equals(operator.getOrgRole())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "当前用户无权调整组织成员");
-        }
-    }
-
-    private boolean isDemotingEnabledAdmin(OrganizationMember member, String targetRole) {
-        return InviteConstants.ROLE_ORG_USER.equals(targetRole)
-                && InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
-                && member.getStatus() == Status.ENABLED;
-    }
-
-    /**
-     * 组织必须至少保留一名启用状态的管理员，否则成员会失去全部管理入口。
-     */
-    private void validateNotLastEnabledAdmin(Long orgId) {
-        long enabledAdminCount = organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_ADMIN)
-                .eq(OrganizationMember::getStatus, Status.ENABLED));
-        if (enabledAdminCount <= 1) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
-        }
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
+    public void changeMemberRole(OrgMemberChangeRoleParamsBO params) {
+        authorization.lockOrganization(params.getOrgId(), true);
+        OrganizationMember operator = authorization.requireManager(params.getOrgId(), params.getOperatorUserId());
+        OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
+        policy.requireRoleChange(operator, member);
+        if (!member.getOrgRole().equals(params.getOrgRole().name()))
+            updateMemberRole(member.getId(), params.getOrgRole().name());
     }
 
 
@@ -181,7 +127,9 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     @Override
-    public OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params) {
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
+    public OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(OrgAdminGenerateJoinOrgInviteCodeParamsBO params) {
+        authorization.requireManager(params.getOrgId(), params.getCreatorId());
         OneTimePassword oneTimePassword = otpServiceFactory.get(OTPType.OrganizationUserInvite).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())

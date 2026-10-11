@@ -101,8 +101,8 @@ class OrganizationScopeInterceptorTest {
     @Test
     void shouldIgnoreHeaderWhenHandlerHasNoDeclaration() throws Exception {
         UsernamePasswordAuthenticationToken incoming = new UsernamePasswordAuthenticationToken(
-                AdminUserDetails.from(1L, "admin", "ADMIN"), null,
-                AdminUserDetails.from(1L, "admin", "ADMIN").getAuthorities());
+                AdminUserDetails.from(1L, "admin", "normal"), null,
+                AdminUserDetails.from(1L, "admin", "normal").getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(incoming);
         request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "abc");
 

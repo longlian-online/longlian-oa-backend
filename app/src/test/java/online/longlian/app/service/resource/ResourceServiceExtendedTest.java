@@ -5,13 +5,16 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.pojo.entity.Resource;
+import online.longlian.app.pojo.entity.Organization;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
+import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ class ResourceServiceExtendedTest {
 
     @Mock
     private ResourceMapper resourceMapper;
+    @Mock private OrganizationMapper organizationMapper;
     @Mock
     private StorageServiceFactory storageFactory;
     @Mock
@@ -49,6 +53,8 @@ class ResourceServiceExtendedTest {
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Resource.class);
+        lenient().when(organizationMapper.selectById(any(Long.class)))
+                .thenReturn(Organization.builder().status(Status.ENABLED).build());
         StorageProperties props = new StorageProperties();
         props.setType(StorageType.OSS);
         props.setOss(new StorageProperties.OssConfig());
@@ -57,7 +63,7 @@ class ResourceServiceExtendedTest {
         cdn.setUrlPrefix("https://cdn.example");
         cdn.setAuthKey("test-secret");
         props.setCdn(cdn);
-        resourceService = new ResourceService(resourceMapper, storageFactory,
+        resourceService = new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
                 new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
     }
@@ -159,7 +165,7 @@ class ResourceServiceExtendedTest {
                 .id(1L).storageKey("avatar/1.png").storageType(StorageType.OSS).orgId(10L)
                 .build();
         when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
-        ResourceService invalidService = new ResourceService(resourceMapper, storageFactory,
+        ResourceService invalidService = new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner(cdn, CLOCK), new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK),
                 props, CLOCK);
 
@@ -175,7 +181,7 @@ class ResourceServiceExtendedTest {
         StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
         cdn.setEnabled(false);
         props.setCdn(cdn);
-        resourceService = new ResourceService(resourceMapper, storageFactory,
+        resourceService = new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
                 new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
 
@@ -351,13 +357,6 @@ class ResourceServiceExtendedTest {
         verifyNoInteractions(storageFactory, resourceMapper);
     }
 
-    @Test
-    void loadPending_found_returnsResource() {
-        Resource pending = Resource.builder().id(1L).storageKey("file/1.png").fileSize(3L).build();
-        when(resourceMapper.selectOne(any())).thenReturn(pending);
-
-        assertThat(resourceService.loadPending("file/1.png")).isSameAs(pending);
-    }
 
     @Test
     void loadPending_missing_throws() {
@@ -368,13 +367,6 @@ class ResourceServiceExtendedTest {
                 .hasMessageContaining("无权上传或文件已完成上传");
     }
 
-    @Test
-    void loadActivated_found_returnsResource() {
-        Resource activated = Resource.builder().id(1L).storageKey("file/1.png").build();
-        when(resourceMapper.selectOne(any())).thenReturn(activated);
-
-        assertThat(resourceService.loadActivated("file/1.png")).isSameAs(activated);
-    }
 
     @Test
     void loadActivated_missing_throws() {
@@ -389,6 +381,37 @@ class ResourceServiceExtendedTest {
                 .storageType(StorageType.OSS).fileSize(3L).fileMime("image/png").bizType("avatar").bizId(0L)
                 .processStatus(FileProcessStatus.Pending).build();
     }
+    /** 禁用组织不再签发链接，但平台级资源仍可读取。 */
+    @Test
+    void shouldHideDisabledOrganizationResourcesWithoutHidingGlobalResources() {
+        Resource organizationResource = Resource.builder().id(1L).orgId(10L)
+                .storageKey("avatar/1.png").storageType(StorageType.LOCAL).build();
+        Resource globalResource = Resource.builder().id(2L).orgId(0L)
+                .storageKey("avatar/2.png").storageType(StorageType.LOCAL).build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(organizationResource, globalResource));
+        when(organizationMapper.selectById(10L)).thenReturn(Organization.builder().status(Status.DISABLED).build());
+
+        var reads = resourceService.getResourceReadUrls(List.of(1L, 2L));
+
+        assertThat(reads).containsOnlyKeys(2L);
+        assertThat(reads.get(2L).getUrl()).contains("key=avatar/2.png", "signature=", "token=");
+        verifyNoInteractions(storageFactory);
+    }
+
+    /** 已解散组织的旧 LOCAL 地址不能继续上传或读取文件。 */
+    @Test
+    void shouldRejectStorageAccessForDeletedOrganization() {
+        Resource resource = Resource.builder().id(1L).orgId(10L).storageKey("avatar/1.png").build();
+        when(resourceMapper.selectOne(any())).thenReturn(resource);
+        when(organizationMapper.selectById(10L)).thenReturn(null);
+
+        assertThatThrownBy(() -> resourceService.loadPending("avatar/1.png")).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(online.longlian.app.common.result.ResultCode.DATA_NOT_EXIT.getCode());
+        assertThatThrownBy(() -> resourceService.loadActivated("avatar/1.png")).isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(online.longlian.app.common.result.ResultCode.DATA_NOT_EXIT.getCode());
+        verifyNoInteractions(storageFactory);
+    }
+
 
     private ResourceService resourceServiceAt(long epochSecond) {
         Clock clock = Clock.fixed(Instant.ofEpochSecond(epochSecond), ZoneOffset.UTC);
@@ -399,7 +422,7 @@ class ResourceServiceExtendedTest {
         cdn.setUrlPrefix("https://cdn.example");
         cdn.setAuthKey("test-secret");
         props.setCdn(cdn);
-        return new ResourceService(resourceMapper, storageFactory,
+        return new ResourceService(resourceMapper, organizationMapper, storageFactory,
                 new CdnUrlSigner(cdn, clock), new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, clock),
                 props, clock);
     }

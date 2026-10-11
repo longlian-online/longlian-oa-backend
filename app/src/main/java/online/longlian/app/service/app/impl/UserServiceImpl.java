@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
+import online.longlian.app.common.enumeration.OrganizationRole;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
@@ -25,13 +26,14 @@ import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.common.OrganizationAuthorizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -47,9 +49,9 @@ import online.longlian.common.enumeration.TokenType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -69,7 +71,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final GroupApplicationMapper groupApplicationMapper;
     private final ResourceService resourceService;
     private final UserMapper userMapper;
-    private final OrganizationMembershipService organizationMembershipService;
+    private final OrganizationAuthorizationService organizationAuthorizationService;
     private final OTPServiceFactory otpServiceFactory;
     private final Clock clock;
     private final SessionService sessionService;
@@ -137,7 +139,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null && user.getAvatarFileId() > 0) {
-            builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
+            ResourceReadUrlGetResultBO avatar = resourceService.getResourceReadUrls(List.of(user.getAvatarFileId()))
+                    .get(user.getAvatarFileId());
+            if (avatar != null) builder.avatarUrl(avatar.getUrl());
         }
         return builder.build();
     }
@@ -197,14 +201,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public UserSwitchOrgResultBO switchOrg(UserSwitchOrgParamsBO params) {
-        OrganizationMember member = organizationMembershipService.requireEnabledMember(
-                params.getUserId(), params.getOrgId());
+        Organization organization = organizationAuthorizationService.lockOrganization(params.getOrgId(), true);
+        OrganizationMember member = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getUserId, params.getUserId()).eq(OrganizationMember::getOrgId, params.getOrgId())
+                .last("FOR UPDATE"));
+        if (member == null || member.getStatus() != Status.ENABLED)
+            throw new AppException(ResultCode.OPERATION_FAIL, "您不是该组织的启用成员");
+        OrganizationRole role = OrganizationRole.fromValue(member.getOrgRole());
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, params.getUserId())
                 .set(User::getDefaultOrgId, params.getOrgId()));
 
-        Organization organization = organizationMapper.selectById(params.getOrgId());
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
             avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
@@ -214,7 +223,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(organization.getId())
                 .name(organization.getName())
                 .avatarUrl(avatarUrl)
-                .role(StringUtils.hasText(member.getOrgRole()) ? member.getOrgRole() : null)
+                .role(role.name())
                 .build();
     }
 
@@ -243,7 +252,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(organization.getId())
                 .userId(user.getId())
-                .orgRole(InviteConstants.ROLE_ORG_ADMIN)
+                .orgRole(InviteConstants.ROLE_ORG_OWNER)
                 .joinedAt(now)
                 .submitCount(0)
                 .status(Status.ENABLED)
@@ -266,12 +275,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public void registerAndJoinOrganizationByInvite(UserRegisterByInviteParamsBO params) {
         OneTimePassword emailOtp = validateRegisterRequest(params);
         OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
                 OTPValidateContextBO.builder().code(params.getInviteCode()).build());
-        Organization organization = getJoinTargetOrganization(inviteOtp);
+        String encodedPassword = passwordEncoder.encode(params.getPassword());
+        Organization organization = getJoinTargetOrganization(inviteOtp, true);
 
         boolean hasPendingApplication = groupApplicationMapper.selectCount(
                 new LambdaQueryWrapper<GroupApplication>()
@@ -287,7 +297,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         LocalDateTime now = LocalDateTime.now(clock);
         User pendingUser = User.builder()
                 .username(params.getUsername())
-                .password(passwordEncoder.encode(params.getPassword()))
+                .password(encodedPassword)
                 .nickname(params.getNickname())
                 .email(params.getEmail())
                 .status(Status.DISABLED)
@@ -318,11 +328,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public void joinOrganizationByInvite(Long userId, String inviteCode) {
         OneTimePassword inviteOtp = otpServiceFactory.get(OTPType.OrganizationUserInvite).getValid(
                 OTPValidateContextBO.builder().code(inviteCode).build());
-        Organization organization = getJoinTargetOrganization(inviteOtp);
+        Organization organization = getJoinTargetOrganization(inviteOtp, true);
 
         OrganizationMember existedMember = organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
@@ -400,6 +410,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     private Organization getJoinTargetOrganization(OneTimePassword inviteOtp) {
+        return getJoinTargetOrganization(inviteOtp, false);
+    }
+
+    private Organization getJoinTargetOrganization(OneTimePassword inviteOtp, boolean lock) {
         OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationJoinOtp>()
                         .eq(OrganizationJoinOtp::getOtpId, inviteOtp.getId())
@@ -408,6 +422,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (joinOtp == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码不存在");
         }
+        if (lock) return organizationAuthorizationService.lockOrganization(joinOtp.getOrgId(), true);
         Organization organization = organizationMapper.selectById(joinOtp.getOrgId());
         if (organization == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "组织不存在");
