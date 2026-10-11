@@ -23,37 +23,31 @@ class ProjectSearchSupportTest {
         assertThat(result.getOrgId()).isEqualTo(7L);
         assertThat(result.getTypeId()).isEqualTo(9L);
         assertThat(result.getKeyword()).isEqualTo("50%_!");
-        assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!!%");
+        assertThat(result.getMatchPattern()).isEqualTo("%50!%!_!!%");
+        assertThat(result.getTagMatchPattern()).isEqualTo("50!%!_!!");
         assertThat(result.getSortByTime()).isEqualTo(SortByTime.UPDATE);
         assertThat(result.getOrderDir()).isEqualTo(SortDirection.ASC);
     }
 
+    /** 内部空白和重复词按原样保留，不生成独立词的搜索模式。 */
     @Test
-    void buildParams_collectsDistinctLongAndShortTerms() {
+    void shouldPreserveWholeKeywordWithoutSplitting() {
         ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
-                .orgId(1L).keyword("database performance database go").build(), null);
+                .keyword("  星海　银河\tGo OA 星海  ").build(), null);
 
-        assertThat(result.getMatchPatterns()).containsExactly(
-                "%database performance database go%", "%database%", "%performance%", "%go%");
-        assertThat(ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
-                .keyword("星海").build(), null).getMatchPatterns()).containsExactly("%星海%");
+        assertThat(result.getKeyword()).isEqualTo("星海　银河\tGo OA 星海");
+        assertThat(result.getMatchPattern()).isEqualTo("%星海　银河\tGo OA 星海%");
+        assertThat(result.getTagMatchPattern()).isEqualTo("星海　银河\tGo OA 星海");
     }
 
+    /** 多词关键词中的通配符按字面转义，标题别名和 tag 共用完整关键词。 */
     @Test
-    void buildParams_preservesShortTermsAcrossUnicodeWhitespace() {
-        ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
-                .keyword("星海　银河\tGo OA 星海").build(), null);
-
-        assertThat(result.getMatchPatterns()).containsExactly(
-                "%星海　银河\tGo OA 星海%", "%星海%", "%银河%", "%Go%", "%OA%");
-    }
-
-    @Test
-    void buildParams_preservesLiteralWildcardsInShortMultiwordTerms() {
+    void shouldEscapeLiteralWildcardsInWholeMultiwordKeyword() {
         ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
                 .keyword("50%_! Go").build(), null);
 
-        assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!! Go%", "%50!%!_!!%", "%Go%");
+        assertThat(result.getMatchPattern()).isEqualTo("%50!%!_!! Go%");
+        assertThat(result.getTagMatchPattern()).isEqualTo("50!%!_!! Go");
     }
 
     /** 命中项稳定前置，重复路径不重复输出，保留顶层额外字段。 */

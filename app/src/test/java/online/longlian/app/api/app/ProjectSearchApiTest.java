@@ -41,9 +41,9 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("data.list[2].alias", equalTo("星海之旅"));
     }
 
-    /** 英文全文相关性按 5/3/1 字段权重排序。 */
+    /** 英文完整关键词命中按 5/3/1 字段权重排序。 */
     @Test
-    void shouldRankEnglishFulltextMatchesByFieldWeights() {
+    void shouldRankEnglishMatchesByFieldWeights() {
         createProject(1, "Database guide", "Guide", metadata());
         createProject(2, "Galaxy travel", "Database voyage", metadata());
         createProject(3, "Distant world", "World", metadata("series", "Database"));
@@ -52,24 +52,6 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
                 .body("data.list.id", equalTo(List.of("1", "2", "3")));
-    }
-
-    /** 同字段命中仍使用数据库原生相关性，不能退化为仅按时间排序。 */
-    @Test
-    void shouldUseNativeRelevanceBeforeRequestedTimeOrder() {
-        createProject(1, "database database database reference", "one", metadata());
-        createProject(2, "database introduction", "two", metadata());
-        createProject(3, "unrelated astronomy", "three", metadata());
-        jdbcTemplate.update("UPDATE project SET created_at = '2025-01-01' WHERE id = 1");
-        jdbcTemplate.update("UPDATE project SET created_at = '2026-01-01' WHERE id = 2");
-        List<Double> scores = jdbcTemplate.query(
-                "SELECT MATCH(title) AGAINST('database' IN NATURAL LANGUAGE MODE) FROM project WHERE id IN (1, 2) ORDER BY id",
-                (rs, rowNum) -> rs.getDouble(1));
-        assertThat(scores.get(0)).isGreaterThan(scores.get(1));
-
-        search("database").then().statusCode(200)
-                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.list.id", equalTo(List.of("1", "2")));
     }
 
     /** 标题和别名完全匹配获得额外加分，短词也能入选。 */
@@ -150,79 +132,69 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
     }
 
-    /** 多词查询可命中其中一个较长片段，并前置对应 tag。 */
+    /** tag 必须匹配完整关键词，不接受子串或拆词命中。 */
     @Test
-    void shouldSearchIndividualMetadataWordsInMultiwordQuery() {
-        createProject(1, "遥远世界", "World", metadata("author", "山田", "series", "database"));
-        Response response = search("database performance");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"))
-                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
+    void shouldSearchOnlyWholeTagValuesWithCompleteKeyword() {
+        createProject(1, "遥远世界", "World", metadata("series", "database performance"));
+        createProject(2, "普通企划", "ordinary", metadata("series", "database"));
+        createProject(3, "普通企划", "neutral", metadata("series", "database performance guide"));
+        createProject(4, "普通企划", "other", metadata("first", "database", "second", "performance"));
+        search(" database performance ").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
     }
 
-    /** 相同内容放在标题、别名或元数据时，多词子串召回一致且按字段权重排序。 */
+    /** 标题别名匹配完整关键词子串，不能将无空白文本按拆词召回。 */
     @Test
-    void shouldApplySameMultiwordSubstringRulesToAllSearchFields() {
-        createProject(1, "foobar", "ordinary", metadata());
-        createProject(2, "普通企划", "foobar", metadata());
-        createProject(3, "普通企划", "ordinary", metadata("author", "山田", "series", "foobar"));
-        createProject(4, "无匹配企划", "unrelated", metadata());
-
+    void shouldMatchCompleteTitleAndAliasKeywordWithoutPartialTagHits() {
+        String original = metadata("author", "山田", "series", "foobar");
+        createProject(1, "prefix foo bar suffix", "ordinary", original);
+        createProject(2, "普通企划", "prefix foo bar suffix", metadata());
+        createProject(3, "foobar", "ordinary", original);
         Response response = search("foo bar");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(3))
-                .body("data.list.id", equalTo(List.of("1", "2", "3")));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata"))
-                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
+        response.then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2))
+                .body("data.list.id", equalTo(List.of("1", "2")))
+                .body("data.list[0].metadata", equalTo(original));
     }
 
-    /** 多个中文短词分别召回标题、别名和元数据，命中元数据稳定前置。 */
+    /** 中文关键词不能拆词召回标题别名，也不能跨 tag 拼接命中。 */
     @Test
-    void shouldSearchMultipleShortChineseTermsAcrossAllFields() {
+    void shouldRejectSeparateChineseTermMatchesAcrossFields() {
         createProject(1, "星海远征", "voyage", metadata());
         createProject(2, "普通企划", "银河之旅", metadata());
-        createProject(3, "普通企划", "world", metadata("author", "山田", "series", "星海", "tag", "银河"));
-        createProject(4, "山间日记", "diary", metadata());
-
-        Response response = search("星海 银河");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(3))
-                .body("data.list.id", equalTo(List.of("1", "2", "3")));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata"))
-                .getJSONArray("tags").stream().map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("key")))
-                .containsExactly("series", "tag", "author");
+        createProject(3, "普通企划", "world", metadata("series", "星海", "tag", "银河"));
+        search("星海 银河").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(0)).body("data.list", hasSize(0));
     }
 
-    /** 英文短词组合不依赖全文索引收录，保持字段权重及数组元数据顺序。 */
+    /** 英文短词组合仅在整个 tag value 相等时命中，并稳定前置重复命中项。 */
     @Test
-    void shouldSearchMultipleShortEnglishTermsAcrossAllFields() {
+    void shouldMatchWholeMultiwordTagAndMoveDuplicateMatchesFirst() {
         createProject(1, "Go project", "voyage", metadata());
         createProject(2, "普通企划", "OA system", metadata());
-        createProject(3, "普通企划", "world", metadata("first", "other", "second", "Go language", "third", "OA tool"));
-        createProject(4, "无匹配企划", "unrelated", metadata());
-
+        createProject(3, "普通企划", "world", metadata("first", "other", "second", "Go OA", "third", "go oa"));
+        createProject(4, "普通企划", "neutral", metadata("first", "Go language", "second", "OA tool"));
         Response response = search("go oa");
-        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(3))
-                .body("data.list.id", equalTo(List.of("1", "2", "3")));
-        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[2].metadata"))
+        response.then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("3")));
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"))
                 .getJSONArray("tags").stream().map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("value")))
-                .containsExactly("Go language", "OA tool", "other");
+                .containsExactly("Go OA", "go oa", "other");
     }
 
-    /** 长词与短词混合查询时，短词不能在别名和元数据召回中被忽略。 */
+    /** 英文长短词不能通过全文搜索或拆词单独召回企划。 */
     @Test
-    void shouldSearchMixedLongAndShortTermsAcrossAllFields() {
+    void shouldRejectSeparateEnglishTermMatchesAcrossFields() {
         createProject(1, "Database guide", "guide", metadata());
         createProject(2, "普通企划", "OA system", metadata());
         createProject(3, "普通企划", "world", metadata("series", "OA"));
-        createProject(4, "无匹配企划", "unrelated", metadata());
-
         search("database OA").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(3))
-                .body("data.list.id", equalTo(List.of("1", "2", "3")));
+                .body("data.total", equalTo(0)).body("data.list", hasSize(0));
     }
 
 
@@ -242,7 +214,7 @@ class ProjectSearchApiTest extends BaseApiTest {
     @Test
     void shouldTreatPercentUnderscoreAndEscapeAsLiteralCharacters() {
         createProject(1, "50%", "one", metadata());
-        createProject(2, "ordinary", "two", metadata("series", "under_score"));
+        createProject(2, "ordinary", "two", metadata("series", "_"));
         createProject(3, "exclamation!", "three", metadata());
         createProject(4, "other", "four", metadata());
 
@@ -253,6 +225,17 @@ class ProjectSearchApiTest extends BaseApiTest {
                     .body("data.total", equalTo(1))
                     .body("data.list[0].id", equalTo(Integer.toString(i + 1)));
         }
+    }
+
+    /** tag 中的通配符与转义字符必须整值字面匹配，不能扩大匹配范围。 */
+    @Test
+    void shouldMatchLiteralTagWildcardsOnlyAsWholeValue() {
+        createProject(1, "普通企划", "ordinary", metadata("series", "50%_!"));
+        createProject(2, "普通企划", "neutral", metadata("series", "50xx!"));
+        createProject(3, "普通企划", "other", metadata("series", "prefix50%_!suffix"));
+        search("50%_!").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
     }
 
     /** 组织作用域、禁用状态与软删除同时约束全部搜索分支。 */
@@ -380,15 +363,15 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
-    /** 注入文本使用绑定参数，仅返回合法 OR 子串命中，不能扩大到全部记录。 */
+    /** 注入文本按完整关键词绑定，不能拆词或扩大到全部记录。 */
     @Test
     void shouldBindSearchKeywordAsData() {
         createProject(1, "普通企划", "ordinary", metadata());
-        createProject(2, "无匹配企划", "neutral", metadata());
+        createProject(2, "' OR 1=1 --", "neutral", metadata());
 
         search("' OR 1=1 --").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("2")));
     }
 
     private Response search(String keyword) {

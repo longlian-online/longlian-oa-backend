@@ -12,23 +12,11 @@
         SELECT ranked.*
         FROM (
             SELECT p.*,
-                MATCH(p.title) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS title_score,
-                MATCH(p.alias) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS alias_score,
-                CASE WHEN
-                    <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
-                        p.title LIKE #{pattern} ESCAPE '!'
-                    </foreach>
-                THEN 1 ELSE 0 END AS title_hit,
-                CASE WHEN
-                    <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
-                        p.alias LIKE #{pattern} ESCAPE '!'
-                    </foreach>
-                THEN 1 ELSE 0 END AS alias_hit,
+                CASE WHEN p.title LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS title_hit,
+                CASE WHEN p.alias LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
                 JSON_MERGE_PRESERVE('[]',
-                    <foreach collection="params.matchPatterns" item="pattern" separator=",">
-                        COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
-                            'all', #{pattern}, '!', '$.tags[*].value'), '[]')
-                    </foreach>
+                    COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
+                        'all', #{params.tagMatchPattern}, '!', '$.tags[*].value'), '[]')
                 ) AS matched_metadata_paths
             FROM project p
             WHERE p.org_id = #{params.orgId}
@@ -38,11 +26,10 @@
                     AND p.type_id = #{params.typeId}
                 </if>
         ) ranked
-        WHERE title_score &gt; 0 OR alias_score &gt; 0
-            OR title_hit = 1 OR alias_hit = 1 OR JSON_LENGTH(matched_metadata_paths) &gt; 0
+        WHERE title_hit = 1 OR alias_hit = 1 OR JSON_LENGTH(matched_metadata_paths) &gt; 0
         ORDER BY (
-            5 * (title_score + CASE WHEN title_score &gt; 0 OR title_hit = 1 THEN 1 ELSE 0 END)
-            + 3 * (alias_score + CASE WHEN alias_score &gt; 0 OR alias_hit = 1 THEN 1 ELSE 0 END)
+            5 * title_hit
+            + 3 * alias_hit
             + CASE WHEN JSON_LENGTH(matched_metadata_paths) &gt; 0 THEN 1 ELSE 0 END
             + CASE WHEN title = #{params.keyword} THEN 20 ELSE 0 END
             + CASE WHEN alias = #{params.keyword} THEN 10 ELSE 0 END
