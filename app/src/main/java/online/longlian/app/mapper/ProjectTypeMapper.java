@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Mapper;
  * </p>
  *
  * @author longlian
- * @since 
+ * @since 2026-03-17
  */
 @Mapper
 public interface ProjectTypeMapper extends BaseMapper<ProjectType> {
