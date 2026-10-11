@@ -97,6 +97,14 @@ class BaseTaskServiceImplTest {
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         verify(baseTaskMapper, never()).deleteById(10L);
     }
+    // 空引用集合（如空模板）不加锁，也不应产生查询。
+    @Test
+    void shouldSkipLockingWhenTaskIdsEmpty() {
+        service.lockBaseTasks(List.of());
+
+        verifyNoInteractions(baseTaskMapper);
+    }
+
     // 部分任务存在也不能接受整个引用集合，重复 ID 不应掩盖缺失任务。
     @Test
     void shouldRejectPartiallyMissingTasks() {
