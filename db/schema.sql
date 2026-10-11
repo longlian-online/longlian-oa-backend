@@ -197,6 +197,7 @@ CREATE TABLE `project` (
   `title` varchar(100) NOT NULL COMMENT "企划名称",
   `alias` varchar(100) NULL DEFAULT "" COMMENT "别名",
   `metadata` json NULL COMMENT "扩展信息(JSON字符串)",
+  `metadata_search_text` longtext AS (COALESCE(CASE WHEN JSON_TYPE(`metadata`) IN ('OBJECT', 'ARRAY') THEN JSON_EXTRACT(`metadata`, '$.*', '$[*]') ELSE JSON_UNQUOTE(`metadata`) END, '')) PERSISTENT COMMENT "元数据搜索投影（数据库自动生成）",
   `cover_file_id` bigint NULL COMMENT "封面图",
   `description` text NULL COMMENT "简介",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-进行中 2-已完成 3-已归档",
@@ -206,7 +207,10 @@ CREATE TABLE `project` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_org_type` (`org_id`, `type_id`)
+  INDEX `idx_org_type` (`org_id`, `type_id`),
+  FULLTEXT INDEX `ft_project_title` (`title`),
+  FULLTEXT INDEX `ft_project_alias` (`alias`),
+  FULLTEXT INDEX `ft_project_metadata` (`metadata_search_text`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划表";
 -- Create "project_type" table
 CREATE TABLE `project_type` (

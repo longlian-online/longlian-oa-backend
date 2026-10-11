@@ -17,6 +17,9 @@ public class ProjectInfoVO {
     @Schema(description = "企划标题")
     private String title;
 
+    @Schema(description = "企划别名")
+    private String alias;
+
     @Schema(description = "企划简介")
     private String description;
 

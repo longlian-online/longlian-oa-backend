@@ -2,6 +2,8 @@ package online.longlian.app.service.app.impl.project;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -10,6 +12,13 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectSearchResultBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
@@ -29,6 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -308,5 +318,75 @@ class ProjectServiceImplTest {
                 .creatorId(2L)
                 .resourceStatus(Status.DISABLED)
                 .build();
+    }
+
+    @Test
+    void getProjectList_searchUsesDatabasePaginationAndOnlyReordersReturnedMetadata() {
+        String original = "{\"author\":\"山田\",\"series\":\"星海\"}";
+        Project project = Project.builder().id(1L).metadata(original).build();
+        ProjectSearchResultBO row = new ProjectSearchResultBO();
+        row.setProject(project);
+        row.setMatchedMetadataPaths("[\"$[1]\"]");
+        Page<ProjectSearchResultBO> page = new Page<>(2, 10, 12);
+        page.setRecords(List.of(row));
+        when(projectMapper.selectSearchPage(any(), any())).thenReturn(page);
+        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+                ProjectListResultBO.builder().id(1L).metadata(original).build()));
+
+        PageResultBO<ProjectListResultBO> result = service.getProjectList(ProjectListParamsBO.builder()
+                .orgId(7L).keyword(" 星海 ").page(new PageParamsBO(2, 10)).build());
+
+        ArgumentCaptor<ProjectSearchParamsBO> searchCaptor = ArgumentCaptor.forClass(ProjectSearchParamsBO.class);
+        verify(projectMapper).selectSearchPage(any(), searchCaptor.capture());
+        assertThat(searchCaptor.getValue().getOrgId()).isEqualTo(7L);
+        assertThat(searchCaptor.getValue().getKeyword()).isEqualTo("星海");
+        assertThat(result.getTotal()).isEqualTo(12);
+        assertThat(result.getList().getFirst().getMetadata()).isEqualTo(
+                "{\"series\":\"星海\",\"author\":\"山田\"}");
+        assertThat(project.getMetadata()).isEqualTo(original);
+        verify(projectMapper, never()).selectPage(any(), any());
+    }
+
+    @Test
+    void getProjectList_emptySearchPagePreservesTotalWithoutAssembly() {
+        Page<ProjectSearchResultBO> page = new Page<>(3, 10, 12);
+        when(projectMapper.selectSearchPage(any(), any())).thenReturn(page);
+
+        PageResultBO<ProjectListResultBO> result = service.getProjectList(ProjectListParamsBO.builder()
+                .orgId(1L).keyword("database").page(new PageParamsBO(3, 10)).build());
+
+        assertThat(result.getList()).isEmpty();
+        assertThat(result.getTotal()).isEqualTo(12);
+        verify(projectAssembler, never()).assembleList(any());
+    }
+
+    @Test
+    void getProjectList_blankKeywordKeepsOriginalListQueryAndMetadata() {
+        ProjectListParamsBO params = ProjectListParamsBO.builder()
+                .orgId(1L).keyword("  ").orderDir(SortDirection.DESC).page(new PageParamsBO(1, 10)).build();
+        LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<>();
+        Page<Project> page = new Page<>(1, 10, 1);
+        Project project = Project.builder().id(1L).metadata("{ \"a\": 1 }").build();
+        page.setRecords(List.of(project));
+        when(projectQueryBuilder.buildListQuery(params, null)).thenReturn(wrapper);
+        when(projectMapper.selectPage(any(), any())).thenReturn(page);
+        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+                ProjectListResultBO.builder().metadata(project.getMetadata()).build()));
+
+        PageResultBO<ProjectListResultBO> result = service.getProjectList(params);
+
+        assertThat(result.getList().getFirst().getMetadata()).isEqualTo("{ \"a\": 1 }");
+        verify(projectMapper, never()).selectSearchPage(any(), any());
+    }
+
+    @Test
+    void getProjectList_invalidTypeFailsBeforeSearching() {
+        when(projectTypeMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getProjectList(ProjectListParamsBO.builder()
+                .orgId(1L).projectType("不存在").keyword("星海").page(new PageParamsBO(1, 10)).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).selectSearchPage(any(), any());
     }
 }

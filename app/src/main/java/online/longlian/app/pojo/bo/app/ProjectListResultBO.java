@@ -13,6 +13,7 @@ import online.longlian.common.enumeration.ProjectStatus;
 public class ProjectListResultBO {
     private Long id;
     private String title;
+    private String alias;
     private String description;
     private String coverUrl;
     private String projectType;

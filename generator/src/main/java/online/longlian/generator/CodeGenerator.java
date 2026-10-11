@@ -2,6 +2,7 @@ package online.longlian.generator;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
+import com.baomidou.mybatisplus.generator.config.OutputFile;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import online.longlian.generator.internal.EnumFieldMeta;
@@ -52,8 +53,11 @@ public class CodeGenerator {
                 )
                 .globalConfig(builder -> builder.author("longlian")
                         .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
-                .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity"))
+                .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity")
+                        .pathInfo(Map.of(OutputFile.xml, Paths.get("app", "src", "main", "resources", "mapper").toString())))
                 .strategyConfig(builder -> builder.entityBuilder()
+                        // 数据库维护的搜索投影不能作为实体的可写字段。
+                        .addIgnoreColumns("metadata_search_text")
                         .enableLombok(
                                 new ClassAnnotationAttributes("@Data","lombok.Data"),
                                 new ClassAnnotationAttributes("@Builder", "lombok.Builder"),

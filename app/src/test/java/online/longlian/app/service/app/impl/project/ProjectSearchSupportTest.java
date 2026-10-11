@@ -1,0 +1,90 @@
+package online.longlian.app.service.app.impl.project;
+
+import com.alibaba.fastjson2.JSON;
+import online.longlian.app.common.enumeration.SortByTime;
+import online.longlian.app.common.enumeration.SortDirection;
+import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.stream.IntStream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class ProjectSearchSupportTest {
+
+    @Test
+    void buildParams_preservesFiltersAndEscapesLiteralWildcards() {
+        ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .orgId(7L).keyword("  50%_!  ")
+                .sortByTime(SortByTime.UPDATE).orderDir(SortDirection.ASC).build(), 9L);
+
+        assertThat(result.getOrgId()).isEqualTo(7L);
+        assertThat(result.getTypeId()).isEqualTo(9L);
+        assertThat(result.getKeyword()).isEqualTo("50%_!");
+        assertThat(result.getLikePattern()).isEqualTo("%50!%!_!!%");
+        assertThat(result.getMetadataPatterns()).containsExactly("%50!%!_!!%");
+        assertThat(result.getSortByTime()).isEqualTo(SortByTime.UPDATE);
+        assertThat(result.getOrderDir()).isEqualTo(SortDirection.ASC);
+    }
+
+    @Test
+    void buildParams_collectsDistinctFulltextWordsAndPreservesShortWholeQuery() {
+        ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .orgId(1L).keyword("database performance database go").build(), null);
+
+        assertThat(result.getMetadataPatterns()).containsExactly(
+                "%database performance database go%", "%database%", "%performance%");
+        assertThat(ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .keyword("星海").build(), null).getMetadataPatterns()).containsExactly("%星海%");
+    }
+
+    @Test
+    void prioritizeMetadata_movesAllMatchingObjectEntriesStably() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "{\"author\":\"山田\",\"series\":\"星海\",\"language\":\"中文\",\"tag\":\"星海\"}",
+                "[\"$[3]\",\"$[1]\",\"$[1]\"]");
+
+        assertThat(JSON.parseObject(result).keySet()).containsExactly("series", "tag", "author", "language");
+        assertThat(JSON.parseObject(result).getString("author")).isEqualTo("山田");
+    }
+
+    @Test
+    void prioritizeMetadata_movesNestedArrayMatchesWithoutConfusingIndices() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "[{\"value\":\"A\"},{\"value\":\"B\"},{\"nested\":{\"year\":2025}}]",
+                "[\"$[2].nested.year\"]");
+
+        assertThat(JSON.parseArray(result).getJSONObject(0).getJSONObject("nested").getInteger("year"))
+                .isEqualTo(2025);
+        assertThat(JSON.parseArray(result).getJSONObject(1).getString("value")).isEqualTo("A");
+        assertThat(JSON.parseArray(result).getJSONObject(2).getString("value")).isEqualTo("B");
+    }
+
+    @Test
+    void prioritizeMetadata_preservesNonMatchingInputAndScalarMetadata() {
+        String original = "{ \"author\": \"山田\" }";
+        assertThat(ProjectSearchSupport.prioritizeMetadata(original, "[]")).isEqualTo(original);
+        assertThat(ProjectSearchSupport.prioritizeMetadata(null, "[]")).isNull();
+        assertThat(ProjectSearchSupport.prioritizeMetadata("\"星海\"", "[\"$\"]")).isEqualTo("\"星海\"");
+    }
+
+    @Test
+    void prioritizeMetadata_respectsPathBoundariesAndEscapedKeys() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "{\"abc\":\"one\",\"abcd\":\"two\",\"a\\\"b\":\"three\"}",
+                JSON.toJSONString(List.of("$[1]", "$[2]")));
+
+        assertThat(JSON.parseObject(result).keySet()).containsExactly("abcd", "a\"b", "abc");
+    }
+
+    @Test
+    void prioritizeMetadata_doesNotConfuseFirstAndTenthArrayIndices() {
+        List<Integer> original = IntStream.rangeClosed(0, 10).boxed().toList();
+
+        String result = ProjectSearchSupport.prioritizeMetadata(JSON.toJSONString(original), "[\"$[10]\"]");
+
+        assertThat(JSON.parseArray(result, Integer.class)).containsExactly(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+    }
+}

@@ -60,6 +60,7 @@ class ProjectAssemblerTest {
         Project project = Project.builder()
                 .id(1L)
                 .title("龙连漫画")
+                .alias("Dragon Comic")
                 .description("OA协作企划")
                 .typeId(5L)
                 .creatorId(10L)
@@ -83,6 +84,7 @@ class ProjectAssemblerTest {
         ProjectListResultBO bo = result.get(0);
         assertEquals(1L, bo.getId());
         assertEquals("龙连漫画", bo.getTitle());
+        assertEquals("Dragon Comic", bo.getAlias());
         assertEquals("OA协作企划", bo.getDescription());
         assertEquals("漫画", bo.getProjectType());
         assertEquals(ProjectStatus.IN_PROGRESS, bo.getProjectStatus());

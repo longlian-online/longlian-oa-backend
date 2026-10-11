@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="online.longlian.app.mapper.ProjectMapper">
+
+    <resultMap id="searchResult" type="online.longlian.app.pojo.bo.app.ProjectSearchResultBO">
+        <id property="projectId" column="id"/>
+        <result property="matchedMetadataPaths" column="matched_metadata_paths"/>
+        <association property="project" javaType="online.longlian.app.pojo.entity.Project" autoMapping="true"/>
+    </resultMap>
+
+    <select id="selectSearchPage" resultMap="searchResult">
+        SELECT ranked.*
+        FROM (
+            SELECT p.*,
+                MATCH(p.title) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS title_score,
+                MATCH(p.alias) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS alias_score,
+                MATCH(p.metadata_search_text) AGAINST(#{params.keyword} IN NATURAL LANGUAGE MODE) AS metadata_score,
+                CASE WHEN p.title LIKE #{params.likePattern} ESCAPE '!' THEN 1 ELSE 0 END AS title_hit,
+                CASE WHEN p.alias LIKE #{params.likePattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
+                JSON_MERGE_PRESERVE('[]',
+                    <foreach collection="params.metadataPatterns" item="pattern" separator=",">
+                        COALESCE(JSON_SEARCH((CASE WHEN JSON_TYPE(p.metadata) IN ('OBJECT', 'ARRAY')
+                            THEN NULLIF(p.metadata_search_text, '') ELSE p.metadata END) COLLATE utf8mb4_unicode_520_ci,
+                            'all', #{pattern}, '!'), '[]')
+                    </foreach>
+                ) AS matched_metadata_paths
+            FROM project p
+            WHERE p.org_id = #{params.orgId}
+                AND p.resource_status = 1
+                AND p.deleted_at IS NULL
+                <if test="params.typeId != null">
+                    AND p.type_id = #{params.typeId}
+                </if>
+        ) ranked
+        WHERE title_score &gt; 0 OR alias_score &gt; 0
+            OR title_hit = 1 OR alias_hit = 1 OR JSON_LENGTH(matched_metadata_paths) &gt; 0
+        ORDER BY (
+            5 * (title_score + CASE WHEN title_score &gt; 0 OR title_hit = 1 THEN 1 ELSE 0 END)
+            + 3 * (alias_score + CASE WHEN alias_score &gt; 0 OR alias_hit = 1 THEN 1 ELSE 0 END)
+            + CASE WHEN JSON_LENGTH(matched_metadata_paths) &gt; 0 THEN metadata_score + 1 ELSE 0 END
+            + CASE WHEN title = #{params.keyword} THEN 20 ELSE 0 END
+            + CASE WHEN alias = #{params.keyword} THEN 10 ELSE 0 END
+        ) DESC,
+        <choose>
+            <when test="params.sortByTime != null and params.sortByTime.name() == 'UPDATE'">updated_at</when>
+            <otherwise>created_at</otherwise>
+        </choose>
+        <choose>
+            <when test="params.orderDir != null and params.orderDir.name() == 'ASC'">ASC, id ASC</when>
+            <otherwise>DESC, id DESC</otherwise>
+        </choose>
+    </select>
+</mapper>
