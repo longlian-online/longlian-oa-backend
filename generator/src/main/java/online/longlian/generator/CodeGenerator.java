@@ -56,7 +56,11 @@ public class CodeGenerator {
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity")
                         .pathInfo(Map.of(OutputFile.xml, Paths.get("app", "src", "main", "resources", "mapper").toString())))
                 .strategyConfig(builder -> {
-                    if (args.length > 0) builder.addInclude(args);
+                    if (args.length > 0) {
+                        builder.addInclude(args);
+                        builder.entityBuilder().enableFileOverride();
+                        builder.mapperBuilder().enableFileOverride();
+                    }
                     builder.entityBuilder()
                         .enableLombok(
                                 new ClassAnnotationAttributes("@Data","lombok.Data"),
@@ -65,7 +69,7 @@ public class CodeGenerator {
                                 new ClassAnnotationAttributes("@AllArgsConstructor", "lombok.AllArgsConstructor")
                         )
                         .enableTableFieldAnnotation()
-                        .addIgnoreColumns("owner_org_id", "active_guard")
+                        .addIgnoreColumns("active_guard")
                         .naming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
                         .columnNaming(com.baomidou.mybatisplus.generator.config.rules.NamingStrategy.underline_to_camel)
                         .controllerBuilder().disable()
@@ -75,10 +79,6 @@ public class CodeGenerator {
                         .enableMapperAnnotation()
                         .formatMapperFileName("%sMapper")
                         .formatXmlFileName("%sMapper");
-                    if (args.length > 0) {
-                        builder.entityBuilder().enableFileOverride();
-                        builder.mapperBuilder().enableFileOverride();
-                    }
                 })
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
