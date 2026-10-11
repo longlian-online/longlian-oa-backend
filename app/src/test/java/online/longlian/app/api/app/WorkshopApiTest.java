@@ -243,9 +243,9 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, icon_name, meta_schema, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "宣传", "描述", null, "Megaphone", "[]", 1, 1L
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "宣传", "描述", "Megaphone", "[]", 1, 1L
         );
         jdbcTemplate.update(
                 "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) " +
@@ -265,7 +265,7 @@ public class WorkshopApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list", hasSize(1))
-                .body("data.list[0].nodes[0].baseTaskIconName", equalTo("Megaphone"));
+                .body("data.list[0].nodes[0].baseTaskIcon", equalTo("Megaphone"));
     }
 
     /**
@@ -277,7 +277,7 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );
@@ -307,7 +307,7 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );
@@ -332,6 +332,32 @@ public class WorkshopApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+    }
+
+    /** 禁用原子任务不能产生个人模板引用，失败更新应保留旧模板和节点。 */
+    @Test
+    void shouldRollbackWorkshopTemplateChangesWhenBaseTaskDisabled() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '禁用任务', '[]', 0, 1)");
+        Map<String, Object> body = Map.of("name", "新模板", "description", "说明",
+                "nodes", List.of(Map.of("baseTaskId", "1", "sort", 0, "parallelSort", 1)));
+
+        authRequest(token).body(body).post("/app/workshop/task-template").then()
+                .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id) VALUES (1, 1, '原模板', '原说明', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 0, 1)");
+        authRequest(token).body(body).put("/app/workshop/task-template/1").then()
+                .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT description FROM task_template WHERE id = 1", String.class)).isEqualTo("原说明");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
     }
 
     // ========== 认证失败 ==========
@@ -482,7 +508,7 @@ public class WorkshopApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务1", "描述", null, "[]", 1, 1L
         );

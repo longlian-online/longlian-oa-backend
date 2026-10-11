@@ -20,6 +20,7 @@ import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class TaskTemplateServiceImpl implements TaskTemplateService {
 
     private final TaskTemplateMapper taskTemplateMapper;
+    private final BaseTaskService baseTaskService;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
     private final TaskTemplateQueryBuilder taskTemplateQueryBuilder;
@@ -76,6 +78,7 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
                 .updatedAt(now)
                 .build();
         taskTemplateMapper.insert(template);
+        baseTaskService.lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
 
         List<TaskTemplateNode> nodes = params.getNodes().stream()
                 .map(node -> buildNode(template.getId(), node, now))

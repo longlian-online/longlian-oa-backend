@@ -22,11 +22,8 @@ public class TaskTemplateNodeVO {
     @Schema(description = "原子任务名称")
     private String baseTaskName;
 
-    @Schema(description = "原子任务图标URL")
-    private String baseTaskIconUrl;
-
     @Schema(description = "原子任务 Lucide 图标组件名")
-    private String baseTaskIconName;
+    private String baseTaskIcon;
 
     @Schema(description = "提交表单字段")
     private List<TaskFormField> submitFields;

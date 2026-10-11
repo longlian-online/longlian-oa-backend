@@ -1,13 +1,11 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import online.longlian.app.pojo.bo.common.TaskFormField;
-import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 @Data
@@ -23,13 +21,9 @@ public class BaseTaskCreateDTO {
     @Schema(description = "任务说明")
     private String description;
 
-    @JsonLongIdString
-    @Schema(type = "string", description = "图标文件ID")
-    private Long iconFileId;
-
     @Size(max = 100, message = "Lucide 图标组件名不能超过 100 个字符")
     @Schema(description = "Lucide 图标组件名")
-    private String iconName;
+    private String icon;
 
     @NotNull
     @Schema(description = "提交表单字段", requiredMode = Schema.RequiredMode.REQUIRED)

@@ -80,7 +80,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -156,7 +156,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -239,7 +239,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -314,7 +314,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -391,7 +391,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -468,7 +468,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -547,7 +547,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -628,7 +628,7 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );
@@ -942,7 +942,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, "测试项目", 0L, 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `base_task` (id, org_id, name, description, icon_file_id, meta_schema, status, creator_id, created_at, updated_at) " +
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
         );

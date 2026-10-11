@@ -86,8 +86,6 @@ longlian-oa-backend/
 
 Controller 业务方法返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 统一包装为 `Result<T>`；通过 `@ResponseMessage` 指定成功提示，文件下载等原始响应使用 `@NotWrap`。HTTP JSON 统一使用 Fastjson2 Spring 6 消息转换器，避免 Fastjson2 与 Jackson 在同一响应链路中并存。
 
-原子任务列表 `POST /orgadmin/task/base/list` 在不传 `status` 或传 `null` 时，返回当前组织全部未删除的原子任务（包括启用和禁用状态）。只需启用或禁用任务的调用方应显式传 `status: "ENABLED"` 或 `status: "DISABLED"`；工作流编排的可选任务列表仍应显式筛选启用状态。
-
 ---
 
 ## 关键基础设施

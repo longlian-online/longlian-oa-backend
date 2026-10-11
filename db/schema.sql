@@ -16,8 +16,7 @@ CREATE TABLE `base_task` (
   `id` bigint NOT NULL COMMENT "原子任务ID",
   `org_id` bigint NOT NULL COMMENT "所属组织ID",
   `name` varchar(100) NOT NULL COMMENT "任务名称（标题）（如：创建/翻译/校对）",
-  `icon_file_id` bigint NULL COMMENT "图标标识",
-  `icon_name` varchar(100) NULL COMMENT "Lucide 图标组件名",
+  `icon` varchar(100) NULL COMMENT "Lucide 图标组件名",
   `description` varchar(500) NULL DEFAULT "" COMMENT "任务说明（简介）",
   `meta_schema` json NULL COMMENT "元数据字段定义(JSON数组)",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
@@ -27,6 +26,12 @@ CREATE TABLE `base_task` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "原子任务表（最小任务单元）";
+-- Create "data_migration" table
+CREATE TABLE `data_migration` (
+  `filename` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT "迁移 SQL 文件名，成功后不可改名或修改",
+  `executed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "成功执行时间",
+  PRIMARY KEY (`filename`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "已成功执行的数据迁移记录";
 -- Create "email_verify_otp" table
 CREATE TABLE `email_verify_otp` (
   `id` bigint NOT NULL COMMENT "邮箱验证码ID",

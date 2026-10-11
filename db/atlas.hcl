@@ -1,5 +1,5 @@
 // Atlas 配置 — 声明式数据库管理。
-// schema.sql 是唯一真实来源；dev 可完整收敛，prod 不自动删除已有对象。
+// schema.sql 是唯一真实来源；所有环境保留旧字段，prod 还保护其他已有对象。
 // DB_URL / DEV_DB_URL 由 migrate.sh 注入（YAML 推导；默认同实例 {db}_atlas）。
 
 variable "db_url" {
@@ -14,11 +14,17 @@ variable "dev_db_url" {
   default     = getenv("DEV_DB_URL")
 }
 
-// 开发环境允许删除废弃对象，使数据库完整收敛到 schema.sql。
+// 开发环境保留旧字段，便于结构同步后迁移历史数据。
 env "dev" {
   src = "file://schema.sql"
   dev = var.dev_db_url
   url = var.db_url
+
+  diff {
+    skip {
+      drop_column = true
+    }
+  }
 }
 
 // 生产环境不自动删除对象，避免 schema.sql 的误删直接造成数据丢失。
