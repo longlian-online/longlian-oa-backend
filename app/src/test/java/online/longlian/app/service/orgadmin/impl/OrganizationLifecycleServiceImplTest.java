@@ -57,6 +57,14 @@ class OrganizationLifecycleServiceImplTest {
         service.removeMember(OrgMemberRemoveParamsBO.builder().orgId(1L).operatorUserId(1L).memberId(2L).build());
         verify(users).update(isNull(),argThat(w->((com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<User>)w).getSqlSet().contains("default_org_id")));
     }
+    @Test void shouldFailDissolveWhenOrganizationRowChanged(){
+        when(authorization.requireOwner(1L,1L)).thenReturn(member(1L,"ORG_OWNER"));
+        when(organizations.update(isNull(),any())).thenReturn(0);
+        assertThatThrownBy(()->service.dissolveOrganization(OrgDissolveParamsBO.builder()
+                .orgId(1L).operatorUserId(1L).build())).isInstanceOf(AppException.class)
+                .hasMessage("组织状态已变更");
+        verify(users,never()).update(isNull(),any());
+    }
     private OrganizationMember member(long id,String role){
         return OrganizationMember.builder().id(id).userId(id).orgId(1L).orgRole(role).status(Status.ENABLED).build();
     }

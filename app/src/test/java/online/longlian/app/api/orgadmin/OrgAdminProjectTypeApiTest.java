@@ -348,19 +348,26 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
     }
 
     /**
-     * 查询企划类型列表时关键词筛选测试
+     * 查询企划类型列表时按关键词筛选，只返回名称匹配的记录
      */
     @Test
     void shouldListProjectTypesWithKeywordFilter() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_OWNER");
         String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "测试企划类型", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "其他类型", 1, 1L);
 
         Response response = authRequest(token)
                 .get("/orgadmin/project-types?pageNum=1&pageSize=10&keyword=测试");
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list.size()", equalTo(1))
+                .body("data.list[0].name", equalTo("测试企划类型"));
     }
 
     /**
