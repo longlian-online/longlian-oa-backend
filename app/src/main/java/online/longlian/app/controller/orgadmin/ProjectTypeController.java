@@ -74,18 +74,20 @@ public class ProjectTypeController {
                         .orgId(sessionContext.orgId())
                         .creatorId(sessionContext.userId())
                         .name(projectTypeCreateDTO.getName().trim())
+                        .priority(projectTypeCreateDTO.getPriority() == null ? 0 : projectTypeCreateDTO.getPriority())
                         .build()
         );
     }
 
-    @Operation(summary = "修改企划类型名称")
+    @Operation(summary = "修改企划类型名称与优先级")
     @PutMapping("/{typeId}")
     @ResponseMessage("修改成功")
     public void updateProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                   @PathVariable Long typeId,
                                   @RequestBody @Valid ProjectTypeUpdateDTO projectTypeUpdateDTO) {
         projectTypeService.updateProjectType(ProjectTypeUpdateParamsBO.builder()
-                .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim()).build());
+                .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim())
+                .priority(projectTypeUpdateDTO.getPriority()).build());
     }
 
     @Operation(summary = "删除企划类型", description = "仅允许删除未被企划引用的类型")

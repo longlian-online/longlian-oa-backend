@@ -34,6 +34,7 @@ public class ProjectTypeAssembler {
                     return ProjectTypeListResultBO.builder()
                             .id(projectType.getId())
                             .name(projectType.getName())
+                            .priority(projectType.getPriority())
                             .status(projectType.getStatus())
                             .creatorId(projectType.getCreatorId())
                             .creatorNickname(creator != null ? creator.getNickname() : null)

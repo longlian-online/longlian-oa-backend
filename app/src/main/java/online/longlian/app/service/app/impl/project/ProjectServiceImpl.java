@@ -60,6 +60,8 @@ public class ProjectServiceImpl implements ProjectService {
                 new LambdaQueryWrapper<ProjectType>()
                         .eq(ProjectType::getOrgId, orgId)
                         .eq(ProjectType::getStatus, Status.ENABLED)
+                        .orderByDesc(ProjectType::getPriority)
+                        .orderByAsc(ProjectType::getId)
         );
         return types.stream()
                 .map(t -> new ProjectTypeInfoVO(t.getId(), t.getName()))

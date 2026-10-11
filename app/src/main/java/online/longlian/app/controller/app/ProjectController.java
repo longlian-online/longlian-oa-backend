@@ -85,7 +85,7 @@ public class ProjectController {
         return vo;
     }
 
-    @Operation(summary = "获取企划类型列表", description = "仅返回启用状态的类型")
+    @Operation(summary = "获取企划类型列表", description = "仅返回启用状态的类型，按优先级降序，同优先级按 ID 升序；优先级不影响其他列表排序")
     @GetMapping("/types")
     @ResponseMessage("查询成功")
     public List<ProjectTypeInfoVO> getProjectTypes(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {

@@ -222,6 +222,7 @@ CREATE TABLE `project_type` (
   `id` bigint NOT NULL COMMENT "企划类型ID",
   `org_id` bigint NOT NULL COMMENT "所属组织ID",
   `name` varchar(50) NOT NULL COMMENT "类型名称（如：漫画/小说/美术/视频）",
+  `priority` int NOT NULL DEFAULT 0 COMMENT "优先级，仅用户端类型列表按值降序",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

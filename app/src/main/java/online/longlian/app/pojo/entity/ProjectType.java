@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -52,6 +52,13 @@ public class ProjectType implements Serializable {
     @TableField("name")
     @ApiModelProperty("类型名称（如：漫画/小说/美术/视频）")
     private String name;
+
+    /**
+     * 优先级，仅用户端类型列表按值降序
+     */
+    @TableField("priority")
+    @ApiModelProperty("优先级，仅用户端类型列表按值降序")
+    private Integer priority;
 
     /**
      * 状态 1-启用 0-禁用

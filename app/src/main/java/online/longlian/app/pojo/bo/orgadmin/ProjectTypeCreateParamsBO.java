@@ -13,4 +13,5 @@ public class ProjectTypeCreateParamsBO {
     private Long orgId;
     private Long creatorId;
     private String name;
+    private Integer priority;
 }
