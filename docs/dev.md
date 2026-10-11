@@ -78,27 +78,6 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 
 访问开发应用后查询最近日志，确认其中含有 `service.name`、`deployment.environment`、`trace_id` 或 `span_id`。停止服务但保留数据使用 `task dev-observability-down`；需要重建空库时删除 `data/victorialogs`，不要在共享环境执行。
 
-## 入组申请审核事务
-
-审核入口使用 `@Transactional(rollbackFor = Exception.class)`，以默认 `REQUIRED` 传播方式
-将组织行锁、申请行锁、账号创建、成员创建和申请状态更新纳入同一事务。
-请求 DTO 仅接受 `APPROVED`、`REJECTED` 作为审核结果；`PENDING` 在参数校验阶段拒绝，
-不进入审核事务，也不清空注册密码快照。
-入口授权由 Controller 的 `@PreAuthorize` 及组织上下文校验负责；审核事务先锁组织行，
-验证组织可用状态并查询当前审核人和所有者，撤权或禁用后的在途审核不能继续写入。
-同一申请通过 `FOR UPDATE` 和待审核状态检查防止重复处理。账号身份保留原有唯一索引；
-成员关系不设唯一索引，审批在组织锁内通过当前读检查已有有效成员，禁用成员也阻止重复入组。
-审核处理器不单独开启事务，拒绝申请只更新状态并清空密码快照；账号、成员及申请审核时间
-统一使用入口取得的时间。账号身份冲突转为业务失败并回滚整个审核；成员冲突由应用检查后返回业务失败。
-成员角色与状态变更仍沿用原有锁和事务流程，不受审核入口简化影响。
-
-申请提交仍先锁目标组织，串行化同组织的查重与写入；`UserServiceImpl.getJoinTargetOrganization()`
-统一处理组织查询及存在、启用状态校验，提交使用 `FOR UPDATE`，邀请码信息展示使用普通查询。
-治理与审核复用 OrganizationAuthorizationService，申请提交通过 UserServiceImpl 查询并锁定组织。
-两个申请提交事务使用 `READ_COMMITTED`；持有组织锁后以普通查询检查待审申请和成员，
-每次读取最新已提交状态，不获取申请或成员索引锁，避免与审批的行锁、状态更新形成循环等待。
-重复提交、审批和治理由同一组织行锁串行化，不依赖业务唯一索引或间隙锁保证唯一性。
-
 ## ORM 代码生成
 
 本项目依赖 Mybatis-Plus 代码生成器(generator)，默认不覆盖旧代码，在新增功能和表结构字段改动时需用到代码生成
