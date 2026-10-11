@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class ProjectTypeListResultBO {
     private Long id;
     private String name;
+    private Integer priority;
     private Status status;
     private Long creatorId;
     private String creatorNickname;

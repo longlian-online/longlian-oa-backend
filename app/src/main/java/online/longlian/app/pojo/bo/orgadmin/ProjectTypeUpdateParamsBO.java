@@ -13,4 +13,5 @@ public class ProjectTypeUpdateParamsBO {
     private Long typeId;
     private Long orgId;
     private String name;
+    private Integer priority;
 }
