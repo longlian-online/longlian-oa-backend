@@ -86,17 +86,6 @@ longlian-oa-backend/
 
 Controller 业务方法返回 VO、分页对象或 `void`，由 `ResultResponseBodyAdvice` 统一包装为 `Result<T>`；通过 `@ResponseMessage` 指定成功提示，文件下载等原始响应使用 `@NotWrap`。HTTP JSON 统一使用 Fastjson2 Spring 6 消息转换器，避免 Fastjson2 与 Jackson 在同一响应链路中并存。
 
-原子任务列表 `POST /orgadmin/task/base/list` 在不传 `status` 或传 `null` 时，返回当前组织全部未删除的原子任务（包括启用和禁用状态）。只需启用或禁用任务的调用方应显式传 `status: "ENABLED"` 或 `status: "DISABLED"`；工作流编排的可选任务列表仍应显式筛选启用状态。
-
-### 企划 metadata 与搜索
-
-创建、更新企划的 `metadata` 是 JSON 对象字符串，例如 `{"tags":[{"key":"作者","value":"smile_snow"}]}`。业务层要求 `tags` 为数组（可为空）；每项只能包含 `key` 和 `value`：`key` 为非空白字符串且可重复，`value` 为字符串且可为空。顶层额外字段允许并原样保存；非法结构返回 `PARAM_ERROR`，不会写入或修改企划。
-
-企划搜索仅匹配 `tags[*].value`，不匹配 tag 的 `key` 或顶层额外字段。标题、别名保留全文相关性与包含匹配；metadata 直接使用 JSON 路径包含匹配，命中固定加 1 分，不再使用全文分数。返回列表中命中的 tags 稳定前置，其余 tags 保持原顺序，数据库 metadata 不变。
-
-数据库已移除 `metadata_search_text` 生成列和 `ft_project_metadata` 全文索引。开发环境通过 Atlas 同步；生产环境的删除保护不会自动删除这两个对象，需按 [数据库变更流程](db/DEVELOPMENT.md#生产变更) 审核并人工删除。代码与数据库切换时应先停用引用旧列的应用版本；无需 metadata 数据转换。
-
-
 ---
 
 ## 关键基础设施
