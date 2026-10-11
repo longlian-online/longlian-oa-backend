@@ -22,9 +22,4 @@ public class TaskPlazaListDTO extends PageRequestDTO {
 
     @Schema(description = "排序方式")
     private PlazaSortBy sortBy = PlazaSortBy.WAIT;
-
-    @Override
-    protected boolean canEqual(final Object other) {
-        return other instanceof TaskPlazaListDTO;
-    }
 }
