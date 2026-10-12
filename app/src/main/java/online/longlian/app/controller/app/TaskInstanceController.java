@@ -15,11 +15,17 @@ import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.TaskInstanceService;
+import online.longlian.app.service.app.TaskPlazaService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +38,28 @@ import java.util.List;
 public class TaskInstanceController {
 
     private final TaskInstanceService taskInstanceService;
+    private final TaskPlazaService taskPlazaService;
+
+    @Operation(
+            summary = "任务广场（缺人任务）",
+            description = "分页返回当前组织内可接取的缺人任务，按企划分组。" +
+                    "stageScope=ALL 返回所有阶段，CURRENT（默认）仅返回首个未完成阶段"
+    )
+    @GetMapping("/plaza")
+    @ResponseMessage("查询成功")
+    public PageResultVO<PlazaProjectGroupVO> getTaskPlaza(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @ModelAttribute @Valid TaskPlazaListDTO listDTO) {
+        return taskPlazaService.getTaskPlaza(
+                TaskPlazaParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .keyword(listDTO.getKeyword())
+                        .projectType(listDTO.getProjectType())
+                        .sortBy(listDTO.getSortBy())
+                        .stageScope(listDTO.getStageScope())
+                        .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
+                        .build());
+    }
 
     @Operation(
             summary = "查询项目下的任务实例列表",

@@ -58,3 +58,9 @@ longlian-oa-backend/
 - **Resource**: resource
 - **Admin**: admin, token_blacklist
 - **Scheduled**: scheduled_task_log
+
+## 任务大厅查询
+
+`GET /app/task/instance/plaza` 按企划分页；`stageScope=CURRENT`（默认）只返回首个未完成阶段的待接取任务，`ALL` 返回所有阶段的待接取任务。
+`isCurrentStage` 标记任务是否位于首个未完成阶段；后续阶段可以通过现有 claim 接口提前认领。
+组织隔离、进行中企划/条目及软删除过滤在两种视图下保持一致。组内任务全量返回，前端默认展示 6 项并支持展开。
