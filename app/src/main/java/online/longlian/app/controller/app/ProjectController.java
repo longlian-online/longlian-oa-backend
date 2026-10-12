@@ -127,6 +127,7 @@ public class ProjectController {
                         .metadata(projectUpdateDTO.getMetadata())
                         .description(projectUpdateDTO.getDescription())
                         .coverFileId(projectUpdateDTO.getCoverFileId())
+                        .status(projectUpdateDTO.getStatus())
                         .build());
     }
 

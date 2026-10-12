@@ -4,6 +4,7 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
+import online.longlian.common.enumeration.ProjectStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -325,6 +326,79 @@ public class ProjectApiTest extends BaseApiTest {
                 .isEqualTo(1L);
         assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 1", Integer.class))
                 .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
+     * 更新企划状态成功（进行中 → 已完成）
+     */
+    @Test
+    void shouldUpdateProjectStatusSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1, process_status = ? WHERE id = 1",
+                FileProcessStatus.Activated.getCode());
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "测试企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "status", "已完成"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM project WHERE id = 1", Integer.class))
+                .isEqualTo(ProjectStatus.COMPLETED.getCode());
+        assertThat(jdbcTemplate.queryForObject("SELECT cover_file_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(1L);
+    }
+
+    /**
+     * 更新企划为已归档状态应失败，且其他字段不落库
+     */
+    @Test
+    void shouldFailUpdateProjectStatusToArchived() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "改名尝试",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "status", "已归档"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM project WHERE id = 1", Integer.class))
+                .isEqualTo(ProjectStatus.IN_PROGRESS.getCode());
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("测试企划");
     }
 
     /**
