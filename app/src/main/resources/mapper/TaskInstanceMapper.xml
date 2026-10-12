@@ -3,8 +3,8 @@
 <mapper namespace="online.longlian.app.mapper.TaskInstanceMapper">
 
     <!--
-      任务广场「可接取阶段」判定：条目内第一个未完成阶段（该阶段存在待接取或已接取实例）。
-      后续阶段实例虽为 PENDING 但尚未解锁，不视为缺人。状态码：1-PENDING 2-CLAIMED 3-COMPLETED。
+      首个未完成阶段用于 CURRENT 筛选与阶段标记。ALL 不限制阶段。
+      状态码：1-PENDING 2-CLAIMED 3-COMPLETED。
     -->
     <sql id="currentStageJoin">
         JOIN (
@@ -14,7 +14,10 @@
             WHERE cur_ti.deleted_at IS NULL
               AND cur_ti.status IN (1, 2)
             GROUP BY cur_ti.item_id
-        ) cur ON cur.item_id = ti.item_id AND n.sort = cur.current_sort
+        ) cur ON cur.item_id = ti.item_id
+        <if test="params.stageScope == null or params.stageScope.name() == 'CURRENT'">
+            AND n.sort = cur.current_sort
+        </if>
     </sql>
 
     <select id="selectPlazaProjectSummaries" resultType="online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO">
@@ -91,6 +94,7 @@
                n.name AS nodeName,
                n.sort AS sort,
                n.parallel_sort AS parallelSort,
+               (n.sort = cur.current_sort) AS isCurrentStage,
                i.title AS itemTitle
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL

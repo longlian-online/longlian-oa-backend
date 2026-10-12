@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.app.common.enumeration.PlazaSortBy;
+import online.longlian.app.common.enumeration.PlazaStageScope;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 
 @Data
@@ -22,4 +23,7 @@ public class TaskPlazaListDTO extends PageRequestDTO {
 
     @Schema(description = "排序方式")
     private PlazaSortBy sortBy = PlazaSortBy.WAIT;
+
+    @Schema(description = "阶段范围，默认 CURRENT；ALL 包含后续阶段")
+    private PlazaStageScope stageScope = PlazaStageScope.CURRENT;
 }

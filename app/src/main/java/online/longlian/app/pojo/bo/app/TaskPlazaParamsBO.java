@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.app.common.enumeration.PlazaSortBy;
+import online.longlian.app.common.enumeration.PlazaStageScope;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 
 /**
@@ -24,6 +25,8 @@ public class TaskPlazaParamsBO {
     private String projectType;
 
     private PlazaSortBy sortBy;
+
+    private PlazaStageScope stageScope;
 
     private PageParamsBO page;
 }

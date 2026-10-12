@@ -10,7 +10,7 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
  * 汇总当前组织内所有「缺人」的任务实例，按企划分页分组返回：
  * <ul>
  *   <li>缺人 = 实例处于 PENDING（待接取）且无接取人；</li>
- *   <li>仅包含条目当前阶段（第一个未完成阶段）的实例，后续未解锁阶段不视为缺人；</li>
+ *   <li>ALL 包含所有阶段，CURRENT 仅包含条目首个未完成阶段；</li>
  *   <li>仅统计进行中（IN_PROGRESS）条目与进行中、启用的企划。</li>
  * </ul>
  */

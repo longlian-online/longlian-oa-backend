@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 
 /**
- * 任务广场任务行（自定义 SQL 结果）：当前阶段组内的任务实例（含已占用槽位，用于并行槽统计）。
+ * 任务广场任务行，包含阶段标记及已占用槽位，用于并行槽统计。
  */
 @Data
 public class PlazaTaskRowBO {
@@ -28,4 +28,6 @@ public class PlazaTaskRowBO {
     private TaskInstanceStatus status;
 
     private LocalDateTime createdAt;
+
+    private Boolean isCurrentStage;
 }

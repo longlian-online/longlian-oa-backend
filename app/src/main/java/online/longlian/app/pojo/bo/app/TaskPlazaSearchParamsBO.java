@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.app.common.enumeration.PlazaSortBy;
+import online.longlian.app.common.enumeration.PlazaStageScope;
 
 /**
  * 任务广场自定义 SQL 查询参数（关键词已预处理为 LIKE 匹配串）。
@@ -24,4 +25,6 @@ public class TaskPlazaSearchParamsBO {
     private String matchPattern;
 
     private PlazaSortBy sortBy;
+
+    private PlazaStageScope stageScope;
 }

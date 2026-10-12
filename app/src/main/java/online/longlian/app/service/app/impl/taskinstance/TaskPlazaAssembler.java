@@ -23,7 +23,7 @@ public class TaskPlazaAssembler {
 
     /**
      * @param summaries           企划聚合行（已分页排序）
-     * @param rows                上述企划当前阶段组内的全部任务实例行（含已占用槽位）
+     * @param rows                上述企划匹配范围内的任务实例行（含已占用槽位）
      * @param itemSorts           条目ID → 全部阶段 sort 值（升序去重）
      * @param coverUrlByProjectId 企划ID → 封面图URL
      */
@@ -72,6 +72,7 @@ public class TaskPlazaAssembler {
                         .itemId(row.getItemId())
                         .itemTitle(row.getItemTitle())
                         .nodeName(row.getNodeName())
+                        .isCurrentStage(row.getIsCurrentStage())
                         .stageIndex(sorts.indexOf(row.getSort()) + 1)
                         .stageTotal(sorts.size())
                         .parallelTotal(parallelTotal)

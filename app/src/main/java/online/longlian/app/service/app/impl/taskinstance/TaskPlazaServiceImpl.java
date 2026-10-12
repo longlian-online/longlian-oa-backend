@@ -47,6 +47,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 .typeId(resolveTypeId(params.getOrgId(), params.getProjectType()))
                 .matchPattern(buildMatchPattern(params.getKeyword()))
                 .sortBy(params.getSortBy())
+                .stageScope(params.getStageScope())
                 .build();
 
         long total = taskInstanceMapper.selectPlazaProjectCount(searchParams);

@@ -30,7 +30,7 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstance> {
     /** 任务广场：符合筛选条件的缺人企划总数 */
     long selectPlazaProjectCount(@Param("params") TaskPlazaSearchParamsBO params);
 
-    /** 任务广场：指定企划当前阶段组内的任务实例行（含已占用槽位） */
+    /** 任务广场：指定企划匹配阶段范围内的实例行（含已占用槽位） */
     List<PlazaTaskRowBO> selectPlazaTaskRows(@Param("params") TaskPlazaSearchParamsBO params,
                                              @Param("projectIds") List<Long> projectIds);
 

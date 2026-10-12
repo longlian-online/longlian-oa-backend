@@ -30,13 +30,13 @@ public class PlazaTaskVO {
     @Schema(description = "任务名称（节点名）")
     private String nodeName;
 
-    @Schema(description = "当前阶段序号（1 开始）")
+    @Schema(description = "任务所属阶段序号（1 开始）")
     private Integer stageIndex;
 
     @Schema(description = "任务流总阶段数")
     private Integer stageTotal;
 
-    @Schema(description = "当前阶段并行槽总数")
+    @Schema(description = "任务所属阶段并行槽总数")
     private Integer parallelTotal;
 
     @Schema(description = "已被占用的并行槽数（已接取或已完成）")
@@ -47,4 +47,7 @@ public class PlazaTaskVO {
 
     @Schema(description = "任务创建时间（等待起始时间）")
     private LocalDateTime createdAt;
+
+    @Schema(description = "是否属于条目首个未完成阶段")
+    private Boolean isCurrentStage;
 }

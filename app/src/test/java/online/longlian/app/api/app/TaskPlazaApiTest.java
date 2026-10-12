@@ -88,6 +88,42 @@ public class TaskPlazaApiTest extends BaseApiTest {
                 id, projectId, itemId, nodeId, assigneeId, status, Timestamp.valueOf(testNow().minusDays(daysAgo)));
     }
 
+    @Test
+    void shouldListAllStagesWithAccurateStageMarkers() {
+        seedPlazaFixture();
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).queryParam("stageScope", "ALL")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[1].pendingCount", equalTo(3))
+                .body("data.list[1].tasks.size()", equalTo(3))
+                .body("data.list[1].tasks[0].instanceId", equalTo("4002"))
+                .body("data.list[1].tasks[0].isCurrentStage", equalTo(true))
+                .body("data.list[1].tasks[1].instanceId", equalTo("4003"))
+                .body("data.list[1].tasks[1].isCurrentStage", equalTo(false))
+                .body("data.list[1].tasks[1].stageIndex", equalTo(2));
+        authRequest(token).queryParam("stageScope", "CURRENT")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[1].pendingCount", equalTo(2))
+                .body("data.list[1].tasks.size()", equalTo(2))
+                .body("data.list[1].tasks[0].isCurrentStage", equalTo(true));
+        authRequest(token).post("/app/task/instance/4003/claim").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).queryParam("stageScope", "ALL")
+                .get("/app/task/instance/plaza").then()
+                .body("data.list[1].pendingCount", equalTo(2));
+    }
+
+    @Test
+    void shouldRejectUnknownStageScope() {
+        seedPlazaFixture();
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).queryParam("stageScope", "INVALID")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
     // ========== 成功路径 ==========
 
     @Test
