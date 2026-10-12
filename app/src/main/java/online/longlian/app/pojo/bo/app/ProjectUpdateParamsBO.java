@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.ProjectStatus;
 
 @Data
 @Builder
@@ -18,4 +19,5 @@ public class ProjectUpdateParamsBO {
     private String metadata;
     private String description;
     private Long coverFileId;
+    private ProjectStatus status;
 }

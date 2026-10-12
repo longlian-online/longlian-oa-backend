@@ -207,6 +207,9 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑企划");
         }
         ProjectMetadataValidator.validate(params.getMetadata());
+        if (params.getStatus() == ProjectStatus.ARCHIVED) {
+            throw new AppException(ResultCode.PARAM_ERROR, "不允许将企划修改为已归档状态");
+        }
 
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()
@@ -216,6 +219,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getMetadata, params.getMetadata())
                         .set(Project::getDescription, params.getDescription())
                         .set(params.getCoverFileId() != null, Project::getCoverFileId, params.getCoverFileId())
+                        .set(params.getStatus() != null, Project::getStatus, params.getStatus())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
         if (params.getCoverFileId() != null) {
