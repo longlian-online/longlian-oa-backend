@@ -68,6 +68,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
                                 .in(TaskInstance::getItemTaskNodeId, nodeIds));
 
         return ItemTaskFlowVO.builder()
+                .itemTitle(item.getTitle())
                 .name(flow.getName())
                 .description(flow.getDescription())
                 .nodes(itemTaskFlowAssembler.assembleNodes(nodes, instances))

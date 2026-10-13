@@ -15,6 +15,9 @@ import java.util.List;
 @Schema(description = "项目任务流信息（含节点执行状态，用于流程图可视化）")
 public class ItemTaskFlowVO {
 
+    @Schema(description = "项目名称")
+    private String itemTitle;
+
     @Schema(description = "任务流名称")
     private String name;
 
