@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
@@ -38,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMapper, ProjectWorkshop> implements ProjectWorkshopService {
 
-    private final ProjectWorkshopMapper projectWorkshopMapper;
+    private final ProjectMapper projectMapper;
     private final BaseTaskService baseTaskService;
     private final TaskTemplateMapper taskTemplateMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
@@ -53,7 +54,8 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
         Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
 
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
-        Page<Project> projectPage = projectWorkshopMapper.selectWorkshopProjects(page, params, typeId);
+        LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildWorkshopProjectQuery(params, typeId);
+        Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
 
         if (projectPage.getRecords().isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());

@@ -2,7 +2,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.ProjectWorkshopMapper;
+import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 class ProjectWorkshopServiceImplTest {
 
     @Mock
-    private ProjectWorkshopMapper projectWorkshopMapper;
+    private ProjectMapper projectMapper;
     @Mock
     private BaseTaskService baseTaskService;
     @Mock
@@ -54,7 +54,7 @@ class ProjectWorkshopServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new ProjectWorkshopServiceImpl(
-                projectWorkshopMapper,
+                projectMapper,
                 baseTaskService,
                 taskTemplateMapper,
                 taskTemplateNodeMapper,

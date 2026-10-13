@@ -73,7 +73,7 @@ public class WorkshopApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "submitter", "123456", "submitter@example.com");
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
-        for (long id : List.of(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L)) {
+        for (long id : List.of(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L, 90L)) {
             String createdAt = id <= 20 ? "2026-09-01 12:00:00" : "2026-09-02 12:00:00";
             jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id, created_at) VALUES (?, ?, 1, ?, 1, ?)",
                     id, id == 60 ? 2L : 1L, "企划" + id, createdAt);
@@ -82,6 +82,7 @@ public class WorkshopApiTest extends BaseApiTest {
         }
         jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 70");
         jdbcTemplate.update("UPDATE project_workshop SET deleted_at = NOW() WHERE project_id = 80");
+        jdbcTemplate.update("UPDATE project SET deleted_at = NOW() WHERE id = 90");
         insertSortingSubmission(1, 10, 1, "2026-10-01 12:00:00");
         insertSortingSubmission(2, 20, 1, "2026-10-02 12:00:00");
         insertSortingSubmission(3, 20, 2, "2026-10-03 12:00:00");

@@ -1,10 +1,6 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
-import online.longlian.app.pojo.entity.Project;
-import org.apache.ibatis.annotations.Param;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -18,7 +14,5 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface ProjectWorkshopMapper extends BaseMapper<ProjectWorkshop> {
-    Page<Project> selectWorkshopProjects(Page<Project> page,
-            @Param("params") WorkshopListParamsBO params, @Param("typeId") Long typeId);
 
 }
