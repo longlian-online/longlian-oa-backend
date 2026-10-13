@@ -1,13 +1,18 @@
 package online.longlian.app.api.app;
 
+import com.alibaba.fastjson2.JSON;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -29,7 +34,6 @@ class ProjectMetadataApiTest extends BaseApiTest {
     /** 创建时拒绝错误结构，不产生项目及工坊记录。 */
     @ParameterizedTest
     @ValueSource(strings = {"{", "[]", "{}", "{\"tags\":{}}", "{\"tags\":[null]}",
-            "{\"tags\":[{\"key\":\"作者\"}]}",
             "{\"tags\":[{\"key\":\"作者\",\"value\":1}]}",
             "{\"tags\":[{\"key\":\"作者\",\"value\":\"\",\"extra\":true}]}"})
     void shouldRejectInvalidMetadataOnCreate(String metadata) {
@@ -57,10 +61,11 @@ class ProjectMetadataApiTest extends BaseApiTest {
                 .isEqualTo("原标题");
     }
 
-    /** 创建及更新允许空 tags、空 value、重复 key，并原样保存顶层额外字段和格式。 */
+    /** 新旧标签格式、预设颜色及顶层额外字段都应原样保存。 */
     @ParameterizedTest
     @ValueSource(strings = {"{ \"tags\": [] }",
-            "{\"note\":\"保留\",\"tags\":[{\"key\":\"作者\",\"value\":\"\"},{\"key\":\"作者\",\"value\":\"smile_snow\"}]}"})
+            "{\"note\":\"保留\",\"tags\":[{\"key\":\"作者\",\"value\":\"\"},{\"key\":\"作者\",\"value\":\"smile_snow\"}]}",
+            "{\"tags\":[{\"key\":\"单键\"},{\"key\":\"蓝色\",\"color\":\"blue\"},{\"key\":\"绿色\",\"value\":\"\",\"color\":\"green\"},{\"key\":\"琥珀色\",\"value\":\"内容\",\"color\":\"amber\"},{\"key\":\"玫瑰色\",\"color\":\"rose\"},{\"key\":\"紫色\",\"color\":\"violet\"}]}"})
     void shouldSaveValidMetadataUnchangedOnCreateAndUpdate(String metadata) {
         authRequest(token).body(createBody(metadata)).post("/app/projects").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -73,6 +78,64 @@ class ProjectMetadataApiTest extends BaseApiTest {
         authRequest(token).get("/app/projects/" + id).then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.metadata", equalTo(metadata)).body("data.title", equalTo("更新标题"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidColors")
+    void shouldRejectInvalidColorsWithoutChangingProjectOrResource(Object color) {
+        String metadata = "{\"tags\":[{\"key\":\"作者\",\"color\":" + JSON.toJSONString(color) + "}]}";
+        authRequest(token).body(createBody(metadata)).post("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM project", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM project_workshop", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id = 1", Long.class)).isZero();
+
+        String original = "{\"tags\":[{\"key\":\"作者\",\"color\":\"blue\"}]}";
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, creator_id) VALUES (1, 1, 1, '原标题', 'original', ?, 1)",
+                original);
+        authRequest(token).body(updateBody(metadata)).put("/app/projects/1").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
+                .isEqualTo(original);
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("原标题");
+    }
+
+    private static Stream<Object> invalidColors() {
+        return Stream.of(null, true, 1, Map.of("value", "blue"), List.of("blue"), "", "Blue", " blue ",
+                "red", "#ffffff", "constructor", "blue; background: url(javascript:alert(1))", "blue".repeat(1000));
+    }
+
+    /** 调整数组顺序时，重复名称标签的值和颜色不能串项，搜索响应也保留完整标签。 */
+    @Test
+    void shouldPreserveTagAttributesThroughReorderingAndSearch() {
+        Map<String, String> single = Map.of("key", "系列", "color", "amber");
+        Map<String, String> pair = Map.of("key", "系列", "value", "星海", "color", "blue");
+        Map<String, String> empty = Map.of("key", "系列", "value", "");
+        String original = JSON.toJSONString(Map.of("tags", List.of(pair, single, empty)));
+        authRequest(token).body(createBody(original)).post("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM project", Long.class);
+
+        List<Map<String, String>> reordered = List.of(single, empty, pair);
+        String updated = JSON.toJSONString(Map.of("tags", reordered));
+        authRequest(token).body(updateBody(updated)).put("/app/projects/" + id).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/app/projects/" + id).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.metadata", equalTo(updated));
+        authRequest(token).get("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[0].metadata", equalTo(updated));
+
+        String searched = authRequest(token).queryParam("keyword", "星海")
+                .get("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).extract().jsonPath().getString("data.list[0].metadata");
+        assertThat(JSON.parseObject(searched).getJSONArray("tags").toJavaList(Map.class))
+                .containsExactly(pair, single, empty);
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = ?", String.class, id))
+                .isEqualTo(updated);
     }
 
     private Map<String, String> createBody(String metadata) {
