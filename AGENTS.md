@@ -57,7 +57,7 @@ app/src/main/java/online/longlian/app/
 ## 分层架构约定
 
 ```
-Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
+Controller → Service(interface) → ServiceImpl → Mapper(interface)（优先 BaseMapper + LambdaQueryWrapper，必要时使用 SQL 注解/XML）
      ↓            ↓
    DTO/VO        BO
 ```
@@ -65,7 +65,7 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface) → XML
 - Controller 只做参数提取和调用 Service，不做业务逻辑
 - Service 接口与实现分离，impl 子包存放实现
 - Service 层使用 MyBatis Plus 的 `ServiceImpl<Mapper, Entity>` 基类
-- Mapper 接口继承 MyBatis Plus 的 `BaseMapper<Entity>`，XML 文件同名放在 `resources/mapper/` 下
+- Mapper 接口继承 MyBatis Plus 的 `BaseMapper<Entity>`；查询优先在 Java 中使用 `LambdaQueryWrapper`，常规查询不另写 SQL 注解或 XML。仅在 Wrapper 无法清晰表达所需 SQL 或有明确性能需求时使用注解/XML，并说明原因；XML 文件同名放在 `resources/mapper/` 下。详细规则见 [`docs/standard.md`](docs/standard.md) 的「Mapper」章节。
 
 ## 数据库变更规范
 

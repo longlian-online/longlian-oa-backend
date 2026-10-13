@@ -1,19 +1,9 @@
 package online.longlian.app.service.app.impl.projectworkshop;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.MybatisConfiguration;
-import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import online.longlian.app.pojo.entity.Project;
-import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.entity.TaskTemplate;
-import online.longlian.common.enumeration.Status;
-import org.apache.ibatis.builder.MapperBuilderAssistant;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -22,76 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 class WorkshopQueryBuilderTest {
 
-    private WorkshopQueryBuilder queryBuilder;
-
-    @BeforeEach
-    void setUp() {
-        TableInfoHelper.initTableInfo(
-                new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
-        queryBuilder = new WorkshopQueryBuilder();
-    }
-
-    // ---- buildProjectQuery ----
-
-    @Test
-    void buildProjectQuery_shouldReturnWrapper() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildProjectQuery(1L, List.of(10L, 20L));
-        assertNotNull(wrapper);
-    }
-
-    // ---- buildFilteredProjectQuery ----
-
-    @Test
-    void buildFilteredProjectQuery_noOptionalParams_shouldReturnWrapper() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
-                1L, List.of(10L), null, null, null, null);
-
-        assertThat(wrapper.getSqlSegment()).contains("resource_status");
-        assertThat(wrapper.getParamNameValuePairs()).containsValue(Status.ENABLED);
-    }
-
-    @Test
-    void buildFilteredProjectQuery_withKeyword_shouldApplyLike() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
-                1L, List.of(10L), "test", null, null, null);
-        assertNotNull(wrapper);
-    }
-
-    @Test
-    void buildFilteredProjectQuery_withTypeId_shouldApplyEq() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
-                1L, List.of(10L), null, 5L, null, null);
-        assertNotNull(wrapper);
-    }
-
-    @Test
-    void buildFilteredProjectQuery_withIsMyCreatedTrue_shouldFilterByCreator() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
-                1L, List.of(10L), null, null, true, 99L);
-        assertNotNull(wrapper);
-    }
-
-    @Test
-    void buildFilteredProjectQuery_withIsMyCreatedFalse_shouldNotFilterByCreator() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
-                1L, List.of(10L), null, null, false, 99L);
-        assertNotNull(wrapper);
-    }
-
-    @Test
-    void buildFilteredProjectQuery_allParamsSet_shouldReturnWrapper() {
-        LambdaQueryWrapper<Project> wrapper = queryBuilder.buildFilteredProjectQuery(
-                1L, List.of(10L), "keyword", 5L, true, 99L);
-        assertNotNull(wrapper);
-    }
-
-    // ---- buildWorkshopListQuery ----
-
-    @Test
-    void buildWorkshopListQuery_shouldReturnWrapper() {
-        LambdaQueryWrapper<ProjectWorkshop> wrapper = queryBuilder.buildWorkshopListQuery(42L);
-        assertNotNull(wrapper);
-    }
+    private final WorkshopQueryBuilder queryBuilder = new WorkshopQueryBuilder();
 
     // ---- buildCombinedTemplateQuery ----
 

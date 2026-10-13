@@ -39,9 +39,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMapper, ProjectWorkshop> implements ProjectWorkshopService {
 
-    private final ProjectWorkshopMapper projectWorkshopMapper;
-    private final BaseTaskService baseTaskService;
     private final ProjectMapper projectMapper;
+    private final BaseTaskService baseTaskService;
     private final TaskTemplateMapper taskTemplateMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
@@ -54,21 +53,8 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
     public PageResultBO<WorkshopProjectInfoVO> getMyWorkshopList(WorkshopListParamsBO params) {
         Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
 
-        List<ProjectWorkshop> workshops = projectWorkshopMapper.selectList(
-                workshopQueryBuilder.buildWorkshopListQuery(params.getUserId()));
-        if (workshops.isEmpty()) {
-            return new PageResultBO<>(Collections.emptyList(), 0L);
-        }
-
-        List<Long> projectIds = workshops.stream()
-                .map(ProjectWorkshop::getProjectId)
-                .distinct()
-                .toList();
-
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
-        LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildFilteredProjectQuery(
-                params.getOrgId(), projectIds, params.getKeyword(), typeId,
-                params.getIsMyCreated(), params.getUserId());
+        LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildWorkshopProjectQuery(params, typeId);
         Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
 
         if (projectPage.getRecords().isEmpty()) {

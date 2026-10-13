@@ -3,16 +3,13 @@ package online.longlian.app.service.app.impl.projectworkshop;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectMapper;
-import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
-import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
 import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.common.LockService;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
-import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,11 +33,9 @@ import static org.mockito.Mockito.when;
 class ProjectWorkshopServiceImplTest {
 
     @Mock
-    private ProjectWorkshopMapper projectWorkshopMapper;
+    private ProjectMapper projectMapper;
     @Mock
     private BaseTaskService baseTaskService;
-    @Mock
-    private ProjectMapper projectMapper;
     @Mock
     private TaskTemplateMapper taskTemplateMapper;
     @Mock
@@ -60,9 +54,8 @@ class ProjectWorkshopServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new ProjectWorkshopServiceImpl(
-                projectWorkshopMapper,
-                baseTaskService,
                 projectMapper,
+                baseTaskService,
                 taskTemplateMapper,
                 taskTemplateNodeMapper,
                 Clock.systemUTC(),
@@ -81,21 +74,6 @@ class ProjectWorkshopServiceImplTest {
         assertThatThrownBy(() -> service.getMyWorkshopList(params))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
-
-        verify(projectWorkshopMapper, never()).selectList(any());
-    }
-
-    @Test
-    void getMyWorkshopList_withoutProjectTypeAndWorkshops_returnsEmptyPage() {
-        WorkshopListParamsBO params = buildListParams(null);
-        when(workshopProjectHandler.resolveTypeId(1L, null)).thenReturn(null);
-        when(projectWorkshopMapper.selectList(any())).thenReturn(Collections.emptyList());
-
-        PageResultBO<WorkshopProjectInfoVO> result = service.getMyWorkshopList(params);
-
-        assertThat(result.getList()).isEmpty();
-        assertThat(result.getTotal()).isZero();
-        verify(projectWorkshopMapper).selectList(any());
     }
 
     @Test

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.common.enumeration.WorkshopSortBy;
 
 @Data
 @Builder
@@ -16,5 +17,6 @@ public class WorkshopListParamsBO {
     private String keyword;
     private String projectType;
     private Boolean isMyCreated;
+    private WorkshopSortBy sortBy;
     private PageParamsBO page;
 }
