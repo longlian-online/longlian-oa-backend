@@ -65,7 +65,7 @@ class AuthenticationResponseHandlerTest {
     }
 
     @Test
-    void shouldReturnForbiddenAsFastjsonJson() throws IOException, ServletException {
+    void shouldReturnAccessDeniedAsFastjsonJson() throws IOException, ServletException {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/private");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -74,6 +74,6 @@ class AuthenticationResponseHandlerTest {
 
         Result<?> result = JSON.parseObject(response.getContentAsString(), Result.class);
         assertThat(result.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 }

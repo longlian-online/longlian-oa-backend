@@ -30,5 +30,6 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL }}
+          OPENCODE_DEFAULT_MODEL_ID: ${{ vars.OPENCODE_DEFAULT_MODEL_ID || 'grok-4.7' }}
         with:
-          model: custom/gpt-5.6-terra
+          model: custom/default

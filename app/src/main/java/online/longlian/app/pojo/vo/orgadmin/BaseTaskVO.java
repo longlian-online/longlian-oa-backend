@@ -7,6 +7,8 @@ import lombok.Data;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
+import online.longlian.app.pojo.bo.common.TaskFormField;
+import java.util.List;
 
 @Data
 @Schema(description = "原子任务信息")
@@ -22,14 +24,11 @@ public class BaseTaskVO {
     @Schema(description = "任务说明")
     private String description;
 
-    @Schema(description = "图标URL")
-    private String iconUrl;
-
     @Schema(description = "Lucide 图标组件名")
-    private String iconName;
+    private String icon;
 
-    @Schema(description = "元数据字段定义(JSON数组)")
-    private String metaSchema;
+    @Schema(description = "提交表单字段")
+    private List<TaskFormField> submitFields;
 
     @Schema(description = "引用次数（该任务被引用到任务流模板节点中的次数）")
     private Integer refCount;

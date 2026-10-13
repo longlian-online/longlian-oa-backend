@@ -15,7 +15,17 @@ public class LockService {
     private final DistributedLockService distributedLockService;
 
     public DistributedLockService.Lock tryAcquireOrThrow(String key, long waitTime, long timeout, TimeUnit unit) {
-        DistributedLockService.Lock lock = distributedLockService.tryAcquire(key, waitTime, timeout, unit);
+        return require(distributedLockService.tryAcquire(key, waitTime, timeout, unit));
+    }
+
+    /**
+     * 获取由 Redisson watchdog 续约的锁。事务时长不可预估时使用，避免固定租约先于事务结束。
+     */
+    public DistributedLockService.Lock tryAcquireOrThrow(String key, long waitTime, TimeUnit unit) {
+        return require(distributedLockService.tryAcquire(key, waitTime, unit));
+    }
+
+    private DistributedLockService.Lock require(DistributedLockService.Lock lock) {
         if (lock == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "操作过于频繁，请稍后再试");
         }

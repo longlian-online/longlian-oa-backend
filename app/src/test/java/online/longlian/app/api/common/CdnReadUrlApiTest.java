@@ -37,7 +37,7 @@ class CdnReadUrlApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 1 WHERE id = 1");
 
         String token = loginAs("user", "123456");
-        String readUrl = authRequest(token).get("/app/user/").then()
+        String readUrl = userRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .extract().path("data.avatarUrl");
 
@@ -59,15 +59,15 @@ class CdnReadUrlApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 1 WHERE id = 1");
 
         String token = loginAs("user", "123456");
-        String first = authRequest(token).get("/app/user/").then()
+        String first = userRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .extract().path("data.avatarUrl");
-        String second = authRequest(token).get("/app/user/").then()
+        String second = userRequest(token).get("/app/user/").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .extract().path("data.avatarUrl");
         if (!first.equals(second)) {
             first = second;
-            second = authRequest(token).get("/app/user/").then()
+            second = userRequest(token).get("/app/user/").then()
                     .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                     .extract().path("data.avatarUrl");
         }

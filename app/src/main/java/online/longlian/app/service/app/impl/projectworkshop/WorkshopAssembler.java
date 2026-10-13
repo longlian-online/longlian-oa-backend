@@ -3,7 +3,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.BaseTaskMapper;
-import online.longlian.app.mapper.ProjectWorkshopMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.BaseTask;
@@ -31,14 +31,14 @@ public class WorkshopAssembler {
     private final BaseTaskMapper baseTaskMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final ResourceService resourceService;
-    private final ProjectWorkshopMapper projectWorkshopMapper;
+    private final TaskSubmissionMapper taskSubmissionMapper;
 
     public List<WorkshopProjectInfoVO> assembleProjectList(List<Project> projects) {
         if (projects.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Map<Long, WorkshopProjectInfoVO> submissions = projectWorkshopMapper.selectLatestSubmissions(
+        Map<Long, WorkshopProjectInfoVO> latestSubmissionMap = taskSubmissionMapper.selectLatestForProjects(
                         projects.stream().map(Project::getId).toList()).stream()
                 .collect(Collectors.toMap(WorkshopProjectInfoVO::getId, Function.identity()));
 
@@ -67,13 +67,13 @@ public class WorkshopAssembler {
                     workshopProjectInfoVO.setId(project.getId());
                     workshopProjectInfoVO.setTitle(project.getTitle());
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
-                    WorkshopProjectInfoVO submission = submissions.get(project.getId());
-                    if (submission != null) {
-                        workshopProjectInfoVO.setLastSubmitterAt(submission.getLastSubmitterAt());
-                        workshopProjectInfoVO.setLastSubmitterUsername(submission.getLastSubmitterUsername());
-                    }
                     if (creator != null && creator.getAvatarFileId() != null) {
                         workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
+                    }
+                    WorkshopProjectInfoVO latestSubmission = latestSubmissionMap.get(project.getId());
+                    if (latestSubmission != null) {
+                        workshopProjectInfoVO.setLastSubmitterUsername(latestSubmission.getLastSubmitterUsername());
+                        workshopProjectInfoVO.setLastSubmitterAt(latestSubmission.getLastSubmitterAt());
                     }
                     return workshopProjectInfoVO;
                 })
@@ -104,12 +104,7 @@ public class WorkshopAssembler {
                 : baseTaskMapper.selectBatchIds(baseTaskIds).stream()
                         .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
-        List<Long> iconFileIds = baseTaskMap.values().stream()
-                .map(BaseTask::getIconFileId).filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, String> iconUrlMap = iconFileIds.isEmpty()
-                ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(iconFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+
 
         return templates.stream()
                 .map(template -> {
@@ -124,7 +119,7 @@ public class WorkshopAssembler {
                     workshopTaskTemplateVO.setTaskCount(nodes.size());
 
                     List<WorkshopTaskTemplateNodeVO> nodeVOs = nodes.stream()
-                            .map(node -> toNodeVO(node, baseTaskMap, iconUrlMap))
+                            .map(node -> toNodeVO(node, baseTaskMap))
                             .toList();
                     workshopTaskTemplateVO.setNodes(nodeVOs);
                     return workshopTaskTemplateVO;
@@ -132,7 +127,7 @@ public class WorkshopAssembler {
                 .toList();
     }
 
-    private WorkshopTaskTemplateNodeVO toNodeVO(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap, Map<Long, String> iconUrlMap) {
+    private WorkshopTaskTemplateNodeVO toNodeVO(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap) {
         WorkshopTaskTemplateNodeVO vo = new WorkshopTaskTemplateNodeVO();
         vo.setBaseTaskId(node.getBaseTaskId());
         vo.setSort(node.getSort());
@@ -141,10 +136,7 @@ public class WorkshopAssembler {
         BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
         if (baseTask != null) {
             vo.setBaseTaskName(baseTask.getName());
-            vo.setBaseTaskIconName(baseTask.getIconName());
-            if (baseTask.getIconFileId() != null) {
-                vo.setBaseTaskIconUrl(iconUrlMap.get(baseTask.getIconFileId()));
-            }
+            vo.setBaseTaskIcon(baseTask.getIcon());
         }
         return vo;
     }

@@ -1,5 +1,7 @@
 # 开发说明
 
+> 本文件仅记录通用的项目开发说明，包括开发环境、配置、运行、日志采集和代码生成等。禁止写入具体业务规则、业务流程或业务实现细节；此类内容应放入对应的业务文档。
+
 ## 容器开发环境
 
 项目配置有容器开发环境（.devcontainer）
@@ -16,9 +18,9 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 2. 按本机环境改数据库、Redis、JWT、邮件等。每个字段的含义和取值见模板内注释。
 
-Docker 一键开发环境（`task dev`）挂载本地 `application.yml`，再挂载 `application-dev.yml` 作为开发 profile 覆盖；Spring Boot 按属性优先级合并二者，并用 Compose 环境变量把 MySQL/Redis 指到容器服务名。
+Docker 一键开发环境（`task dev`）挂载本地 `application.yml`，再挂载 `application-dev.yml` 作为开发 profile 覆盖；Spring Boot 按属性优先级合并二者，并用 Compose 环境变量把 MariaDB/Redis 指到容器服务名。
 
-生产（`task prod`）部署迁移、后端和 VictoriaLogs，MySQL/Redis 用外部实例：
+生产（`task prod`）部署迁移、后端和 VictoriaLogs，MariaDB/Redis 用外部实例：
 
 ```
 cp devops/application-prod.yml.example devops/application-prod.yml
@@ -33,6 +35,20 @@ YAML 挂到应用和迁移容器的 `config/application.yml`。不要把密钥�
 ## 运行
 
 `mvn spring-boot:run -pl app`
+
+系统信息接口 `GET /common/system/info` 无需登录，返回 `data.version`（当前后端 Maven 版本号）。
+构建时由 `spring-boot:build-info` 自动生成版本信息；直接通过 IDE 启动前，先运行
+`mvn -pl app -am compile`，确保 `META-INF/build-info.properties` 已生成。修改项目版本后也需重新构建。
+
+## 企划关键词搜索
+
+`GET /app/projects?keyword=...` 按标题、别名或 tag 命中返回企划，组织、状态、软删除和类型过滤对所有搜索分支生效。
+
+- 标题和别名使用去掉首尾空白后的完整关键词做子串匹配，保留内部空白，不分词，也不使用自然语言全文召回。排序保留标题、别名、tag 的 5/3/1 命中权重及标题、别名整值匹配加分，同分按指定时间和 ID 排序。
+- tag 仅搜索 `metadata.tags[*].value`，使用去掉首尾空白后的完整关键词匹配整个 value；不分词、不匹配子串，也不搜索 tag key 或其他 metadata 字段。
+- tag 比较沿用 `utf8mb4_unicode_520_ci`，忽略大小写和重音；关键词中的 `%`、`_`、`!` 按字面字符处理。
+- 任一 tag 整值命中即获得元数据加分；响应中的命中 tag 按原顺序前置，不修改数据库中的 metadata。标题或别名单独命中时，即使没有 tag 命中也会返回。
+
 
 ## 可选本地日志采集
 
@@ -82,4 +98,4 @@ $query | & .\devops\tools\vlogscli-prod.exe `
 
 2. 当表结构发生变动时，由于默认不覆盖旧代码，所以需要删除原有的 entity 文件夹（或对应的实体类代码文件），重新生成即可，其他代码不受影响
 
-3. 数据库中枚举统一使用 TINYINT 类型，生成代码前，应在 app\src\main\java\online\longlian\app\common\enumeration 中定义枚举类型，并使用 ModelEnum 注解声明对应的表和字段，以便代码生成器为枚举字段生成正确的类型声明 
+3. 数据库中枚举统一使用 TINYINT 类型，生成代码前，应在 app\src\main\java\online\longlian\app\common\enumeration 中定义枚举类型，并使用 ModelEnum 注解声明对应的表和字段，以便代码生成器为枚举字段生成正确的类型声明

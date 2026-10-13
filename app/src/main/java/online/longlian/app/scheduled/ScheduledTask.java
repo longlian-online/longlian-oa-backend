@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
  */
 public interface ScheduledTask {
 
+    /** 返回任务生命周期内不变的定义。 */
     ScheduledTaskDefinition getDefinition();
 
     void execute(LocalDateTime executeTime);

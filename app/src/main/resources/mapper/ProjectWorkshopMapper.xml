@@ -37,18 +37,5 @@
         </choose>
     </select>
 
-    <select id="selectLatestSubmissions" resultType="online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO">
-        SELECT latest.project_id AS id, latest.created_at AS last_submitter_at,
-               u.username AS last_submitter_username
-        FROM (
-            SELECT s.project_id, s.submitter_id, s.created_at,
-                   ROW_NUMBER() OVER (PARTITION BY s.project_id ORDER BY s.created_at DESC, s.id DESC) AS rn
-            FROM task_submission s
-            WHERE s.deleted_at IS NULL AND s.project_id IN
-            <foreach collection="projectIds" item="id" open="(" separator="," close=")">#{id}</foreach>
-        ) latest
-        LEFT JOIN user u ON u.id = latest.submitter_id AND u.deleted_at IS NULL
-        WHERE latest.rn = 1
-    </select>
 
 </mapper>

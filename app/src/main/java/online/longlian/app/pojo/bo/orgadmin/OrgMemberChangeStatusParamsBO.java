@@ -12,6 +12,7 @@ import online.longlian.common.enumeration.Status;
 @AllArgsConstructor
 public class OrgMemberChangeStatusParamsBO {
     private Long orgId;
+    private Long operatorUserId;
     private Long memberId;
     private Status status;
 }

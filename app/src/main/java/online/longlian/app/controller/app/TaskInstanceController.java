@@ -8,17 +8,24 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.TaskInstanceService;
+import online.longlian.app.service.app.TaskPlazaService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +38,28 @@ import java.util.List;
 public class TaskInstanceController {
 
     private final TaskInstanceService taskInstanceService;
+    private final TaskPlazaService taskPlazaService;
+
+    @Operation(
+            summary = "任务广场（缺人任务）",
+            description = "分页返回当前组织内可接取的缺人任务，按企划分组。" +
+                    "stageScope=ALL 返回所有阶段，CURRENT（默认）仅返回首个未完成阶段"
+    )
+    @GetMapping("/plaza")
+    @ResponseMessage("查询成功")
+    public PageResultVO<PlazaProjectGroupVO> getTaskPlaza(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @ModelAttribute @Valid TaskPlazaListDTO listDTO) {
+        return taskPlazaService.getTaskPlaza(
+                TaskPlazaParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .keyword(listDTO.getKeyword())
+                        .projectType(listDTO.getProjectType())
+                        .sortBy(listDTO.getSortBy())
+                        .stageScope(listDTO.getStageScope())
+                        .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
+                        .build());
+    }
 
     @Operation(
             summary = "查询项目下的任务实例列表",
@@ -39,7 +68,7 @@ public class TaskInstanceController {
     @Parameter(name = "itemId", description = "项目ID")
     @GetMapping("/item/{itemId}")
     @ResponseMessage("查询成功")
-    public List<ItemTaskInstanceVO> listItemTaskInstances(@UserSession SessionContext sessionContext,
+    public List<ItemTaskInstanceVO> listItemTaskInstances(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                            @PathVariable Long itemId) {
         return taskInstanceService.listItemTaskInstances(
                 TaskInstanceListParamsBO.builder()
@@ -51,12 +80,12 @@ public class TaskInstanceController {
 
     @Operation(
             summary = "查看任务实例详情",
-            description = "返回任务实例信息及最近一次提交的元数据详情"
+            description = "返回任务信息及服务器组装的提交字段和附件"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @GetMapping("/{instanceId}/detail")
     @ResponseMessage("查询成功")
-    public TaskInstanceDetailVO getTaskInstanceDetail(@UserSession SessionContext sessionContext,
+    public TaskInstanceDetailVO getTaskInstanceDetail(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                        @PathVariable Long instanceId) {
         return taskInstanceService.getTaskInstanceDetail(
                 TaskInstanceDetailParamsBO.builder()
@@ -72,7 +101,7 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/claim")
     @ResponseMessage("接取成功")
-    public void claimTask(@UserSession SessionContext sessionContext,
+    public void claimTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                            @PathVariable Long instanceId) {
         taskInstanceService.claimTask(
                 TaskInstanceOperateParamsBO.builder()
@@ -89,7 +118,7 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/abandon")
     @ResponseMessage("已放弃")
-    public void abandonTask(@UserSession SessionContext sessionContext,
+    public void abandonTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                              @PathVariable Long instanceId) {
         taskInstanceService.abandonTask(
                 TaskInstanceOperateParamsBO.builder()
@@ -101,12 +130,12 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "提交任务",
-        description = "提交待提交（CLAIMED）的任务，提交后任务状态变为 COMPLETED。提交内容通过 metadata(JSON对象) 传递"
+        description = "提交待提交（CLAIMED）的任务，提交后任务状态变为 COMPLETED。提交内容通过 values 传递"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/submit")
     @ResponseMessage("提交成功")
-    public void submitTask(@UserSession SessionContext sessionContext,
+    public void submitTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                             @PathVariable Long instanceId,
                             @RequestBody @Valid TaskSubmitDTO taskSubmitDTO) {
         taskInstanceService.submitTask(
@@ -114,7 +143,7 @@ public class TaskInstanceController {
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
-                        .metadata(taskSubmitDTO.getMetadata())
+                        .values(taskSubmitDTO.getValues())
                         .build());
     }
 
@@ -125,7 +154,7 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/reset")
     @ResponseMessage("已重置")
-    public void resetTask(@UserSession SessionContext sessionContext,
+    public void resetTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                            @PathVariable Long instanceId) {
         taskInstanceService.resetTask(
                 TaskInstanceOperateParamsBO.builder()
@@ -143,7 +172,7 @@ public class TaskInstanceController {
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/reject")
     @ResponseMessage("已打回")
-    public void rejectTask(@UserSession SessionContext sessionContext,
+    public void rejectTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                             @PathVariable Long instanceId,
                             @RequestBody @Valid TaskRejectDTO taskRejectDTO) {
         taskInstanceService.rejectTask(

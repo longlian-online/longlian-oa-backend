@@ -1,6 +1,6 @@
 # 生产环境
 #
-# 部署 Atlas 迁移、后端和 VictoriaLogs。MySQL、Redis、邮件等由外部提供，
+# 部署 Atlas 迁移、后端和 VictoriaLogs。MariaDB、Redis、邮件等由外部提供，
 # 本文件不创建这些组件。
 #
 # 准备：

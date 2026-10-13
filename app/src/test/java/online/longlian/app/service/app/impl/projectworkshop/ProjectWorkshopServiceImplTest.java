@@ -6,7 +6,11 @@ import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.entity.TaskTemplateNode;
+import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.common.LockService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,9 +19,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,6 +34,8 @@ class ProjectWorkshopServiceImplTest {
 
     @Mock
     private ProjectWorkshopMapper projectWorkshopMapper;
+    @Mock
+    private BaseTaskService baseTaskService;
     @Mock
     private TaskTemplateMapper taskTemplateMapper;
     @Mock
@@ -44,6 +55,7 @@ class ProjectWorkshopServiceImplTest {
     void setUp() {
         service = new ProjectWorkshopServiceImpl(
                 projectWorkshopMapper,
+                baseTaskService,
                 taskTemplateMapper,
                 taskTemplateNodeMapper,
                 Clock.systemUTC(),
@@ -62,6 +74,29 @@ class ProjectWorkshopServiceImplTest {
         assertThatThrownBy(() -> service.getMyWorkshopList(params))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void createWorkshopTaskTemplate_lockedBaseTaskDisappears_rejectsWithoutNodes() {
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
+        WorkshopTaskTemplateCreateParamsBO params = WorkshopTaskTemplateCreateParamsBO.builder()
+                .orgId(1L)
+                .creatorId(2L)
+                .name("个人流程")
+                .description("说明")
+                .nodes(List.of(
+                        WorkshopTaskTemplateNodeCreateParamsBO.builder()
+                                .baseTaskId(22L).sort(2).parallelSort(1).build(),
+                        WorkshopTaskTemplateNodeCreateParamsBO.builder()
+                                .baseTaskId(21L).sort(1).parallelSort(1).build()))
+                .build();
+
+        assertThatThrownBy(() -> service.createWorkshopTaskTemplate(params))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                });
+
+        verify(taskTemplateNodeMapper, never()).insert(any(TaskTemplateNode.class));
     }
 
     private WorkshopListParamsBO buildListParams(String projectType) {

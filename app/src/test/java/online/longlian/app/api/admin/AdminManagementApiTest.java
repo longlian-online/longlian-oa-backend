@@ -54,7 +54,7 @@ public class AdminManagementApiTest extends BaseApiTest {
         createAdmin(2L, "superadmin2", "123456", "root");
         String token = adminLoginAs("superadmin2", "123456");
 
-        createAdmin(3L, "todelete", "123456", "ADMIN");
+        createAdmin(3L, "todelete", "123456", "normal");
 
         Response response = authRequest(token)
                 .delete("/admin/admins/3");
@@ -74,8 +74,8 @@ public class AdminManagementApiTest extends BaseApiTest {
         createAdmin(4L, "superadmin3", "123456", "root");
         String token = adminLoginAs("superadmin3", "123456");
 
-        createAdmin(5L, "admin5", "123456", "ADMIN");
-        createAdmin(6L, "admin6", "123456", "ADMIN");
+        createAdmin(5L, "admin5", "123456", "normal");
+        createAdmin(6L, "admin6", "123456", "normal");
 
         Response response = authRequest(token)
                 .queryParam("pageNum", 1)
@@ -98,9 +98,9 @@ public class AdminManagementApiTest extends BaseApiTest {
         createAdmin(7L, "superadmin4", "123456", "root");
         String token = adminLoginAs("superadmin4", "123456");
 
-        createAdmin(8L, "admin8", "123456", "ADMIN");
-        createAdmin(9L, "admin9", "123456", "ADMIN");
-        createAdmin(10L, "admin10", "123456", "ADMIN");
+        createAdmin(8L, "admin8", "123456", "normal");
+        createAdmin(9L, "admin9", "123456", "normal");
+        createAdmin(10L, "admin10", "123456", "normal");
 
         Response response = authRequest(token)
                 .queryParam("pageNum", 1)
@@ -121,7 +121,7 @@ public class AdminManagementApiTest extends BaseApiTest {
     @Test
     void shouldFailCreateAdminWithNormalAdminRole() {
         createAdmin(11L, "superadmin5", "123456", "root");
-        createAdmin(12L, "normaladmin", "123456", "ADMIN");
+        createAdmin(12L, "normaladmin", "123456", "normal");
         String normalToken = adminLoginAs("normaladmin", "123456");
 
         Response response = authRequest(normalToken)
@@ -140,10 +140,10 @@ public class AdminManagementApiTest extends BaseApiTest {
     @Test
     void shouldFailDeleteAdminWithNormalAdminRole() {
         createAdmin(13L, "superadmin6", "123456", "root");
-        createAdmin(14L, "normaladmin2", "123456", "ADMIN");
+        createAdmin(14L, "normaladmin2", "123456", "normal");
         String normalToken = adminLoginAs("normaladmin2", "123456");
 
-        createAdmin(15L, "todelete", "123456", "ADMIN");
+        createAdmin(15L, "todelete", "123456", "normal");
 
         Response response = authRequest(normalToken)
                 .delete("/admin/admins/15");
@@ -213,7 +213,7 @@ public class AdminManagementApiTest extends BaseApiTest {
         createAdmin(19L, "superadmin10", "123456", "root");
         String token = adminLoginAs("superadmin10", "123456");
 
-        createAdmin(20L, "existingadmin", "123456", "ADMIN");
+        createAdmin(20L, "existingadmin", "123456", "normal");
 
         Response response = authRequest(token)
                 .body(Map.of("username", "existingadmin", "password", "654321"))

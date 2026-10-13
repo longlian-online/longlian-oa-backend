@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -38,7 +39,7 @@ public class ProjectController {
     @PostMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectAdminInfoVO> getAdminProjectList(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid ProjectAdminListDTO projectAdminListDTO) {
         PageResultBO<ProjectAdminListResultBO> resultBO = projectService.getAdminProjectList(
                 ProjectAdminListParamsBO.builder()
@@ -64,7 +65,7 @@ public class ProjectController {
     @Operation(summary = "启用/禁用企划", description = "禁用后用户端不展示该企划。status: ENABLED-启用，DISABLED-禁用")
     @PatchMapping("/{projectId}/status")
     @ResponseMessage("状态修改成功")
-    public void changeProjectStatus(@UserSession(required = true) SessionContext sessionContext,
+    public void changeProjectStatus(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                              @PathVariable Long projectId,
                                              @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         projectService.changeProjectStatus(

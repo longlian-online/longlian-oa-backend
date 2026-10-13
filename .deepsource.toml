@@ -15,9 +15,6 @@ name = "java"
 [[analyzers]]
 name = "sql"
 
-  [analyzers.meta]
-  dialect = "mysql"
-
 [[analyzers]]
 name = "docker"
 

@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
@@ -11,23 +12,31 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
+import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
-import online.longlian.app.service.common.CurrentOrganizationService;
+import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
+import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.app.SessionService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,12 +44,17 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,19 +75,25 @@ class UserServiceImplTest {
     @Mock
     private UserMapper userMapper;
     @Mock
-    private CurrentOrganizationService currentOrganizationService;
+    private OrganizationMembershipService organizationMembershipService;
     @Mock
     private OTPServiceFactory otpServiceFactory;
     @Mock
     private OTPStrategyService emailVerifyService;
     @Mock
     private OTPStrategyService joinInviteService;
+    @Mock
+    private SessionService sessionService;
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
 
     private UserServiceImpl service;
 
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), User.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), GroupApplication.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Organization.class);
         service = new UserServiceImpl(
                 passwordEncoder,
                 organizationMapper,
@@ -82,9 +102,11 @@ class UserServiceImplTest {
                 groupApplicationMapper,
                 resourceService,
                 userMapper,
-                currentOrganizationService,
+                organizationMembershipService,
                 otpServiceFactory,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                sessionService,
+                tokenBlacklistService
         );
     }
 
@@ -98,7 +120,7 @@ class UserServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(user);
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
 
-        service.resetPassword(params);
+        runWithTransactionCommit(() -> service.resetPassword(params));
 
         ArgumentCaptor<OTPValidateContextBO> validateCaptor = ArgumentCaptor.forClass(OTPValidateContextBO.class);
         verify(emailVerifyService).getValid(validateCaptor.capture());
@@ -106,7 +128,8 @@ class UserServiceImplTest {
         assertThat(validateCaptor.getValue().getCode()).isEqualTo("A1B2C3");
         assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.FORGOT_PASSWORD);
         assertThat(user.getPassword()).isEqualTo("new-hash");
-        verify(userMapper).updateById(user);
+        assertPasswordUpdatedAndRevokedTokens(1L);
+        verify(sessionService).clearUserSessionCache(1L);
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
 
@@ -124,7 +147,80 @@ class UserServiceImplTest {
 
         verify(userMapper, never()).updateById(any(User.class));
         verify(emailVerifyService, never()).use(any(OTPUseContextBO.class));
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
     }
+
+    @Test
+    void shouldChangePasswordWhenOldPasswordMatches() {
+        User user = User.builder().id(1L).password("old-hash").build();
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+
+        runWithTransactionCommit(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build()));
+
+        assertThat(user.getPassword()).isEqualTo("new-hash");
+        assertPasswordUpdatedAndRevokedTokens(1L);
+        verify(sessionService).clearUserSessionCache(1L);
+        verify(otpServiceFactory, never()).get(any());
+    }
+
+    /** 登录缓存必须等事务提交后再清，否则并发请求会用旧数据把缓存填回。 */
+    @Test
+    void shouldClearLoginCacheOnlyAfterPasswordChangeCommit() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).password("old-hash").build());
+        when(passwordEncoder.matches("123456", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.changePassword(UserChangePasswordParamsBO.builder()
+                    .userId(1L).oldPassword("123456").newPassword("new-password").build());
+
+            verify(sessionService, never()).clearUserSessionCache(anyLong());
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+            verify(sessionService).clearUserSessionCache(1L);
+            verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, 1L, "密码变更");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenUserDoesNotExist() {
+        when(userMapper.selectById(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("123456").newPassword("new-password").build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(userMapper, never()).updateById(any(User.class));
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenOldPasswordDoesNotMatch() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).password("old-hash").build());
+        when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.changePassword(UserChangePasswordParamsBO.builder()
+                .userId(1L).oldPassword("wrong-password").newPassword("new-password").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("原密码错误")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userMapper, never()).updateById(any(User.class));
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
 
     @Test
     void shouldFailRegisterWhenUsernameAlreadyExists() {
@@ -157,8 +253,9 @@ class UserServiceImplTest {
                 .hasMessageContaining("邀请码不存在");
     }
 
+    /** 目标组织不存在时不写入申请，也不消耗验证码。 */
     @Test
-    void shouldFailRegisterWhenJoinOrganizationDoesNotExist() {
+    void shouldRejectRegistrationForMissingOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
@@ -166,22 +263,30 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织不存在");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(groupApplicationMapper);
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
     }
 
+    /** 禁用组织不得接受注册申请，也不能消耗验证码。 */
     @Test
-    void shouldFailRegisterWhenJoinOrganizationIsDisabled() {
+    void shouldRejectRegistrationForDisabledOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.DISABLED).build());
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织已被禁用");
+                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verifyNoInteractions(groupApplicationMapper);
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
     }
+
 
     @Test
     void shouldDeprecatePreviousAvatarWhenReplacingIt() {
@@ -194,7 +299,7 @@ class UserServiceImplTest {
         verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(20L)
                 && resource.getReplacedResourceId().equals(10L)
                 && resource.getBizId().equals(1L)
-                && resource.getCreatorId().equals(1L)
+                && "avatar".equals(resource.getBizType())
                 && resource.getOrgId() == null));
     }
 
@@ -222,16 +327,12 @@ class UserServiceImplTest {
         when(emailVerifyService.getValid(any(OTPValidateContextBO.class))).thenReturn(emailOtp);
         when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(inviteOtp);
         when(userMapper.selectOne(any())).thenReturn(null);
-        when(groupApplicationMapper.selectCount(any())).thenReturn(0L);
+        when(groupApplicationMapper.selectOne(any())).thenReturn(null);
         when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
                 OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
-        when(organizationMapper.selectById(30L)).thenReturn(
+        when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(passwordEncoder.encode("password")).thenReturn("hashed-password");
-        doAnswer(invocation -> {
-            invocation.getArgument(0, User.class).setId(99L);
-            return 1;
-        }).when(userMapper).insert(any(User.class));
         doAnswer(invocation -> {
             invocation.getArgument(0, online.longlian.app.pojo.entity.GroupApplication.class).setId(123L);
             return 1;
@@ -242,12 +343,167 @@ class UserServiceImplTest {
         ArgumentCaptor<GroupApplication> applicationCaptor = ArgumentCaptor.forClass(GroupApplication.class);
         verify(groupApplicationMapper).insert(applicationCaptor.capture());
         assertThat(applicationCaptor.getValue().getOtpId()).isEqualTo(20L);
-        assertThat(applicationCaptor.getValue().getUserId()).isEqualTo(99L);
-        verify(userMapper).insert(argThat((User user) -> user.getStatus() == Status.DISABLED
-                && "hashed-password".equals(user.getPassword())));
+        assertThat(applicationCaptor.getValue().getUserId()).isNull();
+        assertThat(applicationCaptor.getValue().getPasswordHash()).isEqualTo("hashed-password");
+        verify(userMapper, never()).insert(any(User.class));
         verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
                 && context.getUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+    }
+    @Test
+    void shouldNotUpdateDefaultOrgWhenMembershipRejected() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L))
+                .thenThrow(new AppException(ResultCode.OPERATION_FAIL, "您不是该组织成员"));
+
+        assertThatThrownBy(() -> service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("您不是该组织成员");
+
+        verify(userMapper, never()).update(any(), any());
+        verifyNoInteractions(sessionService);
+    }
+
+    @Test
+    void shouldUpdateDefaultOrgOnceWhenMembershipEnabled() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
+        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+
+        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+
+        assertThat(result.getId()).isEqualTo(2L);
+        assertThat(result.getRole()).isEqualTo("ORG_ADMIN");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        String sqlSet = captor.getValue().getSqlSet();
+        if (sqlSet != null) {
+            assertThat(sqlSet).contains("default_org_id");
+        }
+        verifyNoInteractions(sessionService);
+    }
+    @Test
+    void shouldReturnNoRoleWhenMembershipRoleIsBlank() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole(" ").status(Status.ENABLED).build());
+        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).name("组织2").build());
+
+        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+
+        assertThat(result.getRole()).isNull();
+    }
+    @Test
+    void shouldRejectMissingUserAndEmptyOrganizationList() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
+        when(userMapper.selectById(1L)).thenReturn(null);
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.getMyInfo(1L))
+                .isInstanceOf(AppException.class)
+                .hasMessage("用户不存在");
+        assertThat(service.getMyOrganizations(1L)).isEmpty();
+    }
+
+    /** 组织列表过滤禁用组织，并按资源 ID 匹配头像；没有头像的组织保留空值。 */
+    @Test
+    void shouldListEnabledOrganizationsWithMatchingAvatars() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().orgId(10L).build(),
+                OrganizationMember.builder().orgId(20L).build(),
+                OrganizationMember.builder().orgId(30L).build()));
+        when(organizationMapper.selectBatchIds(any())).thenReturn(List.of(
+                Organization.builder().id(10L).name("with avatar").status(Status.ENABLED).avatarFileId(100L).build(),
+                Organization.builder().id(20L).name("disabled").status(Status.DISABLED).avatarFileId(200L).build(),
+                Organization.builder().id(30L).name("without avatar").status(Status.ENABLED).build()));
+        when(resourceService.getResourceReadUrls(List.of(100L))).thenReturn(Map.of(
+                100L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 10L, "avatar.png")));
+
+        assertThat(service.getMyOrganizations(1L))
+                .extracting("id", "name", "avatarUrl")
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple(10L, "with avatar", "https://cdn.example/avatar.png"),
+                        org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
+    }
+
+    @Test
+    void shouldIncludeAvatarWhenSwitchingToOrganizationWithAvatar() {
+        when(organizationMembershipService.requireEnabledMember(1L, 2L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(2L).userId(1L).orgRole("ORG_ADMIN").status(Status.ENABLED).build());
+        when(organizationMapper.selectById(2L)).thenReturn(
+                Organization.builder().id(2L).name("组织2").avatarFileId(5L).build());
+        when(resourceService.getResourceReadUrl(5L)).thenReturn("http://avatar");
+
+        UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
+
+        assertThat(result.getAvatarUrl()).isEqualTo("http://avatar");
+    }
+
+    @Test
+    void shouldRejectCreateOrganizationWhenNameIsBlank() {
+        stubRegisterValidation();
+        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+
+        assertThatThrownBy(() -> service.registerAndCreateOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织名称不能为空");
+    }
+
+    @Test
+    void shouldRejectJoinRegistrationWhenApplicationIsAlreadyPending() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectOne(any())).thenReturn(
+                Organization.builder().id(30L).status(Status.ENABLED).build());
+        when(groupApplicationMapper.selectOne(any())).thenReturn(GroupApplication.builder().id(1L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("您已提交过入组申请");
+    }
+
+
+
+
+    private void assertPasswordUpdatedAndRevokedTokens(long userId) {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("password");
+        verify(userMapper, never()).updateById(any(User.class));
+        verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
+    }
+
+    private void runWithTransactionCommit(Runnable action) {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            action.run();
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+
+    @Test
+    void shouldConvertDuplicateRegistrationInsertToBusinessFailureWithoutConsumingCodes() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectOne(any())).thenReturn(
+                Organization.builder().id(30L).status(Status.ENABLED).build());
+        when(groupApplicationMapper.insert(any(GroupApplication.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("pending registration"));
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(emailVerifyService, never()).use(any());
+        verify(joinInviteService, never()).use(any());
+        verify(userMapper, never()).insert(any(User.class));
     }
 
     private void stubRegisterValidation() {

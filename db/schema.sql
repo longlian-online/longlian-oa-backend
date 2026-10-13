@@ -10,14 +10,13 @@ CREATE TABLE `admin` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_username` (`username`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "管理员表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "管理员表";
 -- Create "base_task" table
 CREATE TABLE `base_task` (
   `id` bigint NOT NULL COMMENT "原子任务ID",
   `org_id` bigint NOT NULL COMMENT "所属组织ID",
   `name` varchar(100) NOT NULL COMMENT "任务名称（标题）（如：创建/翻译/校对）",
-  `icon_file_id` bigint NULL COMMENT "图标标识",
-  `icon_name` varchar(100) NULL COMMENT "Lucide 图标组件名",
+  `icon` varchar(100) NULL COMMENT "Lucide 图标组件名",
   `description` varchar(500) NULL DEFAULT "" COMMENT "任务说明（简介）",
   `meta_schema` json NULL COMMENT "元数据字段定义(JSON数组)",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
@@ -26,7 +25,13 @@ CREATE TABLE `base_task` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "原子任务表（最小任务单元）";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "原子任务表（最小任务单元）";
+-- Create "data_migration" table
+CREATE TABLE `data_migration` (
+  `filename` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT "迁移 SQL 文件名，成功后不可改名或修改",
+  `executed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "成功执行时间",
+  PRIMARY KEY (`filename`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "已成功执行的数据迁移记录";
 -- Create "email_verify_otp" table
 CREATE TABLE `email_verify_otp` (
   `id` bigint NOT NULL COMMENT "邮箱验证码ID",
@@ -42,13 +47,14 @@ CREATE TABLE `email_verify_otp` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_receiver_send_status_created_at` (`receiver`, `send_status`, `created_at`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "邮箱验证码扩展表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "邮箱验证码扩展表";
 -- Create "group_application" table
 CREATE TABLE `group_application` (
   `id` bigint NOT NULL,
   `org_id` bigint NOT NULL COMMENT "目标组织ID",
   `otp_id` bigint NULL COMMENT "提交申请时使用的邀请码ID",
-  `user_id` bigint NOT NULL COMMENT "申请人ID",
+  `user_id` bigint NULL COMMENT "申请人ID（注册待审时为空）",
+  `password_hash` varchar(100) NULL COMMENT "注册待审密码哈希，审批后清空",
   `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态：0-待审核 1-通过 2-拒绝",
   `reviewer_id` bigint NULL COMMENT "审核人ID",
   `reviewed_at` datetime NULL COMMENT "审核时间",
@@ -61,8 +67,9 @@ CREATE TABLE `group_application` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_group_application_otp_id` (`otp_id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "入组申请表";
+  INDEX `idx_group_application_otp_id` (`otp_id`),
+  INDEX `idx_group_application_org_status_email` (`org_id`, `status`, `email`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "入组申请表";
 -- Create "item" table
 CREATE TABLE `item` (
   `id` bigint NOT NULL,
@@ -75,7 +82,7 @@ CREATE TABLE `item` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "项目表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "项目表";
 -- Create "item_task_flow" table
 CREATE TABLE `item_task_flow` (
   `id` bigint NOT NULL COMMENT "项目任务流ID",
@@ -89,7 +96,7 @@ CREATE TABLE `item_task_flow` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_item_id` (`item_id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "项目任务流表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "项目任务流表";
 -- Create "item_task_node" table
 CREATE TABLE `item_task_node` (
   `id` bigint NOT NULL COMMENT "项目任务节点ID",
@@ -106,7 +113,7 @@ CREATE TABLE `item_task_node` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_flow_sort` (`item_task_flow_id`, `sort`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "项目任务节点表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "项目任务节点表";
 -- Create "one_time_password" table
 CREATE TABLE `one_time_password` (
   `id` bigint unsigned NOT NULL,
@@ -120,7 +127,7 @@ CREATE TABLE `one_time_password` (
   `updated_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `idx_code_expired_at` (`code`, `expired_at`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "一次性密码（otp）表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "一次性密码（otp）表";
 -- Create "organization" table
 CREATE TABLE `organization` (
   `id` bigint NOT NULL COMMENT "组织ID",
@@ -133,7 +140,7 @@ CREATE TABLE `organization` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "组织表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织表";
 -- Create "organization_create_otp" table
 CREATE TABLE `organization_create_otp` (
   `id` bigint NOT NULL COMMENT "邀请ID",
@@ -144,7 +151,7 @@ CREATE TABLE `organization_create_otp` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "邀请创建组织表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "邀请创建组织表";
 -- Create "organization_join_otp" table
 CREATE TABLE `organization_join_otp` (
   `id` bigint NOT NULL COMMENT "邀请ID",
@@ -156,7 +163,7 @@ CREATE TABLE `organization_join_otp` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "邀请加入组织表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "邀请加入组织表";
 -- Create "organization_member" table
 CREATE TABLE `organization_member` (
   `id` bigint NOT NULL,
@@ -172,7 +179,7 @@ CREATE TABLE `organization_member` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "组织成员表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
 -- Create "permission" table
 CREATE TABLE `permission` (
   `id` bigint NOT NULL COMMENT "权限ID",
@@ -188,7 +195,7 @@ CREATE TABLE `permission` (
   `deleted_at` datetime NULL COMMENT "软删除时间",
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_perm_code` (`perm_code`) COMMENT "权限编码唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "权限表（冻结：当前授权使用 organization_member.org_role）";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "权限表（冻结：当前授权使用 organization_member.org_role）";
 -- Create "project" table
 CREATE TABLE `project` (
   `id` bigint NOT NULL,
@@ -206,20 +213,23 @@ CREATE TABLE `project` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_org_type` (`org_id`, `type_id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "企划表";
+  INDEX `idx_org_type` (`org_id`, `type_id`),
+  FULLTEXT INDEX `ft_project_title` (`title`),
+  FULLTEXT INDEX `ft_project_alias` (`alias`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划表";
 -- Create "project_type" table
 CREATE TABLE `project_type` (
   `id` bigint NOT NULL COMMENT "企划类型ID",
   `org_id` bigint NOT NULL COMMENT "所属组织ID",
   `name` varchar(50) NOT NULL COMMENT "类型名称（如：漫画/小说/美术/视频）",
+  `priority` int NOT NULL DEFAULT 0 COMMENT "优先级，仅用户端类型列表按值降序",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "企划类型表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划类型表";
 -- Create "project_workshop" table
 CREATE TABLE `project_workshop` (
   `id` bigint NOT NULL,
@@ -231,7 +241,7 @@ CREATE TABLE `project_workshop` (
   `active_guard` bigint GENERATED ALWAYS AS (IF(`deleted_at` IS NULL, 0, `id`)) STORED,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_project_workshop_active` (`project_id`, `user_id`, `active_guard`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "企划-工坊关联表（用户添加企划）";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划-工坊关联表（用户添加企划）";
 -- Create "resource" table
 CREATE TABLE `resource` (
   `id` bigint NOT NULL COMMENT "文件ID",
@@ -256,7 +266,7 @@ CREATE TABLE `resource` (
   PRIMARY KEY (`id`),
   INDEX `idx_storage_key` (`storage_key`),
   INDEX `idx_resource_cleanup` (`process_status`, `storage_cleaned_at`, `cleanup_next_at`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "通用文件存储表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "通用文件存储表";
 -- Create "role" table
 CREATE TABLE `role` (
   `id` bigint NOT NULL COMMENT "角色ID",
@@ -269,7 +279,7 @@ CREATE TABLE `role` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_role_code` (`role_code`) COMMENT "角色编码唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "角色表（冻结：当前授权使用 organization_member.org_role）";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "角色表（冻结：当前授权使用 organization_member.org_role）";
 -- Create "role_permission" table
 CREATE TABLE `role_permission` (
   `id` bigint NOT NULL COMMENT "主键ID",
@@ -280,7 +290,7 @@ CREATE TABLE `role_permission` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_role_perm` (`role_id`, `permission_id`) COMMENT "角色-权限唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "角色权限关联表（冻结：当前授权使用 organization_member.org_role）";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "角色权限关联表（冻结：当前授权使用 organization_member.org_role）";
 -- Create "scheduled_task_log" table
 CREATE TABLE `scheduled_task_log` (
   `id` bigint NOT NULL COMMENT "日志ID",
@@ -300,7 +310,7 @@ CREATE TABLE `scheduled_task_log` (
   PRIMARY KEY (`id`),
   INDEX `idx_started_at` (`started_at`) COMMENT "按执行时间查询",
   INDEX `idx_task_name` (`task_name`) COMMENT "按任务名查询"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "定时任务执行日志表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "定时任务执行日志表";
 -- Create "task_instance" table
 CREATE TABLE `task_instance` (
   `id` bigint NOT NULL,
@@ -315,8 +325,9 @@ CREATE TABLE `task_instance` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "任务实例表";
+  PRIMARY KEY (`id`),
+  INDEX `idx_item_id` (`item_id`) COMMENT "按项目查询任务实例"
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务实例表";
 -- Create "task_submission" table
 CREATE TABLE `task_submission` (
   `id` bigint NOT NULL,
@@ -333,8 +344,9 @@ CREATE TABLE `task_submission` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "任务提交记录表";
+  PRIMARY KEY (`id`),
+  INDEX `idx_project_deleted_created` (`project_id`, `deleted_at`, `created_at`, `id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务提交记录表";
 -- Create "task_template" table
 CREATE TABLE `task_template` (
   `id` bigint NOT NULL COMMENT "任务模板ID",
@@ -349,7 +361,7 @@ CREATE TABLE `task_template` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "任务模板表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务模板表";
 -- Create "task_template_node" table
 CREATE TABLE `task_template_node` (
   `id` bigint NOT NULL COMMENT "任务模板节点ID",
@@ -361,7 +373,7 @@ CREATE TABLE `task_template_node` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "任务模板节点表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务模板节点表";
 -- Create "token_blacklist" table
 CREATE TABLE `token_blacklist` (
   `id` bigint NOT NULL COMMENT "主键ID",
@@ -376,7 +388,7 @@ CREATE TABLE `token_blacklist` (
   INDEX `idx_expired` (`expired_at`) COMMENT "过期时间索引",
   INDEX `idx_user` (`token_type`, `user_id`) COMMENT "用户索引",
   UNIQUE INDEX `uk_token` (`token`) COMMENT "Token唯一索引"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "Token黑名单表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "Token黑名单表";
 -- Create "user" table
 CREATE TABLE `user` (
   `id` bigint NOT NULL COMMENT "用户ID",
@@ -393,7 +405,7 @@ CREATE TABLE `user` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_email` (`email`) COMMENT "邮箱唯一",
   UNIQUE INDEX `uk_username` (`username`) COMMENT "用户名唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "系统用户表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "系统用户表";
 -- Create "user_operation_log" table
 CREATE TABLE `user_operation_log` (
   `id` bigint NOT NULL,
@@ -406,7 +418,7 @@ CREATE TABLE `user_operation_log` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "用户操作记录表";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "用户操作记录表";
 -- Create "user_role" table
 CREATE TABLE `user_role` (
   `id` bigint NOT NULL COMMENT "主键ID",
@@ -417,4 +429,4 @@ CREATE TABLE `user_role` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_user_role` (`user_id`, `role_id`) COMMENT "用户-角色唯一"
-) CHARSET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT "用户角色关联表（冻结：当前授权使用 organization_member.org_role）";
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "用户角色关联表（冻结：当前授权使用 organization_member.org_role）";

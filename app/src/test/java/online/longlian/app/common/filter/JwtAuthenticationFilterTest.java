@@ -174,6 +174,31 @@ class JwtAuthenticationFilterTest {
         when(jwt.parseToken("token")).thenReturn(claims);
     }
 
+    /** 系统信息无需认证，即使带无效 Token 也不应解析凭证或查询黑名单。 */
+    @Test
+    void shouldSkipAuthenticationForSystemInfo() throws Exception {
+        request.setRequestURI("/common/system/info");
+        request.setServletPath("/common/system/info");
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verifyNoInteractions(jwt, blacklist, entryPoint);
+        verify(strategy, never()).authenticate(anyLong());
+    }
+
+    /** 免鉴权范围限于系统信息 GET，避免放行写入或其他系统路径。 */
+    @Test
+    void shouldKeepOtherSystemRequestsAuthenticated() {
+        request.setServletPath("/common/system/info");
+        request.setMethod("POST");
+        assertThat(filter.shouldNotFilter(request)).isFalse();
+
+        request.setMethod("GET");
+        request.setServletPath("/common/system/private");
+        assertThat(filter.shouldNotFilter(request)).isFalse();
+    }
+
     private AuthenticationException failure() throws Exception {
         var captor = ArgumentCaptor.forClass(AuthenticationException.class);
         verify(entryPoint).commence(eq(request), eq(response), captor.capture());

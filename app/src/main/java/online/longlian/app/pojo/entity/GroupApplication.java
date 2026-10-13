@@ -51,11 +51,18 @@ public class GroupApplication implements Serializable {
     private Long otpId;
 
     /**
-     * 申请人ID
+     * 申请人ID（注册待审时为空）
      */
     @TableField("user_id")
-    @ApiModelProperty("申请人ID")
+    @ApiModelProperty("申请人ID（注册待审时为空）")
     private Long userId;
+
+    /**
+     * 注册待审密码哈希，审批后清空
+     */
+    @TableField("password_hash")
+    @ApiModelProperty("注册待审密码哈希，审批后清空")
+    private String passwordHash;
 
     /**
      * 状态：0-待审核 1-通过 2-拒绝

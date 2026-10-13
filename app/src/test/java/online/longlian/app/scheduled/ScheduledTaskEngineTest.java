@@ -3,28 +3,46 @@ package online.longlian.app.scheduled;
 import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
 import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
+import online.longlian.common.enumeration.ScheduledTaskStatus;
 import online.longlian.common.enumeration.TriggerSource;
 import online.longlian.common.service.DistributedLockService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
+import org.springframework.scheduling.support.CronTrigger;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class ScheduledTaskEngineTest {
+
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-29T02:00:00Z"), ZoneOffset.UTC);
 
     @Mock
     private TaskScheduler taskScheduler;
@@ -40,10 +58,8 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldUseWatchdogLockForScheduledTask() {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = ScheduledTaskDefinition.builder()
-                .taskName("long-running")
-                .enabled(false)
-                .build();
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "long-running", "执行长时间运行任务", null, false);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("longRunningTask", task));
@@ -52,10 +68,192 @@ class ScheduledTaskEngineTest {
         when(taskLogService.insertRunningLog(eq("long-running"), any(), eq(TriggerSource.MANUAL), any(), eq(1L), any()))
                 .thenReturn(1L);
         ScheduledTaskEngine engine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, Clock.systemUTC());
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
         engine.start();
-        engine.trigger("long-running", LocalDateTime.now());
+        engine.trigger("long-running", LocalDateTime.now(CLOCK));
 
         verify(lockService).tryAcquire("scheduled-task:long-running", 0, TimeUnit.SECONDS);
+        verify(task, times(2)).getDefinition();
+    }
+
+    @Test
+    void shouldRejectMissingDefinition() {
+        ScheduledTask missingDefinitionTask = mock(ScheduledTask.class);
+        when(applicationContext.getBeansOfType(ScheduledTask.class))
+                .thenReturn(Map.of("missingDefinitionTask", missingDefinitionTask));
+        ScheduledTaskEngine missingDefinitionEngine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        assertThatThrownBy(missingDefinitionEngine::start)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("任务定义不能为空")
+                .hasMessageContaining("missingDefinitionTask");
+        verify(taskScheduler, never()).schedule(any(Runnable.class), any(CronTrigger.class));
+    }
+
+    @Test
+    void shouldRejectDuplicateTaskNameBeforeScheduling() {
+        ScheduledTask firstTask = mock(ScheduledTask.class);
+        ScheduledTask secondTask = mock(ScheduledTask.class);
+        ScheduledTaskDefinition firstDefinition = new ScheduledTaskDefinition(
+                "duplicate-task", "第一个重复任务", "0 0/5 * * * ?", true);
+        ScheduledTaskDefinition secondDefinition = new ScheduledTaskDefinition(
+                "duplicate-task", "第二个重复任务", null, false);
+        when(firstTask.getDefinition()).thenReturn(firstDefinition);
+        when(secondTask.getDefinition()).thenReturn(secondDefinition);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of(
+                "firstTask", firstTask,
+                "secondTask", secondTask));
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        assertThatThrownBy(engine::start)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("任务标识重复")
+                .hasMessageContaining("duplicate-task");
+        assertThat(engine.isRunning()).isFalse();
+        verify(taskScheduler, never()).schedule(any(Runnable.class), any(CronTrigger.class));
+    }
+
+    @Test
+    void shouldRejectInvalidCronBeforeRegisteringAnyTask() {
+        ScheduledTask validTask = mock(ScheduledTask.class);
+        ScheduledTask invalidTask = mock(ScheduledTask.class);
+        when(validTask.getDefinition()).thenReturn(new ScheduledTaskDefinition(
+                "valid-task", "有效任务", "0 0/5 * * * ?", true));
+        when(invalidTask.getDefinition()).thenAnswer(invocation -> new ScheduledTaskDefinition(
+                "invalid-task", "无效任务", "invalid", true));
+        Map<String, ScheduledTask> beans = new LinkedHashMap<>();
+        beans.put("validTask", validTask);
+        beans.put("invalidTask", invalidTask);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(beans);
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        assertThatThrownBy(engine::start)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Cron 表达式无效")
+                .hasMessageContaining("invalid-task");
+        assertThat(engine.getRegisteredTasks()).isEmpty();
+        verifyNoInteractions(taskScheduler);
+    }
+
+    @Test
+    void shouldWriteDetailedChineseExecutionLog(CapturedOutput output) {
+        ScheduledTask task = mock(ScheduledTask.class);
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "resource-cleanup", "清理已废弃资源的实际存储文件", null, false);
+        DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
+        LocalDateTime executeTime = LocalDateTime.now(CLOCK);
+        when(task.getDefinition()).thenReturn(definition);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("resourceCleanupTask", task));
+        when(currentUserContext.requireUserId()).thenReturn(1L);
+        when(lockService.tryAcquire("scheduled-task:resource-cleanup", 0, TimeUnit.SECONDS)).thenReturn(lock);
+        when(taskLogService.insertRunningLog(eq("resource-cleanup"), eq(executeTime),
+                eq(TriggerSource.MANUAL), any(), eq(1L), any())).thenReturn(1L);
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        engine.start();
+        engine.trigger("resource-cleanup", executeTime);
+
+        assertThat(output)
+                .contains("清理已废弃资源的实际存储文件（resource-cleanup）")
+                .contains("触发方式=手动触发")
+                .contains("业务执行时间=2026-09-29T02:00")
+                .contains("定时任务执行成功")
+                .contains("耗时=0毫秒");
+    }
+
+    @Test
+    void shouldRegisterAndExecuteEnabledCronTask() {
+        ScheduledTask task = mock(ScheduledTask.class);
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "cron-task", "执行自动调度任务", "0 0/5 * * * ?", true);
+        DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        when(task.getDefinition()).thenReturn(definition);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("cronTask", task));
+        when(lockService.tryAcquire("scheduled-task:cron-task", 0, TimeUnit.SECONDS)).thenReturn(lock);
+        when(taskLogService.insertRunningLog(eq("cron-task"), eq(LocalDateTime.now(CLOCK)),
+                eq(TriggerSource.SCHEDULED), any(), isNull(), any())).thenReturn(1L);
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        engine.start();
+        verify(taskScheduler).schedule(runnableCaptor.capture(), any(Trigger.class));
+        runnableCaptor.getValue().run();
+
+        verify(task).execute(LocalDateTime.now(CLOCK));
+        verify(taskLogService).updateLog(1L, ScheduledTaskStatus.SUCCESS, null,
+                LocalDateTime.now(CLOCK), 0L);
+
+        engine.stop();
+        runnableCaptor.getValue().run();
+        verify(task, times(1)).execute(LocalDateTime.now(CLOCK));
+    }
+
+    @Test
+    void shouldSkipTaskWhenDistributedLockIsUnavailable(CapturedOutput output) {
+        ScheduledTask task = mock(ScheduledTask.class);
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "locked-task", "执行互斥任务", null, false);
+        when(task.getDefinition()).thenReturn(definition);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("lockedTask", task));
+        when(lockService.tryAcquire("scheduled-task:locked-task", 0, TimeUnit.SECONDS)).thenReturn(null);
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        engine.start();
+        engine.trigger("locked-task", LocalDateTime.now(CLOCK));
+
+        verify(task, never()).execute(any());
+        verifyNoInteractions(taskLogService);
+        assertThat(output).contains("其他实例可能正在执行，未获得分布式锁");
+    }
+
+    @Test
+    void shouldRecordFailedExecutionWithoutCurrentUser(CapturedOutput output) {
+        ScheduledTask task = mock(ScheduledTask.class);
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "failed-task", "执行失败任务", null, false);
+        DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
+        LocalDateTime executeTime = LocalDateTime.now(CLOCK);
+        when(task.getDefinition()).thenReturn(definition);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("failedTask", task));
+        when(currentUserContext.requireUserId()).thenThrow(new IllegalStateException("no current user"));
+        when(lockService.tryAcquire("scheduled-task:failed-task", 0, TimeUnit.SECONDS)).thenReturn(lock);
+        when(taskLogService.insertRunningLog(eq("failed-task"), eq(executeTime),
+                eq(TriggerSource.MANUAL), any(), isNull(), any())).thenReturn(1L);
+        doThrow(new IllegalStateException("execution failed")).when(task).execute(executeTime);
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        engine.start();
+        engine.trigger("failed-task", executeTime);
+
+        verify(taskLogService).updateLog(1L, ScheduledTaskStatus.FAILED,
+                "IllegalStateException: execution failed", executeTime, 0L);
+        assertThat(output)
+                .contains("定时任务执行失败：执行失败任务（failed-task）")
+                .contains("触发方式=手动触发");
+    }
+
+    @Test
+    void shouldRejectManualTriggerAfterShutdown(CapturedOutput output) {
+        ScheduledTask task = mock(ScheduledTask.class);
+        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+                "shutdown-task", "执行停机测试任务", null, false);
+        when(task.getDefinition()).thenReturn(definition);
+        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("shutdownTask", task));
+        ScheduledTaskEngine engine = new ScheduledTaskEngine(
+                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
+
+        engine.start();
+        engine.stop();
+        engine.trigger("shutdown-task", LocalDateTime.now(CLOCK));
+
+        verifyNoInteractions(lockService, taskLogService);
+        assertThat(output).contains("系统正在关闭，拒绝手动触发定时任务：执行停机测试任务（shutdown-task）");
     }
 }

@@ -68,7 +68,7 @@ shouldListOrganizationsWithNameFilter      # 条件查询
 使用 `BaseApiTest` 提供的辅助方法：
 
 ```java
-// 创建管理员（角色：root / ADMIN / SUPER_ADMIN）
+// 创建管理员（角色：root / normal）
 createAdmin(long id, String username, String password, String role)
 
 // 创建用户端用户
@@ -100,12 +100,12 @@ createUserWithOrganization(long userId, String username, String password,
 
 ```java
 // 良好示例
-createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
-createAdmin(2L, "admin2", "123456", "SUPER_ADMIN");  // ID 偏移
+createAdmin(1L, "admin", "123456", "root");
+createAdmin(2L, "admin2", "123456", "root");  // ID 偏移
 
 // 禁止示例 - 可能与 BeforeEach 清空前的数据冲突
-createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
-createAdmin(1L, "another", "123456", "SUPER_ADMIN");  // ID 重复
+createAdmin(1L, "admin", "123456", "root");
+createAdmin(1L, "another", "123456", "root");  // ID 重复
 ```
 
 ### 3.4 密码规范
@@ -179,13 +179,18 @@ response
 
 | 场景 | 断言 |
 |------|------|
-| 成功响应 | `statusCode(200)`, `code", equalTo(0)` |
-| 失败响应 | `code", equalTo(ResultCode.XXX.getCode())` |
-| 未认证 | `statusCode(401)` |
-| 参数错误 | `statusCode(400)` 或 `code", equalTo(ResultCode.PARAM_ERROR.getCode())` |
+| 成功响应 | `statusCode(200)`, `code", equalTo(ResultCode.SUCCESS.getCode())` |
+| 业务失败 | `statusCode(200)`, `code", equalTo(ResultCode.XXX.getCode())` |
+| 未认证 | `statusCode(200)`, `code", equalTo(ResultCode.UNAUTHORIZED.getCode())` |
+| 权限不足 | `statusCode(200)`, `code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode())` |
+| 参数错误 | `statusCode(200)`, `code", equalTo(ResultCode.PARAM_ERROR.getCode())` |
 | 数据存在 | `body("data", notNullValue())` |
 | 列表非空 | `body("data.list", hasSize(greaterThan(0)))` |
 | 分页 | `body("data.total", greaterThanOrEqualTo(n))` |
+
+业务 Controller、认证和业务授权处理产生的失败统一返回 HTTP 200，具体结果由
+`Result.code` 表达。CORS 拒绝、HTTP 防火墙、容器解析、反向代理、连接错误和响应
+已经提交后的错误属于协议或基础设施失败，不适用这一约定。
 
 ### 5.3 断言禁止项
 
@@ -291,7 +296,7 @@ public class XxxApiTest extends BaseApiTest {
 
     @Test
     void shouldDoSomethingSuccessfully() {
-        createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "admin", "123456", "root");
         String token = adminLoginAs("admin", "123456");
 
         Response response = authRequest(token)
@@ -315,14 +320,15 @@ public class XxxApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(401);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     // ========== 业务规则失败 ==========
 
     @Test
     void shouldFailWithUnauthorizedOperation() {
-        createAdmin(1L, "normal_admin", "123456", "ADMIN");
+        createAdmin(1L, "normal_admin", "123456", "normal");
         String token = adminLoginAs("normal_admin", "123456");
 
         Response response = authRequest(token)
@@ -339,7 +345,7 @@ public class XxxApiTest extends BaseApiTest {
 
     @Test
     void shouldFailWithInvalidParams() {
-        createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+        createAdmin(1L, "admin", "123456", "root");
         String token = adminLoginAs("admin", "123456");
 
         Response response = authRequest(token)
@@ -348,7 +354,8 @@ public class XxxApiTest extends BaseApiTest {
 
         response
                 .then()
-                .statusCode(400);
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 }
 ```
@@ -365,7 +372,7 @@ private static String sharedToken;  // 类变量会被其他测试污染
 
 // 推荐 - 每个测试独立创建
 void shouldDoSomething() {
-    createAdmin(1L, "admin", "123456", "SUPER_ADMIN");
+    createAdmin(1L, "admin", "123456", "root");
     String token = adminLoginAs("admin", "123456");
     // 使用 token
 }

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.TaskTemplateOptionsParamsBO;
 import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
@@ -29,7 +30,7 @@ public class TaskTemplateController {
     )
     @GetMapping("/options")
     @ResponseMessage("查询成功")
-    public List<TaskTemplateOptionVO> listTaskTemplateOptions(@UserSession SessionContext sessionContext) {
+    public List<TaskTemplateOptionVO> listTaskTemplateOptions(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
         return taskTemplateService.listOptions(
                 TaskTemplateOptionsParamsBO.builder()
                         .orgId(sessionContext.orgId())

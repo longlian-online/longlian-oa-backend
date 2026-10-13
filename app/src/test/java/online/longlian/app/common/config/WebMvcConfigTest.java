@@ -24,7 +24,7 @@ class WebMvcConfigTest {
                 new MappingJackson2HttpMessageConverter()
         ));
 
-        new WebMvcConfig(null).extendMessageConverters(converters);
+        new WebMvcConfig(null, null).extendMessageConverters(converters);
 
         assertThat(converters).first().isInstanceOf(FastJsonHttpMessageConverter.class);
         assertThat(converters).noneMatch(MappingJackson2HttpMessageConverter.class::isInstance);
@@ -38,7 +38,7 @@ class WebMvcConfigTest {
         List<HandlerMethodArgumentResolver> resolvers = new ArrayList<>();
         UserSessionArgumentResolver resolver = mock(UserSessionArgumentResolver.class);
 
-        new WebMvcConfig(resolver).addArgumentResolvers(resolvers);
+        new WebMvcConfig(resolver, null).addArgumentResolvers(resolvers);
 
         assertThat(resolvers).containsExactly(resolver);
     }
@@ -47,7 +47,7 @@ class WebMvcConfigTest {
     void shouldAppendFastjsonWhenStringConverterIsMissing() {
         List<HttpMessageConverter<?>> converters = new ArrayList<>();
 
-        new WebMvcConfig(null).extendMessageConverters(converters);
+        new WebMvcConfig(null, null).extendMessageConverters(converters);
 
         assertThat(converters).singleElement().isInstanceOf(FastJsonHttpMessageConverter.class);
     }

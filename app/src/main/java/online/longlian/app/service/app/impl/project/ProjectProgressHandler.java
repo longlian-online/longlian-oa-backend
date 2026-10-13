@@ -10,7 +10,6 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,28 +42,27 @@ public class ProjectProgressHandler {
         }
 
         List<Long> itemIds = itemIdObjs.stream().map(id -> (Long) id).toList();
-        int totalItems = itemIds.size();
 
-        long publishedCount = itemMapper.selectCount(
-                new LambdaQueryWrapper<Item>()
-                        .in(Item::getId, itemIds)
-                        .eq(Item::getStatus, ItemStatus.PUBLISHED));
-        int progressPercent = (int) (publishedCount * 100 / totalItems);
-
-        long claimedCount = taskInstanceMapper.selectCount(
-                new LambdaQueryWrapper<TaskInstance>()
-                        .in(TaskInstance::getItemId, itemIds)
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED));
-        long pendingCount = taskInstanceMapper.selectCount(
-                new LambdaQueryWrapper<TaskInstance>()
-                        .in(TaskInstance::getItemId, itemIds)
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING));
+        long totalCount = countTaskInstances(itemIds, null);
+        long completedCount = countTaskInstances(itemIds, TaskInstanceStatus.COMPLETED);
+        long claimedCount = countTaskInstances(itemIds, TaskInstanceStatus.CLAIMED);
+        long pendingCount = countTaskInstances(itemIds, TaskInstanceStatus.PENDING);
+        int progressPercent = totalCount == 0 ? 0 : (int) (completedCount * 100 / totalCount);
 
         return ProjectProgressBO.builder()
                 .progressPercent(progressPercent)
                 .claimedTaskCount((int) claimedCount)
                 .pendingTaskCount((int) pendingCount)
                 .build();
+    }
+
+    private long countTaskInstances(List<Long> itemIds, TaskInstanceStatus status) {
+        LambdaQueryWrapper<TaskInstance> query = new LambdaQueryWrapper<TaskInstance>()
+                .in(TaskInstance::getItemId, itemIds);
+        if (status != null) {
+            query.eq(TaskInstance::getStatus, status);
+        }
+        return taskInstanceMapper.selectCount(query);
     }
 
     @Transactional(rollbackFor = Exception.class)

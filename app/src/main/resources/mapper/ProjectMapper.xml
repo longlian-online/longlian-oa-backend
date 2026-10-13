@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="online.longlian.app.mapper.ProjectMapper">
+
+    <resultMap id="searchResult" type="online.longlian.app.pojo.bo.app.ProjectSearchResultBO">
+        <id property="projectId" column="id"/>
+        <result property="matchedMetadataPaths" column="matched_metadata_paths"/>
+        <association property="project" javaType="online.longlian.app.pojo.entity.Project" autoMapping="true"/>
+    </resultMap>
+
+    <select id="selectSearchPage" resultMap="searchResult">
+        SELECT ranked.*
+        FROM (
+            SELECT p.*,
+                CASE WHEN p.title LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS title_hit,
+                CASE WHEN p.alias LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
+                JSON_MERGE_PRESERVE('[]',
+                    COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
+                        'all', #{params.tagMatchPattern}, '!', '$.tags[*].value'), '[]')
+                ) AS matched_metadata_paths
+            FROM project p
+            WHERE p.org_id = #{params.orgId}
+                AND p.resource_status = 1
+                AND p.deleted_at IS NULL
+                <if test="params.typeId != null">
+                    AND p.type_id = #{params.typeId}
+                </if>
+        ) ranked
+        WHERE title_hit = 1 OR alias_hit = 1 OR JSON_LENGTH(matched_metadata_paths) &gt; 0
+        ORDER BY (
+            5 * title_hit
+            + 3 * alias_hit
+            + CASE WHEN JSON_LENGTH(matched_metadata_paths) &gt; 0 THEN 1 ELSE 0 END
+            + CASE WHEN title = #{params.keyword} THEN 20 ELSE 0 END
+            + CASE WHEN alias = #{params.keyword} THEN 10 ELSE 0 END
+        ) DESC,
+        <choose>
+            <when test="params.sortByTime != null and params.sortByTime.name() == 'UPDATE'">updated_at</when>
+            <otherwise>created_at</otherwise>
+        </choose>
+        <choose>
+            <when test="params.orderDir != null and params.orderDir.name() == 'ASC'">ASC, id ASC</when>
+            <otherwise>DESC, id DESC</otherwise>
+        </choose>
+    </select>
+</mapper>

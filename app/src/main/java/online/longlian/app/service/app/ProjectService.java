@@ -78,6 +78,7 @@ public interface ProjectService {
 
     /**
      * 将企划从当前用户的个人工坊中移除（软删除）。
+     * 企划负责人不能退出自己创建的企划。
      *
      * @param params 包含企划 ID 和用户 ID 的移除参数
      */

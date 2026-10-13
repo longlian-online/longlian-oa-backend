@@ -2,9 +2,12 @@ package online.longlian.app.api.app;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -12,6 +15,9 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 
 public class UserApiTest extends BaseApiTest {
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // ========== 注册与创建组织 ==========
 
@@ -178,7 +184,7 @@ public class UserApiTest extends BaseApiTest {
         String token = loginAs("testuser", "123456");
 
         // 获取当前用户信息
-        Response response = authRequest(token)
+        Response response = userRequest(token)
                 .get("/app/user/");
 
         response.then()
@@ -198,7 +204,7 @@ public class UserApiTest extends BaseApiTest {
         String token = loginAs("testuser", "123456");
 
         // 获取用户加入的组织列表
-        Response response = authRequest(token)
+        Response response = userRequest(token)
                 .get("/app/user/organizations");
 
         response.then()
@@ -219,14 +225,14 @@ public class UserApiTest extends BaseApiTest {
 
         // user1 登录并生成加入自己组织的邀请码
         String token1 = loginAs("user1", "123456");
-        Response inviteResponse = authRequest(token1)
+        Response inviteResponse = authRequest(token1, 1L)
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
 
         // user2 登录并使用邀请码加入 user1 的组织
         String token2 = loginAs("user2", "123456");
-        Response response = authRequest(token2)
+        Response response = userRequest(token2)
                 .body(Map.of("inviteCode", inviteCode))
                 .post("/app/user/organizations/join-by-invite");
 
@@ -251,7 +257,7 @@ public class UserApiTest extends BaseApiTest {
         String token = loginAs("testuser", "123456");
 
         // 切换到第二个组织
-        Response response = authRequest(token)
+        Response response = userRequest(token)
                 .body(Map.of("orgId", 2))
                 .post("/app/user/switch");
 
@@ -281,11 +287,11 @@ public class UserApiTest extends BaseApiTest {
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
                 "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 1)",
-                3L, 1L, 2L, "MEMBER"
+                3L, 1L, 2L, "ORG_USER"
         );
         String token2 = loginAs("user2", "123456");
 
-        Response response = authRequest(token2)
+        Response response = userRequest(token2)
                 .body(Map.of("inviteCode", inviteCode))
                 .post("/app/user/organizations/join-by-invite");
 
@@ -313,11 +319,11 @@ public class UserApiTest extends BaseApiTest {
         createOrganizationMember(2L, 2L, 2L, "ORG_ADMIN");
         jdbcTemplate.update(
                 "INSERT INTO `organization_member` (id, org_id, user_id, org_role, status) VALUES (?, ?, ?, ?, 0)",
-                3L, 1L, 2L, "MEMBER"
+                3L, 1L, 2L, "ORG_USER"
         );
         String token2 = loginAs("user2", "123456");
 
-        Response response = authRequest(token2)
+        Response response = userRequest(token2)
                 .body(Map.of("inviteCode", inviteCode))
                 .post("/app/user/organizations/join-by-invite");
 
@@ -350,7 +356,7 @@ public class UserApiTest extends BaseApiTest {
         );
         String token2 = loginAs("user2", "123456");
 
-        Response response = authRequest(token2)
+        Response response = userRequest(token2)
                 .body(Map.of("inviteCode", inviteCode))
                 .post("/app/user/organizations/join-by-invite");
 
@@ -366,6 +372,7 @@ public class UserApiTest extends BaseApiTest {
     @Test
     void shouldResetPasswordSuccessfully() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
         Response response = request()
@@ -375,6 +382,8 @@ public class UserApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        userRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
 
         request()
                 .body(Map.of("username", "testuser", "password", "123456"))
@@ -429,6 +438,63 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
 
+
+    @Test
+    void shouldChangePasswordWithCurrentPassword() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        userRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        request().body(Map.of("username", "testuser", "password", "654321")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        request().body(Map.of("username", "testuser", "password", "123456")).post("/app/session/pwd")
+                .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
+    }
+
+    @Test
+    void shouldRejectPasswordChangeWhenUserRecordIsGone() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        userRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
+
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldRejectRequestWhenLoginCacheMissesAndUserRowIsGone() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        redisTemplate.delete(RedisConstants.LOGIN_USER + 1L);
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
+
+        userRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldRejectPasswordChangeForWrongOldPasswordMissingAuthAndInvalidLength() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+
+        userRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,原密码错误"));
+        request().body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "123"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
 
     // ========== 认证失败 ==========
 

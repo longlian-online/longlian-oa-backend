@@ -61,6 +61,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
         ProjectType projectType = ProjectType.builder()
                 .orgId(params.getOrgId())
                 .name(name)
+                .priority(params.getPriority())
                 .status(Status.ENABLED)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
@@ -83,6 +84,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
         }
         projectTypeMapper.update(null, new LambdaUpdateWrapper<ProjectType>()
                 .eq(ProjectType::getId, type.getId()).set(ProjectType::getName, name)
+                .set(params.getPriority() != null, ProjectType::getPriority, params.getPriority())
                 .set(ProjectType::getUpdatedAt, LocalDateTime.now(clock)));
     }
 

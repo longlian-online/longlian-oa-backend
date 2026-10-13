@@ -7,11 +7,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
@@ -27,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
-@Tag(name = "原子任务管理", description = "原子任务（最小任务单元）管理；任务创建后不可编辑，仅支持启用/禁用")
+@Tag(name = "原子任务管理", description = "原子任务（最小任务单元）管理；任务创建后不可编辑，仅支持启用/禁用和删除未被引用的任务")
 @RequestMapping("/orgadmin/task/base")
 @RestController
 @RequiredArgsConstructor
@@ -43,7 +45,7 @@ public class BaseTaskController {
     @PostMapping("/list")
     @ResponseMessage("查询成功")
     public PageResultVO<BaseTaskVO> listBaseTasks(
-            @UserSession(required = true) SessionContext sessionContext,
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid BaseTaskListDTO baseTaskListDTO) {
         PageResultBO<BaseTaskListResultBO> resultBO = baseTaskService.listBaseTasks(
                 BaseTaskListParamsBO.builder()
@@ -69,11 +71,11 @@ public class BaseTaskController {
 
     @Operation(
         summary = "创建原子任务",
-        description = "任务创建后不可编辑，请确认标题、图标、简介和元数据字段定义后提交"
+        description = "任务创建后不可编辑，请确认标题、图标、简介和提交字段定义后提交"
     )
     @PostMapping
     @ResponseMessage("创建成功")
-    public void createBaseTask(@UserSession(required = true) SessionContext sessionContext,
+    public void createBaseTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                 @RequestBody @Valid BaseTaskCreateDTO baseTaskCreateDTO) {
         baseTaskService.createBaseTask(
                 BaseTaskCreateParamsBO.builder()
@@ -81,9 +83,8 @@ public class BaseTaskController {
                         .creatorId(sessionContext.userId())
                         .name(baseTaskCreateDTO.getName())
                         .description(baseTaskCreateDTO.getDescription())
-                        .iconFileId(baseTaskCreateDTO.getIconFileId())
-                        .iconName(baseTaskCreateDTO.getIconName())
-                        .metaSchema(baseTaskCreateDTO.getMetaSchema())
+                        .icon(baseTaskCreateDTO.getIcon())
+                        .submitFields(baseTaskCreateDTO.getSubmitFields())
                         .build()
         );
     }
@@ -94,7 +95,7 @@ public class BaseTaskController {
     )
     @PatchMapping("/{taskId}/status")
     @ResponseMessage("状态修改成功")
-    public void changeBaseTaskStatus(@UserSession(required = true) SessionContext sessionContext,
+    public void changeBaseTaskStatus(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                               @PathVariable Long taskId,
                                               @RequestBody @Valid ChangeStatusDTO changeStatusDTO) {
         baseTaskService.changeBaseTaskStatus(
@@ -104,5 +105,16 @@ public class BaseTaskController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
+    }
+
+    @Operation(summary = "删除原子任务", description = "仅允许删除未被任务模板节点或项目任务节点引用的任务；已引用的任务应改为禁用")
+    @DeleteMapping("/{taskId}")
+    @ResponseMessage("删除成功")
+    public void deleteBaseTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                               @PathVariable Long taskId) {
+        baseTaskService.deleteBaseTask(BaseTaskDeleteParamsBO.builder()
+                .taskId(taskId)
+                .orgId(sessionContext.orgId())
+                .build());
     }
 }

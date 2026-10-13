@@ -7,7 +7,7 @@
 
 services:
   migrate-dev:
-    # MySQL healthcheck 通过后，服务端可能仍处于最后初始化阶段；有限重试
+    # MariaDB healthcheck 通过后，服务端可能仍处于最后初始化阶段；有限重试
     # 避免本地首次启动时的瞬时 connection refused。
     entrypoint: ["/bin/sh", "-c"]
     command:
