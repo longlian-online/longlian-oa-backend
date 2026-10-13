@@ -1,10 +1,12 @@
 package online.longlian.app.pojo.dto.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
+import online.longlian.app.common.enumeration.WorkshopSortBy;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -21,4 +23,8 @@ public class WorkshopListDTO extends PageRequestDTO {
 
     @Schema(description = "选择是否为我创建的企划，false=查询全部")
     private Boolean isMyCreated;
+
+    @NotNull
+    @Schema(description = "排序：RECENT_SUBMISSION-最近提交，CREATED_DESC-最新创建，CREATED_ASC-最早创建，默认最近提交")
+    private WorkshopSortBy sortBy = WorkshopSortBy.RECENT_SUBMISSION;
 }

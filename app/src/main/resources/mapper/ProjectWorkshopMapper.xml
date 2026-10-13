@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="online.longlian.app.mapper.ProjectWorkshopMapper">
+    <select id="selectWorkshopProjects" resultType="online.longlian.app.pojo.entity.Project">
+        SELECT p.* FROM project p
+        <if test="params.sortBy == null or params.sortBy.name() == 'RECENT_SUBMISSION'">
+            LEFT JOIN (
+                SELECT project_id, MAX(created_at) AS last_submitter_at
+                FROM task_submission WHERE deleted_at IS NULL GROUP BY project_id
+            ) recent ON recent.project_id = p.id
+        </if>
+        WHERE p.deleted_at IS NULL AND p.resource_status = 1 AND p.org_id = #{params.orgId}
+          AND EXISTS (
+            SELECT 1 FROM project_workshop pw
+            WHERE pw.project_id = p.id AND pw.user_id = #{params.userId} AND pw.deleted_at IS NULL
+          )
+        <if test="params.keyword != null and params.keyword.trim() != ''">
+            AND p.title LIKE CONCAT('%', #{params.keyword}, '%')
+        </if>
+        <if test="typeId != null">
+            AND p.type_id = #{typeId}
+        </if>
+        <if test="params.isMyCreated != null and params.isMyCreated">
+            AND p.creator_id = #{params.userId}
+        </if>
+        ORDER BY
+        <choose>
+            <when test="params.sortBy != null and params.sortBy.name() == 'CREATED_ASC'">
+                p.created_at ASC, p.id ASC
+            </when>
+            <when test="params.sortBy != null and params.sortBy.name() == 'CREATED_DESC'">
+                p.created_at DESC, p.id DESC
+            </when>
+            <otherwise>
+                recent.last_submitter_at DESC, p.created_at DESC, p.id DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectLatestSubmissions" resultType="online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO">
+        SELECT latest.project_id AS id, latest.created_at AS last_submitter_at,
+               u.username AS last_submitter_username
+        FROM (
+            SELECT s.project_id, s.submitter_id, s.created_at,
+                   ROW_NUMBER() OVER (PARTITION BY s.project_id ORDER BY s.created_at DESC, s.id DESC) AS rn
+            FROM task_submission s
+            WHERE s.deleted_at IS NULL AND s.project_id IN
+            <foreach collection="projectIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ) latest
+        LEFT JOIN user u ON u.id = latest.submitter_id AND u.deleted_at IS NULL
+        WHERE latest.rn = 1
+    </select>
+
+</mapper>

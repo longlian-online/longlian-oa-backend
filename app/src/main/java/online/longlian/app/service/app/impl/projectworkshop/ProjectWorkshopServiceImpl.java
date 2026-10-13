@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
@@ -39,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMapper, ProjectWorkshop> implements ProjectWorkshopService {
 
     private final ProjectWorkshopMapper projectWorkshopMapper;
-    private final ProjectMapper projectMapper;
     private final TaskTemplateMapper taskTemplateMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final Clock clock;
@@ -52,22 +50,8 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
     public PageResultBO<WorkshopProjectInfoVO> getMyWorkshopList(WorkshopListParamsBO params) {
         Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
 
-        List<ProjectWorkshop> workshops = projectWorkshopMapper.selectList(
-                workshopQueryBuilder.buildWorkshopListQuery(params.getUserId()));
-        if (workshops.isEmpty()) {
-            return new PageResultBO<>(Collections.emptyList(), 0L);
-        }
-
-        List<Long> projectIds = workshops.stream()
-                .map(ProjectWorkshop::getProjectId)
-                .distinct()
-                .toList();
-
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
-        LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildFilteredProjectQuery(
-                params.getOrgId(), projectIds, params.getKeyword(), typeId,
-                params.getIsMyCreated(), params.getUserId());
-        Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
+        Page<Project> projectPage = projectWorkshopMapper.selectWorkshopProjects(page, params, typeId);
 
         if (projectPage.getRecords().isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());

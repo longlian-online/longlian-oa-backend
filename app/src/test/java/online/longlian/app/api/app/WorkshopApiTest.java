@@ -4,6 +4,8 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 import java.util.Map;
@@ -11,6 +13,89 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 
 public class WorkshopApiTest extends BaseApiTest {
+
+    @ParameterizedTest
+    @CsvSource({
+            "RECENT_SUBMISSION, 20, 10, 40, 30",
+            "CREATED_DESC, 40, 30, 20, 10",
+            "CREATED_ASC, 10, 20, 30, 40"
+    })
+    void shouldSortAcrossPagesWithStableTies(String sortBy, String first, String second,
+            String third, String fourth) {
+        String token = createSortingFixture();
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 2, "sortBy", sortBy))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.total", equalTo(4))
+                .body("data.list.id", contains(first, second));
+        authRequest(token).body(Map.of("pageNum", 2, "pageSize", 2, "sortBy", sortBy))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.total", equalTo(4))
+                .body("data.list.id", contains(third, fourth));
+    }
+
+    @Test
+    void shouldDefaultToLatestSubmissionAndDisplayMatchingSubmitter() {
+        String token = createSortingFixture();
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list.id", contains("20", "10", "40", "30"))
+                .body("data.list[0].lastSubmitterAt", equalTo("2026-10-03 12:00:00"))
+                .body("data.list[0].lastSubmitterUsername", equalTo("submitter"))
+                .body("data.list[1].lastSubmitterAt", equalTo("2026-10-01 12:00:00"))
+                .body("data.list[2].lastSubmitterAt", nullValue());
+    }
+
+    @Test
+    void shouldKeepAllFiltersWhenSorting() {
+        String token = createSortingFixture();
+        jdbcTemplate.update("UPDATE project SET creator_id = 2 WHERE id = 20");
+        jdbcTemplate.update("UPDATE project SET type_id = 2 WHERE id = 40");
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 2, "sortBy", "CREATED_ASC",
+                        "keyword", "企划", "projectType", "漫画", "isMyCreated", true))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.total", equalTo(2))
+                .body("data.list.id", contains("10", "30"));
+    }
+
+    @Test
+    void shouldRejectInvalidSortBy() {
+        String token = createSortingFixture();
+        authRequest(token).body(Map.of("sortBy", "created_at; DROP TABLE project"))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        authRequest(token).body("{\"sortBy\":null}")
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    private String createSortingFixture() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "submitter", "123456", "submitter@example.com");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        for (long id : List.of(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L)) {
+            String createdAt = id <= 20 ? "2026-09-01 12:00:00" : "2026-09-02 12:00:00";
+            jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id, created_at) VALUES (?, ?, 1, ?, 1, ?)",
+                    id, id == 60 ? 2L : 1L, "企划" + id, createdAt);
+            jdbcTemplate.update("INSERT INTO project_workshop (id, project_id, user_id) VALUES (?, ?, ?)",
+                    id, id, id == 50 ? 2L : 1L);
+        }
+        jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 70");
+        jdbcTemplate.update("UPDATE project_workshop SET deleted_at = NOW() WHERE project_id = 80");
+        insertSortingSubmission(1, 10, 1, "2026-10-01 12:00:00");
+        insertSortingSubmission(2, 20, 1, "2026-10-02 12:00:00");
+        insertSortingSubmission(3, 20, 2, "2026-10-03 12:00:00");
+        insertSortingSubmission(4, 20, 1, "2026-10-03 12:00:00");
+        jdbcTemplate.update("UPDATE task_submission SET deleted_at = NOW() WHERE id = 4");
+        insertSortingSubmission(5, 30, 1, "2026-10-04 12:00:00");
+        jdbcTemplate.update("UPDATE task_submission SET deleted_at = NOW() WHERE id = 5");
+        return loginAs("orgadmin", "123456");
+    }
+
+    private void insertSortingSubmission(long id, long projectId, long submitterId, String createdAt) {
+        jdbcTemplate.update("INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, created_at) "
+                        + "VALUES (?, ?, 1, 1, 1, ?, ?)", id, projectId, submitterId, createdAt);
+    }
 
     // ========== 成功路径 ==========
 

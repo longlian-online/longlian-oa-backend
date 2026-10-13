@@ -3,6 +3,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.BaseTaskMapper;
+import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.BaseTask;
@@ -30,11 +31,16 @@ public class WorkshopAssembler {
     private final BaseTaskMapper baseTaskMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final ResourceService resourceService;
+    private final ProjectWorkshopMapper projectWorkshopMapper;
 
     public List<WorkshopProjectInfoVO> assembleProjectList(List<Project> projects) {
         if (projects.isEmpty()) {
             return Collections.emptyList();
         }
+
+        Map<Long, WorkshopProjectInfoVO> submissions = projectWorkshopMapper.selectLatestSubmissions(
+                        projects.stream().map(Project::getId).toList()).stream()
+                .collect(Collectors.toMap(WorkshopProjectInfoVO::getId, Function.identity()));
 
         List<Long> coverFileIds = projects.stream()
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
@@ -61,6 +67,11 @@ public class WorkshopAssembler {
                     workshopProjectInfoVO.setId(project.getId());
                     workshopProjectInfoVO.setTitle(project.getTitle());
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
+                    WorkshopProjectInfoVO submission = submissions.get(project.getId());
+                    if (submission != null) {
+                        workshopProjectInfoVO.setLastSubmitterAt(submission.getLastSubmitterAt());
+                        workshopProjectInfoVO.setLastSubmitterUsername(submission.getLastSubmitterUsername());
+                    }
                     if (creator != null && creator.getAvatarFileId() != null) {
                         workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
                     }
