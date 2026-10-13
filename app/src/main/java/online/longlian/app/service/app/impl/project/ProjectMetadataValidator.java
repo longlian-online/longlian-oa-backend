@@ -34,24 +34,33 @@ final class ProjectMetadataValidator {
             if (!(tags.get(i) instanceof JSONObject tag)) {
                 throw new AppException(ResultCode.PARAM_ERROR, path + " 必须是对象");
             }
-            if (!(tag.get("key") instanceof String key) || key.isBlank()) {
-                throw new AppException(ResultCode.PARAM_ERROR, path + ".key 必须是非空白字符串");
-            }
-            if (tag.containsKey("value") && !(tag.get("value") instanceof String)) {
-                throw new AppException(ResultCode.PARAM_ERROR, path + ".value 必须是字符串");
-            }
-            if (tag.containsKey("color")) {
-                if (!(tag.get("color") instanceof String color)
-                        || color.length() > 6 || !TAG_COLORS.contains(color)) {
-                    throw new AppException(ResultCode.PARAM_ERROR,
-                            path + ".color 必须是 blue、green、amber、rose 或 violet");
-                }
-            }
-            int allowedFieldCount = 1 + (tag.containsKey("value") ? 1 : 0)
-                    + (tag.containsKey("color") ? 1 : 0);
-            if (tag.size() != allowedFieldCount) {
-                throw new AppException(ResultCode.PARAM_ERROR, path + " 只能包含 key、value 和 color");
-            }
+            validateTag(tag, path);
+        }
+    }
+
+    private static void validateTag(JSONObject tag, String path) {
+        if (!(tag.get("key") instanceof String key) || key.isBlank()) {
+            throw new AppException(ResultCode.PARAM_ERROR, path + ".key 必须是非空白字符串");
+        }
+        if (tag.containsKey("value") && !(tag.get("value") instanceof String)) {
+            throw new AppException(ResultCode.PARAM_ERROR, path + ".value 必须是字符串");
+        }
+        validateColor(tag, path);
+        int allowedFieldCount = 1 + (tag.containsKey("value") ? 1 : 0)
+                + (tag.containsKey("color") ? 1 : 0);
+        if (tag.size() != allowedFieldCount) {
+            throw new AppException(ResultCode.PARAM_ERROR, path + " 只能包含 key、value 和 color");
+        }
+    }
+
+    private static void validateColor(JSONObject tag, String path) {
+        if (!tag.containsKey("color")) {
+            return;
+        }
+        if (!(tag.get("color") instanceof String color)
+                || color.length() > 6 || !TAG_COLORS.contains(color)) {
+            throw new AppException(ResultCode.PARAM_ERROR,
+                    path + ".color 必须是 blue、green、amber、rose 或 violet");
         }
     }
 }
