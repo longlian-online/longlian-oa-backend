@@ -245,6 +245,7 @@ public class ItemApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data", notNullValue())
+                .body("data.itemTitle", equalTo("测试项目"))
                 .body("data.nodes", hasSize(1))
                 .body("data.nodes[0].baseTaskIcon", equalTo("Languages"));
     }
