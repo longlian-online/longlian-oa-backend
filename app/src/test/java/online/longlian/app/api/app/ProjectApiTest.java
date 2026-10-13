@@ -108,6 +108,96 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 显式 offset 窗口应按绝对偏移取数，窗口间无缝衔接（首页少取后跨页不漏数据）
+     */
+    @Test
+    void shouldListProjectsWithExplicitOffsetWindow() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                1L, 1L, 1L, "窗口企划甲", "offset-a", "{}", 0L, "偏移测试", 1, 1L,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(30))
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                2L, 1L, 1L, "窗口企划乙", "offset-b", "{}", 0L, "偏移测试", 1, 1L,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(20))
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                3L, 1L, 1L, "窗口企划丙", "offset-c", "{}", 0L, "偏移测试", 1, 1L,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(10))
+        );
+
+        // 常规首页：第一条为最新创建的丙
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划丙"));
+
+        // 显式 offset=1：应取到乙，与首页无缝衔接
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .queryParam("offset", 1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划乙"))
+                .body("data.total", equalTo(3));
+
+        // 显式 offset=2：应取到甲
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .queryParam("offset", 2)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划甲"));
+
+        // 变长首页场景（首页少取、次页自接续位置连取）：offset=1&pageSize=2 应连取乙、甲
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 2)
+                .queryParam("offset", 1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划乙"))
+                .body("data.list[1].title", equalTo("窗口企划甲"));
+    }
+
+    /**
+     * offset 为负数时应返回参数错误
+     */
+    @Test
+    void shouldFailListProjectsWithNegativeOffset() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 8)
+                .queryParam("offset", -1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
      * 使用不存在的企划类型名称筛选时应返回参数错误
      */
     @Test
