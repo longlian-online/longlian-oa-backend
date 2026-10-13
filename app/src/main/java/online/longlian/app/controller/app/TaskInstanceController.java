@@ -17,12 +17,16 @@ import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
+
 import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
-import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
+import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.TaskPlazaService;
@@ -89,6 +93,23 @@ public class TaskInstanceController {
                                                        @PathVariable Long instanceId) {
         return taskInstanceService.getTaskInstanceDetail(
                 TaskInstanceDetailParamsBO.builder()
+                        .instanceId(instanceId)
+                        .orgId(sessionContext.orgId())
+                        .build());
+    }
+
+    @Operation(
+            summary = "任务提交版本列表",
+            description = "按版本号倒序返回该任务实例的全部提交版本，包含提交人/打回人与按表单快照组织的字段和附件"
+    )
+    @Parameter(name = "instanceId", description = "任务实例ID")
+    @GetMapping("/{instanceId}/submissions")
+    @ResponseMessage("查询成功")
+    public List<TaskSubmissionVersionVO> listSubmissionVersions(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long instanceId) {
+        return taskInstanceService.listSubmissionVersions(
+                TaskSubmissionVersionsParamsBO.builder()
                         .instanceId(instanceId)
                         .orgId(sessionContext.orgId())
                         .build());

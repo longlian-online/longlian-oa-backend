@@ -336,6 +336,7 @@ CREATE TABLE `task_submission` (
   `task_instance_id` bigint NOT NULL COMMENT "所属任务实例ID",
   `item_task_node_id` bigint NOT NULL COMMENT "关联项目任务节点ID",
   `submitter_id` bigint NOT NULL COMMENT "提交人ID",
+  `version_no` int NULL COMMENT "提交版本号（任务实例内从 1 递增；存量数据由数据迁移回填）",
   `metadata` json NULL COMMENT "提交元数据(JSON对象，按节点 meta_schema 组织)",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)",
   `reviewer_id` bigint NULL COMMENT "审核人ID（打回操作人）",
@@ -345,6 +346,7 @@ CREATE TABLE `task_submission` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_submission_version` (`task_instance_id`, `version_no`),
   INDEX `idx_project_deleted_created` (`project_id`, `deleted_at`, `created_at`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务提交记录表";
 -- Create "task_template" table

@@ -13,7 +13,10 @@ import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
+
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -21,6 +24,8 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
+
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.common.enumeration.Status;
@@ -148,6 +153,33 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
         }
         return taskInstanceAssembler.assembleDetail(instance, node, submission, params.getOrgId());
+    }
+
+    @Override
+    public List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params) {
+        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
+        if (instance == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+
+        Item item = itemMapper.selectById(instance.getItemId());
+        Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
+        }
+
+        List<TaskSubmission> submissions = taskSubmissionMapper.selectList(
+                new LambdaQueryWrapper<TaskSubmission>()
+                        .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
+                        .orderByDesc(TaskSubmission::getVersionNo));
+
+        return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());
     }
 
     private TaskInstance getAndValidateInstance(Long instanceId, Long orgId) {

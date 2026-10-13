@@ -5,8 +5,10 @@ import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
 import java.util.List;
 
@@ -42,6 +44,17 @@ public interface TaskInstanceService {
      * @return 任务实例详情，含提交的 metadata 内容
      */
     TaskInstanceDetailVO getTaskInstanceDetail(TaskInstanceDetailParamsBO params);
+
+    /**
+     * 获取任务实例的全部提交版本，按版本号倒序。
+     * <p>
+     * 每个版本包含提交人/打回人与按表单快照组织的展示字段；存量数据无法回放时
+     * 该版本标记 {@code unreadable}。
+     *
+     * @param params 包含任务实例 ID 的查询参数
+     * @return 版本列表；未提交过时为空列表
+     */
+    List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params);
 
     /**
      * 查询指定项目下所有任务实例及其节点信息。
