@@ -32,7 +32,10 @@
 6. 复用的数据库行锁方法必须使用 `Propagation.MANDATORY` 参与调用方事务，锁覆盖后续业务写入直到提交或回滚；禁止用独立事务提前释放锁。多行加锁先去重，使用主键排序的批量查询，空集合不执行锁查询；SQL 排序不保证数据库获取锁的顺序，仍需核查执行计划及其他写入路径的锁顺序。
 
 ## Mapper
-1. 数据库操作调用 Mapper 方法操作（参考https://baomidou.com/guides/data-interface/#mapper-interface），以 Lambda 操作优先，以保证类型安全
+1. 数据库操作通过 Mapper 方法执行，优先复用 MyBatis Plus 的 `BaseMapper` 能力。
+2. 查询 SQL 优先在 Java 代码中使用 `LambdaQueryWrapper` 构建，通过实体方法引用指定字段，保证类型安全；常规筛选、排序、分页、计数等查询不得另写 SQL 注解或 XML。
+3. 仅当 `LambdaQueryWrapper` 无法清晰表达所需 SQL，或有明确的性能需求时，才允许在 Mapper 中使用 SQL 注解或 XML，例如复杂多表关联、窗口函数或数据库特有语法。不得为绕过此规范而改用字符串拼接、`apply` 或 `last` 堆砌复杂 SQL。
+4. 使用 SQL 注解或 XML 时，应在对应 Mapper 方法或 SQL 附近说明不能使用 `LambdaQueryWrapper` 的原因；参数必须使用绑定参数（如 `#{param}`），禁止拼接外部输入或使用 `${}` 直接替换外部输入。
 
 ## 数据库变更
 
