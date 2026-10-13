@@ -58,6 +58,42 @@ class ItemTaskFlowServiceImplTest {
     }
 
     @Test
+    void getItemTaskFlow_missingItem_throwsNotFound() {
+        when(itemMapper.selectById(1L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getItemTaskFlow(1L, 1L)).isInstanceOf(AppException.class);
+        verify(projectMapper, never()).selectById(any());
+    }
+
+    @Test
+    void getItemTaskFlow_missingFlow_throwsNotFound() {
+        when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder()
+                .id(2L).orgId(1L).resourceStatus(Status.ENABLED).build());
+        when(itemTaskFlowMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getItemTaskFlow(1L, 1L)).isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void getItemTaskFlow_itemWithoutNodes_returnsEmptyNodes() {
+        when(itemMapper.selectById(1L)).thenReturn(Item.builder()
+                .id(1L).projectId(2L).title("第3话").build());
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder()
+                .id(2L).orgId(1L).resourceStatus(Status.ENABLED).build());
+        when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
+                .id(3L).itemId(1L).projectId(2L).name("漫画汉化流程").build());
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of());
+        when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList())).thenReturn(List.of());
+
+        ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
+
+        assertThat(flowVO.getItemTitle()).isEqualTo("第3话");
+        assertThat(flowVO.getNodes()).isEmpty();
+        verify(taskInstanceMapper, never()).selectList(any());
+    }
+
+    @Test
     void getItemTaskFlow_enabledProject_returnsItemTitleAndFlowInfo() {
         when(itemMapper.selectById(1L)).thenReturn(Item.builder()
                 .id(1L).projectId(2L).title("第3话").build());
