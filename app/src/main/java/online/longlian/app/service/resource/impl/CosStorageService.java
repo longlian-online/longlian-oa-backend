@@ -6,6 +6,7 @@ import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
+import com.qcloud.cos.model.ResponseHeaderOverrides;
 import com.qcloud.cos.region.Region;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.properties.StorageProperties;
@@ -45,7 +46,7 @@ public class CosStorageService implements StorageService, DisposableBean {
         return StorageType.COS;
     }
 
-    private String getPresignUrl(String key, HttpMethodName method) {
+    private String getPresignUrl(String key, HttpMethodName method, String contentDisposition) {
         Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                 cosConfig.getBucket(),
@@ -53,19 +54,40 @@ public class CosStorageService implements StorageService, DisposableBean {
                 method
         );
         request.setExpiration(expiration);
+        if (contentDisposition != null) {
+            // content-disposition 属于 COS 默认必签头：签名后前端上传必须逐字携带该头，
+            // COS 把它存为对象元数据，读取时经 CDN/预签名透传，浏览器下载名即原文件名。
+            request.putCustomRequestHeader("Content-Disposition", contentDisposition);
+        }
         URL url = cosClient.generatePresignedUrl(request);
         return url.toString();
     }
 
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
-        return new PresignedUploadUrlResultBO(getPresignUrl(params.getKey(), HttpMethodName.PUT), params.getKey());
+        return new PresignedUploadUrlResultBO(
+                getPresignUrl(params.getKey(), HttpMethodName.PUT, params.getContentDisposition()),
+                params.getKey(), params.getContentDisposition());
     }
 
 
     @Override
     public String getResourceReadUrl(String key) {
-        return getPresignUrl(key, HttpMethodName.GET);
+        return getPresignUrl(key, HttpMethodName.GET, null);
+    }
+
+    /** 读取时通过 response-content-disposition 覆盖响应头，让直连预签名下载也还原原文件名。 */
+    @Override
+    public String getResourceReadUrl(String key, String fileName) {
+        if (fileName == null) {
+            return getPresignUrl(key, HttpMethodName.GET, null);
+        }
+        Date expiration = new Date(System.currentTimeMillis() + presignedUrlTtlMillis);
+        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                cosConfig.getBucket(), key, HttpMethodName.GET);
+        request.setExpiration(expiration);
+        request.setResponseHeaders(new ResponseHeaderOverrides().withContentDisposition(fileName));
+        return cosClient.generatePresignedUrl(request).toString();
     }
 
     @Override

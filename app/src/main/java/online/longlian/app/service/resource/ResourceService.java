@@ -20,6 +20,7 @@ import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
+import online.longlian.app.common.util.ContentDispositionUtil;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
@@ -80,13 +81,18 @@ public class ResourceService {
                 .updatedAt(LocalDateTime.now(clock))
                 .build();
 
-        // 4. 获取上传链接
+        // 4. 获取上传链接；任务附件把原文件名写进对象头，下载时由存储/CDN 透传还原名称。
         StorageService storageService = storageFactory.get(file.getStorageType());
-        PresignedUploadUrlResultBO uploadBO = storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO(storageKey));
+        String contentDisposition = "task_submit".equals(params.getBizType())
+                ? ContentDispositionUtil.attachment(params.getFileName())
+                : null;
+        PresignedUploadUrlResultBO uploadBO = storageService.generatePresignedUploadUrl(
+                new PresignedUploadUrlParamsBO(storageKey, contentDisposition));
 
         resourceMapper.insert(file);
 
-        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
+        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(),
+                file.getStorageType(), uploadBO.getContentDisposition());
     }
 
     public String getResourceReadUrl(Long fileId) {
@@ -112,7 +118,9 @@ public class ResourceService {
                 Resource::getId,
                 Resource::getStorageKey,
                 Resource::getStorageType,
-                Resource::getOrgId
+                Resource::getOrgId,
+                Resource::getBizType,
+                Resource::getFileName
         ).in(Resource::getId, resourceIds);
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
@@ -133,7 +141,13 @@ public class ResourceService {
 
     private String getCdnReadUrl(Resource resource, long cdnTimestamp) {
         if (!isCdnEnabled()) {
-            return storageFactory.get(resource.getStorageType()).getResourceReadUrl(resource.getStorageKey());
+            // CDN 关闭时读取走存储原生 URL；任务附件带原文件名覆盖响应头，下载名即原文件名。
+            StorageService storageService = storageFactory.get(resource.getStorageType());
+            if (!"task_submit".equals(resource.getBizType())) {
+                return storageService.getResourceReadUrl(resource.getStorageKey());
+            }
+            return storageService.getResourceReadUrl(resource.getStorageKey(),
+                    ContentDispositionUtil.attachment(resource.getFileName()));
         }
         if (resource.getStorageType() != StorageType.LOCAL) {
             return cdnUrlSigner.sign(resource.getStorageKey(), cdnTimestamp);

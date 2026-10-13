@@ -37,13 +37,80 @@ class CloudStorageServiceProbeTest {
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
 
-            var upload = cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png"));
+            var upload = cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png", null));
             assertThat(upload.getUploadUrl()).isEqualTo(signedUrl.toString());
             assertThat(upload.getKey()).isEqualTo("resource.png");
             assertThat(cloud.storage().getResourceReadUrl("resource.png")).isEqualTo(signedUrl.toString());
             assertThat(cloud.storage().getResourceReadUrls(List.of("first.png", "second.png")))
                     .containsEntry("first.png", signedUrl.toString())
                     .containsEntry("second.png", signedUrl.toString());
+        }
+    }
+
+    /** 上传预签名把原文件名 disposition 纳入签名，客户端必须携带同值头。 */
+    @Test
+    void shouldSignContentDispositionIntoUploadPresign() throws Exception {
+        String disposition = "attachment; filename=\"file.docx\"; filename*=UTF-8''%E6%88%91.docx";
+        URL signedUrl = new URL("https://cos.example/resource.docx");
+        for (CloudStorage cloud : cloudStorageServices()) {
+            when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
+
+            var upload = cloud.storage().generatePresignedUploadUrl(
+                    new PresignedUploadUrlParamsBO("task_submit/1.docx", disposition));
+
+            assertThat(upload.getUploadUrl()).isEqualTo(signedUrl.toString());
+            assertThat(upload.getContentDisposition()).isEqualTo(disposition);
+            ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+            verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());
+            assertThat(request.getValue().getCustomRequestHeaders())
+                    .containsEntry("Content-Disposition", disposition);
+        }
+    }
+
+    /** 不带 disposition 的上传保持原有行为。 */
+    @Test
+    void shouldSkipContentDispositionWhenUploadParamsOmitIt() throws Exception {
+        URL signedUrl = new URL("https://cos.example/resource.png");
+        for (CloudStorage cloud : cloudStorageServices()) {
+            when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
+
+            var upload = cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png", null));
+
+            assertThat(upload.getContentDisposition()).isNull();
+            ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+            verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());
+            assertThat(request.getValue().getCustomRequestHeaders()).isNullOrEmpty();
+        }
+    }
+
+    /** CDN 关闭链路读取时用原文件名覆盖响应头。 */
+    @Test
+    void shouldOverrideReadDispositionWithFileName() throws Exception {
+        URL signedUrl = new URL("https://cos.example/resource.docx");
+        for (CloudStorage cloud : cloudStorageServices()) {
+            when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
+
+            cloud.storage().getResourceReadUrl("resource.docx", "attachment; filename=\"file.docx\"");
+
+            ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+            verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());
+            assertThat(request.getValue().getResponseHeaders().getContentDisposition())
+                    .isEqualTo("attachment; filename=\"file.docx\"");
+        }
+    }
+
+    /** 无文件名的读取保持原有行为，不写响应头覆盖。 */
+    @Test
+    void shouldKeepPlainReadUrlWithoutFileName() throws Exception {
+        URL signedUrl = new URL("https://cos.example/resource.png");
+        for (CloudStorage cloud : cloudStorageServices()) {
+            when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
+
+            cloud.storage().getResourceReadUrl("resource.png", null);
+
+            ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+            verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());
+            assertThat(request.getValue().getResponseHeaders()).isNull();
         }
     }
 
@@ -54,7 +121,7 @@ class CloudStorageServiceProbeTest {
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().generatePresignedUrl(any(GeneratePresignedUrlRequest.class))).thenReturn(signedUrl);
 
-            cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png"));
+            cloud.storage().generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("resource.png", null));
 
             ArgumentCaptor<GeneratePresignedUrlRequest> request = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
             verify(cloud.client(), times(1)).generatePresignedUrl(request.capture());

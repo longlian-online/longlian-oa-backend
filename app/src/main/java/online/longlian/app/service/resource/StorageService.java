@@ -50,6 +50,17 @@ public interface StorageService {
     Map<String, String> getResourceReadUrls(List<String> keys);
 
     /**
+     * 获取单个文件的读取 URL，并让响应携带原文件名的 Content-Disposition。
+     * <p>
+     * 仅对象存储支持响应头覆盖；不支持或不关心文件名的实现可忽略 fileName。
+     *
+     * @param key 文件存储 key
+     * @param fileName 原始文件名；null 表示沿用{@link #getResourceReadUrl(String)}行为
+     * @return 按存储策略生成的可访问 URL；私有存储返回短时授权链接
+     */
+    String getResourceReadUrl(String key, String fileName);
+
+    /**
      * 确认文件已由存储后端完整保存。
      */
     void probe(ResourceProbeParamsBO params);

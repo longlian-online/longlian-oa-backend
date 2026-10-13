@@ -142,6 +142,11 @@ https://static.example.com/common/file/local
 - 对象 key 使用 UUID/内容版本，覆盖写时路径会变，避免旧缓存。
 - 删除或覆盖后应主动刷新对应 EdgeOne 路径，否则 TTL 内节点可能继续返回旧对象。
 
+- EdgeOne 响应头规则不得覆盖 `Content-Disposition`：下载还原原文件名依赖源站对象头透传。
+  任务附件上传时 COS/OSS 预签名已把 `content-disposition`（`attachment; filename*`，见 `ContentDispositionUtil`）
+  写入对象元数据，回源透传后浏览器保存名即原文件名。CDN 关闭时由读取预签名的 `response-content-disposition`
+  覆盖实现同样效果。
+
 ## 任务附件
 
 任务详情 `GET /app/task/instance/{instanceId}/detail` 由后端返回完整的任务信息、提交内容与附件卡片数据，不返回内部 JSON 字符串。

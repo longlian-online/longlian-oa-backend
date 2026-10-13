@@ -26,7 +26,7 @@ class NullStorageServiceTest {
 
     @Test
     void generatePresignedUploadUrl_returnsEmptyUrl() {
-        PresignedUploadUrlParamsBO params = new PresignedUploadUrlParamsBO("test/file.png");
+        PresignedUploadUrlParamsBO params = new PresignedUploadUrlParamsBO("test/file.png", null);
         PresignedUploadUrlResultBO result = service.generatePresignedUploadUrl(params);
 
         assertThat(result.getUploadUrl()).isEmpty();
