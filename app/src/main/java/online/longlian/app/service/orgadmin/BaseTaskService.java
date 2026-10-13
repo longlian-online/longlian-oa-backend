@@ -6,6 +6,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 
 import java.util.List;
 
@@ -36,6 +37,12 @@ public interface BaseTaskService {
      * @param params 包含名称、描述、图标、metaSchema 及创建者 ID 的创建参数
      */
     void createBaseTask(BaseTaskCreateParamsBO params);
+
+    /**
+     * 更新原子任务定义；模板和后续新建实例使用新定义，已有实例保留名称和字段快照。
+     * 图标动态读取原子任务，更新后所有关联实例使用新图标。
+     */
+    void updateBaseTask(BaseTaskUpdateParamsBO params);
 
     /**
      * 变更基础任务状态（启用/禁用）。

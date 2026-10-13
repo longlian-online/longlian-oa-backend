@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.BaseTaskCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.BaseTaskListDTO;
@@ -29,7 +30,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
-@Tag(name = "原子任务管理", description = "原子任务（最小任务单元）管理；任务创建后不可编辑，仅支持启用/禁用和删除未被引用的任务")
+@Tag(name = "原子任务管理", description = "原子任务（最小任务单元）的创建、编辑、启用/禁用和引用安全删除管理")
 @RequestMapping("/orgadmin/task/base")
 @RestController
 @RequiredArgsConstructor
@@ -71,7 +72,7 @@ public class BaseTaskController {
 
     @Operation(
         summary = "创建原子任务",
-        description = "任务创建后不可编辑，请确认标题、图标、简介和提交字段定义后提交"
+        description = "创建任务标题、图标、简介和提交字段定义；创建后支持编辑"
     )
     @PostMapping
     @ResponseMessage("创建成功")
@@ -87,6 +88,25 @@ public class BaseTaskController {
                         .submitFields(baseTaskCreateDTO.getSubmitFields())
                         .build()
         );
+    }
+
+    @Operation(
+            summary = "编辑原子任务",
+            description = "整体更新任务定义；简介和图标省略或传 null 表示清空，submitFields 必填，传空数组清空提交字段。关联模板和后续新建工作流使用新定义，已有工作流保留名称及字段快照，图标同步更新。启用/禁用状态不变"
+    )
+    @PutMapping("/{taskId}")
+    @ResponseMessage("修改成功")
+    public void updateBaseTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                               @PathVariable Long taskId,
+                               @RequestBody @Valid BaseTaskCreateDTO dto) {
+        baseTaskService.updateBaseTask(BaseTaskUpdateParamsBO.builder()
+                .taskId(taskId)
+                .orgId(sessionContext.orgId())
+                .name(dto.getName())
+                .description(dto.getDescription())
+                .icon(dto.getIcon())
+                .submitFields(dto.getSubmitFields())
+                .build());
     }
 
     @Operation(

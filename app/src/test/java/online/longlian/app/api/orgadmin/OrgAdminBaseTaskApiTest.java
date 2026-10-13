@@ -6,6 +6,7 @@ import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,161 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 
 public class OrgAdminBaseTaskApiTest extends BaseApiTest {
+
+    @Test
+    void shouldUpdateDisabledBaseTaskAndClearOptionalFields() {
+        String token = createEditingAdmin();
+        String taskId = createAtomicTask(token, Map.of("name", "翻译", "description", "旧说明",
+                "icon", "Languages", "submitFields", List.of(field("content", "原文"))));
+        authRequest(token).body(Map.of("status", "DISABLED"))
+                .patch("/orgadmin/task/base/" + taskId + "/status").then().body("code", equalTo(0));
+
+        authRequest(token).body(Map.of("name", "译制", "submitFields", List.of()))
+                .put("/orgadmin/task/base/" + taskId).then().statusCode(200).body("code", equalTo(0));
+
+        authRequest(token).body(Map.of()).post("/orgadmin/task/base/list").then()
+                .body("data.list[0].id", equalTo(taskId))
+                .body("data.list[0].name", equalTo("译制"))
+                .body("data.list[0].description", nullValue())
+                .body("data.list[0].icon", nullValue())
+                .body("data.list[0].submitFields", empty())
+                .body("data.list[0].status", equalTo("DISABLED"));
+    }
+
+    @Test
+    void shouldPreserveExistingFlowSnapshotsAndUseEditedDefinitionForNewFlows() {
+        String token = createEditingAdmin();
+        String taskId = createAtomicTask(token, Map.of("name", "翻译", "icon", "Languages",
+                "submitFields", List.of(field("content", "原文"))));
+        authRequest(token).body(Map.of("name", "翻译流程", "nodes", new Object[]{
+                        Map.of("baseTaskId", taskId, "sort", 1, "parallelSort", 1)}))
+                .post("/orgadmin/task/template").then().body("code", equalTo(0));
+        String templateId = authRequest(token).body(Map.of()).post("/orgadmin/task/template/list")
+                .jsonPath().getString("data.list[0].id");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '类型', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, creator_id) "
+                + "VALUES (1, 1, 1, '企划', 'project', '{}', 1)");
+        authRequest(token).body(Map.of("title", "旧项目", "taskTemplateId", templateId))
+                .post("/app/projects/1/items").then().body("code", equalTo(0));
+        String oldItemId = authRequest(token).get("/app/projects/1/items").jsonPath().getString("data.list[0].id");
+        Response oldFlow = authRequest(token).get("/app/item/" + oldItemId + "/flow");
+        oldFlow.then().body("code", equalTo(0)).body("data.nodes[0].baseTaskIcon", equalTo("Languages"));
+        String instanceId = oldFlow.jsonPath().getString("data.nodes[0].taskInstanceId");
+        String nodeId = oldFlow.jsonPath().getString("data.nodes[0].id");
+
+        authRequest(token).body(Map.of("name", "译制", "icon", "BookOpen",
+                        "submitFields", List.of(field("link", "链接"))))
+                .put("/orgadmin/task/base/" + taskId).then().body("code", equalTo(0));
+
+        authRequest(token).get("/orgadmin/task/template/" + templateId).then()
+                .body("data.nodes[0].baseTaskName", equalTo("译制"))
+                .body("data.nodes[0].submitFields[0].key", equalTo("link"))
+                .body("data.nodes[0].baseTaskIcon", equalTo("BookOpen"));
+        authRequest(token).get("/app/item/" + oldItemId + "/flow").then()
+                .body("data.nodes[0].id", equalTo(nodeId))
+                .body("data.nodes[0].name", equalTo("翻译"))
+                .body("data.nodes[0].submitFields[0].key", equalTo("content"))
+                .body("data.nodes[0].baseTaskIcon", equalTo("BookOpen"))
+                .body("data.nodes[0].taskInstanceId", equalTo(instanceId))
+                .body("data.nodes[0].taskStatus", equalTo("PENDING"))
+                .body("data.nodes[0].sort", equalTo(1))
+                .body("data.nodes[0].parallelSort", equalTo(1));
+        authRequest(token).post("/app/task/instance/" + instanceId + "/claim").then().body("code", equalTo(0));
+        authRequest(token).body(Map.of("values", Map.of("content", "原文交付")))
+                .post("/app/task/instance/" + instanceId + "/submit").then().body("code", equalTo(0));
+
+        authRequest(token).body(Map.of("title", "新项目", "taskTemplateId", templateId))
+                .post("/app/projects/1/items").then().body("code", equalTo(0));
+        String newItemId = authRequest(token).get("/app/projects/1/items").jsonPath()
+                .getString("data.list.find { it.title == '新项目' }.id");
+        authRequest(token).get("/app/item/" + newItemId + "/flow").then()
+                .body("data.nodes[0].name", equalTo("译制"))
+                .body("data.nodes[0].submitFields[0].key", equalTo("link"))
+                .body("data.nodes[0].baseTaskIcon", equalTo("BookOpen"));
+    }
+
+    @Test
+    void shouldRejectInvalidFieldsWithoutChangingTaskDefinition() {
+        String token = createEditingAdmin();
+        String taskId = createAtomicTask(token, Map.of("name", "翻译", "icon", "Languages", "submitFields", List.of()));
+        authRequest(token).body(Map.of("name", "审核", "icon", "BookOpen",
+                        "submitFields", List.of(field("duplicate", "字段一"), field("duplicate", "字段二"))))
+                .put("/orgadmin/task/base/" + taskId).then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        authRequest(token).body(Map.of()).post("/orgadmin/task/base/list").then()
+                .body("data.list[0].name", equalTo("翻译"))
+                .body("data.list[0].icon", equalTo("Languages"))
+                .body("data.list[0].submitFields", empty());
+    }
+
+    @Test
+    void shouldFailUpdateBaseTaskWithoutAuthentication() {
+        request().body(Map.of("name", "翻译", "submitFields", List.of())).put("/orgadmin/task/base/1").then()
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldFailUpdateBaseTaskWithoutAdminRole() {
+        createUserWithOrganization(1L, "regular", "123456", "regular@example.com", 1L, 1L, "ORG_USER");
+        authRequest(loginAs("regular", "123456")).body(Map.of("name", "翻译", "submitFields", List.of()))
+                .put("/orgadmin/task/base/1").then()
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void shouldFailUpdateBaseTaskWithBlankName(String name) {
+        authRequest(createEditingAdmin()).body(Map.of("name", name, "submitFields", List.of()))
+                .put("/orgadmin/task/base/1").then().body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"name", "description", "icon"})
+    void shouldFailUpdateBaseTaskWithOversizedField(String field) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("name", "翻译");
+        body.put("submitFields", List.of());
+        body.put(field, "a".repeat(field.equals("description") ? 501 : 101));
+        authRequest(createEditingAdmin()).body(body).put("/orgadmin/task/base/1").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailUpdateWithoutSubmitFields() {
+        authRequest(createEditingAdmin()).body(Map.of("name", "翻译")).put("/orgadmin/task/base/1").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldFailUpdateMissingBaseTask() {
+        authRequest(createEditingAdmin()).body(Map.of("name", "翻译", "submitFields", List.of()))
+                .put("/orgadmin/task/base/99999").then().body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldFailUpdateBaseTaskInAnotherOrganization() {
+        String token = createEditingAdmin();
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, creator_id) VALUES (10, 2, '翻译', 2)");
+        authRequest(token).body(Map.of("name", "审核", "submitFields", List.of())).put("/orgadmin/task/base/10").then()
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM base_task WHERE id = 10", String.class)).isEqualTo("翻译");
+    }
+
+    private String createEditingAdmin() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        return loginAs("orgadmin", "123456");
+    }
+
+    private String createAtomicTask(String token, Map<String, ?> body) {
+        authRequest(token).body(body).post("/orgadmin/task/base").then().body("code", equalTo(0));
+        return authRequest(token).body(Map.of()).post("/orgadmin/task/base/list")
+                .jsonPath().getString("data.list[0].id");
+    }
+
+    private Map<String, Object> field(String key, String label) {
+        return Map.of("key", key, "label", label, "type", "text", "required", true, "options", List.of());
+    }
 
     // ========== 成功路径 ==========
 

@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
@@ -109,6 +110,30 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 || tasks.stream().anyMatch(task -> task.getStatus() != Status.ENABLED)) {
             throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateBaseTask(BaseTaskUpdateParamsBO params) {
+        BaseTask task = baseTaskMapper.selectOne(new LambdaQueryWrapper<BaseTask>()
+                .eq(BaseTask::getId, params.getTaskId())
+                .last("FOR UPDATE"));
+        if (task == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "原子任务不存在");
+        }
+        if (!task.getOrgId().equals(params.getOrgId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该原子任务");
+        }
+
+        baseTaskMapper.update(null,
+                new LambdaUpdateWrapper<BaseTask>()
+                        .eq(BaseTask::getId, params.getTaskId())
+                        .eq(BaseTask::getOrgId, params.getOrgId())
+                        .set(BaseTask::getName, params.getName())
+                        .set(BaseTask::getDescription, params.getDescription())
+                        .set(BaseTask::getIcon, params.getIcon())
+                        .set(BaseTask::getMetaSchema, taskFormService.serializeFields(params.getSubmitFields()))
+                        .set(BaseTask::getUpdatedAt, LocalDateTime.now(clock)));
     }
 
     @Override

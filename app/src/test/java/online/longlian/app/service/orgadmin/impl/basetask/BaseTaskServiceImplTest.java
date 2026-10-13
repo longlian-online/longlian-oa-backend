@@ -6,6 +6,7 @@ import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
@@ -48,7 +49,6 @@ class BaseTaskServiceImplTest {
     private BaseTaskQueryBuilder baseTaskQueryBuilder;
     @Mock
     private BaseTaskAssembler baseTaskAssembler;
-
     private BaseTaskServiceImpl service;
 
     @BeforeEach
@@ -63,6 +63,28 @@ class BaseTaskServiceImplTest {
                 baseTaskAssembler,
                 new TaskFormService()
         );
+    }
+
+    @Test
+    void updateBaseTask_missingTask_rejectsWithoutUpdating() {
+        assertThatThrownBy(() -> service.updateBaseTask(updateParams()))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        verify(baseTaskMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void updateBaseTask_otherOrganization_rejectsWithoutUpdating() {
+        when(baseTaskMapper.selectOne(any())).thenReturn(BaseTask.builder().id(10L).orgId(2L).build());
+        assertThatThrownBy(() -> service.updateBaseTask(updateParams()))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        verify(baseTaskMapper, never()).update(any(), any());
+    }
+
+    private BaseTaskUpdateParamsBO updateParams() {
+        return BaseTaskUpdateParamsBO.builder().taskId(10L).orgId(1L)
+                .name("翻译").icon("Languages").submitFields(List.of()).build();
     }
 
 
