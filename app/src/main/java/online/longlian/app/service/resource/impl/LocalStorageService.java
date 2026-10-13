@@ -68,7 +68,8 @@ public class LocalStorageService implements StorageService {
         String uploadUrl = buildLocalResourceUrl(key)
                 + "&expires=" + signed.expires()
                 + "&signature=" + signed.signature();
-        return new PresignedUploadUrlResultBO(uploadUrl, key);
+        // 本地存储对象名即无扩展混淆的签名 key，不写 disposition 元数据；文件名还原仅对象存储链路承接。
+        return new PresignedUploadUrlResultBO(uploadUrl, key, null);
     }
 
 
@@ -76,6 +77,12 @@ public class LocalStorageService implements StorageService {
     public String getResourceReadUrl(String key) {
         LocalFileReadParamsBO signed = signer.sign(key);
         return buildLocalResourceUrl(key) + "&expires=" + signed.expires() + "&signature=" + signed.signature();
+    }
+
+    /** 本地存储地址为签名 key，不携带文件名；任务附件原文件名还原由对象存储链路承接。 */
+    @Override
+    public String getResourceReadUrl(String key, String fileName) {
+        return getResourceReadUrl(key);
     }
 
     @Override

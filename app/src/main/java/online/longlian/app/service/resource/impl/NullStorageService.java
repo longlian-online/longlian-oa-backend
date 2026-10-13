@@ -22,11 +22,16 @@ public class NullStorageService implements StorageService {
 
     @Override
     public PresignedUploadUrlResultBO generatePresignedUploadUrl(PresignedUploadUrlParamsBO params) {
-        return new PresignedUploadUrlResultBO("", params.getKey());
+        return new PresignedUploadUrlResultBO("", params.getKey(), null);
     }
 
     @Override
     public String getResourceReadUrl(String key) {
+        return "";
+    }
+
+    @Override
+    public String getResourceReadUrl(String key, String fileName) {
         return "";
     }
 

@@ -48,7 +48,7 @@ class LocalStorageServiceTest {
     void shouldBuildLocalUploadUrl(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
 
-        assertThat(storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("avatar/1.png")))
+        assertThat(storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("avatar/1.png", null)))
                 .satisfies(result -> {
                     assertThat(result.getKey()).isEqualTo("avatar/1.png");
                     assertThat(result.getUploadUrl())

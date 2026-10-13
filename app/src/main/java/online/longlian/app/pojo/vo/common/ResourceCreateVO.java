@@ -24,4 +24,7 @@ public class ResourceCreateVO {
 
     @Schema(description = "存储类型：1-本地存储，2-阿里云OSS，3-腾讯云COS")
     private StorageType storageType;
+
+    @Schema(description = "上传需携带的 Content-Disposition 头值；null 表示无需携带")
+    private String contentDisposition;
 }
