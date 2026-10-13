@@ -61,6 +61,11 @@ class TaskSubmissionVersionsApiTest extends BaseApiTest {
                 .body("data[1].fields[1].file.id", equalTo("101"))
                 .body("data[1].fields[1].file.availability", equalTo("available"));
 
+        // 重新提交后，旧版本资源保持已激活绑定，未被废弃、未被物理清理
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 101", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+
         response.then()
                 .body("data[0].fields[1].file.readUrl",
                         startsWith("https://static.example.com/task_submit/102.pdf"));
