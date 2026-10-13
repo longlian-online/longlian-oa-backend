@@ -147,6 +147,24 @@ class TaskSubmissionVersionsApiTest extends BaseApiTest {
                 "SELECT COUNT(*) FROM task_submission WHERE task_instance_id = 1", Integer.class).intValue());
     }
 
+    @Test
+    void shouldRejectVersionsForMissingInstance() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("owner", "123456");
+
+        authRequest(token).get("/app/task/instance/1/submissions").then().statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void shouldRejectVersionsWhenTaskNodeMissing() {
+        String token = createTask(List.of(field("summary", "概要", "text", false)));
+        jdbcTemplate.update("DELETE FROM item_task_node WHERE id = 1");
+
+        authRequest(token).get("/app/task/instance/1/submissions").then().statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
     private String createTask(List<Map<String, Object>> fields) {
         createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_ADMIN");
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '类型', 1, 1)");

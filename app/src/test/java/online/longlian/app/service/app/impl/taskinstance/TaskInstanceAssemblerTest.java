@@ -295,4 +295,51 @@ class TaskInstanceAssemblerTest {
         assertTrue(versions.get(1).isUnreadable());
         assertTrue(versions.get(1).getFields().isEmpty());
     }
+
+
+    @Test
+    void shouldResolveAvatarUrlsAndFallBackForDeletedParticipants() {
+        TaskFormService forms = new TaskFormService();
+        List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()));
+        ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(1).metaSchema(forms.serializeFields(fields)).build();
+        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.COMPLETED).build();
+        TaskSubmission withAvatar = TaskSubmission.builder()
+                .id(11L).versionNo(3).metadata("{\"notes\":\"v3\"}")
+                .status(online.longlian.common.enumeration.TaskSubmissionStatus.SUBMITTED)
+                .submitterId(5L)
+                .createdAt(LocalDateTime.of(2026, 10, 9, 8, 0))
+                .build();
+        TaskSubmission ownerlessReviewer = TaskSubmission.builder()
+                .id(10L).versionNo(2).metadata("{\"notes\":\"v2\"}")
+                .status(online.longlian.common.enumeration.TaskSubmissionStatus.REJECTED)
+                .submitterId(5L).reviewerId(999L)
+                .reviewedAt(LocalDateTime.of(2026, 10, 8, 18, 0)).reviewComment(" ")
+                .createdAt(LocalDateTime.of(2026, 10, 8, 8, 0))
+                .build();
+        TaskSubmission reviewerAbsent = TaskSubmission.builder()
+                .id(12L).versionNo(1).metadata("{\"notes\":\"v1\"}")
+                .status(online.longlian.common.enumeration.TaskSubmissionStatus.REJECTED)
+                .submitterId(5L)
+                .createdAt(LocalDateTime.of(2026, 10, 7, 8, 0))
+                .build();
+        when(userMapper.selectBatchIds(anyCollection())).thenReturn(
+                List.of(User.builder().id(5L).nickname("阿苏").avatarFileId(77L).build()));
+        ResourceReadUrlGetResultBO signed = new ResourceReadUrlGetResultBO("https://cdn.test/77", 1L, "a/77.png");
+        when(resourceService.getResourceReadUrls(List.of(77L))).thenReturn(Map.of(77L, signed));
+        when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
+
+        List<online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO> versions =
+                assembler.assembleSubmissionVersions(
+                        instance, node, List.of(withAvatar, ownerlessReviewer, reviewerAbsent), 10L);
+
+        assertEquals("https://cdn.test/77", versions.get(0).getSubmitter().avatarUrl());
+        assertEquals("阿苏", versions.get(0).getSubmitter().nickname());
+        online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO rejected = versions.get(1);
+        assertEquals("999", rejected.getReviewer().id());
+        assertNull(rejected.getReviewer().nickname());
+        assertNull(rejected.getReviewer().avatarUrl());
+        assertEquals(" ", rejected.getReviewComment());
+        assertNull(versions.get(2).getReviewer());
+        verify(resourceService).getResourceReadUrls(List.of(77L));
+    }
 }
