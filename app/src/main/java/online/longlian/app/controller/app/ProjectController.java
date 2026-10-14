@@ -55,6 +55,7 @@ public class ProjectController {
                         .sortByTime(projectListDTO.getSortByTime())
                         .orderDir(projectListDTO.getOrderDir())
                         .page(new PageParamsBO(projectListDTO.getPageNum(), projectListDTO.getPageSize()))
+                        .pageOffset(projectListDTO.getOffset())
                         .build());
 
         List<ProjectInfoVO> voList = resultBO.getList().stream().map(bo -> {

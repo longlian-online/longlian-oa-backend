@@ -3,6 +3,7 @@ package online.longlian.app.service.app.impl.project;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import online.longlian.app.common.mybatis.OffsetPage;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -89,7 +90,7 @@ public class ProjectServiceImpl implements ProjectService {
             return searchProjects(params, typeId);
         }
 
-        Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        Page<Project> page = buildWindow(params);
         LambdaQueryWrapper<Project> queryWrapper = projectQueryBuilder.buildListQuery(params, typeId);
         Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
         List<Project> projects = projectPage.getRecords();
@@ -100,7 +101,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private PageResultBO<ProjectListResultBO> searchProjects(ProjectListParamsBO params, Long typeId) {
-        Page<ProjectSearchResultBO> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        Page<ProjectSearchResultBO> page = buildWindow(params);
         Page<ProjectSearchResultBO> searchPage = projectMapper.selectSearchPage(
                 page, ProjectSearchSupport.buildParams(params, typeId));
         List<ProjectSearchResultBO> records = searchPage.getRecords();
@@ -115,6 +116,14 @@ public class ProjectServiceImpl implements ProjectService {
                     result.getMetadata(), records.get(i).getMatchedMetadataPaths()));
         }
         return new PageResultBO<>(results, searchPage.getTotal());
+    }
+
+    /** 显式 offset 优先：传入 pageOffset 时以绝对偏移取窗，供各页条数不一致的分页使用 */
+    private <T> Page<T> buildWindow(ProjectListParamsBO params) {
+        if (params.getPageOffset() != null) {
+            return new OffsetPage<>(params.getPage().getPageSize(), params.getPageOffset());
+        }
+        return new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
     }
 
     @Override

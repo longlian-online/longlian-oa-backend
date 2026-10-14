@@ -19,4 +19,6 @@ public class ProjectListParamsBO {
     private SortByTime sortByTime;
     private SortDirection orderDir;
     private PageParamsBO page;
+    /** 显式分页起始偏移量；为 null 时走传统 pageNum 分页 */
+    private Integer pageOffset;
 }
