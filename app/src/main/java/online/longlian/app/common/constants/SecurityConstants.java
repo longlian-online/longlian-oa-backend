@@ -4,6 +4,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class SecurityConstants {
@@ -17,10 +18,6 @@ public class SecurityConstants {
             new AntPathRequestMatcher("/app/user/register/create-organization", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/user/register/join-organization", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/user/register/join-organization/invite-info", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/swagger-ui.html"),
-            new AntPathRequestMatcher("/swagger-ui/**"),
-            new AntPathRequestMatcher("/v3/api-docs/**"),
-            new AntPathRequestMatcher("/swagger-resources/**"),
             // 使用带有效期的 HMAC 签名授权读取，确保浏览器图片请求也能安全访问。
             new AntPathRequestMatcher("/common/file/local", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/common/file/local", HttpMethod.PUT.name()),
@@ -28,10 +25,43 @@ public class SecurityConstants {
     );
 
     /**
-     * 免鉴权路径白名单。返回不可变列表，防止调用方篡改鉴权规则。
+     * Swagger/OpenAPI 文档路径。仅当 springdoc 开启时应并入免鉴权白名单
+     *（与 application-dev.yml / application-local.yml 惯例一致）。
+     */
+    private static final List<RequestMatcher> SWAGGER_PERMIT_ALL_MATCHERS = List.of(
+            new AntPathRequestMatcher("/swagger-ui.html"),
+            new AntPathRequestMatcher("/swagger-ui/**"),
+            new AntPathRequestMatcher("/v3/api-docs/**"),
+            new AntPathRequestMatcher("/swagger-resources/**")
+    );
+
+    /**
+     * 免鉴权路径白名单（不含 Swagger）。返回不可变列表，防止调用方篡改鉴权规则。
      */
     public static List<RequestMatcher> getPermitAllMatchers() {
         return PERMIT_ALL_MATCHERS;
+    }
+
+    /**
+     * Swagger/OpenAPI 免鉴权路径。请仅在 springdoc.api-docs.enabled=true 时使用。
+     */
+    public static List<RequestMatcher> getSwaggerPermitAllMatchers() {
+        return SWAGGER_PERMIT_ALL_MATCHERS;
+    }
+
+    /**
+     * 免鉴权路径白名单。
+     *
+     * @param includeSwagger 是否并入 Swagger 路径；应对齐 {@code springdoc.api-docs.enabled}
+     */
+    public static List<RequestMatcher> getPermitAllMatchers(boolean includeSwagger) {
+        if (!includeSwagger) {
+            return PERMIT_ALL_MATCHERS;
+        }
+        List<RequestMatcher> combined = new ArrayList<>(PERMIT_ALL_MATCHERS.size() + SWAGGER_PERMIT_ALL_MATCHERS.size());
+        combined.addAll(PERMIT_ALL_MATCHERS);
+        combined.addAll(SWAGGER_PERMIT_ALL_MATCHERS);
+        return List.copyOf(combined);
     }
 
     private SecurityConstants() {

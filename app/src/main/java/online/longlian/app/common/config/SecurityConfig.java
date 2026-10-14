@@ -8,6 +8,7 @@ import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvider;
 import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -38,6 +39,10 @@ public class SecurityConfig {
     private final EmailCodeAuthenticationProvider emailCodeProvider;
     private final UserDetailsServiceImpl userDetailsService;
 
+    /** 与 application-*.yml 中 springdoc 开关对齐：仅开启时放行文档路径。 */
+    @Value("${springdoc.api-docs.enabled:false}")
+    private boolean springdocApiDocsEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -53,7 +58,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 预检请求统一放行，避免被鉴权逻辑拦截，CORS 头仍由 CorsFilter 写入
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(SecurityConstants.getPermitAllMatchers().toArray(new RequestMatcher[0])).permitAll()
+                        .requestMatchers(SecurityConstants.getPermitAllMatchers(springdocApiDocsEnabled).toArray(new RequestMatcher[0])).permitAll()
                         .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()
                 )

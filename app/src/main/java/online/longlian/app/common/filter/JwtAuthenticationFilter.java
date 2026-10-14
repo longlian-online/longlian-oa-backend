@@ -17,6 +17,7 @@ import online.longlian.app.common.security.AuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -41,6 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TokenBlacklistService tokenBlacklistService;
     private final List<AuthenticationStrategy> strategies;
 
+    /** 与 SecurityFilterChain 一致：仅 springdoc 开启时跳过文档路径鉴权。 */
+    @Value("${springdoc.api-docs.enabled:false}")
+    private boolean springdocApiDocsEnabled;
+
     private Map<String, AuthenticationStrategy> strategyMap;
 
     @PostConstruct
@@ -51,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return SecurityConstants.getPermitAllMatchers().stream()
+        return SecurityConstants.getPermitAllMatchers(springdocApiDocsEnabled).stream()
                 .anyMatch(matcher -> matcher.matches(request));
     }
 
