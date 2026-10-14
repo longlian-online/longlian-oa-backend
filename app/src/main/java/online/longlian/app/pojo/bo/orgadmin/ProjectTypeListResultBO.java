@@ -16,6 +16,7 @@ public class ProjectTypeListResultBO {
     private Long id;
     private String name;
     private Integer priority;
+    private Integer refCount;
     private Status status;
     private Long creatorId;
     private String creatorNickname;
