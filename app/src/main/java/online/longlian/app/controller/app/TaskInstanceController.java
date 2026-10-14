@@ -15,8 +15,10 @@ import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
 import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.dto.app.MyTaskListDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
 
 import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
@@ -24,10 +26,12 @@ import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.service.app.MyTaskService;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.TaskPlazaService;
 import org.springframework.web.bind.annotation.*;
@@ -43,6 +47,27 @@ public class TaskInstanceController {
 
     private final TaskInstanceService taskInstanceService;
     private final TaskPlazaService taskPlazaService;
+    private final MyTaskService myTaskService;
+
+    @Operation(
+            summary = "我的待办",
+            description = "分页返回当前用户在当前组织内已接取（CLAIMED）的任务。" +
+                    "bucket=SUBMITTABLE 前置阶段全部完成，WAITING 存在未完成前置；默认按接取时间升序"
+    )
+    @GetMapping("/mine")
+    @ResponseMessage("查询成功")
+    public PageResultVO<MyTaskVO> listMyTasks(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @ModelAttribute @Valid MyTaskListDTO listDTO) {
+        return myTaskService.listMyTasks(
+                MyTaskParamsBO.builder()
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
+                        .bucket(listDTO.getBucket())
+                        .sortDirection(listDTO.getSortDirection())
+                        .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
+                        .build());
+    }
 
     @Operation(
             summary = "任务广场（缺人任务）",

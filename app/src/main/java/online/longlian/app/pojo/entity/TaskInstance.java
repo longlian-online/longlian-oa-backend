@@ -71,6 +71,13 @@ public class TaskInstance implements Serializable {
     private Long assigneeId;
 
     /**
+     * 接取时间：接取写入，放弃清空，打回/重置保留原值
+     */
+    @ApiModelProperty("接取时间")
+    @TableField("claimed_at")
+    private LocalDateTime claimedAt;
+
+    /**
      * 任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)
      */
     @TableField("status")

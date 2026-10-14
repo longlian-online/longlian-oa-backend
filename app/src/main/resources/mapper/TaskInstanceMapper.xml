@@ -124,4 +124,51 @@
           <foreach collection="itemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
         ORDER BY n.item_id, n.sort
     </select>
+
+    <!--
+      我的待办候选：状态码 task_instance 2-CLAIMED；item 1-IN_PROGRESS（排除 COMPLETED/PUBLISHED 与已删除）；
+      project resource_status 1-ENABLED。前置分组不在此处判定，见 StageUnlockPolicy。
+    -->
+    <select id="selectMyClaimedTasks" resultType="online.longlian.app.pojo.bo.app.MyTaskRowBO">
+        SELECT ti.id AS instanceId,
+               ti.item_id AS itemId,
+               ti.project_id AS projectId,
+               i.title AS itemTitle,
+               p.title AS projectName,
+               n.name AS nodeName,
+               n.sort AS stageSort,
+               ti.claimed_at AS claimedAt
+        FROM task_instance ti
+        JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL AND i.status = 1
+        JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL AND p.resource_status = 1
+        WHERE ti.deleted_at IS NULL
+          AND ti.status = 2
+          AND ti.assignee_id = #{userId}
+          AND p.org_id = #{orgId}
+        <choose>
+            <when test="desc">
+                ORDER BY ti.claimed_at IS NULL, ti.claimed_at DESC, ti.id DESC
+            </when>
+            <otherwise>
+                ORDER BY ti.claimed_at IS NULL, ti.claimed_at ASC, ti.id ASC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 节点完成：存在未删除实例且全部为 COMPLETED(3)，与前端节点 taskStatus 口径一致 -->
+    <select id="selectItemStageNodeStatuses" resultType="online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO">
+        SELECT n.item_id AS itemId,
+               n.id AS nodeId,
+               n.name AS nodeName,
+               n.sort AS sort,
+               n.parallel_sort AS parallelSort,
+               (COUNT(ti.id) > 0 AND SUM(CASE WHEN ti.status = 3 THEN 0 ELSE 1 END) = 0) AS completed
+        FROM item_task_node n
+        LEFT JOIN task_instance ti ON ti.item_task_node_id = n.id AND ti.deleted_at IS NULL
+        WHERE n.deleted_at IS NULL
+          AND n.item_id IN
+          <foreach collection="itemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        GROUP BY n.item_id, n.id, n.name, n.sort, n.parallel_sort
+    </select>
 </mapper>
