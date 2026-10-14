@@ -182,13 +182,11 @@ public class TaskInstanceCommandHandler {
 
     /**
      * 打回任务：COMPLETED -> CLAIMED，提交记录标记 REJECTED 并回退提交人计数。
+     * 打回人必须是下一阶段执行人；与上一阶段是同一人时同样允许。
      */
     public void reject(TaskInstance instance, Long userId, String reviewComment) {
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
-        }
-        if (userId.equals(instance.getAssigneeId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "不能打回自己的任务");
         }
         if (!isNextStageExecutor(instance, userId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅下一阶段执行人可打回该任务");

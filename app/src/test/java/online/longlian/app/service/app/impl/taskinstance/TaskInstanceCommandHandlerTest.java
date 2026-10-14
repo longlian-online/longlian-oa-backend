@@ -278,14 +278,14 @@ class TaskInstanceCommandHandlerTest {
     }
 
     @Test
-    void reject_selfReject_throws() {
+    void reject_assigneeWithoutNextStage_throws() {
         TaskInstance instance = TaskInstance.builder()
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .build();
 
         assertThatThrownBy(() -> handler.reject(instance, 10L, "bad"))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("不能打回自己的任务");
+                .hasMessageContaining("仅下一阶段执行人可打回该任务");
     }
 
     @Test
@@ -326,6 +326,26 @@ class TaskInstanceCommandHandlerTest {
 
         handler.reject(instance, 20L, "需要修改");
 
+        verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
+    }
+
+    @Test
+    void reject_assigneeWhoClaimedNextStage_succeeds() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
+                .itemTaskNodeId(4L).taskFlowId(5L).projectId(2L)
+                .build();
+        ItemTaskNode currentNode = ItemTaskNode.builder().id(4L).sort(1).build();
+        ItemTaskNode nextNode = ItemTaskNode.builder().id(6L).sort(2).build();
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(currentNode);
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(nextNode));
+        when(taskInstanceMapper.selectCount(any())).thenReturn(1L);
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.reject(instance, 10L, "自己打回");
+
+        verify(taskSubmissionMapper).update(isNull(), any());
         verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
     }
 
