@@ -384,6 +384,23 @@ class TaskInstanceServiceImplTest {
     }
 
     @Test
+    void claimTask_completedItem_throws() {
+        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
+        params.setInstanceId(100L);
+        params.setOrgId(10L);
+        when(taskInstanceMapper.selectById(100L)).thenReturn(
+                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(1L)).thenReturn(
+                Item.builder().id(1L).projectId(2L).status(ItemStatus.COMPLETED).build());
+
+        assertThatThrownBy(() -> service.claimTask(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("项目已完成");
+        verify(taskInstanceCommandHandler, never()).claim(any(), anyLong());
+    }
+
+    @Test
     void claimTask_itemMissing_throws() {
         TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
         params.setInstanceId(100L);
