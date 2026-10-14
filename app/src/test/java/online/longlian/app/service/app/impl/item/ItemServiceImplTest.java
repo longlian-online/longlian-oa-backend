@@ -101,8 +101,8 @@ class ItemServiceImplTest {
                 TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build(),
                 TaskTemplateNode.builder().id(13L).baseTaskId(22L).sort(3).parallelSort(1).build()));
         when(baseTaskMapper.selectList(any())).thenReturn(List.of(
-                BaseTask.builder().id(21L).name("禁用任务").status(Status.DISABLED).metaSchema("[]").build(),
-                BaseTask.builder().id(22L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
+                BaseTask.builder().id(21L).name("绘制").status(Status.ENABLED).metaSchema("[]").build(),
+                BaseTask.builder().id(22L).name("翻译").status(Status.ENABLED).metaSchema("[]").build()));
 
         service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
@@ -116,7 +116,7 @@ class ItemServiceImplTest {
         ArgumentCaptor<ItemTaskNode> nodes = ArgumentCaptor.forClass(ItemTaskNode.class);
         verify(itemTaskNodeMapper, times(3)).insert(nodes.capture());
         assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getBaseTaskId).containsExactly(22L, 21L, 22L);
-        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getName).containsExactly("启用任务", "禁用任务", "启用任务");
+        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getName).containsExactly("翻译", "绘制", "翻译");
     }
 
     @Test
@@ -133,6 +133,31 @@ class ItemServiceImplTest {
         assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
                 .isInstanceOf(AppException.class)
+                .hasMessageContaining("原子任务不存在或已禁用")
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+        verify(taskTemplateMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void createProjectItem_disabledBaseTaskFilteredOut_rejectsWithoutPersisting() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build()));
+        // ENABLED 过滤后禁用任务不返回，数量与 ID 列表不一致
+        when(baseTaskMapper.selectList(any()))
+                .thenReturn(List.of(BaseTask.builder().id(22L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("原子任务不存在或已禁用")
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.PARAM_ERROR.getCode());
 

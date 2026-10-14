@@ -97,6 +97,7 @@ public class ItemServiceImpl implements ItemService {
                 ? Collections.emptyList()
                 : baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
                         .in(BaseTask::getId, baseTaskIds)
+                        .eq(BaseTask::getStatus, Status.ENABLED)
                         .orderByAsc(BaseTask::getId)
                         .last("FOR UPDATE"));
         if (baseTasks.size() != baseTaskIds.size()) {
