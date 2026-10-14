@@ -5,6 +5,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountItemBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListNodeResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
@@ -59,12 +60,42 @@ class OrgAdminMappingControllerTest {
     void shouldMapTaskTemplateRows() {
         TaskTemplateService taskTemplateService = mock(TaskTemplateService.class);
         when(taskTemplateService.listTaskTemplates(any())).thenReturn(new PageResultBO<>(
-                List.of(TaskTemplateListResultBO.builder().id(6L).name("模板").build()), 1L));
+                List.of(
+                        TaskTemplateListResultBO.builder()
+                                .id(6L)
+                                .name("模板")
+                                .taskCount(1)
+                                .nodes(List.of(TaskTemplateListNodeResultBO.builder()
+                                        .baseTaskId(9L)
+                                        .baseTaskName("翻译")
+                                        .baseTaskIcon("Languages")
+                                        .sort(1)
+                                        .parallelSort(2)
+                                        .build()))
+                                .build(),
+                        TaskTemplateListResultBO.builder().id(7L).name("空").build()),
+                2L));
         TaskTemplateController controller = new TaskTemplateController(taskTemplateService);
 
         PageResultVO<TaskTemplateListVO> page = controller.listTaskTemplates(
                 new SessionContext(1L, 1L), new TaskTemplateListDTO());
 
-        assertThat(page.getList()).extracting(TaskTemplateListVO::getName).containsExactly("模板");
+        assertThat(page.getList()).satisfiesExactly(
+                row -> {
+                    assertThat(row.getName()).isEqualTo("模板");
+                    assertThat(row.getTaskCount()).isEqualTo(1);
+                    assertThat(row.getNodes()).singleElement().satisfies(node -> {
+                        assertThat(node.getBaseTaskId()).isEqualTo(9L);
+                        assertThat(node.getBaseTaskName()).isEqualTo("翻译");
+                        assertThat(node.getBaseTaskIcon()).isEqualTo("Languages");
+                        assertThat(node.getSort()).isEqualTo(1);
+                        assertThat(node.getParallelSort()).isEqualTo(2);
+                    });
+                },
+                row -> {
+                    assertThat(row.getName()).isEqualTo("空");
+                    assertThat(row.getTaskCount()).isNull();
+                    assertThat(row.getNodes()).isEmpty();
+                });
     }
 }
