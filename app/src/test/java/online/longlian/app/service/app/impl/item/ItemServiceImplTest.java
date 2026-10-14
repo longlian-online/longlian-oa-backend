@@ -150,7 +150,8 @@ class ItemServiceImplTest {
     void createProjectItem_disabledBaseTaskFilteredOut_rejectsWithoutPersisting() {
         when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
-                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED).build());
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
                 TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build(),
                 TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build()));
