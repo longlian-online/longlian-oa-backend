@@ -26,6 +26,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
+import online.longlian.common.enumeration.TaskTemplateScope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -95,7 +96,8 @@ class ItemServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
         when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
-                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED).build());
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
                 TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build(),
                 TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build(),
@@ -123,7 +125,8 @@ class ItemServiceImplTest {
     void createProjectItem_lockedBaseTaskDisappears_rejectsWithoutPersisting() {
         when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
-                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED).build());
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
                 TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(2).parallelSort(1).build(),
                 TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(1).parallelSort(1).build()));
@@ -164,6 +167,61 @@ class ItemServiceImplTest {
         verify(itemMapper, never()).insert(any(Item.class));
         verifyNoInteractions(itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
         verify(taskTemplateMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void createProjectItem_orgTemplateFromOtherOrg_rejects() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("外组织模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(99L).build());
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verify(taskTemplateMapper, never()).update(isNull(), any());
+        verifyNoInteractions(itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+    }
+
+    @Test
+    void createProjectItem_othersPersonalTemplate_rejects() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("他人个人模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.PERSONAL).orgId(1L).creatorId(99L).build());
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verify(taskTemplateMapper, never()).update(isNull(), any());
+        verifyNoInteractions(itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+    }
+
+    @Test
+    void createProjectItem_ownPersonalTemplate_succeeds() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("我的个人模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.PERSONAL).orgId(1L).creatorId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
+
+        service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
+
+        verify(itemMapper).insert(any(Item.class));
+        verify(taskTemplateMapper).update(isNull(), any());
     }
 
     @ParameterizedTest
