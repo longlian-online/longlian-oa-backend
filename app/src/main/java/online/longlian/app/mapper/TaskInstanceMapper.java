@@ -1,6 +1,8 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.MyTaskRowBO;
 import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
 import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
 import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
@@ -36,4 +38,12 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstance> {
 
     /** 任务广场：指定条目内全部阶段的 sort 值（推导阶段位次与总数） */
     List<PlazaItemStageBO> selectPlazaItemStages(@Param("itemIds") List<Long> itemIds);
+
+    /** 我的待办：当前用户在当前组织内已接取（CLAIMED）的任务，按接取时间排序 */
+    List<MyTaskRowBO> selectMyClaimedTasks(@Param("userId") Long userId,
+                                           @Param("orgId") Long orgId,
+                                           @Param("desc") boolean desc);
+
+    /** 指定项目内全部任务节点及其完成情况（前置判定用） */
+    List<ItemStageNodeStatusBO> selectItemStageNodeStatuses(@Param("itemIds") List<Long> itemIds);
 }

@@ -319,6 +319,7 @@ CREATE TABLE `task_instance` (
   `item_task_node_id` bigint NOT NULL COMMENT "关联项目任务节点ID",
   `task_flow_id` bigint NOT NULL COMMENT "关联任务流ID",
   `assignee_id` bigint NULL COMMENT "接取人ID",
+  `claimed_at` datetime NULL COMMENT "接取时间（接取写入，放弃清空，打回/重置保留）",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)",
   `submitted_at` datetime NULL COMMENT "提交时间",
   `completed_at` datetime NULL COMMENT "完成时间",

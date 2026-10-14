@@ -47,6 +47,7 @@ public class TaskInstanceCommandHandler {
         if (instance.getStatus() != TaskInstanceStatus.PENDING) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可接取");
         }
+        LocalDateTime now = LocalDateTime.now(clock);
 
         int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
@@ -54,7 +55,8 @@ public class TaskInstanceCommandHandler {
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
                         .set(TaskInstance::getAssigneeId, userId)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
+                        .set(TaskInstance::getClaimedAt, now)
+                        .set(TaskInstance::getUpdatedAt, now));
         requireUpdated(updated);
     }
 
@@ -73,6 +75,7 @@ public class TaskInstanceCommandHandler {
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .eq(TaskInstance::getAssigneeId, userId)
                         .set(TaskInstance::getAssigneeId, null)
+                        .set(TaskInstance::getClaimedAt, null)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
                         .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
         requireUpdated(updated);

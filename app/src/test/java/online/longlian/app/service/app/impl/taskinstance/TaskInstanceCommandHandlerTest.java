@@ -27,6 +27,10 @@ import java.util.Collections;
 import java.util.List;
 
 import java.util.Map;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import org.mockito.ArgumentCaptor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -338,5 +342,64 @@ class TaskInstanceCommandHandlerTest {
         assertThatThrownBy(() -> handler.reject(instance, 20L, "bad"))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("仅下一阶段执行人可打回该任务");
+    }
+
+    // ---- #223 claimed_at：接取写入、放弃清空、打回/重置不动 ----
+
+    @SuppressWarnings("unchecked")
+    private String capturedSqlSet() {
+        ArgumentCaptor<Wrapper<TaskInstance>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(taskInstanceMapper).update(isNull(), captor.capture());
+        return ((LambdaUpdateWrapper<TaskInstance>) captor.getValue()).getSqlSet();
+    }
+
+    @Test
+    void claim_setsClaimedAt() {
+        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.claim(instance, 10L);
+
+        assertThat(capturedSqlSet()).contains("claimed_at=");
+    }
+
+    @Test
+    void abandon_clearsClaimedAt() {
+        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.abandon(instance, 10L);
+
+        assertThat(capturedSqlSet()).contains("claimed_at=");
+    }
+
+    @Test
+    void reject_keepsClaimedAt() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
+                .itemTaskNodeId(4L).taskFlowId(5L).projectId(2L)
+                .build();
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).build());
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(ItemTaskNode.builder().id(6L).sort(2).build()));
+        when(taskInstanceMapper.selectCount(any())).thenReturn(1L);
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.reject(instance, 20L, "需要修改");
+
+        assertThat(capturedSqlSet()).doesNotContain("claimed_at").doesNotContain("assignee_id");
+    }
+
+    @Test
+    void reset_keepsClaimedAt() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L).projectId(2L)
+                .build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.reset(instance, 10L);
+
+        assertThat(capturedSqlSet()).doesNotContain("claimed_at");
     }
 }
