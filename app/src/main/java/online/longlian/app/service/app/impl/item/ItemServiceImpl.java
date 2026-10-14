@@ -185,6 +185,23 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可重复操作");
         }
 
+        // 级联软删该 Item 下的 flow / node / instance（配合写操作门禁，见 #208）
+        itemTaskFlowMapper.update(null,
+                new LambdaUpdateWrapper<ItemTaskFlow>()
+                        .eq(ItemTaskFlow::getItemId, params.getItemId())
+                        .set(ItemTaskFlow::getDeletedAt, now)
+                        .set(ItemTaskFlow::getUpdatedAt, now));
+        itemTaskNodeMapper.update(null,
+                new LambdaUpdateWrapper<ItemTaskNode>()
+                        .eq(ItemTaskNode::getItemId, params.getItemId())
+                        .set(ItemTaskNode::getDeletedAt, now)
+                        .set(ItemTaskNode::getUpdatedAt, now));
+        taskInstanceMapper.update(null,
+                new LambdaUpdateWrapper<TaskInstance>()
+                        .eq(TaskInstance::getItemId, params.getItemId())
+                        .set(TaskInstance::getDeletedAt, now)
+                        .set(TaskInstance::getUpdatedAt, now));
+
         // 项目删除后释放对任务模板的引用，引用计数 -1
         taskTemplateMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplate>()
