@@ -54,12 +54,9 @@ public class MyTaskServiceImpl implements MyTaskService {
     }
 
     private MyTaskVO toVO(MyTaskRowBO row, List<ItemStageNodeStatusBO> itemNodes) {
-        String waitingStageName = null;
-        if (!StageUnlockPolicy.isUnlocked(row.getStageSort(), itemNodes)) {
-            waitingStageName = StageUnlockPolicy.nearestIncompletePredecessor(row.getStageSort(), itemNodes)
-                    .map(ItemStageNodeStatusBO::getNodeName)
-                    .orElseThrow();
-        }
+        String waitingStageName = StageUnlockPolicy.nearestIncompletePredecessor(row.getStageSort(), itemNodes)
+                .map(ItemStageNodeStatusBO::getNodeName)
+                .orElse(null);
         return MyTaskVO.builder()
                 .instanceId(row.getInstanceId())
                 .itemId(row.getItemId())

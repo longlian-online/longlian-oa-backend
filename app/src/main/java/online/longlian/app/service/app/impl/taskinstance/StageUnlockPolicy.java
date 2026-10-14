@@ -29,9 +29,9 @@ public final class StageUnlockPolicy {
         return itemNodes.stream()
                 .filter(node -> node.getSort() < sort)
                 .filter(node -> !Boolean.TRUE.equals(node.getCompleted()))
-                .min(Comparator.comparing(ItemStageNodeStatusBO::getSort, Comparator.reverseOrder())
+                .max(Comparator.comparing(ItemStageNodeStatusBO::getSort)
                         .thenComparing(ItemStageNodeStatusBO::getParallelSort,
-                                Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparing(ItemStageNodeStatusBO::getNodeId));
+                                Comparator.nullsFirst(Comparator.reverseOrder()))
+                        .thenComparing(ItemStageNodeStatusBO::getNodeId, Comparator.reverseOrder()));
     }
 }
