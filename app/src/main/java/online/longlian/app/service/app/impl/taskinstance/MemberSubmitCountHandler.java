@@ -54,7 +54,6 @@ public class MemberSubmitCountHandler {
                         .eq(OrganizationMember::getId, member.getId())
                         .gt(OrganizationMember::getSubmitCount, 0)
                         .setSql("submit_count = submit_count - 1")
-                        .set(OrganizationMember::getLastSubmittedAt, now)
                         .set(OrganizationMember::getUpdatedAt, now));
     }
 
