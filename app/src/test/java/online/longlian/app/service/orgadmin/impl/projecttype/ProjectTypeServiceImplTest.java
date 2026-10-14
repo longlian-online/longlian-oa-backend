@@ -91,7 +91,7 @@ class ProjectTypeServiceImplTest {
         projectTypePage.setTotal(1L);
         when(queryBuilder.buildListQuery(params)).thenReturn(queryWrapper);
         when(projectTypeMapper.selectPage(any(Page.class), same(queryWrapper))).thenReturn(projectTypePage);
-        when(assembler.assembleList(List.of(projectType))).thenReturn(List.of(assembled));
+        when(assembler.assembleList(eq(List.of(projectType)), eq(params.getOrgId()))).thenReturn(List.of(assembled));
 
         PageResultBO<ProjectTypeListResultBO> result = service.listProjectTypes(params);
 
