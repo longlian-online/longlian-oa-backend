@@ -116,6 +116,57 @@ class TaskInstanceCommandHandlerTest {
     }
 
     @Test
+    void submit_firstSubmission_assignsVersionOne() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
+                .projectId(2L).itemId(3L).itemTaskNodeId(4L)
+                .build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+
+        handler.submit(instance, 10L, 5L, Map.of());
+
+        verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(
+                submission -> submission.getVersionNo() != null && submission.getVersionNo() == 1));
+    }
+
+    @Test
+    void submit_followingSubmission_assignsMaxVersionPlusOne() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
+                .projectId(2L).itemId(3L).itemTaskNodeId(4L)
+                .build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.selectOne(any())).thenReturn(
+                TaskSubmission.builder().id(9L).versionNo(3).build());
+        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+
+        handler.submit(instance, 10L, 5L, Map.of());
+
+        verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(
+                submission -> submission.getVersionNo() != null && submission.getVersionNo() == 4));
+    }
+
+    @Test
+    void submit_legacyRowWithoutVersion_stillAssignsVersionOne() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
+                .projectId(2L).itemId(3L).itemTaskNodeId(4L)
+                .build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.selectOne(any())).thenReturn(TaskSubmission.builder().id(9L).build());
+        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+
+        handler.submit(instance, 10L, 5L, Map.of());
+
+        verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(
+                submission -> submission.getVersionNo() != null && submission.getVersionNo() == 1));
+    }
+
+    @Test
     void submit_claimedBySameUser_succeeds() {
         TaskInstance instance = TaskInstance.builder()
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)

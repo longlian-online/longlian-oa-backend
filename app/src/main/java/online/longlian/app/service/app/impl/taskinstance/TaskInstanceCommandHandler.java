@@ -79,6 +79,20 @@ public class TaskInstanceCommandHandler {
     }
 
     /**
+     * 版本号取实例内已有最大版本号 +1；首次提交为 1。
+     * 并发由状态机乐观锁和 {@code uk_task_submission_version} 唯一键共同约束。
+     */
+    private Integer nextVersionNo(Long taskInstanceId) {
+        TaskSubmission last = taskSubmissionMapper.selectOne(
+                new LambdaQueryWrapper<TaskSubmission>()
+                        .select(TaskSubmission::getVersionNo)
+                        .eq(TaskSubmission::getTaskInstanceId, taskInstanceId)
+                        .orderByDesc(TaskSubmission::getVersionNo)
+                        .last("LIMIT 1"));
+        return last == null || last.getVersionNo() == null ? 1 : last.getVersionNo() + 1;
+    }
+
+    /**
      * 提交任务：CLAIMED -> COMPLETED，生成提交记录并累加成员提交计数。
      */
     public void submit(TaskInstance instance, Long userId, Long orgId, Map<String, Object> values) {
@@ -120,6 +134,7 @@ public class TaskInstanceCommandHandler {
                 .taskInstanceId(instance.getId())
                 .itemTaskNodeId(instance.getItemTaskNodeId())
                 .submitterId(userId)
+                .versionNo(nextVersionNo(instance.getId()))
                 .metadata(validated.serialize())
                 .status(TaskSubmissionStatus.SUBMITTED)
                 .createdAt(now)
