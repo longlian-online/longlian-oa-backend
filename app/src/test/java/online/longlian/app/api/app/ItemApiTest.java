@@ -94,7 +94,7 @@ public class ItemApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
         jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) VALUES (1, 1, 1, '测试企划', 'alias', '{}', 0, '说明', 1, 1)");
         jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 1, 1)");
-        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '禁用任务', '[]', 0, 1), (2, 1, '启用任务', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '任务A', '[]', 1, 1), (2, 1, '启用任务', '[]', 1, 1)");
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 2, 0, 1), (2, 1, 1, 1, 1), (3, 1, 2, 2, 1)");
 
         authRequest(token).body(Map.of("title", "批量快照项目", "taskTemplateId", "1"))
@@ -104,7 +104,7 @@ public class ItemApiTest extends BaseApiTest {
         authRequest(token).get("/app/item/" + itemId + "/flow").then()
                 .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.nodes.baseTaskId", equalTo(java.util.List.of("2", "1", "2")))
-                .body("data.nodes.name", equalTo(java.util.List.of("启用任务", "禁用任务", "启用任务")));
+                .body("data.nodes.name", equalTo(java.util.List.of("启用任务", "任务A", "启用任务")));
 
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (4, 1, 999, 3, 1)");
         authRequest(token).body(Map.of("title", "缺失任务项目", "taskTemplateId", "1"))
