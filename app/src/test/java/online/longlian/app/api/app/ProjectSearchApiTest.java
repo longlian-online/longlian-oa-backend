@@ -100,21 +100,23 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .isEqualTo(original);
     }
 
-    /** 仅命中 value，忽略 key 和顶层额外字段。 */
     @Test
-    void shouldSearchOnlyTagValues() {
-        createProject(1, "普通企划", "ordinary", "{\"note\":\"database\",\"tags\":[{\"key\":\"database\",\"value\":\"山田\"}]}");
+    void shouldSearchTagKeysAndValuesButNotOtherMetadataFields() {
+        createProject(1, "普通企划", "ordinary", metadata("database", "山田"));
         createProject(2, "遥远世界", "World", metadata("series", "database"));
+        createProject(3, "纯标签企划", "pure", "{\"tags\":[{\"key\":\"database\"}]}");
+        createProject(4, "空值企划", "empty", metadata("database", ""));
+        createProject(5, "其他信息企划", "extra", "{\"note\":\"database\",\"publication\":{\"value\":\"database\"},\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"}]}");
         search("database").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("2")));
+                .body("data.total", equalTo(4)).body("data.list.id", equalTo(List.of("4", "3", "2", "1")));
     }
 
     /** 空 tags 和空 value 不影响标题命中，也不产生额外元数据命中。 */
     @Test
     void shouldHandleEmptyTagsAndValues() {
         createProject(1, "星海远征", "one", "{\"tags\":[]}");
-        createProject(2, "普通企划", "two", metadata("星海", ""));
+        createProject(2, "普通企划", "two", metadata("语言", ""));
         search("星海").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")))
@@ -125,23 +127,44 @@ class ProjectSearchApiTest extends BaseApiTest {
     @Test
     void shouldSearchMetadataIgnoringCaseAndAccents() {
         createProject(1, "遥远世界", "World", metadata("author", "山田", "series", "CAFÉ"));
+        createProject(2, "普通企划", "ordinary", metadata("author", "山田", "CAFÉ", "其他"));
         Response response = search("cafe");
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1));
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("2", "1")));
         assertThat(JSON.parseObject(response.jsonPath().getString("data.list[0].metadata"))
+                .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("CAFÉ");
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[1].metadata"))
                 .getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("series");
     }
 
     /** tag 必须匹配完整关键词，不接受子串或拆词命中。 */
     @Test
-    void shouldSearchOnlyWholeTagValuesWithCompleteKeyword() {
+    void shouldSearchOnlyWholeTagKeysAndValuesWithCompleteKeyword() {
         createProject(1, "遥远世界", "World", metadata("series", "database performance"));
         createProject(2, "普通企划", "ordinary", metadata("series", "database"));
         createProject(3, "普通企划", "neutral", metadata("series", "database performance guide"));
         createProject(4, "普通企划", "other", metadata("first", "database", "second", "performance"));
+        createProject(5, "纯标签企划", "pure", metadata("database performance", ""));
+        createProject(6, "其他企划", "extra", metadata("database performance guide", ""));
         search(" database performance ").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("5", "1")));
+    }
+
+    @Test
+    void shouldPrioritizeKeyAndValueMatchesOnceWithoutIncreasingTagWeight() {
+        String original = "{\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"重点\",\"color\":\"amber\"},{\"key\":\"重点\",\"value\":\"重点\",\"color\":\"rose\"},{\"key\":\"分类\",\"value\":\"重点\"},{\"key\":\"语言\",\"value\":\"中文\"}]}";
+        createProject(1, "普通企划", "one", original);
+        createProject(2, "其他企划", "two", metadata("分类", "重点"));
+
+        Response response = search("重点");
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("2", "1")));
+        var tags = JSON.parseObject(original).getJSONArray("tags");
+        assertThat(JSON.parseObject(response.jsonPath().getString("data.list[1].metadata")).getJSONArray("tags"))
+                .containsExactly(tags.get(1), tags.get(2), tags.get(3), tags.get(0), tags.get(4));
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
+                .isEqualTo(original);
     }
 
     /** 标题别名匹配完整关键词子串，不能将无空白文本按拆词召回。 */
@@ -229,20 +252,22 @@ class ProjectSearchApiTest extends BaseApiTest {
 
     /** tag 中的通配符与转义字符必须整值字面匹配，不能扩大匹配范围。 */
     @Test
-    void shouldMatchLiteralTagWildcardsOnlyAsWholeValue() {
+    void shouldMatchLiteralTagWildcardsOnlyAsWholeKeyOrValue() {
         createProject(1, "普通企划", "ordinary", metadata("series", "50%_!"));
         createProject(2, "普通企划", "neutral", metadata("series", "50xx!"));
         createProject(3, "普通企划", "other", metadata("series", "prefix50%_!suffix"));
+        createProject(4, "纯标签企划", "pure", metadata("50%_!", ""));
+        createProject(5, "其他企划", "extra", metadata("prefix50%_!suffix", ""));
         search("50%_!").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("4", "1")));
     }
 
     /** 组织作用域、禁用状态与软删除同时约束全部搜索分支。 */
     @Test
     void shouldExcludeOtherOrganizationsDisabledAndDeletedProjects() {
         for (int i = 1; i <= 4; i++) {
-            createProject(i, "普通企划", "ordinary", metadata("series", "星海"));
+            createProject(i, "普通企划", "ordinary", i % 2 == 0 ? metadata("星海", "") : metadata("series", "星海"));
         }
         jdbcTemplate.update("UPDATE project SET org_id = 2 WHERE id = 2");
         jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 3");
