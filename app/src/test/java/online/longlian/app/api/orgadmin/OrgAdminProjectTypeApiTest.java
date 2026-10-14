@@ -77,6 +77,29 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
     }
 
     /**
+     * 列表返回企划类型引用数，供前端禁用有引用时的删除
+     */
+    @Test
+    void shouldListProjectTypesWithRefCount() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "在用类型", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "空闲类型", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "企划A", 1L);
+        jdbcTemplate.update("INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, 1L, "企划B", 1L);
+
+        authRequest(token).get("/orgadmin/project-types?pageNum=1&pageSize=10")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.find { it.id == '1' }.refCount", equalTo(2))
+                .body("data.list.find { it.id == '2' }.refCount", equalTo(0));
+    }
+
+    /**
      * 创建企划类型成功
      */
     @Test
