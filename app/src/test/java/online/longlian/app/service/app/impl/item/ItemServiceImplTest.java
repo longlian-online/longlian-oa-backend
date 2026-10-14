@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
+import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
@@ -275,6 +276,35 @@ class ItemServiceImplTest {
                 .isInstanceOf(AppException.class)
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(itemTaskFlowMapper, never()).update(isNull(), any());
+        verify(itemTaskNodeMapper, never()).update(isNull(), any());
+        verify(taskInstanceMapper, never()).update(isNull(), any());
+        verify(taskTemplateMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void deleteProjectItem_cascadesSoftDeleteToFlowNodeAndInstance() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskFlow.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(2L)).thenReturn(
+                Item.builder().id(2L).projectId(1L).taskTemplateId(9L).build());
+        when(itemMapper.update(isNull(), any())).thenReturn(1);
+        when(itemTaskFlowMapper.update(isNull(), any())).thenReturn(1);
+        when(itemTaskNodeMapper.update(isNull(), any())).thenReturn(2);
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(2);
+        when(taskTemplateMapper.update(isNull(), any())).thenReturn(1);
+
+        service.deleteProjectItem(publishParams());
+
+        verify(itemMapper).update(isNull(), any());
+        verify(itemTaskFlowMapper).update(isNull(), any());
+        verify(itemTaskNodeMapper).update(isNull(), any());
+        verify(taskInstanceMapper).update(isNull(), any());
+        verify(taskTemplateMapper).update(isNull(), any());
     }
 
     @Test

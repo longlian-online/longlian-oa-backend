@@ -22,7 +22,7 @@ import online.longlian.app.pojo.vo.app.ProjectItemListVO;
  *   </li>
  *   <li><b>项目发布</b>：项目中所有任务实例均为已完成（{@code COMPLETED}）时才可将项目状态切换为 {@code PUBLISHED}，
  *       已发布的项目不可重复发布</li>
- *   <li><b>项目删除</b>：软删除，设置 deletedAt 时间戳</li>
+ *   <li><b>项目删除</b>：软删除 Item，并级联软删其下 ItemTaskFlow / ItemTaskNode / TaskInstance</li>
  * </ol>
  */
 public interface ItemService {
@@ -46,7 +46,7 @@ public interface ItemService {
     void createProjectItem(ItemCreateParamsBO params);
 
     /**
-     * 软删除项目。
+     * 软删除项目，并级联软删其下的任务流、节点与任务实例。
      *
      * @param params 包含项目 ID 和所属企划 ID 的操作参数
      */
