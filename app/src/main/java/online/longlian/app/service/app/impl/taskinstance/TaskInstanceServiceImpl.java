@@ -205,6 +205,9 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (item.getStatus() == ItemStatus.PUBLISHED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可操作任务");
         }
+        if (item.getStatus() == ItemStatus.COMPLETED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目已完成，不可操作任务");
+        }
         return instance;
     }
 }
