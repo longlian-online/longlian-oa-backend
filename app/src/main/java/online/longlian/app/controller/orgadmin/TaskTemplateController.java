@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListNodeResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
@@ -24,6 +25,7 @@ import online.longlian.app.pojo.dto.orgadmin.TaskTemplateCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
+import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListNodeVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateNodeVO;
 import online.longlian.app.service.orgadmin.TaskTemplateService;
@@ -44,7 +46,7 @@ public class TaskTemplateController {
 
     @Operation(
         summary = "分页查询任务模板列表",
-        description = "支持名称模糊搜索、状态筛选、创建时间区间；支持按创建时间或引用次数排序，默认按引用次数倒序"
+        description = "支持名称模糊搜索、状态筛选、创建时间区间；支持按创建时间或引用次数排序，默认按引用次数倒序。每行附带任务数和阶段预览（名称、图标、顺序），不含提交字段"
     )
     @PostMapping("/list")
     @PreAuthorize("hasRole('ORG_ADMIN')")
@@ -67,7 +69,8 @@ public class TaskTemplateController {
 
         List<TaskTemplateListVO> taskTemplateListVOList = resultBO.getList().stream().map(bo -> {
             TaskTemplateListVO taskTemplateListVO = new TaskTemplateListVO();
-            BeanUtils.copyProperties(bo, taskTemplateListVO);
+            BeanUtils.copyProperties(bo, taskTemplateListVO, "nodes");
+            taskTemplateListVO.setNodes(toListNodeVOs(bo.getNodes()));
             return taskTemplateListVO;
         }).toList();
 
@@ -174,5 +177,18 @@ public class TaskTemplateController {
                         .status(changeStatusDTO.getStatus())
                         .build()
         );
+    }
+
+    private List<TaskTemplateListNodeVO> toListNodeVOs(List<TaskTemplateListNodeResultBO> nodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return List.of();
+        }
+        return nodes.stream()
+                .map(nodeBO -> {
+                    TaskTemplateListNodeVO nodeVO = new TaskTemplateListNodeVO();
+                    BeanUtils.copyProperties(nodeBO, nodeVO);
+                    return nodeVO;
+                })
+                .toList();
     }
 }

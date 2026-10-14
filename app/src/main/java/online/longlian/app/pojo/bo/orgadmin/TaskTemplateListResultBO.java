@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -21,4 +22,6 @@ public class TaskTemplateListResultBO {
     private Long creatorId;
     private String creatorNickname;
     private LocalDateTime createdAt;
+    private Integer taskCount;
+    private List<TaskTemplateListNodeResultBO> nodes;
 }

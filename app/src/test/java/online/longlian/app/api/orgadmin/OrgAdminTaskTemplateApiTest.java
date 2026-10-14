@@ -5,6 +5,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
@@ -30,6 +31,63 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list", notNullValue())
                 .body("data.total", notNullValue());
+    }
+
+    /**
+     * 列表直接返回阶段名、图标、顺序和任务数，不附带提交字段。
+     */
+    @Test
+    void shouldIncludeStagePreviewWithoutSubmitFields() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "翻译", "描述", "Languages", "[{\"key\":\"link\"}]", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, "校对", "描述", "BookOpen", "[]", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "name", "翻译流程",
+                        "description", "阶段预览",
+                        "nodes", new Object[]{
+                                Map.of("baseTaskId", 2L, "sort", 1, "parallelSort", 2),
+                                Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1),
+                                Map.of("baseTaskId", 1L, "sort", 2, "parallelSort", 1)
+                        }
+                ))
+                .post("/orgadmin/task/template")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        jdbcTemplate.update(
+                "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                99L, 1L, "空流程", "", 1, 2, 1L);
+
+        Response response = authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/task/template/list");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.find { it.name == '翻译流程' }.taskCount", equalTo(3))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.baseTaskName",
+                        equalTo(List.of("翻译", "校对", "翻译")))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.baseTaskIcon",
+                        equalTo(List.of("Languages", "BookOpen", "Languages")))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.sort", equalTo(List.of(1, 1, 2)))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.parallelSort", equalTo(List.of(1, 2, 1)))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.baseTaskId", equalTo(List.of("1", "2", "1")))
+                .body("data.list.find { it.name == '翻译流程' }.nodes[0].submitFields", nullValue())
+                .body("data.list.find { it.name == '空流程' }.taskCount", equalTo(0))
+                .body("data.list.find { it.name == '空流程' }.nodes", empty());
     }
 
     /**

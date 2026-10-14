@@ -20,6 +20,9 @@ public interface TaskTemplateService {
 
     /**
      * 分页查询任务模板列表。
+     * <p>
+     * 每行附带任务数和阶段预览（原子任务名称、图标、顺序），不含提交字段。
+     * 编辑模板仍读取详情。
      *
      * @param params 包含分页参数、名称搜索、状态筛选及组织 ID 的查询参数
      * @return 分页的任务模板列表结果
