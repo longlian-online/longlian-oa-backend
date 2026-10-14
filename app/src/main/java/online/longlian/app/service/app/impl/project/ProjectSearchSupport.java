@@ -47,16 +47,21 @@ public final class ProjectSearchSupport {
         Set<String> matched = new LinkedHashSet<>(paths);
         JSONArray ordered = new JSONArray();
         for (int i = 0; i < tags.size(); i++) {
-            if (matched.contains("$.tags[" + i + "].value")) {
+            if (matchesTag(matched, i)) {
                 ordered.add(tags.get(i));
             }
         }
         for (int i = 0; i < tags.size(); i++) {
-            if (!matched.contains("$.tags[" + i + "].value")) {
+            if (!matchesTag(matched, i)) {
                 ordered.add(tags.get(i));
             }
         }
         object.put("tags", ordered);
         return JSON.toJSONString(object, JSONWriter.Feature.WriteNulls);
+    }
+
+    private static boolean matchesTag(Set<String> matched, int index) {
+        String path = "$.tags[" + index + "].";
+        return matched.contains(path + "key") || matched.contains(path + "value");
     }
 }

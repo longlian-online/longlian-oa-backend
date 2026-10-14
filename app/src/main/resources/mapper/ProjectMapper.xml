@@ -16,7 +16,7 @@
                 CASE WHEN p.alias LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
                 JSON_MERGE_PRESERVE('[]',
                     COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
-                        'all', #{params.tagMatchPattern}, '!', '$.tags[*].value'), '[]')
+                        'all', #{params.tagMatchPattern}, '!', '$.tags[*].key', '$.tags[*].value'), '[]')
                 ) AS matched_metadata_paths
             FROM project p
             WHERE p.org_id = #{params.orgId}
