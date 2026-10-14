@@ -31,6 +31,7 @@ import online.longlian.app.service.app.ItemService;
 import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
+import online.longlian.common.enumeration.TaskTemplateScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -84,6 +85,7 @@ public class ItemServiceImpl implements ItemService {
         if (template == null || template.getStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.PARAM_ERROR, "任务模板不存在或已禁用");
         }
+        validateTemplateAccess(template, params.getOrgId(), params.getCreatorId());
 
         List<TaskTemplateNode> templateNodes = taskTemplateNodeMapper.selectList(
                 new LambdaQueryWrapper<TaskTemplateNode>()
@@ -239,5 +241,24 @@ public class ItemServiceImpl implements ItemService {
         if (!project.getCreatorId().equals(userId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
+    }
+
+    /**
+     * 与可选模板列表规则一致：组织模板须属当前组织；个人模板须为操作人本人创建。
+     */
+    private void validateTemplateAccess(TaskTemplate template, Long orgId, Long creatorId) {
+        if (template.getScope() == TaskTemplateScope.ORGANIZATION) {
+            if (!orgId.equals(template.getOrgId())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "任务模板不属于当前组织");
+            }
+            return;
+        }
+        if (template.getScope() == TaskTemplateScope.PERSONAL) {
+            if (!creatorId.equals(template.getCreatorId())) {
+                throw new AppException(ResultCode.PARAM_ERROR, "无权使用他人个人模板");
+            }
+            return;
+        }
+        throw new AppException(ResultCode.PARAM_ERROR, "任务模板作用域无效");
     }
 }
