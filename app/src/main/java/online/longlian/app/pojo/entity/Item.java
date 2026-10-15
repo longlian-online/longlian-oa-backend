@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.common.enumeration.ItemStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -55,13 +54,6 @@ public class Item implements Serializable {
     @TableField("task_template_id")
     @ApiModelProperty("创建时关联的任务模板ID（仅记录溯源）")
     private Long taskTemplateId;
-
-    /**
-     * 状态 1-进行中 2-已完成 3-已公布
-     */
-    @TableField("status")
-    @ApiModelProperty("状态 1-进行中 2-已完成 3-已公布")
-    private ItemStatus status;
 
     /**
      * 创建人ID

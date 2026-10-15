@@ -28,7 +28,6 @@ import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.stereotype.Service;
@@ -201,12 +200,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         }
         if (item.getDeletedAt() != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可操作任务");
-        }
-        if (item.getStatus() == ItemStatus.PUBLISHED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可操作任务");
-        }
-        if (item.getStatus() == ItemStatus.COMPLETED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "项目已完成，不可操作任务");
         }
         return instance;
     }

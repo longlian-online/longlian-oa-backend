@@ -2,16 +2,16 @@ package online.longlian.common.enumeration;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import online.longlian.common.annotation.ModelEnum;
 
+/**
+ * 项目列表筛选，不落库。已完成指至少有一个任务且全部任务已完成。
+ */
 @Getter
 @AllArgsConstructor
-@ModelEnum(model = "item", field = "status")
 public enum ItemStatus implements CodeEnum {
 
     IN_PROGRESS(1, "进行中"),
-    COMPLETED(2, "已完成"),
-    PUBLISHED(3, "已公布");
+    COMPLETED(2, "已完成");
 
     private final Integer code;
     private final String desc;

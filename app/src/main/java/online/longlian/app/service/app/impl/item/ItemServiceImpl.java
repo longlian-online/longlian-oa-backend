@@ -28,7 +28,6 @@ import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.service.app.ItemService;
-import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskTemplateScope;
@@ -114,7 +113,6 @@ public class ItemServiceImpl implements ItemService {
                 .projectId(params.getProjectId())
                 .title(params.getTitle())
                 .taskTemplateId(params.getTaskTemplateId())
-                .status(ItemStatus.IN_PROGRESS)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
                 .updatedAt(now)
@@ -214,41 +212,6 @@ public class ItemServiceImpl implements ItemService {
                         .set(TaskTemplate::getUpdatedAt, now));
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void publishProjectItem(ItemOperationParamsBO params) {
-        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
-
-        Item item = itemMapper.selectById(params.getItemId());
-        if (item == null || !item.getProjectId().equals(params.getProjectId())) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
-        }
-        if (item.getStatus() == ItemStatus.PUBLISHED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
-        }
-
-        // 锁定任务直到发布事务提交，避免校验后被并发重置或打回。
-        List<TaskInstance> instances = taskInstanceMapper.selectList(
-                new LambdaQueryWrapper<TaskInstance>()
-                        .select(TaskInstance::getStatus)
-                        .eq(TaskInstance::getItemId, params.getItemId())
-                        .orderByAsc(TaskInstance::getId)
-                        .last("FOR UPDATE"));
-        if (instances.isEmpty() || instances.stream().anyMatch(
-                instance -> instance.getStatus() != TaskInstanceStatus.COMPLETED)) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "项目中所有任务完成后才能发布");
-        }
-
-        int updated = itemMapper.update(null,
-                new LambdaUpdateWrapper<Item>()
-                        .eq(Item::getId, params.getItemId())
-                        .ne(Item::getStatus, ItemStatus.PUBLISHED)
-                        .set(Item::getStatus, ItemStatus.PUBLISHED)
-                        .set(Item::getUpdatedAt, LocalDateTime.now(clock)));
-        if (updated == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "项目已公布，不可重复操作");
-        }
-    }
 
     private void checkProjectCreator(Long projectId, Long userId, Long orgId) {
         Project project = projectMapper.selectById(projectId);

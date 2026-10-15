@@ -7,7 +7,6 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.common.enumeration.ItemStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,8 +25,6 @@ public class ProjectItemListVO {
     @Schema(description = "项目标题")
     private String title;
 
-    @Schema(description = "项目状态")
-    private ItemStatus status;
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;

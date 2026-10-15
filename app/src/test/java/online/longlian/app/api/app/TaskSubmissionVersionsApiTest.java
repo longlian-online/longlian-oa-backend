@@ -171,8 +171,8 @@ class TaskSubmissionVersionsApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO project " +
                 "(id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) " +
                 "VALUES (1, 1, 1, '企划', 'versions', '{}', 0, '描述', 1, 1)");
-        jdbcTemplate.update("INSERT INTO item (id, project_id, title, task_template_id, status, creator_id) " +
-                "VALUES (1, 1, '项目', 0, 1, 1)");
+        jdbcTemplate.update("INSERT INTO item (id, project_id, title, task_template_id, creator_id) " +
+                "VALUES (1, 1, '项目', 0, 1)");
         String schema = JSON.toJSONString(fields);
         jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) " +
                 "VALUES (1, 1, '原子任务', ?, 1, 1)", schema);

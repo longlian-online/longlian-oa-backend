@@ -74,9 +74,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -150,9 +150,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -233,9 +233,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -308,9 +308,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -385,9 +385,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -462,9 +462,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -541,9 +541,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -622,9 +622,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -894,9 +894,9 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
         jdbcTemplate.update(
                 "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
@@ -1014,9 +1014,9 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
         jdbcTemplate.update(
                 "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +

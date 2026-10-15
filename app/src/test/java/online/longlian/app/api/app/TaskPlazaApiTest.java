@@ -65,8 +65,8 @@ public class TaskPlazaApiTest extends BaseApiTest {
 
     private void insertItemWithFlow(long itemId, long projectId, String title, long flowId) {
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, 0, 1, 4001, NOW(), NOW())",
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, 0, 4001, NOW(), NOW())",
                 itemId, projectId, title);
         jdbcTemplate.update(
                 "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, created_at, updated_at) " +

@@ -24,15 +24,12 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.entity.ItemTaskNode;
-import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskTemplateScope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -208,6 +205,21 @@ class ItemServiceImplTest {
     }
 
     @Test
+    void createProjectItem_unknownTemplateScope_rejects() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("无作用域").status(Status.ENABLED).scope(null).build());
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("任务模板作用域无效");
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(taskTemplateNodeMapper, itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+    }
+
+    @Test
     void createProjectItem_ownPersonalTemplate_succeeds() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
         when(projectMapper.selectById(1L)).thenReturn(enabledProject());
@@ -226,45 +238,6 @@ class ItemServiceImplTest {
         verify(taskTemplateMapper).update(isNull(), any());
     }
 
-    @ParameterizedTest
-    @EnumSource(value = TaskInstanceStatus.class, names = {"PENDING", "CLAIMED"})
-    void publishProjectItem_unfinishedTask_rejectsPublication(TaskInstanceStatus status) {
-        preparePublishItem();
-        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
-                TaskInstance.builder().status(TaskInstanceStatus.COMPLETED).build(),
-                TaskInstance.builder().status(status).build()));
-
-        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
-                .isInstanceOf(AppException.class)
-                .extracting(error -> ((AppException) error).getCode())
-                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verify(itemMapper, never()).update(isNull(), any());
-    }
-
-    @Test
-    void publishProjectItem_noTasks_rejectsPublication() {
-        preparePublishItem();
-        when(taskInstanceMapper.selectList(any())).thenReturn(List.of());
-
-        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
-                .isInstanceOf(AppException.class)
-                .extracting(error -> ((AppException) error).getCode())
-                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verify(itemMapper, never()).update(isNull(), any());
-    }
-
-    @Test
-    void publishProjectItem_allTasksCompleted_preservesDuplicatePublicationFailure() {
-        preparePublishItem();
-        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
-                TaskInstance.builder().status(TaskInstanceStatus.COMPLETED).build()));
-        when(itemMapper.update(isNull(), any())).thenReturn(0);
-
-        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
-                .isInstanceOf(AppException.class)
-                .extracting(error -> ((AppException) error).getCode())
-                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-    }
 
     @Test
     void deleteProjectItem_alreadyDeleted_rejectsRepeatOperation() {
@@ -308,26 +281,6 @@ class ItemServiceImplTest {
         verify(taskTemplateMapper).update(isNull(), any());
     }
 
-    @Test
-    void publishProjectItem_missingItem_rejectsPublication() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(2L)).thenReturn(null);
-
-        assertThatThrownBy(() -> service.publishProjectItem(publishParams()))
-                .isInstanceOf(AppException.class)
-                .extracting(error -> ((AppException) error).getCode())
-                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
-        verify(taskInstanceMapper, never()).selectList(any());
-    }
-
-    private void preparePublishItem() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(2L)).thenReturn(
-                Item.builder().id(2L).projectId(1L).status(ItemStatus.COMPLETED).build());
-    }
 
     private ItemOperationParamsBO publishParams() {
         return ItemOperationParamsBO.builder().projectId(1L).itemId(2L).orgId(1L).operatorId(1L).build();
