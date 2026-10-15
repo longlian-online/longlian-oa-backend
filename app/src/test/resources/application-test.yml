@@ -106,5 +106,8 @@ notify:
 jwt:
   secret: test-jwt-secret-key-must-be-at-least-32-bytes-long
   expiration: 86400
+  user-access-expiration: 21600
+  refresh-expiration: 1209600
+  refresh-grace-seconds: 1
   header: Authorization
   prefix: Bearer

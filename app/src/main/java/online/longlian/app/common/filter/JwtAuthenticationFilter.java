@@ -94,6 +94,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private Authentication authenticateToken(String token) {
         Claims claims = parseClaims(token);
+        String use = claims.get("use", String.class);
+        if (use != null && !"access".equals(use)) {
+            throw invalidToken(null);
+        }
         long subjectId = parseSubject(claims);
         String type = readTokenType(claims);
 

@@ -126,5 +126,8 @@ jwt:
   # HS256 至少 32 字节。生产必须换成高强度随机串
   secret: change-me-to-a-long-random-secret-at-least-32-bytes
   expiration: 86400
+  user-access-expiration: 21600
+  refresh-expiration: 1209600
+  refresh-grace-seconds: 30
   header: Authorization
   prefix: Bearer
