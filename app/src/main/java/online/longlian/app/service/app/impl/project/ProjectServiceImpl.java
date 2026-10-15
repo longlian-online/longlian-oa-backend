@@ -165,6 +165,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .pendingTaskCount(progress.getPendingTaskCount())
                 .inWorkshop(inWorkshop)
                 .isCreator(isCreator)
+                .createdAt(project.getCreatedAt())
                 .build();
     }
 

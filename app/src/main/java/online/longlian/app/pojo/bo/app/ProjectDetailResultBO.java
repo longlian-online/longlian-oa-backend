@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.ProjectStatus;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,4 +26,5 @@ public class ProjectDetailResultBO {
     private Integer pendingTaskCount;
     private Boolean inWorkshop;
     private Boolean isCreator;
+    private LocalDateTime createdAt;
 }

@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.common.enumeration.ProjectStatus;
 
+import java.time.LocalDateTime;
+
 @Data
 @Schema(description = "企划详情")
 public class ProjectDetailInfoVO {
@@ -48,4 +50,7 @@ public class ProjectDetailInfoVO {
     private Boolean inWorkshop;
     @Schema(description = "当前用户是否是该企划的创建者")
     private Boolean isCreator;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createdAt;
 }
