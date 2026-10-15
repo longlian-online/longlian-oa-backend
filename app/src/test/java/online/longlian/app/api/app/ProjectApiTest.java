@@ -229,8 +229,9 @@ public class ProjectApiTest extends BaseApiTest {
 
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L,
+                "2026-03-01 08:30:00"
         );
 
         Response response = authRequest(token)
@@ -241,7 +242,8 @@ public class ProjectApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.id", notNullValue())
-                .body("data.title", notNullValue());
+                .body("data.title", notNullValue())
+                .body("data.createdAt", equalTo("2026-03-01 08:30:00"));
     }
 
     /**

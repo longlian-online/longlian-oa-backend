@@ -11,6 +11,8 @@ import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
+import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
@@ -37,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -290,6 +293,29 @@ class ProjectServiceImplTest {
         assertThatThrownBy(() -> service.getProjectDetail(100L, 2L, 1L))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void getProjectDetail_returnsCreatedAt() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 3, 1, 8, 30);
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(2L)
+                .title("测试企划")
+                .resourceStatus(Status.ENABLED)
+                .createdAt(createdAt)
+                .build());
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0)
+                .claimedTaskCount(0)
+                .pendingTaskCount(0)
+                .build());
+
+        ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(result.getCreatedAt()).isEqualTo(createdAt);
     }
 
     @Test
