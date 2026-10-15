@@ -31,7 +31,7 @@
                MAX(ti.created_at) AS latestCreatedAt
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
-        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL AND i.status = 1
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
         JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL
             AND p.resource_status = 1 AND p.status = 1
         LEFT JOIN project_type pt ON pt.id = p.type_id AND pt.deleted_at IS NULL
@@ -67,7 +67,7 @@
         SELECT COUNT(DISTINCT p.id)
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
-        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL AND i.status = 1
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
         JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL
             AND p.resource_status = 1 AND p.status = 1
         <include refid="currentStageJoin"/>
@@ -98,7 +98,7 @@
                i.title AS itemTitle
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
-        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL AND i.status = 1
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
         JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL
             AND p.resource_status = 1 AND p.status = 1
         <include refid="currentStageJoin"/>
@@ -126,7 +126,7 @@
     </select>
 
     <!--
-      我的待办候选：状态码 task_instance 2-CLAIMED；item 1-IN_PROGRESS（排除 COMPLETED/PUBLISHED 与已删除）；
+      我的待办候选：状态码 task_instance 2-CLAIMED；排除已删除项目；
       project resource_status 1-ENABLED。前置分组不在此处判定，见 StageUnlockPolicy。
     -->
     <select id="selectMyClaimedTasks" resultType="online.longlian.app.pojo.bo.app.MyTaskRowBO">
@@ -140,7 +140,7 @@
                ti.claimed_at AS claimedAt
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
-        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL AND i.status = 1
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
         JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL AND p.resource_status = 1
         WHERE ti.deleted_at IS NULL
           AND ti.status = 2

@@ -76,7 +76,6 @@ CREATE TABLE `item` (
   `project_id` bigint NOT NULL COMMENT "所属企划ID",
   `title` varchar(100) NOT NULL COMMENT "项目名称",
   `task_template_id` bigint NOT NULL COMMENT "创建时关联的任务模板ID（仅记录溯源）",
-  `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-进行中 2-已完成 3-已公布",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

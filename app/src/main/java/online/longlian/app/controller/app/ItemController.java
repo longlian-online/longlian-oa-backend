@@ -23,7 +23,7 @@ import online.longlian.app.service.app.ItemService;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
-@Tag(name = "项目相关接口", description = "项目列表、创建编辑、发布")
+@Tag(name = "项目相关接口", description = "项目列表、创建和删除")
 @RequestMapping("/app/projects/{projectId}/items")
 @RestController
 @RequiredArgsConstructor
@@ -33,7 +33,7 @@ public class ItemController {
 
     @Operation(
         summary = "分页查询项目列表",
-        description = "支持标题模糊搜索、状态筛选（进行中/已完成/已公布）与时间排序；默认展示进行中并按更新时间倒序"
+        description = "支持标题模糊搜索、完成情况筛选与时间排序。进行中包含没有任务或仍有未完成任务的项目；已完成指至少有一个任务且全部任务已完成。默认展示进行中并按更新时间倒序"
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("")
@@ -90,20 +90,4 @@ public class ItemController {
                         .build());
     }
 
-    @Operation(summary = "公布项目", description = "需项目中所有任务均已完成，存在未完成任务时拒绝公布")
-    @Parameter(name = "projectId", description = "企划ID")
-    @Parameter(name = "itemId", description = "项目ID")
-    @PatchMapping("/{itemId}/publish")
-    @ResponseMessage("公布成功")
-    public void publishProjectItem(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-                                    @PathVariable Long projectId,
-                                    @PathVariable Long itemId) {
-        itemService.publishProjectItem(
-                ItemOperationParamsBO.builder()
-                        .projectId(projectId)
-                        .itemId(itemId)
-                        .orgId(sessionContext.orgId())
-                        .operatorId(sessionContext.userId())
-                        .build());
-    }
 }

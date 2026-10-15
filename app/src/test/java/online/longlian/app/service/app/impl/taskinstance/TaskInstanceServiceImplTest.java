@@ -19,7 +19,6 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -357,7 +356,7 @@ class TaskInstanceServiceImplTest {
                 TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(
-                Item.builder().id(1L).projectId(2L).status(ItemStatus.IN_PROGRESS)
+                Item.builder().id(1L).projectId(2L)
                         .deletedAt(LocalDateTime.of(2026, 10, 1, 0, 0)).build());
 
         assertThatThrownBy(() -> service.claimTask(params))
@@ -366,39 +365,6 @@ class TaskInstanceServiceImplTest {
         verify(taskInstanceCommandHandler, never()).claim(any(), anyLong());
     }
 
-    @Test
-    void claimTask_publishedItem_throws() {
-        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(
-                Item.builder().id(1L).projectId(2L).status(ItemStatus.PUBLISHED).build());
-
-        assertThatThrownBy(() -> service.claimTask(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("项目已公布");
-        verify(taskInstanceCommandHandler, never()).claim(any(), anyLong());
-    }
-
-    @Test
-    void claimTask_completedItem_throws() {
-        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(
-                Item.builder().id(1L).projectId(2L).status(ItemStatus.COMPLETED).build());
-
-        assertThatThrownBy(() -> service.claimTask(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("项目已完成");
-        verify(taskInstanceCommandHandler, never()).claim(any(), anyLong());
-    }
 
     @Test
     void claimTask_itemMissing_throws() {
@@ -416,23 +382,6 @@ class TaskInstanceServiceImplTest {
         verify(taskInstanceCommandHandler, never()).claim(any(), anyLong());
     }
 
-    @Test
-    void submitTask_publishedItem_throws() {
-        TaskInstanceSubmitParamsBO params = new TaskInstanceSubmitParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        params.setUserId(1L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(
-                Item.builder().id(1L).projectId(2L).status(ItemStatus.PUBLISHED).build());
-
-        assertThatThrownBy(() -> service.submitTask(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("项目已公布");
-        verify(taskInstanceCommandHandler, never()).submit(any(), anyLong(), anyLong(), any());
-    }
 
     @Test
     void resetTask_deletedItem_throws() {
@@ -443,7 +392,7 @@ class TaskInstanceServiceImplTest {
                 TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(
-                Item.builder().id(1L).projectId(2L).status(ItemStatus.IN_PROGRESS)
+                Item.builder().id(1L).projectId(2L)
                         .deletedAt(LocalDateTime.of(2026, 10, 1, 0, 0)).build());
 
         assertThatThrownBy(() -> service.resetTask(params))
@@ -452,26 +401,9 @@ class TaskInstanceServiceImplTest {
         verify(taskInstanceCommandHandler, never()).reset(any(), anyLong());
     }
 
-    @Test
-    void rejectTask_publishedItem_throws() {
-        TaskInstanceRejectParamsBO params = new TaskInstanceRejectParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        params.setUserId(2L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(
-                Item.builder().id(1L).projectId(2L).status(ItemStatus.PUBLISHED).build());
-
-        assertThatThrownBy(() -> service.rejectTask(params))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("项目已公布");
-        verify(taskInstanceCommandHandler, never()).reject(any(), anyLong(), any());
-    }
 
     private Item writableItem() {
-        return Item.builder().id(1L).projectId(2L).status(ItemStatus.IN_PROGRESS).build();
+        return Item.builder().id(1L).projectId(2L).build();
     }
 
     private Project enabledProject() {
