@@ -219,6 +219,26 @@ class OrganizationScopeInterceptorTest {
         assertThat(JSON.parseObject(response.getContentAsString()).getString("msg")).contains("组织声明重复");
     }
 
+    @Test
+    void shouldIgnoreRequestWhenHandlerIsNotAMethod() throws Exception {
+        assertThat(interceptor.preHandle(request, response, new Object())).isTrue();
+
+        verifyNoInteractions(organizationMembershipService);
+    }
+
+    @Test
+    void shouldRejectWhenAuthenticatedPrincipalIsNotAUser() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("anonymous", null, List.of()));
+        request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "12");
+
+        assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isFalse();
+
+        verifyNoInteractions(organizationMembershipService);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(JSON.parseObject(response.getContentAsString()).getString("msg")).contains("组织不能为空");
+    }
+
     private void authenticateUser() {
         SecurityContextHolder.getContext().setAuthentication(authentication());
     }
