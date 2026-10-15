@@ -205,6 +205,21 @@ class ItemServiceImplTest {
     }
 
     @Test
+    void createProjectItem_unknownTemplateScope_rejects() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("无作用域").status(Status.ENABLED).scope(null).build());
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("任务模板作用域无效");
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(taskTemplateNodeMapper, itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+    }
+
+    @Test
     void createProjectItem_ownPersonalTemplate_succeeds() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
         when(projectMapper.selectById(1L)).thenReturn(enabledProject());
