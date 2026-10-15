@@ -25,4 +25,18 @@ class JwtUtilTest {
         assertThat(jwt.parseToken(first).getId()).isNotEqualTo(jwt.parseToken(second).getId());
         assertThat(jwt.getRemainingTimeSeconds(first)).isEqualTo(60);
     }
+
+    @Test
+    void shouldReadExpiredClaimsAndRejectInvalidTokens() {
+        Clock clock = Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
+        JwtUtil jwt = new JwtUtil(clock);
+        ReflectionTestUtils.setField(jwt, "secret", "test-jwt-secret-at-least-32-bytes-long");
+        ReflectionTestUtils.setField(jwt, "expiration", 60);
+        jwt.init();
+
+        String expired = jwt.generateToken(1L, "user", "access", "sid", -5);
+        assertThat(jwt.parseAllowingExpiry(expired).getSubject()).isEqualTo("1");
+        assertThat(jwt.parseAllowingExpiry(expired).get("sid", String.class)).isEqualTo("sid");
+        assertThat(jwt.parseAllowingExpiry("not-a-token")).isNull();
+    }
 }

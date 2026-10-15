@@ -3,10 +3,13 @@ package online.longlian.app.api.app;
 import io.jsonwebtoken.Claims;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
+import online.longlian.app.service.impl.TokenRevocationStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.Map;
 
@@ -19,6 +22,9 @@ public class SessionApiTest extends BaseApiTest {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private StringRedisTemplate stringRedis;
 
     @Test
     void shouldIssueShortLivedAccessTokenAndRefreshToken() {
@@ -149,6 +155,77 @@ public class SessionApiTest extends BaseApiTest {
 
         refresh(session.refreshToken()).then().statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldRotateTwiceAndTolerateCorruptRefreshIndexes() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        Session session = login("testuser");
+        String second = refresh(session.refreshToken()).jsonPath().getString("data.refreshToken");
+        Response third = refresh(second);
+        third.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        String current = third.jsonPath().getString("data.refreshToken");
+        String sessionId = jwtUtil.parseToken(third.jsonPath().getString("data.token")).get("sid", String.class);
+
+        stringRedis.opsForValue().set(RedisConstants.REFRESH_REVOKED + "1", "nope");
+        Response afterNoise = refresh(current);
+        afterNoise.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        current = afterNoise.jsonPath().getString("data.refreshToken");
+
+        stringRedis.opsForValue().set(RedisConstants.REFRESH_SESSION + sessionId, "not-json");
+        refresh(current).then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldIgnoreAnotherUsersRefreshSessionOnLogout() {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "other", "123456", "other@example.com");
+        Session owner = login("owner");
+        String sessionId = jwtUtil.parseToken(owner.token()).get("sid", String.class);
+        String forged = jwtUtil.generateToken(2L, "user", "access", sessionId, 21_600);
+
+        userRequest(forged).delete("/app/session/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        refresh(owner.refreshToken()).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @Test
+    void shouldLogoutAccessTokenWhoseRefreshSessionIsAlreadyGone() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        Session session = login("testuser");
+        String token = jwtUtil.generateToken(1L, "user", "access", "missing-session", 21_600);
+        stringRedis.opsForSet().add(RedisConstants.REFRESH_USER + "1", "missing-session");
+
+        userRequest(token).delete("/app/session/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @Test
+    void shouldRejectRefreshAfterUserDisappears() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        Session session = login("testuser");
+        jdbcTemplate.update("DELETE FROM `user` WHERE id = 1");
+
+        refresh(session.refreshToken()).then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldRejectRefreshTokenThatDoesNotMatchItsSession() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        Session session = login("testuser");
+        String sessionId = jwtUtil.parseToken(session.token()).get("sid", String.class);
+        stringRedis.opsForValue().set(
+                RedisConstants.REFRESH_HASH + TokenRevocationStore.digest("foreign-token"), sessionId);
+
+        refresh("foreign-token").then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        refresh(session.refreshToken()).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     private Session login(String username) {

@@ -22,7 +22,7 @@ import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.impl.RefreshSessionStore;
-import online.longlian.app.service.impl.RefreshSessionStore.AccountUnavailable;
+import online.longlian.app.service.impl.RefreshSessionStore.AccountUnavailableException;
 import online.longlian.app.service.impl.RefreshSessionStore.CreatedRefresh;
 import online.longlian.app.service.impl.RefreshSessionStore.RefreshExchange;
 import online.longlian.app.service.impl.RefreshSessionStore.RefreshStatus;
@@ -155,10 +155,10 @@ public class SessionServiceImpl implements SessionService {
         try {
             userDetail = (UserDetailImpl) userDetailsService.loadUserById(userId);
         } catch (AppException e) {
-            throw new AccountUnavailable();
+            throw new AccountUnavailableException();
         }
         if (!userDetail.isEnabled()) {
-            throw new AccountUnavailable();
+            throw new AccountUnavailableException();
         }
         cacheLoginSession(userDetail, jwtUtil.getAccessExpirationSeconds());
         return new RefreshExchange(jwtUtil.generateAccessToken(userId, sessionId), newRefreshToken());

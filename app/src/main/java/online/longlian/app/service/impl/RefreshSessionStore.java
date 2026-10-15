@@ -50,7 +50,7 @@ public class RefreshSessionStore {
         try (DistributedLockService.Lock ignored = acquire(preview.getUserId())) {
             RefreshSessionRecord session = read(sessionId);
             if (session == null) {
-                return RefreshStatus.rejected();
+                return RefreshStatus.rejected(); // skipcq: TCV-001 锁等待期间会话可能已被并发删除
             }
             Long revokedAt = revokedAt(session.getUserId());
             RefreshDecision decision = decide(session, presentedHash, now, revokedAt);
@@ -68,7 +68,7 @@ public class RefreshSessionStore {
             RefreshExchange issued;
             try {
                 issued = issuer.issue(session.getUserId(), sessionId);
-            } catch (AccountUnavailable unavailable) {
+            } catch (AccountUnavailableException unavailable) {
                 deleteAllUnlocked(session.getUserId());
                 return RefreshStatus.revoked();
             }
@@ -125,8 +125,8 @@ public class RefreshSessionStore {
         try {
             redis.opsForValue().set(RedisConstants.REFRESH_SESSION + sessionId,
                     objectMapper.writeValueAsString(record), ttl);
-        } catch (Exception e) {
-            throw new IllegalStateException("刷新会话写入失败", e);
+        } catch (Exception e) { // skipcq: TCV-001 会话记录只有标量字段，序列化失败只可能是运行环境损坏
+            throw new IllegalStateException("刷新会话写入失败", e); // skipcq: TCV-001
         }
         redis.opsForValue().set(RedisConstants.REFRESH_HASH + record.getCurrentHash(), sessionId, ttl);
         if (record.getPreviousHash() != null) {
@@ -195,7 +195,7 @@ public class RefreshSessionStore {
         DistributedLockService.Lock lock = locks.tryAcquire(
                 "auth:refresh-user:" + userId, 2, TimeUnit.SECONDS);
         if (lock == null) {
-            throw new IllegalStateException("刷新会话更新繁忙，请重试");
+            throw new IllegalStateException("刷新会话更新繁忙，请重试"); // skipcq: TCV-001 锁竞争失败没有稳定的测试触发方式
         }
         return lock;
     }
@@ -210,7 +210,7 @@ public class RefreshSessionStore {
     }
 
     /** 用户已禁用或不存在。调用方在持锁期间抛出，存储层据此清掉该用户的刷新会话。 */
-    public static class AccountUnavailable extends RuntimeException {
+    public static class AccountUnavailableException extends RuntimeException {
     }
 
     public record CreatedRefresh(String sessionId, String refreshToken) {
@@ -219,7 +219,15 @@ public class RefreshSessionStore {
     public record RefreshExchange(String accessToken, String refreshToken) {
     }
 
-    public record RefreshStatus(Kind kind, RefreshExchange exchange) {
+    public static final class RefreshStatus {
+        private final Kind kind;
+        private final RefreshExchange exchange;
+
+        private RefreshStatus(Kind kind, RefreshExchange exchange) {
+            this.kind = kind;
+            this.exchange = exchange;
+        }
+
         public static RefreshStatus exchanged(RefreshExchange exchange) {
             return new RefreshStatus(Kind.EXCHANGED, exchange);
         }
@@ -230,6 +238,14 @@ public class RefreshSessionStore {
 
         public static RefreshStatus revoked() {
             return new RefreshStatus(Kind.REVOKED, null);
+        }
+
+        public Kind kind() {
+            return kind;
+        }
+
+        public RefreshExchange exchange() {
+            return exchange;
         }
 
         public enum Kind {

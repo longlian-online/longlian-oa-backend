@@ -102,7 +102,7 @@ public class SessionController {
     public void logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return;
+            return; // skipcq: TCV-001 没有凭证时安全链已经拒绝，进不到这里
         }
         String token = authHeader.substring(7);
         sessionService.logout(

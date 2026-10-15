@@ -1,6 +1,8 @@
 package online.longlian.app.service.app.impl;
 
 import online.longlian.app.common.constants.RedisConstants;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import online.longlian.app.common.util.JwtUtil;
@@ -34,9 +36,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -141,5 +145,55 @@ class SessionServiceImplTest {
         verify(tokenBlacklistService).addToBlacklist("tok", TokenType.User, 7L, "用户登出", 30L);
         verify(refreshSessionStore).deleteOne("sid-1", 7L);
         verify(redisTemplate, never()).delete(anyString());
+    }
+
+    @Test
+    void logoutRejectsMissingTokenAndIgnoresUnreadableToken() {
+        assertThatThrownBy(() -> service.logout(SessionLogoutParamsBO.builder().userId(7L).token(null).build()))
+                .isInstanceOf(AppException.class);
+
+        when(jwtUtil.getRemainingTimeSeconds("bad")).thenReturn(0L);
+        when(jwtUtil.parseAllowingExpiry("bad")).thenReturn(null);
+        service.logout(SessionLogoutParamsBO.builder().userId(7L).token("bad").build());
+
+        verify(refreshSessionStore, never()).deleteOne(anyString(), eq(7L));
+    }
+
+    @Test
+    void loginStillSucceedsWhenProfileCacheWriteFails() {
+        UserDetailImpl user = UserDetailImpl.builder().id(7L).username("user").status(Status.ENABLED).build();
+        when(authenticationManager.authenticate(any())).thenReturn(
+                new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+        when(clock.millis()).thenReturn(10L);
+        when(jwtUtil.getRefreshExpirationSeconds()).thenReturn(120L);
+        when(jwtUtil.getAccessExpirationSeconds()).thenReturn(15L);
+        when(refreshSessionStore.create(eq(7L), eq(10L), eq(Duration.ofSeconds(120)), any()))
+                .thenReturn(new CreatedRefresh("sid-1", "refresh"));
+        when(jwtUtil.generateAccessToken(7L, "sid-1")).thenReturn("token");
+        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganization(11L, "ORG_USER"));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        doThrow(new IllegalStateException("redis")).when(valueOperations)
+                .set(any(), any(), eq(15L), eq(TimeUnit.SECONDS));
+
+        SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
+                .username("user").password("123456").build());
+
+        assertThat(result.getToken()).isEqualTo("token");
+    }
+
+    @Test
+    void refreshRejectsMissingUser() {
+        when(clock.millis()).thenReturn(10L);
+        when(jwtUtil.getRefreshExpirationSeconds()).thenReturn(120L);
+        when(jwtUtil.getRefreshGraceSeconds()).thenReturn(1L);
+        when(userDetailsService.loadUserById(7L)).thenThrow(new AppException(ResultCode.USER_NOT_EXIT));
+        when(refreshSessionStore.exchange(any(), eq(10L), eq(1000L), eq(Duration.ofSeconds(120)), any()))
+                .thenAnswer(invocation -> {
+                    invocation.getArgument(4, RefreshSessionStore.RefreshIssuer.class).issue(7L, "sid-1");
+                    return RefreshSessionStore.RefreshStatus.revoked();
+                });
+
+        assertThatThrownBy(() -> service.refresh("refresh"))
+                .isInstanceOf(RefreshSessionStore.AccountUnavailableException.class);
     }
 }

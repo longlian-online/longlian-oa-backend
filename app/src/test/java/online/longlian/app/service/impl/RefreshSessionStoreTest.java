@@ -18,6 +18,10 @@ class RefreshSessionStoreTest {
                 .isEqualTo(RefreshSessionStore.RefreshDecision.REVOKE);
         assertThat(RefreshSessionStore.decide(session, "unknown", 50, null))
                 .isEqualTo(RefreshSessionStore.RefreshDecision.REJECT);
+        assertThat(RefreshSessionStore.decide(null, "current", 50, null))
+                .isEqualTo(RefreshSessionStore.RefreshDecision.REJECT);
+        assertThat(RefreshSessionStore.decide(session, null, 50, null))
+                .isEqualTo(RefreshSessionStore.RefreshDecision.REJECT);
     }
 
     @Test
