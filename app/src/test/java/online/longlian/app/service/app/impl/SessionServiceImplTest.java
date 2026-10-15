@@ -84,7 +84,7 @@ class SessionServiceImplTest {
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
         when(clock.millis()).thenReturn(10L);
         when(jwtUtil.getRefreshExpirationSeconds()).thenReturn(120L);
-        when(jwtUtil.getAccessExpirationSeconds()).thenReturn(15L);
+        when(jwtUtil.getUserAccessExpirationSeconds()).thenReturn(15L);
         when(refreshSessionStore.create(eq(7L), eq(10L), eq(Duration.ofSeconds(120)), any())).thenAnswer(invocation -> {
             Supplier<String> tokens = invocation.getArgument(3);
             return new CreatedRefresh("sid-1", tokens.get());
@@ -119,7 +119,7 @@ class SessionServiceImplTest {
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
         when(clock.millis()).thenReturn(10L);
         when(jwtUtil.getRefreshExpirationSeconds()).thenReturn(120L);
-        when(jwtUtil.getAccessExpirationSeconds()).thenReturn(15L);
+        when(jwtUtil.getUserAccessExpirationSeconds()).thenReturn(15L);
         when(refreshSessionStore.create(eq(7L), eq(10L), eq(Duration.ofSeconds(120)), any()))
                 .thenReturn(new CreatedRefresh("sid-1", "refresh"));
         when(jwtUtil.generateAccessToken(7L, "sid-1")).thenReturn("token");
@@ -166,7 +166,7 @@ class SessionServiceImplTest {
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
         when(clock.millis()).thenReturn(10L);
         when(jwtUtil.getRefreshExpirationSeconds()).thenReturn(120L);
-        when(jwtUtil.getAccessExpirationSeconds()).thenReturn(15L);
+        when(jwtUtil.getUserAccessExpirationSeconds()).thenReturn(15L);
         when(refreshSessionStore.create(eq(7L), eq(10L), eq(Duration.ofSeconds(120)), any()))
                 .thenReturn(new CreatedRefresh("sid-1", "refresh"));
         when(jwtUtil.generateAccessToken(7L, "sid-1")).thenReturn("token");

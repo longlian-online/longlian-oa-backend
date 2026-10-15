@@ -28,8 +28,8 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Integer expiration; // 管理端访问凭证，秒
 
-    @Value("${jwt.access-expiration:21600}")
-    private Long accessExpiration = 21600L;
+    @Value("${jwt.user-access-expiration:21600}")
+    private Long userAccessExpiration = 21600L;
 
     @Value("${jwt.refresh-expiration:1209600}")
     private Long refreshExpiration = 1_209_600L;
@@ -53,7 +53,7 @@ public class JwtUtil {
     }
 
     public String generateAccessToken(Long userId, String sessionId) {
-        return generateToken(userId, "user", "access", sessionId, accessExpiration);
+        return generateToken(userId, "user", "access", sessionId, userAccessExpiration);
     }
 
     public String generateToken(Long id, String type, String use, String sessionId, long ttlSeconds) {
@@ -130,8 +130,8 @@ public class JwtUtil {
         return expiration == null ? 0 : expiration.longValue();
     }
 
-    public long getAccessExpirationSeconds() {
-        return accessExpiration == null ? 0 : accessExpiration;
+    public long getUserAccessExpirationSeconds() {
+        return userAccessExpiration == null ? 0 : userAccessExpiration;
     }
 
     public long getRefreshExpirationSeconds() {

@@ -138,7 +138,7 @@ public class SessionServiceImpl implements SessionService {
         String token = jwtUtil.generateAccessToken(userId, created.sessionId());
 
         DefaultOrganization defaultOrganization = organizationMembershipService.findDefault(userId);
-        cacheLoginSession(userDetail, jwtUtil.getAccessExpirationSeconds());
+        cacheLoginSession(userDetail, jwtUtil.getUserAccessExpirationSeconds());
 
         return SessionLoginResultBO.builder()
                 .userId(userId)
@@ -160,7 +160,7 @@ public class SessionServiceImpl implements SessionService {
         if (!userDetail.isEnabled()) {
             throw new AccountUnavailableException();
         }
-        cacheLoginSession(userDetail, jwtUtil.getAccessExpirationSeconds());
+        cacheLoginSession(userDetail, jwtUtil.getUserAccessExpirationSeconds());
         return new RefreshExchange(jwtUtil.generateAccessToken(userId, sessionId), newRefreshToken());
     }
 

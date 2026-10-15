@@ -155,7 +155,7 @@ jwt:
   # 管理端访问凭证过期时间（秒）。86400 = 24 小时；登出另走 token_blacklist
   expiration: 86400
   # 用户端访问凭证过期时间（秒）。21600 = 6 小时
-  access-expiration: 21600
+  user-access-expiration: 21600
   # 用户端刷新凭证过期时间（秒）。1209600 = 14 天，刷新成功后顺延
   refresh-expiration: 1209600
   # 轮换后旧刷新凭证仍可取回同一次结果的秒数，避免多个标签页同时刷新互相踢下线
