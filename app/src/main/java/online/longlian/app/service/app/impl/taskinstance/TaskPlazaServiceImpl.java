@@ -122,7 +122,6 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                     return fileId != null && fileId > 0 && urlMap.containsKey(fileId);
                 })
                 .collect(Collectors.toMap(PlazaProjectSummaryBO::getProjectId,
-                        summary -> urlMap.get(fileIdOf.apply(summary)).getUrl(),
-                        (left, right) -> left));
+                        summary -> urlMap.get(fileIdOf.apply(summary)).getUrl()));
     }
 }
