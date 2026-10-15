@@ -25,6 +25,7 @@
                p.title AS title,
                pt.name AS typeName,
                p.cover_file_id AS coverFileId,
+               p.thumbnail_file_id AS thumbnailFileId,
                COUNT(ti.id) AS pendingCount,
                COUNT(DISTINCT ti.item_id) AS itemCount,
                MIN(ti.created_at) AS oldestCreatedAt,
@@ -48,7 +49,7 @@
               OR i.title LIKE #{params.matchPattern} ESCAPE '!'
               OR n.name LIKE #{params.matchPattern} ESCAPE '!')
         </if>
-        GROUP BY p.id, p.title, pt.name, p.cover_file_id
+        GROUP BY p.id, p.title, pt.name, p.cover_file_id, p.thumbnail_file_id
         <choose>
             <when test="params.sortBy.name() == 'LATEST'">
                 ORDER BY latestCreatedAt DESC, p.id DESC

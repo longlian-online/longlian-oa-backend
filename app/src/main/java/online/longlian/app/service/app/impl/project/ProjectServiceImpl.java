@@ -134,6 +134,10 @@ public class ProjectServiceImpl implements ProjectService {
         if (project.getCoverFileId() != null && project.getCoverFileId() > 0) {
             coverUrl = resourceService.getResourceReadUrl(project.getCoverFileId());
         }
+        String thumbnailUrl = null;
+        if (project.getThumbnailFileId() != null && project.getThumbnailFileId() > 0) {
+            thumbnailUrl = resourceService.getResourceReadUrl(project.getThumbnailFileId());
+        }
 
         String typeName = null;
         if (project.getTypeId() != null) {
@@ -156,6 +160,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .title(project.getTitle())
                 .alias(project.getAlias())
                 .coverUrl(coverUrl)
+                .thumbnailUrl(thumbnailUrl)
                 .typeName(typeName)
                 .metadata(project.getMetadata())
                 .description(project.getDescription())
@@ -187,6 +192,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .alias(params.getAlias())
                 .metadata(params.getMetadata())
                 .coverFileId(params.getCoverFileId())
+                .thumbnailFileId(params.getThumbnailFileId())
                 .description(params.getDescription())
                 .status(ProjectStatus.IN_PROGRESS)
                 .resourceStatus(Status.ENABLED)
@@ -202,6 +208,15 @@ public class ProjectServiceImpl implements ProjectService {
                 .creatorId(params.getCreatorId())
                 .orgId(params.getOrgId())
                 .build());
+        if (params.getThumbnailFileId() != null) {
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getThumbnailFileId())
+                    .bizType("thumbnail")
+                    .bizId(project.getId())
+                    .creatorId(params.getCreatorId())
+                    .orgId(params.getOrgId())
+                    .build());
+        }
         projectProgressHandler.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
                 .projectId(project.getId())
                 .userId(params.getCreatorId())
@@ -229,6 +244,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getMetadata, params.getMetadata())
                         .set(Project::getDescription, params.getDescription())
                         .set(params.getCoverFileId() != null, Project::getCoverFileId, params.getCoverFileId())
+                        .set(params.getThumbnailFileId() != null, Project::getThumbnailFileId, params.getThumbnailFileId())
                         .set(params.getStatus() != null, Project::getStatus, params.getStatus())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
@@ -237,6 +253,16 @@ public class ProjectServiceImpl implements ProjectService {
                     .resourceId(params.getCoverFileId())
                     .replacedResourceId(project.getCoverFileId())
                     .bizType("cover")
+                    .bizId(params.getProjectId())
+                    .creatorId(params.getUserId())
+                    .orgId(params.getOrgId())
+                    .build());
+        }
+        if (params.getThumbnailFileId() != null) {
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getThumbnailFileId())
+                    .replacedResourceId(project.getThumbnailFileId())
+                    .bizType("thumbnail")
                     .bizId(params.getProjectId())
                     .creatorId(params.getUserId())
                     .orgId(params.getOrgId())

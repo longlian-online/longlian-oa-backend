@@ -204,6 +204,7 @@ CREATE TABLE `project` (
   `alias` varchar(100) NULL DEFAULT "" COMMENT "别名",
   `metadata` json NULL COMMENT "扩展信息(JSON字符串)",
   `cover_file_id` bigint NULL COMMENT "封面图",
+  `thumbnail_file_id` bigint NULL COMMENT "缩略图",
   `description` text NULL COMMENT "简介",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-进行中 2-已完成 3-已归档",
   `resource_status` tinyint NOT NULL DEFAULT 1 COMMENT "资源状态 1-启用 0-禁用",

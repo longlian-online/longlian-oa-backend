@@ -29,6 +29,9 @@ public class PlazaProjectGroupVO {
     @Schema(description = "封面图URL")
     private String coverUrl;
 
+    @Schema(description = "缩略图URL")
+    private String thumbnailUrl;
+
     @Schema(description = "缺人任务总数")
     private Integer pendingCount;
 

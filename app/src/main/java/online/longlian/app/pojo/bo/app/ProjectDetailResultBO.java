@@ -17,6 +17,7 @@ public class ProjectDetailResultBO {
     private String title;
     private String alias;
     private String coverUrl;
+    private String thumbnailUrl;
     private String typeName;
     private String metadata;
     private String description;

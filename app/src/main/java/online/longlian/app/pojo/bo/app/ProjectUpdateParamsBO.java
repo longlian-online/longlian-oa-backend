@@ -19,5 +19,6 @@ public class ProjectUpdateParamsBO {
     private String metadata;
     private String description;
     private Long coverFileId;
+    private Long thumbnailFileId;
     private ProjectStatus status;
 }

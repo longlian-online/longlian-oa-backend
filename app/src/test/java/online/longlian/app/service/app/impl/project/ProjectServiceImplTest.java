@@ -48,6 +48,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -204,7 +205,8 @@ class ProjectServiceImplTest {
         verify(projectMapper).update(any(), updateCaptor.capture());
         assertThat(updateCaptor.getValue().getSqlSet())
                 .contains("title", "alias", "metadata", "description", "updated_at")
-                .doesNotContain("cover_file_id");
+                .doesNotContain("cover_file_id")
+                .doesNotContain("thumbnail_file_id");
         verify(resourceService, never()).bindBizResource(any());
     }
 
@@ -229,6 +231,82 @@ class ProjectServiceImplTest {
         verify(resourceService).bindBizResource(bindCaptor.capture());
         assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(21L);
         assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(20L);
+    }
+
+    @Test
+    void createProject_withThumbnail_bindsThumbnailSeparatelyFromCover() {
+        when(projectTypeMapper.selectById(10L)).thenReturn(
+                ProjectType.builder().id(10L).orgId(1L).status(Status.ENABLED).build());
+        doAnswer(invocation -> {
+            invocation.getArgument(0, Project.class).setId(100L);
+            return 1;
+        }).when(projectMapper).insert(any(Project.class));
+
+        service.createProject(ProjectCreateParamsBO.builder()
+                .orgId(1L)
+                .creatorId(2L)
+                .title("测试企划")
+                .alias("alias")
+                .typeId(10L)
+                .metadata("{\"tags\":[]}")
+                .description("描述")
+                .coverFileId(20L)
+                .thumbnailFileId(21L)
+                .build());
+
+        ArgumentCaptor<Project> projectCaptor = ArgumentCaptor.forClass(Project.class);
+        verify(projectMapper).insert(projectCaptor.capture());
+        assertThat(projectCaptor.getValue().getThumbnailFileId()).isEqualTo(21L);
+        ArgumentCaptor<ResourceBindParamsBO> bindCaptor = ArgumentCaptor.forClass(ResourceBindParamsBO.class);
+        verify(resourceService, times(2)).bindBizResource(bindCaptor.capture());
+        assertThat(bindCaptor.getAllValues())
+                .anySatisfy(bind -> {
+                    assertThat(bind.getBizType()).isEqualTo("thumbnail");
+                    assertThat(bind.getResourceId()).isEqualTo(21L);
+                    assertThat(bind.getBizId()).isEqualTo(100L);
+                });
+    }
+
+    @Test
+    void updateProject_withThumbnail_replacesThumbnailWithoutCover() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L)
+                .coverFileId(20L).thumbnailFileId(30L).resourceStatus(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .thumbnailFileId(31L).build());
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(projectMapper).update(any(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet())
+                .contains("thumbnail_file_id")
+                .doesNotContain("cover_file_id");
+        ArgumentCaptor<ResourceBindParamsBO> bindCaptor = ArgumentCaptor.forClass(ResourceBindParamsBO.class);
+        verify(resourceService).bindBizResource(bindCaptor.capture());
+        assertThat(bindCaptor.getValue().getBizType()).isEqualTo("thumbnail");
+        assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(31L);
+        assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(30L);
+    }
+
+    @Test
+    void getProjectDetail_returnsThumbnailUrl() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).title("测试企划")
+                .coverFileId(20L).thumbnailFileId(21L).resourceStatus(Status.ENABLED).build());
+        when(resourceService.getResourceReadUrl(20L)).thenReturn("https://cdn/cover.png");
+        when(resourceService.getResourceReadUrl(21L)).thenReturn("https://cdn/thumb.png");
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0).claimedTaskCount(0).pendingTaskCount(0).build());
+
+        ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(result.getCoverUrl()).isEqualTo("https://cdn/cover.png");
+        assertThat(result.getThumbnailUrl()).isEqualTo("https://cdn/thumb.png");
     }
 
     @Test
