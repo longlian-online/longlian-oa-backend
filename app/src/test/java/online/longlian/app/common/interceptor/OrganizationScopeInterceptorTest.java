@@ -75,6 +75,20 @@ class OrganizationScopeInterceptorTest {
     }
 
     @Test
+    void shouldGrantAdminAuthorityToOwnerWithoutDroppingOwnerRole() throws Exception {
+        authenticateUser();
+        request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "12");
+        when(organizationMembershipService.requireEnabledMember(1L, 12L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(12L).userId(1L).orgRole("ORG_OWNER").status(Status.ENABLED).build());
+
+        assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isTrue();
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_ORG_OWNER", "ROLE_ORG_ADMIN");
+    }
+
+    @Test
     void shouldRejectMissingHeaderWhenMethodRequiresOrganization() throws Exception {
         authenticateUser();
 

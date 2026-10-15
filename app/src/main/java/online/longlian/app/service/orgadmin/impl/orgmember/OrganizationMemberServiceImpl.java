@@ -106,7 +106,8 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     @Override
     public void changeMemberStatus(@NonNull OrgMemberChangeStatusParamsBO params) {
         changeMemberUnderLock(params.getOrgId(), () -> {
-            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
+            requireEnabledOperator(params.getOrgId(), params.getOperatorUserId(),
+                    InviteConstants.ROLE_ORG_ADMIN, InviteConstants.ROLE_ORG_OWNER);
             OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
             memberStatusHandler.validateNotAdminDisable(member, params.getStatus());
             memberStatusHandler.updateMemberStatus(member, params.getStatus());
@@ -114,16 +115,20 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     /**
-     * 调整成员在当前组织内的角色。
+     * 调整成员在当前组织内的角色。只有所有者可以操作，且不能改动或分配所有者。
      */
     @Override
     public void changeMemberRole(@NonNull OrgMemberChangeRoleParamsBO params) {
         changeMemberUnderLock(params.getOrgId(), () -> {
-            validateRoleOperator(params.getOrgId(), params.getOperatorUserId());
-            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
-            if (isDemotingEnabledAdmin(member, params.getOrgRole().name())) {
-                validateNotLastEnabledAdmin(params.getOrgId());
+            requireEnabledOperator(params.getOrgId(), params.getOperatorUserId(), InviteConstants.ROLE_ORG_OWNER);
+            if (InviteConstants.ROLE_ORG_OWNER.equals(params.getOrgRole().name())) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "不能分配组织所有者");
             }
+            OrganizationMember member = memberStatusHandler.getAndValidateMember(params.getMemberId(), params.getOrgId());
+            if (InviteConstants.ROLE_ORG_OWNER.equals(member.getOrgRole())) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "不能修改组织所有者的角色");
+            }
+
             updateMemberRole(member.getId(), params.getOrgRole().name());
         });
     }
@@ -141,37 +146,25 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     }
 
     /**
-     * 入口鉴权可能早于另一管理员的降级操作，修改前必须按数据库中的当前身份重新授权。
+     * 入口鉴权可能早于角色被改掉，修改前必须按数据库中的当前身份重新授权。
      */
-    private void validateRoleOperator(Long orgId, Long operatorUserId) {
+    private void requireEnabledOperator(Long orgId, Long operatorUserId, String... allowedRoles) {
         OrganizationMember operator = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
                 .eq(OrganizationMember::getOrgId, orgId)
                 .eq(OrganizationMember::getUserId, operatorUserId));
-        if (operator == null || operator.getStatus() != Status.ENABLED
-                || !InviteConstants.ROLE_ORG_ADMIN.equals(operator.getOrgRole())) {
+        if (operator == null || operator.getStatus() != Status.ENABLED || !hasRole(operator.getOrgRole(), allowedRoles)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "当前用户无权调整组织成员");
         }
     }
 
-    private boolean isDemotingEnabledAdmin(OrganizationMember member, String targetRole) {
-        return InviteConstants.ROLE_ORG_USER.equals(targetRole)
-                && InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
-                && member.getStatus() == Status.ENABLED;
-    }
-
-    /**
-     * 组织必须至少保留一名启用状态的管理员，否则成员会失去全部管理入口。
-     */
-    private void validateNotLastEnabledAdmin(Long orgId) {
-        long enabledAdminCount = organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
-                .eq(OrganizationMember::getOrgId, orgId)
-                .eq(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_ADMIN)
-                .eq(OrganizationMember::getStatus, Status.ENABLED));
-        if (enabledAdminCount <= 1) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "组织至少保留一名管理员");
+    private boolean hasRole(String role, String... allowedRoles) {
+        for (String allowedRole : allowedRoles) {
+            if (allowedRole.equals(role)) {
+                return true;
+            }
         }
+        return false;
     }
-
 
     @Override
     public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params) {

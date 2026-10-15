@@ -52,6 +52,9 @@ public class UserApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        org.junit.jupiter.api.Assertions.assertEquals("ORG_OWNER", jdbcTemplate.queryForObject(
+                "SELECT m.org_role FROM organization_member m JOIN `user` u ON u.id = m.user_id WHERE u.username = ?",
+                String.class, "newuser_" + userId));
     }
 
     @Test

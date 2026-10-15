@@ -73,7 +73,7 @@ public class UserController {
 
     @Operation(
         summary = "通过邀请码注册并创建组织",
-        description = "使用超管生成的邀请码完成注册，并创建组织成为组织管理员",
+        description = "使用超管生成的邀请码完成注册，并创建组织成为组织所有者",
         security = {}
     )
     @PostMapping("/register/create-organization")

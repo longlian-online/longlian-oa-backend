@@ -71,7 +71,7 @@ class OrganizationMemberServiceImplTest {
         transactions = new RecordingTransactionManager();
         lock = mock(DistributedLockService.Lock.class);
         lenient().when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
-        lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
+        lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_OWNER, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
                 otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
                 memberStatusHandler, memberSubmissionHandler, lockService, transactions);
@@ -95,41 +95,15 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
-    void shouldRejectLastEnabledAdminAndRollback() {
+    void shouldDemoteEnabledAdminWhileOwnerRemains() {
         when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织至少保留一名管理员")
-                .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-
-        verify(lock).close();
-        verify(organizationMemberMapper, never()).update(eq(null), any());
-        assertThat(transactions.rollbacks).isEqualTo(1);
-    }
-
-    @Test
-    void shouldAllowDowngradeWhenAnotherEnabledAdminRemains() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(2L);
 
         service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER));
 
         verify(organizationMemberMapper).update(eq(null), any());
+        verify(organizationMemberMapper, never()).selectCount(any());
         verify(lock).close();
-    }
-
-    @Test
-    void shouldCheckLatestRoleEvenWhenTargetWasPromotedBeforeLock() {
-        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
-        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
-
-        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("组织至少保留一名管理员");
-
-        verify(organizationMemberMapper, never()).update(eq(null), any());
+        assertThat(transactions.rollbacks).isEqualTo(0);
     }
 
     @Test
@@ -156,6 +130,33 @@ class OrganizationMemberServiceImplTest {
         verify(memberStatusHandler, never()).getAndValidateMember(anyLong(), anyLong());
         verify(organizationMemberMapper, never()).update(eq(null), any());
         verify(lock).close();
+    }
+
+    @Test
+    void shouldRejectAdminOperatorBeforeReadingTarget() {
+        when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
+
+        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
+                .isInstanceOf(AppException.class)
+                .extracting("code").isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+
+        verify(memberStatusHandler, never()).getAndValidateMember(anyLong(), anyLong());
+        verify(organizationMemberMapper, never()).update(eq(null), any());
+    }
+
+    @Test
+    void shouldRejectAssigningOrChangingOwner() {
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_ADMIN, Status.ENABLED));
+
+        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_OWNER)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("不能分配组织所有者");
+        when(memberStatusHandler.getAndValidateMember(2L, 1L)).thenReturn(member(InviteConstants.ROLE_ORG_OWNER, Status.ENABLED));
+        assertThatThrownBy(() -> service.changeMemberRole(roleParams(InviteConstants.ROLE_ORG_USER)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("不能修改组织所有者的角色");
+
+        verify(organizationMemberMapper, never()).update(eq(null), any());
     }
 
     @Test

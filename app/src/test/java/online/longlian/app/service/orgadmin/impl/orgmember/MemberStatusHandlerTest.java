@@ -77,6 +77,15 @@ class MemberStatusHandlerTest {
     }
 
     @Test
+    void validateNotAdminDisable_ownerDisable_throws() {
+        OrganizationMember owner = OrganizationMember.builder().id(1L).orgRole("ORG_OWNER").build();
+
+        assertThatThrownBy(() -> handler.validateNotAdminDisable(owner, Status.DISABLED))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("管理员不可被禁用");
+    }
+
+    @Test
     void validateNotAdminDisable_adminEnable_noException() {
         OrganizationMember admin = OrganizationMember.builder().id(1L).orgRole("ORG_ADMIN").build();
         handler.validateNotAdminDisable(admin, Status.ENABLED);

@@ -32,7 +32,8 @@ public class MemberStatusHandler {
     }
 
     public void validateNotAdminDisable(OrganizationMember member, Status targetStatus) {
-        if (targetStatus == Status.DISABLED && InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())) {
+        if (targetStatus == Status.DISABLED && (InviteConstants.ROLE_ORG_ADMIN.equals(member.getOrgRole())
+                || InviteConstants.ROLE_ORG_OWNER.equals(member.getOrgRole()))) {
             throw new AppException(ResultCode.OPERATION_FAIL, "管理员不可被禁用");
         }
     }

@@ -181,8 +181,8 @@ public class OrganizationMemberController {
         );
     }
 
-    @Operation(summary = "调整成员组织角色")
-    @PatchMapping("/{memberId}/role")
+    @Operation(summary = "调整成员组织角色", description = "仅组织所有者可调整。不能修改所有者，也不能把成员设为所有者。")
+    @PreAuthorize("hasRole('ORG_OWNER')")
     @ResponseMessage("角色修改成功")
     public void changeMemberRole(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                  @PathVariable Long memberId,

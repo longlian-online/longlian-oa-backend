@@ -280,13 +280,15 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     }
     @Test
     void shouldPromoteAndDemoteMemberWithinOrganization() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         createTestUser(3L, "secondadmin", "123456", "secondadmin@example.com");
         createOrganization(3L, "其他组织");
         createOrganizationMember(3L, 3L, 3L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
+        createTestUser(4L, "orgadmin", "123456", "orgadmin@example.com");
+        createOrganizationMember(4L, 1L, 4L, "ORG_ADMIN");
+        String token = loginAs("owner", "123456");
 
         authRequest(token).body(Map.of("orgRole", "ORG_ADMIN")).patch("/orgadmin/members/2/role")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -301,12 +303,26 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,组织至少保留一名管理员"));
+                .body("msg", equalTo("操作失败,不能修改组织所有者的角色"));
+        authRequest(token).body(Map.of("orgRole", "ORG_OWNER")).patch("/orgadmin/members/2/role")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,不能分配组织所有者"));
+        authRequest(loginAs("orgadmin", "123456")).body(Map.of("orgRole", "ORG_USER"))
+                .patch("/orgadmin/members/2/role")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/4/role")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 1", String.class)).isEqualTo("ORG_OWNER");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 3", String.class)).isEqualTo("ORG_ADMIN");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 4", String.class)).isEqualTo("ORG_USER");
     }
 
     @Test
