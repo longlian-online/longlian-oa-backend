@@ -474,7 +474,9 @@ class UserServiceImplTest {
         verify(userMapper).update(isNull(), captor.capture());
         assertThat(captor.getValue().getSqlSet()).contains("password");
         verify(userMapper, never()).updateById(any(User.class));
-        verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
+        var order = inOrder(sessionService, tokenBlacklistService);
+        order.verify(sessionService).revokeRefreshSessions(userId);
+        order.verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
     }
 
     private void runWithTransactionCommit(Runnable action) {

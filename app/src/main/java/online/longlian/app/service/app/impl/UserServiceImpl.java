@@ -438,7 +438,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, user.getId())
                 .set(User::getPassword, encodedPassword));
-        // 密码一变，此前签发的 token 全部作废；黑名单是鉴权链上的统一校验入口
+        // 先作废刷新会话，再写入访问凭证截点。截点取在刷新锁释放之后，并发换发的新访问凭证也会落在截点之前。
+        sessionService.revokeRefreshSessions(user.getId());
         tokenBlacklistService.blacklistAllUserTokens(TokenType.User, user.getId(), "密码变更");
     }
 
