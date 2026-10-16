@@ -75,10 +75,14 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
             OrganizationMember member = organizationMembershipService.requireEnabledMember(user.getId(), orgId);
             OrganizationRole.fromValue(member.getOrgRole());
             // 替换而不是追加：登录缓存里的旧角色不能跟到这次声明的组织。
+            // 组织管理接口只声明 ORG_ADMIN。所有者要沿用这些接口，同时保留 ORG_OWNER 供角色调整单独校验。
             UsernamePasswordAuthenticationToken replaced = new UsernamePasswordAuthenticationToken(
                     user,
                     authentication.getCredentials(),
-                    List.of(new SimpleGrantedAuthority("ROLE_" + member.getOrgRole())));
+                    OrganizationRole.ORG_OWNER.name().equals(member.getOrgRole())
+                            ? List.of(new SimpleGrantedAuthority("ROLE_" + member.getOrgRole()),
+                                    new SimpleGrantedAuthority("ROLE_" + OrganizationRole.ORG_ADMIN.name()))
+                            : List.of(new SimpleGrantedAuthority("ROLE_" + member.getOrgRole())));
             SecurityContextHolder.getContext().setAuthentication(replaced);
             request.setAttribute(SCOPE_ATTRIBUTE,
                     new OrganizationScope(member.getOrgId(), member.getId(), member.getOrgRole()));

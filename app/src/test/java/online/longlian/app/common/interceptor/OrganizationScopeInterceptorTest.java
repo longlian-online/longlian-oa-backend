@@ -75,6 +75,20 @@ class OrganizationScopeInterceptorTest {
     }
 
     @Test
+    void shouldGrantAdminAuthorityToOwnerWithoutDroppingOwnerRole() throws Exception {
+        authenticateUser();
+        request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "12");
+        when(organizationMembershipService.requireEnabledMember(1L, 12L)).thenReturn(
+                OrganizationMember.builder().id(9L).orgId(12L).userId(1L).orgRole("ORG_OWNER").status(Status.ENABLED).build());
+
+        assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isTrue();
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_ORG_OWNER", "ROLE_ORG_ADMIN");
+    }
+
+    @Test
     void shouldRejectMissingHeaderWhenMethodRequiresOrganization() throws Exception {
         authenticateUser();
 
@@ -203,6 +217,26 @@ class OrganizationScopeInterceptorTest {
 
         verifyNoInteractions(organizationMembershipService);
         assertThat(JSON.parseObject(response.getContentAsString()).getString("msg")).contains("组织声明重复");
+    }
+
+    @Test
+    void shouldIgnoreRequestWhenHandlerIsNotAMethod() throws Exception {
+        assertThat(interceptor.preHandle(request, response, new Object())).isTrue();
+
+        verifyNoInteractions(organizationMembershipService);
+    }
+
+    @Test
+    void shouldRejectWhenAuthenticatedPrincipalIsNotAUser() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("anonymous", null, List.of()));
+        request.addHeader(OrganizationScopeInterceptor.ORG_ID_HEADER, "12");
+
+        assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isFalse();
+
+        verifyNoInteractions(organizationMembershipService);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(JSON.parseObject(response.getContentAsString()).getString("msg")).contains("组织不能为空");
     }
 
     private void authenticateUser() {

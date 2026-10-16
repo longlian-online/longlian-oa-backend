@@ -4,7 +4,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 
 public enum OrganizationRole {
-    ORG_ADMIN, ORG_USER;
+    ORG_OWNER, ORG_ADMIN, ORG_USER;
 
     public static OrganizationRole fromValue(String value) {
         for (OrganizationRole role : values()) {

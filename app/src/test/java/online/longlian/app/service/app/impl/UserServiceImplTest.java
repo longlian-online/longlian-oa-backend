@@ -451,6 +451,22 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldAssignOwnerWhenRegisteringAndCreatingOrganization() {
+        stubRegisterValidation();
+        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        UserRegisterByInviteParamsBO params = registerParams();
+        params.setOrgName("测试组织");
+
+        service.registerAndCreateOrganizationByInvite(params);
+
+        ArgumentCaptor<OrganizationMember> memberCaptor = ArgumentCaptor.forClass(OrganizationMember.class);
+        verify(organizationMemberMapper).insert(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getOrgRole()).isEqualTo("ORG_OWNER");
+    }
+
+    @Test
     void shouldRejectJoinRegistrationWhenApplicationIsAlreadyPending() {
         stubRegisterValidation();
         stubJoinInvite();
