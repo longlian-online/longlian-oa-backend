@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 /**
  * 任务广场服务实现：一次请求内完成 企划聚合分页 → 组内实例行 → 阶段推导 → 装配，避免逐条目 N+1。
@@ -73,7 +74,9 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                                         List::copyOf)));
 
         List<PlazaProjectGroupVO> groups = taskPlazaAssembler.assembleGroups(
-                summaries, rows, itemSorts, loadCoverUrls(summaries));
+                summaries, rows, itemSorts,
+                loadImageUrls(summaries, PlazaProjectSummaryBO::getCoverFileId),
+                loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId));
         return new PageResultVO<>(groups, total);
     }
 
@@ -102,20 +105,23 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 .replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
     }
 
-    private Map<Long, String> loadCoverUrls(List<PlazaProjectSummaryBO> summaries) {
-        List<Long> coverFileIds = summaries.stream()
-                .map(PlazaProjectSummaryBO::getCoverFileId)
+    private Map<Long, String> loadImageUrls(List<PlazaProjectSummaryBO> summaries,
+                                            Function<PlazaProjectSummaryBO, Long> fileIdOf) {
+        List<Long> fileIds = summaries.stream()
+                .map(fileIdOf)
                 .filter(id -> id != null && id > 0)
                 .distinct()
                 .toList();
-        if (coverFileIds.isEmpty()) {
+        if (fileIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        Map<Long, ResourceReadUrlGetResultBO> urlMap = resourceService.getResourceReadUrls(coverFileIds);
+        Map<Long, ResourceReadUrlGetResultBO> urlMap = resourceService.getResourceReadUrls(fileIds);
         return summaries.stream()
-                .filter(summary -> summary.getCoverFileId() != null && summary.getCoverFileId() > 0)
-                .filter(summary -> urlMap.containsKey(summary.getCoverFileId()))
+                .filter(summary -> {
+                    Long fileId = fileIdOf.apply(summary);
+                    return fileId != null && fileId > 0 && urlMap.containsKey(fileId);
+                })
                 .collect(Collectors.toMap(PlazaProjectSummaryBO::getProjectId,
-                        summary -> urlMap.get(summary.getCoverFileId()).getUrl()));
+                        summary -> urlMap.get(fileIdOf.apply(summary)).getUrl()));
     }
 }

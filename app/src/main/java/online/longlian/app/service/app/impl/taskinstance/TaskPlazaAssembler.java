@@ -26,11 +26,13 @@ public class TaskPlazaAssembler {
      * @param rows                上述企划匹配范围内的任务实例行（含已占用槽位）
      * @param itemSorts           条目ID → 全部阶段 sort 值（升序去重）
      * @param coverUrlByProjectId 企划ID → 封面图URL
+     * @param thumbnailUrlByProjectId 企划ID → 缩略图URL
      */
     public List<PlazaProjectGroupVO> assembleGroups(List<PlazaProjectSummaryBO> summaries,
                                                     List<PlazaTaskRowBO> rows,
                                                     Map<Long, List<Integer>> itemSorts,
-                                                    Map<Long, String> coverUrlByProjectId) {
+                                                    Map<Long, String> coverUrlByProjectId,
+                                                    Map<Long, String> thumbnailUrlByProjectId) {
         if (summaries.isEmpty()) {
             return Collections.emptyList();
         }
@@ -41,14 +43,15 @@ public class TaskPlazaAssembler {
         return summaries.stream()
                 .map(summary -> assembleGroup(summary,
                         rowsByProject.getOrDefault(summary.getProjectId(), Collections.emptyList()),
-                        itemSorts, coverUrlByProjectId))
+                        itemSorts, coverUrlByProjectId, thumbnailUrlByProjectId))
                 .toList();
     }
 
     private PlazaProjectGroupVO assembleGroup(PlazaProjectSummaryBO summary,
                                               List<PlazaTaskRowBO> projectRows,
                                               Map<Long, List<Integer>> itemSorts,
-                                              Map<Long, String> coverUrlByProjectId) {
+                                              Map<Long, String> coverUrlByProjectId,
+                                              Map<Long, String> thumbnailUrlByProjectId) {
         // (条目, 阶段) 分组保持行序；SQL 已按 条目→阶段→并行组→创建时间 排序
         Map<String, List<PlazaTaskRowBO>> slotGroups = projectRows.stream()
                 .collect(Collectors.groupingBy(TaskPlazaAssembler::slotKey,
@@ -88,6 +91,7 @@ public class TaskPlazaAssembler {
                 .title(summary.getTitle())
                 .typeName(summary.getTypeName())
                 .coverUrl(coverUrlByProjectId.get(summary.getProjectId()))
+                .thumbnailUrl(thumbnailUrlByProjectId.get(summary.getProjectId()))
                 .pendingCount(summary.getPendingCount().intValue())
                 .itemCount(summary.getItemCount().intValue())
                 .tasks(tasks)

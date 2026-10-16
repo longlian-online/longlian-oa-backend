@@ -108,6 +108,7 @@ public class ProjectController {
                         .metadata(projectCreateDTO.getMetadata())
                         .description(projectCreateDTO.getDescription())
                         .coverFileId(projectCreateDTO.getCoverFileId())
+                        .thumbnailFileId(projectCreateDTO.getThumbnailFileId())
                         .build());
     }
 
@@ -128,6 +129,7 @@ public class ProjectController {
                         .metadata(projectUpdateDTO.getMetadata())
                         .description(projectUpdateDTO.getDescription())
                         .coverFileId(projectUpdateDTO.getCoverFileId())
+                        .thumbnailFileId(projectUpdateDTO.getThumbnailFileId())
                         .status(projectUpdateDTO.getStatus())
                         .build());
     }

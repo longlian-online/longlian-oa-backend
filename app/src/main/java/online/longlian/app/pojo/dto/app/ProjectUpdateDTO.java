@@ -32,6 +32,10 @@ public class ProjectUpdateDTO {
     @Schema(type = "string", description = "封面文件ID；省略时保留原封面")
     private Long coverFileId;
 
+    @JsonLongIdString
+    @Schema(type = "string", description = "缩略图文件ID；省略时保留原缩略图")
+    private Long thumbnailFileId;
+
     @Schema(description = "目标状态：进行中/已完成；已归档不允许选择，不传则保持原状态")
     private ProjectStatus status;
 }

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
@@ -54,8 +55,13 @@ public class ResourceService {
     private final Clock clock;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
+        if ("thumbnail".equals(params.getBizType())
+                && params.getFileSize() != null
+                && params.getFileSize() > CommonConstants.FILE_THUMBNAIL_MAX_SIZE) {
+            throw new AppException(ResultCode.PARAM_ERROR, "缩略图不能超过1MB");
+        }
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
-            throw new AppException(ResultCode.PARAM_ERROR, "头像和封面只能上传图片");
+            throw new AppException(ResultCode.PARAM_ERROR, "头像、封面和缩略图只能上传图片");
         }
         // 1. 生成文件ID
         long fileId = IdWorker.getId();
@@ -379,7 +385,7 @@ public class ResourceService {
     }
 
     private boolean isImageBusiness(String bizType) {
-        return "avatar".equals(bizType) || "cover".equals(bizType);
+        return "avatar".equals(bizType) || "cover".equals(bizType) || "thumbnail".equals(bizType);
     }
 
 }

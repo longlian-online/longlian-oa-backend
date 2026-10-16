@@ -1,6 +1,9 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.common.properties.StorageProperties;
+import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
@@ -21,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
 public class ResourceServiceTest {
@@ -105,5 +109,25 @@ public class ResourceServiceTest {
         ResourceCreateVO vo = resourceService.create(params);
 
         assertThat(vo.getContentDisposition()).isNull();
+    }
+
+    @Test
+    void create_thumbnailLargerThanOneMegabyte_rejectedBeforeInsert() {
+        assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "thumb.png", "png", CommonConstants.FILE_THUMBNAIL_MAX_SIZE + 1, "image/png", "thumbnail")))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                    assertThat(ex.getMessage()).contains("1MB");
+                });
+        Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_thumbnailNonImage_rejected() {
+        assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "thumb.pdf", "pdf", 100L, "application/pdf", "thumbnail")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("只能上传图片");
+        Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
     }
 }

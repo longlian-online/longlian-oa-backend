@@ -334,6 +334,98 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 创建时写入缩略图，编辑省略缩略图时保留，再次提交则替换。
+     */
+    @Test
+    void shouldSaveAndReplaceProjectThumbnail() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        createResource(2L, 1L, 1L);
+        createResource(3L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'thumbnail', storage_key = 'thumbnail/2.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 2L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'thumbnail', storage_key = 'thumbnail/3.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 3L);
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "带缩略图企划",
+                        "alias", "alias",
+                        "typeId", "1",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "coverFileId", "1",
+                        "thumbnailFileId", "2"))
+                .post("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM `project` WHERE title = ?", Long.class, "带缩略图企划");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT thumbnail_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(2L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 2", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+
+        authRequest(token)
+                .get("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("data.thumbnailUrl", notNullValue());
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("data.list[0].thumbnailUrl", notNullValue())
+                .body("data.list[0].coverUrl", notNullValue());
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "带缩略图企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "只改文字"))
+                .put("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT thumbnail_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(2L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "带缩略图企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "换缩略图",
+                        "thumbnailFileId", "3"))
+                .put("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT thumbnail_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(3L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT cover_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 2", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 3", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
      * 更新企划成功
      */
     @Test

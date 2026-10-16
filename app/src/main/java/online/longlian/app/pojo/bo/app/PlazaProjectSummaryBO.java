@@ -18,6 +18,8 @@ public class PlazaProjectSummaryBO {
 
     private Long coverFileId;
 
+    private Long thumbnailFileId;
+
     /** 缺人（可接取）任务数 */
     private Long pendingCount;
 

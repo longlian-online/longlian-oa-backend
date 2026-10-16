@@ -86,7 +86,7 @@ class TaskPlazaServiceImplTest {
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
         PlazaProjectGroupVO group = PlazaProjectGroupVO.builder().projectId(100L).build();
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap()))
                 .thenReturn(List.of(group));
 
         PageResultVO<PlazaProjectGroupVO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
@@ -109,10 +109,10 @@ class TaskPlazaServiceImplTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Long, List<Integer>>> sortsCaptor =
                 ArgumentCaptor.forClass(Map.class);
-        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), sortsCaptor.capture(), anyMap());
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), sortsCaptor.capture(), anyMap(), anyMap());
         assertThat(sortsCaptor.getValue()).containsEntry(200L, List.of(1, 2));
         verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(),
-                eq(Map.of(100L, "http://cover/7")));
+                eq(Map.of(100L, "http://cover/7")), eq(Map.of()));
     }
 
     @Test
@@ -180,7 +180,7 @@ class TaskPlazaServiceImplTest {
         when(taskInstanceMapper.selectPlazaTaskRows(any(), anyList())).thenReturn(List.of());
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap()))
                 .thenReturn(List.of());
 
         service.getTaskPlaza(params(PlazaSortBy.LATEST));
@@ -188,7 +188,7 @@ class TaskPlazaServiceImplTest {
         verify(resourceService).getResourceReadUrls(List.of(7L));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Long, String>> coverCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(), coverCaptor.capture());
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(), coverCaptor.capture(), anyMap());
         assertThat(coverCaptor.getValue()).containsOnlyKeys(101L);
     }
 

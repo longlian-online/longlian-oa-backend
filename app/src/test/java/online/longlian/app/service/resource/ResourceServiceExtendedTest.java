@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
+import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -382,6 +383,42 @@ class ResourceServiceExtendedTest {
 
         assertThatThrownBy(() -> resourceService.loadActivated("missing.png"))
                 .isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void getResourceReadUrl_taskSubmitWithoutCdn_requestsAttachmentUrl() {
+        StorageProperties props = new StorageProperties();
+        props.setType(StorageType.OSS);
+        ResourceService plain = new ResourceService(resourceMapper, storageFactory,
+                new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
+                new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK),
+                props, CLOCK);
+        Resource resource = Resource.builder()
+                .id(1L).storageKey("task_submit/1.pdf").storageType(StorageType.OSS).orgId(1L)
+                .bizType("task_submit").fileName("brief.pdf").build();
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource));
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        when(storageService.getResourceReadUrl(eq("task_submit/1.pdf"), any())).thenReturn("https://storage/brief.pdf");
+
+        assertThat(plain.getResourceReadUrl(1L)).isEqualTo("https://storage/brief.pdf");
+    }
+
+    @Test
+    void findActivated_emptyIds_returnsEmpty() {
+        assertThat(resourceService.findActivated("cover", 1L, 1L, List.of())).isEmpty();
+    }
+
+    @Test
+    void signActivated_empty_returnsEmpty() {
+        assertThat(resourceService.signActivated(List.<ActivatedResource>of())).isEmpty();
+    }
+
+    @Test
+    void bindBizResource_nullBizType_isRejected() {
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权使用该文件");
     }
 
     private Resource pendingResource(Long id) {

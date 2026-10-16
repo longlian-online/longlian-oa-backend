@@ -36,4 +36,8 @@ public class ProjectCreateDTO {
     @JsonLongIdString
     @Schema(type = "string", description = "封面文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long coverFileId;
+
+    @JsonLongIdString
+    @Schema(type = "string", description = "缩略图文件ID；省略时不设置缩略图")
+    private Long thumbnailFileId;
 }

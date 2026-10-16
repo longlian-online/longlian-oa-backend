@@ -25,6 +25,9 @@ public class ProjectDetailInfoVO {
     @Schema(description = "封面图片URL")
     private String coverUrl;
 
+    @Schema(description = "缩略图URL")
+    private String thumbnailUrl;
+
     @Schema(description = "企划类型名称")
     private String typeName;
 

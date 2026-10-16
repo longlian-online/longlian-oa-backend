@@ -79,6 +79,13 @@ public class Project implements Serializable {
     private Long coverFileId;
 
     /**
+     * 缩略图
+     */
+    @ApiModelProperty("缩略图")
+    @TableField("thumbnail_file_id")
+    private Long thumbnailFileId;
+
+    /**
      * 简介
      */
     @ApiModelProperty("简介")

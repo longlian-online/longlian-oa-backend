@@ -20,7 +20,7 @@ class TaskPlazaAssemblerTest {
     @Test
     void assembleGroups_emptySummaries_returnsEmpty() {
         List<PlazaProjectGroupVO> result = assembler.assembleGroups(
-                List.of(), List.of(), Map.of(), Map.of());
+                List.of(), List.of(), Map.of(), Map.of(), Map.of());
 
         assertThat(result).isEmpty();
     }
@@ -34,13 +34,15 @@ class TaskPlazaAssemblerTest {
         Map<Long, List<Integer>> itemSorts = Map.of(200L, List.of(1, 2));
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
-                List.of(summary), List.of(completed, pending), itemSorts, Map.of(100L, "http://cover/100"));
+                List.of(summary), List.of(completed, pending), itemSorts,
+                Map.of(100L, "http://cover/100"), Map.of(100L, "http://thumb/100"));
 
         assertThat(groups).hasSize(1);
         PlazaProjectGroupVO group = groups.getFirst();
         assertThat(group.getProjectId()).isEqualTo(100L);
         assertThat(group.getTitle()).isEqualTo("企划A");
         assertThat(group.getCoverUrl()).isEqualTo("http://cover/100");
+        assertThat(group.getThumbnailUrl()).isEqualTo("http://thumb/100");
         assertThat(group.getPendingCount()).isEqualTo(2);
         assertThat(group.getItemCount()).isEqualTo(1);
         assertThat(group.getTasks()).hasSize(1);
@@ -66,7 +68,7 @@ class TaskPlazaAssemblerTest {
                 201L, List.of(1));
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
-                List.of(summary), List.of(itemAStage1, itemAStage2, itemBStage1), itemSorts, Map.of());
+                List.of(summary), List.of(itemAStage1, itemAStage2, itemBStage1), itemSorts, Map.of(), Map.of());
 
         assertThat(groups).hasSize(1);
         assertThat(groups.getFirst().getTasks()).hasSize(3);
@@ -87,7 +89,7 @@ class TaskPlazaAssemblerTest {
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
                 List.of(summary(100L, "企划A", 1L, 1L), summary(101L, "企划B", 1L, 1L)),
-                List.of(projectATask, projectBTask), itemSorts, Map.of());
+                List.of(projectATask, projectBTask), itemSorts, Map.of(), Map.of());
 
         assertThat(groups).hasSize(2);
         assertThat(groups.get(0).getProjectId()).isEqualTo(100L);

@@ -49,6 +49,13 @@ public class WorkshopAssembler {
                 : resourceService.getResourceReadUrls(coverFileIds).entrySet().stream()
                         .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
+        List<Long> thumbnailFileIds = projects.stream()
+                .map(Project::getThumbnailFileId).filter(id -> id != null && id > 0).distinct().toList();
+        Map<Long, String> thumbnailUrlMap = thumbnailFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(thumbnailFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+
         List<Long> creatorIds = projects.stream().map(Project::getCreatorId).distinct().toList();
         Map<Long, User> userMap = userMapper.selectBatchIds(creatorIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
@@ -67,6 +74,7 @@ public class WorkshopAssembler {
                     workshopProjectInfoVO.setId(project.getId());
                     workshopProjectInfoVO.setTitle(project.getTitle());
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
+                    workshopProjectInfoVO.setThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId()));
                     if (creator != null && creator.getAvatarFileId() != null) {
                         workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
                     }
