@@ -306,6 +306,31 @@ class LocalStorageServiceTest {
     }
 
     @Test
+    void shouldAcceptBrowserEncodedWebp(@TempDir Path directory) throws IOException {
+        LocalStorageService storageService = storageService(directory);
+        byte[] webp = java.util.Base64.getDecoder().decode(
+                "UklGRkAAAABXRUJQVlA4IDQAAAAwAgCdASoCAAIAAMASJaACdLoB+AH4AARoAAD++iGX/3easNN39a3/9aOfron+tHP/WVgA");
+
+        storageService.upload(writeParams("thumbnail/1.webp", webp, webp.length, "image/webp"));
+        storageService.probe(new ResourceProbeParamsBO("thumbnail/1.webp", (long) webp.length, "image/webp"));
+
+        assertThat(storageService.getResource("thumbnail/1.webp").getContentAsByteArray()).isEqualTo(webp);
+    }
+
+    @Test
+    void shouldRejectTruncatedWebpWithoutKeepingFile(@TempDir Path directory) {
+        LocalStorageService storageService = storageService(directory);
+        byte[] webp = java.util.Base64.getDecoder().decode(
+                "UklGRkAAAABXRUJQVlA4IDQAAAAwAgCdASoCAAIAAMASJaACdLoB+AH4AARoAAD++iGX/3easNN39a3/9aOfron+tHP/WVgA");
+        byte[] truncated = Arrays.copyOf(webp, 24);
+
+        assertThatThrownBy(() -> storageService.upload(
+                writeParams("thumbnail/1.webp", truncated, truncated.length, "image/webp")))
+                .isInstanceOf(AppException.class);
+        assertThat(directory.resolve("thumbnail/1.webp")).doesNotExist();
+    }
+
+    @Test
     void shouldRejectPathTraversal(@TempDir Path directory) {
         LocalStorageService storageService = storageService(directory);
 

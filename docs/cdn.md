@@ -18,6 +18,8 @@ COS GET 预签名每次带不同的 `q-sign-*` 参数，CDN 无法复用缓存�
 
 `POST /common/file/upload` 的封面（`cover`）和缩略图（`thumbnail`）最大为 10MB（10 × 1024 × 1024 字节，含边界）。超过上限时返回参数错误，不创建资源或签发上传链接；头像和任务附件保留原有 50MB 上限。WebP 已在扩展名和 MIME 白名单内，前端负责将超过 1MB 的封面、缩略图转换为 WebP，并提交转换后的文件信息。
 
+LOCAL 存储通过 TwelveMonkeys `imageio-webp` 提供 WebP 解码，接入既有 ImageIO 校验链；浏览器生成的 WebP 可以完成本地签名 PUT 和后续资源探测。WebP 与 JPEG、PNG、GIF 一样校验实际解码、MIME、像素上限和文件大小，不跳过内容校验；损坏或截断的图片仍拒绝并清理文件。
+
 ## 配置
 
 ```yaml
