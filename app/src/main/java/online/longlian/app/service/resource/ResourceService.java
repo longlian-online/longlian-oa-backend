@@ -55,10 +55,10 @@ public class ResourceService {
     private final Clock clock;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
-        if ("thumbnail".equals(params.getBizType())
+        if (("cover".equals(params.getBizType()) || "thumbnail".equals(params.getBizType()))
                 && params.getFileSize() != null
-                && params.getFileSize() > CommonConstants.FILE_THUMBNAIL_MAX_SIZE) {
-            throw new AppException(ResultCode.PARAM_ERROR, "缩略图不能超过1MB");
+                && params.getFileSize() > CommonConstants.FILE_PROJECT_IMAGE_MAX_SIZE) {
+            throw new AppException(ResultCode.PARAM_ERROR, "封面和缩略图不能超过10MB");
         }
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
             throw new AppException(ResultCode.PARAM_ERROR, "头像、封面和缩略图只能上传图片");
