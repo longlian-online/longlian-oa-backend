@@ -27,6 +27,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WorkshopAssembler {
 
+    /** 工坊卡片缩略图按 EdgeOne 图片即时处理参数缩放到 144x144。 */
+    private static final String THUMBNAIL_RESIZE_PARAM = "eo-img.resize=w/144/h/144";
+
     private final UserMapper userMapper;
     private final BaseTaskMapper baseTaskMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
@@ -74,7 +77,8 @@ public class WorkshopAssembler {
                     workshopProjectInfoVO.setId(project.getId());
                     workshopProjectInfoVO.setTitle(project.getTitle());
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
-                    workshopProjectInfoVO.setThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId()));
+                    workshopProjectInfoVO.setThumbnailUrl(
+                            resizeThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId())));
                     if (creator != null && creator.getAvatarFileId() != null) {
                         workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
                     }
@@ -86,6 +90,13 @@ public class WorkshopAssembler {
                     return workshopProjectInfoVO;
                 })
                 .toList();
+    }
+
+    private static String resizeThumbnailUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
     }
 
     public List<WorkshopTaskTemplateVO> assembleTemplateList(List<TaskTemplate> templates, Long currentUserId) {

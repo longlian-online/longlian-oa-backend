@@ -407,14 +407,20 @@ public class ProjectApiTest extends BaseApiTest {
                 .get("/app/projects/" + projectId)
                 .then()
                 .statusCode(200)
-                .body("data.thumbnailUrl", notNullValue());
+                .body("data.thumbnailUrl", allOf(
+                        containsString("key=thumbnail/2.png"),
+                        not(containsString("eo-img.resize"))));
         authRequest(token)
                 .body(Map.of("pageNum", 1, "pageSize", 10))
                 .post("/app/workshop/list")
                 .then()
                 .statusCode(200)
-                .body("data.list[0].thumbnailUrl", notNullValue())
-                .body("data.list[0].coverUrl", notNullValue());
+                .body("data.list[0].thumbnailUrl", allOf(
+                        containsString("key=thumbnail/2.png"),
+                        containsString("&eo-img.resize=w/144/h/144")))
+                .body("data.list[0].coverUrl", allOf(
+                        containsString("key=cover/1.png"),
+                        not(containsString("eo-img.resize"))));
 
         authRequest(token)
                 .body(Map.of(

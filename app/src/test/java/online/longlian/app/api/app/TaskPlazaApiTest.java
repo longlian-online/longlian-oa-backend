@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -122,6 +123,31 @@ public class TaskPlazaApiTest extends BaseApiTest {
         authRequest(token).queryParam("stageScope", "INVALID")
                 .get("/app/task/instance/plaza").then()
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldResizePlazaThumbnailsAndLeaveCoversOriginal() {
+        seedPlazaFixture();
+        createResource(4101L, 4000L, 4001L);
+        createResource(4102L, 4000L, 4001L);
+        jdbcTemplate.update(
+                "UPDATE resource SET biz_type = 'thumbnail', storage_key = 'thumbnail/4101.png' WHERE id = 4101");
+        jdbcTemplate.update(
+                "UPDATE resource SET biz_type = 'cover', storage_key = 'cover/4102.png' WHERE id = 4102");
+        jdbcTemplate.update(
+                "UPDATE project SET thumbnail_file_id = 4101, cover_file_id = 4102 WHERE id = 4001");
+        String token = loginAs("plazauser", "123456");
+
+        Response response = authRequest(token).get("/app/task/instance/plaza");
+
+        response.then().statusCode(200).body("code", equalTo(0));
+        String thumbnailUrl = response.path("data.list.find { it.projectId == '4001' }.thumbnailUrl");
+        String coverUrl = response.path("data.list.find { it.projectId == '4001' }.coverUrl");
+        Object absentThumbnail = response.path("data.list.find { it.projectId == '4002' }.thumbnailUrl");
+        assertThat(thumbnailUrl).contains("key=thumbnail/4101.png")
+                .contains("&eo-img.resize=w/144/h/144");
+        assertThat(coverUrl).contains("key=cover/4102.png").doesNotContain("eo-img.resize");
+        assertThat(absentThumbnail).isNull();
     }
 
     // ========== 成功路径 ==========
