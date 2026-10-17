@@ -16,6 +16,8 @@ COS GET 预签名每次带不同的 `q-sign-*` 参数，CDN 无法复用缓存�
 | 读取（CDN 关闭） | `StorageService.getResourceReadUrl`：COS/OSS GET 预签名，LOCAL 为 `/common/file/local` HMAC |
 | 读取（CDN 开启） | `CdnUrlSigner` 签发 EdgeOne Type D URL；COS 源站用私有桶回源鉴权 |
 
+`POST /common/file/upload` 的封面（`cover`）和缩略图（`thumbnail`）最大为 10MB（10 × 1024 × 1024 字节，含边界）。超过上限时返回参数错误，不创建资源或签发上传链接；头像和任务附件保留原有 50MB 上限。图片上传允许 WebP 和 AVIF 扩展名及 MIME 类型，上传元信息以最终选用的文件为准。
+
 ## 配置
 
 ```yaml

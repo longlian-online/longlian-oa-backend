@@ -1,7 +1,6 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.common.properties.StorageProperties;
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
@@ -17,6 +16,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -111,13 +112,13 @@ public class ResourceServiceTest {
         assertThat(vo.getContentDisposition()).isNull();
     }
 
-    @Test
-    void create_thumbnailLargerThanOneMegabyte_rejectedBeforeInsert() {
+    @ParameterizedTest
+    @ValueSource(strings = {"cover", "thumbnail"})
+    void create_projectImageLargerThanTenMegabytes_rejectedBeforeInsert(String bizType) {
         assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
-                1L, 1L, "thumb.png", "png", CommonConstants.FILE_THUMBNAIL_MAX_SIZE + 1, "image/png", "thumbnail")))
+                1L, 1L, "image.webp", "webp", 10L * 1024 * 1024 + 1, "image/webp", bizType)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMessage()).contains("1MB");
                 });
         Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
     }

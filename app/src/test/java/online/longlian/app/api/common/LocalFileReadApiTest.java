@@ -12,6 +12,8 @@ import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.app.service.resource.impl.LocalStorageService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -347,6 +349,32 @@ class LocalFileReadApiTest extends BaseApiTest {
 
         authRequest(token).body(request).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"cover", "thumbnail"})
+    void shouldAcceptProjectImageAtTenMegabytes(String bizType) {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO image = new CreateFileReqDTO(
+                "image.avif", "avif", 10L * 1024 * 1024, "image/avif", bizType);
+
+        authRequest(token).body(image).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isEqualTo(1L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"cover", "thumbnail"})
+    void shouldRejectProjectImageAboveTenMegabytesWithoutCreatingResource(String bizType) {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO image = new CreateFileReqDTO(
+                "image.webp", "webp", 10L * 1024 * 1024 + 1, "image/webp", bizType);
+
+        authRequest(token).body(image).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
     }
 
     private void createFile() {
