@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * 任务广场（缺人任务）接口测试：GET /app/task/instance/plaza
@@ -175,6 +176,9 @@ public class TaskPlazaApiTest extends BaseApiTest {
                 .body("data.list[0].tasks[0].stageIndex", equalTo(1))
                 .body("data.list[0].tasks[0].stageTotal", equalTo(1))
                 .body("data.list[0].tasks[0].parallelTotal", equalTo(1))
+                .body("data.list[0].tasks[0].slotIndex", equalTo(1))
+                .body("data.list[0].tasks[0].slotTotal", equalTo(1))
+                .body("data.list[0].tasks[0].serialStep", nullValue())
                 .body("data.list[0].tasks[0].filledSlots", equalTo(0))
                 .body("data.list[0].tasks[0].pendingSlots", equalTo(1))
                 .body("data.list[0].tasks[0].createdAt", notNullValue())
@@ -189,6 +193,9 @@ public class TaskPlazaApiTest extends BaseApiTest {
                 .body("data.list[1].tasks[0].stageIndex", equalTo(1))
                 .body("data.list[1].tasks[0].stageTotal", equalTo(2))
                 .body("data.list[1].tasks[0].parallelTotal", equalTo(2))
+                .body("data.list[1].tasks[0].slotIndex", equalTo(2))
+                .body("data.list[1].tasks[0].slotTotal", equalTo(2))
+                .body("data.list[1].tasks[0].serialStep", nullValue())
                 .body("data.list[1].tasks[0].filledSlots", equalTo(1))
                 .body("data.list[1].tasks[0].pendingSlots", equalTo(1))
                 .body("data.list[1].tasks[1].instanceId", equalTo("4004"))

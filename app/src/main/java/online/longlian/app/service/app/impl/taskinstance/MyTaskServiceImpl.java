@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -54,8 +55,11 @@ public class MyTaskServiceImpl implements MyTaskService {
     }
 
     private MyTaskVO toVO(MyTaskRowBO row, List<ItemStageNodeStatusBO> itemNodes) {
-        String waitingStageName = StageUnlockPolicy.nearestIncompletePredecessor(row.getStageSort(), itemNodes)
-                .map(ItemStageNodeStatusBO::getNodeName)
+        Optional<ItemStageNodeStatusBO> waiting = StageUnlockPolicy.nearestIncompletePredecessor(
+                row.getStageSort(), itemNodes);
+        SlotLabels.Position self = SlotLabels.of(row.getNodeId(), itemNodes);
+        SlotLabels.Position blocked = waiting
+                .map(node -> SlotLabels.of(node.getNodeId(), itemNodes))
                 .orElse(null);
         return MyTaskVO.builder()
                 .instanceId(row.getInstanceId())
@@ -64,9 +68,15 @@ public class MyTaskServiceImpl implements MyTaskService {
                 .itemTitle(row.getItemTitle())
                 .nodeName(row.getNodeName())
                 .stageSort(row.getStageSort())
+                .slotIndex(self.slotIndex())
+                .slotTotal(self.slotTotal())
+                .serialStep(self.serialStep())
                 .projectName(row.getProjectName())
                 .claimedAt(row.getClaimedAt())
-                .waitingStageName(waitingStageName)
+                .waitingStageName(waiting.map(ItemStageNodeStatusBO::getNodeName).orElse(null))
+                .waitingSlotIndex(blocked == null ? null : blocked.slotIndex())
+                .waitingSlotTotal(blocked == null ? null : blocked.slotTotal())
+                .waitingSerialStep(blocked == null ? null : blocked.serialStep())
                 .build();
     }
 }

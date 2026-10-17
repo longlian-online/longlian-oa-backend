@@ -21,6 +21,7 @@ public class PlazaTaskRowBO {
 
     private String nodeName;
 
+    private Long nodeId;
     private Integer sort;
 
     private Integer parallelSort;
