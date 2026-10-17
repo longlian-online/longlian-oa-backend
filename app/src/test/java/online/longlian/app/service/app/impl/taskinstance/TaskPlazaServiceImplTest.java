@@ -83,10 +83,11 @@ class TaskPlazaServiceImplTest {
                 .thenReturn(List.of(row(11L, 100L, 200L, 1)));
         when(taskInstanceMapper.selectPlazaItemStages(anyList()))
                 .thenReturn(List.of(stage(200L, 2), stage(200L, 1), stage(200L, 2)));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of());
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
         PlazaProjectGroupVO group = PlazaProjectGroupVO.builder().projectId(100L).build();
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap()))
                 .thenReturn(List.of(group));
 
         PageResultVO<PlazaProjectGroupVO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
@@ -105,14 +106,15 @@ class TaskPlazaServiceImplTest {
         verify(taskInstanceMapper).selectPlazaProjectSummaries(any(), eq(8), eq(8)); // 第2页 offset=8
         verify(taskInstanceMapper).selectPlazaTaskRows(any(), eq(List.of(100L)));
         verify(taskInstanceMapper).selectPlazaItemStages(List.of(200L));
+        verify(taskInstanceMapper).selectItemStageNodeStatuses(List.of(200L));
         // 阶段 sort 去重升序后传入装配器
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Long, List<Integer>>> sortsCaptor =
                 ArgumentCaptor.forClass(Map.class);
-        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), sortsCaptor.capture(), anyMap(), anyMap());
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), sortsCaptor.capture(), anyMap(), anyMap(), anyMap());
         assertThat(sortsCaptor.getValue()).containsEntry(200L, List.of(1, 2));
         verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(),
-                eq(Map.of(100L, "http://cover/7")), eq(Map.of()));
+                eq(Map.of(100L, "http://cover/7")), eq(Map.of()), eq(Map.of()));
     }
 
     @Test
@@ -180,7 +182,7 @@ class TaskPlazaServiceImplTest {
         when(taskInstanceMapper.selectPlazaTaskRows(any(), anyList())).thenReturn(List.of());
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap()))
                 .thenReturn(List.of());
 
         service.getTaskPlaza(params(PlazaSortBy.LATEST));
@@ -188,7 +190,7 @@ class TaskPlazaServiceImplTest {
         verify(resourceService).getResourceReadUrls(List.of(7L));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Long, String>> coverCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(), coverCaptor.capture(), anyMap());
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(), coverCaptor.capture(), anyMap(), anyMap());
         assertThat(coverCaptor.getValue()).containsOnlyKeys(101L);
     }
 
@@ -214,7 +216,7 @@ class TaskPlazaServiceImplTest {
                 .thenReturn(Map.of(
                         8L, new ResourceReadUrlGetResultBO("http://thumb/8?token=abc&t=1", 10L, "t8"),
                         10L, new ResourceReadUrlGetResultBO("http://thumb/10", 10L, "t10")));
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap()))
                 .thenReturn(List.of());
 
         service.getTaskPlaza(params(PlazaSortBy.LATEST));
@@ -225,7 +227,8 @@ class TaskPlazaServiceImplTest {
                         101L, "http://cover/9")),
                 eq(Map.of(
                         100L, "http://thumb/8?token=abc&t=1&eo-img.resize=w/144/h/144",
-                        101L, "http://thumb/10?eo-img.resize=w/144/h/144")));
+                        101L, "http://thumb/10?eo-img.resize=w/144/h/144")),
+                eq(Map.of()));
     }
 
     private TaskPlazaParamsBO params(PlazaSortBy sortBy) {

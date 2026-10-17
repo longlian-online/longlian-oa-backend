@@ -37,12 +37,30 @@ public class MyTaskVO {
     @Schema(description = "阶段序号（节点 sort）")
     private Integer stageSort;
 
+    @Schema(description = "本节点在所属阶段并行组中的位次（1 开始，按 parallelSort、节点 ID 排序）")
+    private Integer slotIndex;
+
+    @Schema(description = "所属阶段的任务节点数")
+    private Integer slotTotal;
+
+    @Schema(description = "同名节点跨阶段时的阶段位次（1 开始）；名称只出现在一个阶段时为 null")
+    private Integer serialStep;
+
     @Schema(description = "企划名")
     private String projectName;
 
     @Schema(description = "接取时间")
     private LocalDateTime claimedAt;
 
-    @Schema(description = "等待的前置阶段名（sort 最大的未完成前置）；仅 WAITING 分组返回，否则为 null")
+    @Schema(description = "等待的前置节点名（sort 最大的未完成前置）；仅 WAITING 分组返回，否则为 null")
     private String waitingStageName;
+
+    @Schema(description = "等待的前置节点在其并行组中的位次；非等待时为 null")
+    private Integer waitingSlotIndex;
+
+    @Schema(description = "等待的前置节点所属阶段的任务节点数；非等待时为 null")
+    private Integer waitingSlotTotal;
+
+    @Schema(description = "等待的前置节点同名跨阶段位次；非等待或名称不跨阶段时为 null")
+    private Integer waitingSerialStep;
 }

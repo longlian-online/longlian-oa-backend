@@ -15,6 +15,7 @@ public class MyTaskRowBO {
     private String itemTitle;
     private String projectName;
     private String nodeName;
+    private Long nodeId;
     private Integer stageSort;
     private LocalDateTime claimedAt;
 }

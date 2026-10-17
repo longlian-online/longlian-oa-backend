@@ -1,6 +1,6 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
-import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
 import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +28,14 @@ public class TaskPlazaAssembler {
      * @param itemSorts           条目ID → 全部阶段 sort 值（升序去重）
      * @param coverUrlByProjectId 企划ID → 封面图URL
      * @param thumbnailUrlByProjectId 企划ID → 缩略图URL
+     * @param nodesByItem         条目ID → 全部任务节点。当前页的实例行不一定覆盖更早的同名阶段
      */
     public List<PlazaProjectGroupVO> assembleGroups(List<PlazaProjectSummaryBO> summaries,
                                                     List<PlazaTaskRowBO> rows,
                                                     Map<Long, List<Integer>> itemSorts,
                                                     Map<Long, String> coverUrlByProjectId,
-                                                    Map<Long, String> thumbnailUrlByProjectId) {
+                                                    Map<Long, String> thumbnailUrlByProjectId,
+                                                    Map<Long, List<ItemStageNodeStatusBO>> nodesByItem) {
         if (summaries.isEmpty()) {
             return Collections.emptyList();
         }
@@ -43,7 +46,7 @@ public class TaskPlazaAssembler {
         return summaries.stream()
                 .map(summary -> assembleGroup(summary,
                         rowsByProject.getOrDefault(summary.getProjectId(), Collections.emptyList()),
-                        itemSorts, coverUrlByProjectId, thumbnailUrlByProjectId))
+                        itemSorts, coverUrlByProjectId, thumbnailUrlByProjectId, nodesByItem))
                 .toList();
     }
 
@@ -51,7 +54,8 @@ public class TaskPlazaAssembler {
                                               List<PlazaTaskRowBO> projectRows,
                                               Map<Long, List<Integer>> itemSorts,
                                               Map<Long, String> coverUrlByProjectId,
-                                              Map<Long, String> thumbnailUrlByProjectId) {
+                                              Map<Long, String> thumbnailUrlByProjectId,
+                                              Map<Long, List<ItemStageNodeStatusBO>> nodesByItem) {
         // (条目, 阶段) 分组保持行序；SQL 已按 条目→阶段→并行组→创建时间 排序
         Map<String, List<PlazaTaskRowBO>> slotGroups = projectRows.stream()
                 .collect(Collectors.groupingBy(TaskPlazaAssembler::slotKey,
@@ -70,6 +74,8 @@ public class TaskPlazaAssembler {
                     continue;
                 }
                 List<Integer> sorts = itemSorts.get(row.getItemId());
+                SlotLabels.Position position = slotPosition(row, groupRows,
+                        nodesByItem.getOrDefault(row.getItemId(), List.of()));
                 tasks.add(PlazaTaskVO.builder()
                         .instanceId(row.getInstanceId())
                         .itemId(row.getItemId())
@@ -81,6 +87,9 @@ public class TaskPlazaAssembler {
                         .parallelTotal(parallelTotal)
                         .filledSlots(filledSlots)
                         .pendingSlots(pendingSlots)
+                        .slotIndex(position.slotIndex())
+                        .slotTotal(position.slotTotal())
+                        .serialStep(position.serialStep())
                         .createdAt(row.getCreatedAt())
                         .build());
             }
@@ -96,6 +105,32 @@ public class TaskPlazaAssembler {
                 .itemCount(summary.getItemCount().intValue())
                 .tasks(tasks)
                 .build();
+    }
+
+    /**
+     * 节点列表能对上时用全流程算位次；对不上时退回本阶段实例顺序，避免缺节点时把并行槽都标成 1。
+     */
+    private static SlotLabels.Position slotPosition(PlazaTaskRowBO row,
+                                                    List<PlazaTaskRowBO> groupRows,
+                                                    List<ItemStageNodeStatusBO> itemNodes) {
+        boolean known = row.getNodeId() != null && itemNodes.stream()
+                .anyMatch(node -> row.getNodeId().equals(node.getNodeId()));
+        if (known) {
+            return SlotLabels.of(row.getNodeId(), itemNodes);
+        }
+        List<PlazaTaskRowBO> ordered = groupRows.stream()
+                .sorted(Comparator
+                        .comparing(PlazaTaskRowBO::getParallelSort, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(PlazaTaskRowBO::getInstanceId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+        int slotIndex = 1;
+        for (int i = 0; i < ordered.size(); i++) {
+            if (row.getInstanceId() != null && row.getInstanceId().equals(ordered.get(i).getInstanceId())) {
+                slotIndex = i + 1;
+                break;
+            }
+        }
+        return new SlotLabels.Position(slotIndex, Math.max(ordered.size(), 1), null);
     }
 
     private static String slotKey(PlazaTaskRowBO row) {

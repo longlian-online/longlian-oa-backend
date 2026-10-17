@@ -45,6 +45,14 @@ public class PlazaTaskVO {
     @Schema(description = "待接取并行槽数")
     private Integer pendingSlots;
 
+    @Schema(description = "本节点在所属阶段并行组中的位次（1 开始，按 parallelSort、节点 ID 排序）")
+    private Integer slotIndex;
+
+    @Schema(description = "所属阶段的任务节点数")
+    private Integer slotTotal;
+
+    @Schema(description = "同名节点跨阶段时的阶段位次（1 开始）；名称只出现在一个阶段时为 null")
+    private Integer serialStep;
     @Schema(description = "任务创建时间（等待起始时间）")
     private LocalDateTime createdAt;
 

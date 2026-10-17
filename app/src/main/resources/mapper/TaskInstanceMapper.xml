@@ -93,6 +93,7 @@
                ti.status AS status,
                ti.created_at AS createdAt,
                n.name AS nodeName,
+               n.id AS nodeId,
                n.sort AS sort,
                n.parallel_sort AS parallelSort,
                (n.sort = cur.current_sort) AS isCurrentStage,
@@ -137,6 +138,7 @@
                i.title AS itemTitle,
                p.title AS projectName,
                n.name AS nodeName,
+               n.id AS nodeId,
                n.sort AS stageSort,
                ti.claimed_at AS claimedAt
         FROM task_instance ti

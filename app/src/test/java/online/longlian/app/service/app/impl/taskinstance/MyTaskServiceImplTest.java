@@ -126,4 +126,27 @@ class MyTaskServiceImplTest {
         assertThat(result.getTotal()).isZero();
         verify(taskInstanceMapper, never()).selectItemStageNodeStatuses(anyList());
     }
+
+    @Test
+    void waitingPredecessor_exposesSerialAndParallelSlot() {
+        MyTaskRowBO claimed = row(21, 2, "校对", 4, 1);
+        claimed.setNodeId(5L);
+        when(taskInstanceMapper.selectMyClaimedTasks(7L, 9L, false)).thenReturn(List.of(claimed));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of(
+                new ItemStageNodeStatusBO(2L, 1L, "校对", 1, 1, false),
+                new ItemStageNodeStatusBO(2L, 2L, "校对", 2, 1, false),
+                new ItemStageNodeStatusBO(2L, 3L, "翻译", 3, 1, false),
+                new ItemStageNodeStatusBO(2L, 4L, "翻译", 3, 2, false),
+                new ItemStageNodeStatusBO(2L, 5L, "校对", 4, 1, false)));
+
+        MyTaskVO vo = service.listMyTasks(params(MyTaskBucket.WAITING, 1, 5)).getList().getFirst();
+
+        assertThat(vo.getSlotIndex()).isEqualTo(1);
+        assertThat(vo.getSlotTotal()).isEqualTo(1);
+        assertThat(vo.getSerialStep()).isEqualTo(3);
+        assertThat(vo.getWaitingStageName()).isEqualTo("翻译");
+        assertThat(vo.getWaitingSlotIndex()).isEqualTo(1);
+        assertThat(vo.getWaitingSlotTotal()).isEqualTo(2);
+        assertThat(vo.getWaitingSerialStep()).isNull();
+    }
 }

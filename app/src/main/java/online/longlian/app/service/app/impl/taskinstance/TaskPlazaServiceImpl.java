@@ -8,6 +8,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
 import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
 import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
@@ -75,11 +76,16 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                                         Collectors.mapping(PlazaItemStageBO::getSort,
                                                 Collectors.toCollection(TreeSet::new)),
                                         List::copyOf)));
+        Map<Long, List<ItemStageNodeStatusBO>> nodesByItem = itemIds.isEmpty()
+                ? Map.of()
+                : taskInstanceMapper.selectItemStageNodeStatuses(itemIds).stream()
+                        .collect(Collectors.groupingBy(ItemStageNodeStatusBO::getItemId));
 
         List<PlazaProjectGroupVO> groups = taskPlazaAssembler.assembleGroups(
                 summaries, rows, itemSorts,
                 loadImageUrls(summaries, PlazaProjectSummaryBO::getCoverFileId),
-                resizeThumbnailUrls(loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId)));
+                resizeThumbnailUrls(loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId)),
+                nodesByItem);
         return new PageResultVO<>(groups, total);
     }
 
