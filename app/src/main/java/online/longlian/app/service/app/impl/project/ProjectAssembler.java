@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProjectAssembler {
 
+    /** 项目列表封面按 EdgeOne 图片即时处理参数缩放到 400x600。 */
+    private static final String COVER_RESIZE_PARAM = "eo-img.resize=w/400/h/600";
+
     private final ProjectTypeMapper projectTypeMapper;
     private final UserMapper userMapper;
     private final ResourceService resourceService;
@@ -63,7 +66,7 @@ public class ProjectAssembler {
                             .title(project.getTitle())
                             .alias(project.getAlias())
                             .description(project.getDescription())
-                            .coverUrl(coverUrlMap.get(project.getCoverFileId()))
+                            .coverUrl(resizeCoverUrl(coverUrlMap.get(project.getCoverFileId())))
                             .projectType(typeNameMap.get(project.getTypeId()))
                             .projectStatus(project.getStatus())
                             .metadata(project.getMetadata())
@@ -71,5 +74,12 @@ public class ProjectAssembler {
                             .build();
                 })
                 .toList();
+    }
+
+    private String resizeCoverUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        return url + (url.contains("?") ? "&" : "?") + COVER_RESIZE_PARAM;
     }
 }
