@@ -64,6 +64,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
+    /** 页头右上角用户头像、左上角当前组织头像按 EdgeOne 参数缩放到 64x64。 */
+    private static final String HEADER_AVATAR_RESIZE_PARAM = "eo-img.resize=w/64/h/64";
+
     private final PasswordEncoder passwordEncoder;
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
@@ -139,7 +142,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null && user.getAvatarFileId() > 0) {
-            builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
+            builder.avatarUrl(resizeHeaderAvatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId())));
         }
         return builder.build();
     }
@@ -167,7 +170,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
                 ? Collections.emptyMap()
                 : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> resizeHeaderAvatarUrl(e.getValue().getUrl())));
 
         return orgs.stream()
                 .map(org -> OrgSimpleInfoBO.builder()
@@ -176,6 +179,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .avatarUrl(avatarUrlMap.get(org.getAvatarFileId()))
                         .build())
                 .toList();
+    }
+
+    private static String resizeHeaderAvatarUrl(String url) {
+        return url + (url.contains("?") ? "&" : "?") + HEADER_AVATAR_RESIZE_PARAM;
     }
 
     @Override

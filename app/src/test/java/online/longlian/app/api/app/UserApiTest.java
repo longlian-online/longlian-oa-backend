@@ -215,6 +215,33 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
     }
 
+    @Test
+    void shouldResizeHeaderAvatarsOnly() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(11L, 1L, 1L);
+        createResource(12L, 1L, 1L);
+        jdbcTemplate.update(
+                "UPDATE resource SET biz_type = 'avatar', storage_key = 'avatar/user.png' WHERE id = 11");
+        jdbcTemplate.update(
+                "UPDATE resource SET biz_type = 'avatar', storage_key = 'avatar/org.png' WHERE id = 12");
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 11 WHERE id = 1");
+        jdbcTemplate.update("UPDATE organization SET avatar_file_id = 12 WHERE id = 1");
+        String token = loginAs("testuser", "123456");
+
+        userRequest(token).get("/app/user/").then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.avatarUrl", allOf(
+                        containsString("key=avatar/user.png"),
+                        containsString("&eo-img.resize=w/64/h/64")));
+        userRequest(token).get("/app/user/organizations").then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data[0].avatarUrl", allOf(
+                        containsString("key=avatar/org.png"),
+                        containsString("&eo-img.resize=w/64/h/64")));
+    }
+
     // ========== 组织操作 ==========
 
     /**

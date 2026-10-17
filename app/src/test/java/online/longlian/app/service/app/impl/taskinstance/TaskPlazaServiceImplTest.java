@@ -192,6 +192,42 @@ class TaskPlazaServiceImplTest {
         assertThat(coverCaptor.getValue()).containsOnlyKeys(101L);
     }
 
+    @Test
+    void getTaskPlaza_thumbnailUrlResized_coverUrlUnchanged() {
+        PlazaProjectSummaryBO signedThumb = new PlazaProjectSummaryBO();
+        signedThumb.setProjectId(100L);
+        signedThumb.setCoverFileId(7L);
+        signedThumb.setThumbnailFileId(8L);
+        PlazaProjectSummaryBO plainThumb = new PlazaProjectSummaryBO();
+        plainThumb.setProjectId(101L);
+        plainThumb.setCoverFileId(9L);
+        plainThumb.setThumbnailFileId(10L);
+        when(taskInstanceMapper.selectPlazaProjectCount(any())).thenReturn(2L);
+        when(taskInstanceMapper.selectPlazaProjectSummaries(any(), anyInt(), anyInt()))
+                .thenReturn(List.of(signedThumb, plainThumb));
+        when(taskInstanceMapper.selectPlazaTaskRows(any(), anyList())).thenReturn(List.of());
+        when(resourceService.getResourceReadUrls(List.of(7L, 9L)))
+                .thenReturn(Map.of(
+                        7L, new ResourceReadUrlGetResultBO("http://cover/7?token=abc", 10L, "c7"),
+                        9L, new ResourceReadUrlGetResultBO("http://cover/9", 10L, "c9")));
+        when(resourceService.getResourceReadUrls(List.of(8L, 10L)))
+                .thenReturn(Map.of(
+                        8L, new ResourceReadUrlGetResultBO("http://thumb/8?token=abc&t=1", 10L, "t8"),
+                        10L, new ResourceReadUrlGetResultBO("http://thumb/10", 10L, "t10")));
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap()))
+                .thenReturn(List.of());
+
+        service.getTaskPlaza(params(PlazaSortBy.LATEST));
+
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(),
+                eq(Map.of(
+                        100L, "http://cover/7?token=abc",
+                        101L, "http://cover/9")),
+                eq(Map.of(
+                        100L, "http://thumb/8?token=abc&t=1&eo-img.resize=w/144/h/144",
+                        101L, "http://thumb/10?eo-img.resize=w/144/h/144")));
+    }
+
     private TaskPlazaParamsBO params(PlazaSortBy sortBy) {
         return TaskPlazaParamsBO.builder()
                 .orgId(10L)

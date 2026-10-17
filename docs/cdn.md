@@ -51,7 +51,7 @@ storage:
 3. 缓存键忽略 `token`、`t`，否则每个签名都是新对象，CDN 没有命中。
 4. 不要把 COS 预签名 URL 的查询参数带进 CDN。
 5. LOCAL 存储走 CDN 时，回源路径是应用的 `GET /common/file/local`，不是对象 key。
-6. 在「多媒体服务 → 图片处理」开启「指定参数处理」。业务 URL 的 `eo-img.resize=w/400/h/600` 表示固定缩放到宽 400、高 600，不保持原始宽高比；该参数不能与 `token`、`t` 一起从缓存键中忽略，否则不同尺寸可能串用缓存。未开启时 EdgeOne 会返回原图。参见[图片即时处理](https://cloud.tencent.com/document/product/1552/84731#87fb27be-cf15-43b6-8117-6e724526a340)。
+6. 在「多媒体服务 → 图片处理」开启「指定参数处理」。业务 URL 的 `eo-img.resize=w/400/h/600` 表示企划列表封面固定缩放到宽 400、高 600，`eo-img.resize=w/144/h/144` 表示工坊和任务大厅缩略图固定缩放到 144×144，`eo-img.resize=w/64/h/64` 表示页头当前用户头像和当前组织头像固定缩放到 64×64，均不保持原始宽高比；该参数不能与 `token`、`t` 一起从缓存键中忽略，否则不同尺寸可能串用缓存。未开启时 EdgeOne 会返回原图。参见[图片即时处理](https://cloud.tencent.com/document/product/1552/84731#87fb27be-cf15-43b6-8117-6e724526a340)。
 
 ## 签名算法（Type D）
 

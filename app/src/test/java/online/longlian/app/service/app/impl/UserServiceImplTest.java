@@ -11,6 +11,7 @@ import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
@@ -422,8 +423,21 @@ class UserServiceImplTest {
         assertThat(service.getMyOrganizations(1L))
                 .extracting("id", "name", "avatarUrl")
                 .containsExactly(
-                        org.assertj.core.api.Assertions.tuple(10L, "with avatar", "https://cdn.example/avatar.png"),
+                        org.assertj.core.api.Assertions.tuple(10L, "with avatar",
+                                "https://cdn.example/avatar.png?eo-img.resize=w/64/h/64"),
                         org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
+    }
+
+    @Test
+    void shouldResizeCurrentUserAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("u").avatarFileId(9L).build());
+        when(resourceService.getResourceReadUrl(9L))
+                .thenReturn("https://cdn.example/avatar.png?token=abc&t=1");
+
+        UserGetMyInfoResultBO info = service.getMyInfo(1L);
+
+        assertThat(info.getAvatarUrl())
+                .isEqualTo("https://cdn.example/avatar.png?token=abc&t=1&eo-img.resize=w/64/h/64");
     }
 
     @Test

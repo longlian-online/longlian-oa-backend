@@ -36,6 +36,9 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class TaskPlazaServiceImpl implements TaskPlazaService {
 
+    /** 任务大厅缩略图按 EdgeOne 图片即时处理参数缩放到 144x144。 */
+    private static final String THUMBNAIL_RESIZE_PARAM = "eo-img.resize=w/144/h/144";
+
     private final TaskInstanceMapper taskInstanceMapper;
     private final ProjectTypeMapper projectTypeMapper;
     private final ResourceService resourceService;
@@ -76,7 +79,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
         List<PlazaProjectGroupVO> groups = taskPlazaAssembler.assembleGroups(
                 summaries, rows, itemSorts,
                 loadImageUrls(summaries, PlazaProjectSummaryBO::getCoverFileId),
-                loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId));
+                resizeThumbnailUrls(loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId)));
         return new PageResultVO<>(groups, total);
     }
 
@@ -123,5 +126,17 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 })
                 .collect(Collectors.toMap(PlazaProjectSummaryBO::getProjectId,
                         summary -> urlMap.get(fileIdOf.apply(summary)).getUrl()));
+    }
+
+    private Map<Long, String> resizeThumbnailUrls(Map<Long, String> urls) {
+        if (urls.isEmpty()) {
+            return urls;
+        }
+        return urls.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> resizeThumbnailUrl(entry.getValue())));
+    }
+
+    private static String resizeThumbnailUrl(String url) {
+        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
     }
 }
