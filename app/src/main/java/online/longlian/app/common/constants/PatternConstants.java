@@ -3,8 +3,8 @@ package online.longlian.app.common.constants;
 public class PatternConstants {
     public static final String EMAIL_PATTERN = "^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z0-9]{2,6}$";
     public static final String EMAIL_CODE_PATTERN = "^[A-Z0-9]{6}$";
-    public static final String FILE_EXT_PATTERN = "(?i)jpg|jpeg|png|gif|webp|bmp|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z";
-    public static final String FILE_MIME_PATTERN = "(?i)image/(jpeg|png|gif|webp|bmp)|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application/vnd.ms-powerpoint|application/vnd.openxmlformats-officedocument.presentationml.presentation|text/plain|text/csv|application/zip|application/x-zip-compressed|application/vnd.rar|application/x-rar-compressed|application/x-7z-compressed";
+    public static final String FILE_EXT_PATTERN = "(?i)jpg|jpeg|png|gif|webp|avif|bmp|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z";
+    public static final String FILE_MIME_PATTERN = "(?i)image/(jpeg|png|gif|webp|avif|bmp)|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application/vnd.ms-powerpoint|application/vnd.openxmlformats-officedocument.presentationml.presentation|text/plain|text/csv|application/zip|application/x-zip-compressed|application/vnd.rar|application/x-rar-compressed|application/x-7z-compressed";
     public static final String FILE_BIZ_TYPE_PATTERN = "avatar|cover|thumbnail|task_submit";
     public static final String TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 }

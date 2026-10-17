@@ -223,7 +223,6 @@ public class LocalStorageService implements StorageService {
             case JPEG_MIME_TYPE -> "jpeg".equals(formatName) || "jpg".equals(formatName);
             case PNG_MIME_TYPE -> "png".equals(formatName);
             case GIF_MIME_TYPE -> "gif".equals(formatName);
-            case "image/webp" -> "webp".equals(formatName);
             default -> false;
         };
     }

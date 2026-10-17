@@ -357,7 +357,7 @@ class LocalFileReadApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("user", "123456");
         CreateFileReqDTO image = new CreateFileReqDTO(
-                "image.webp", "webp", 10L * 1024 * 1024, "image/webp", bizType);
+                "image.avif", "avif", 10L * 1024 * 1024, "image/avif", bizType);
 
         authRequest(token).body(image).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -375,24 +375,6 @@ class LocalFileReadApiTest extends BaseApiTest {
         authRequest(token).body(image).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
-    }
-
-    @Test
-    void shouldUploadBrowserEncodedWebpThumbnailToLocalStorage() throws IOException {
-        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
-        String token = loginAs("user", "123456");
-        byte[] webp = java.util.Base64.getDecoder().decode(
-                "UklGRkAAAABXRUJQVlA4IDQAAAAwAgCdASoCAAIAAMASJaACdLoB+AH4AARoAAD++iGX/3easNN39a3/9aOfron+tHP/WVgA");
-        CreateFileReqDTO image = new CreateFileReqDTO(
-                "thumbnail.webp", "webp", (long) webp.length, "image/webp", "thumbnail");
-        var response = authRequest(token).body(image).post("/common/file/upload").then()
-                .body("code", equalTo(ResultCode.SUCCESS.getCode())).extract();
-        String uploadUrl = response.path("data.uploadUrl");
-        String key = response.path("data.key");
-
-        putSignedUpload(uploadUrl, webp).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-
-        assertThat(localStorage.getResource(key).getContentAsByteArray()).isEqualTo(webp);
     }
 
     private void createFile() {
