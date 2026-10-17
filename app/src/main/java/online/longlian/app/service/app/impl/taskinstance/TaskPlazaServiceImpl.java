@@ -137,9 +137,6 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
     }
 
     private static String resizeThumbnailUrl(String url) {
-        if (url == null) {
-            return null;
-        }
         return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
     }
 }
