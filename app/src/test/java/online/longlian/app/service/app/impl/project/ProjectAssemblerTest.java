@@ -88,8 +88,31 @@ class ProjectAssemblerTest {
         assertEquals("OA协作企划", bo.getDescription());
         assertEquals("漫画", bo.getProjectType());
         assertEquals(ProjectStatus.IN_PROGRESS, bo.getProjectStatus());
-        assertEquals("https://cdn/cover.png", bo.getCoverUrl());
+        assertEquals("https://cdn/cover.png?eo-img.resize=w/400/h/600", bo.getCoverUrl());
         assertEquals("https://cdn/avatar.png", bo.getCreatorAvatarUrl());
+    }
+
+    @Test
+    void assembleList_coverUrlWithQuery_appendsResizeParam() {
+        Project project = Project.builder()
+                .id(5L)
+                .title("Project E")
+                .typeId(5L)
+                .creatorId(10L)
+                .coverFileId(200L)
+                .build();
+
+        when(projectTypeMapper.selectBatchIds(List.of(5L))).thenReturn(List.of(
+                ProjectType.builder().id(5L).name("漫画").build()));
+        when(userMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(
+                User.builder().id(10L).build()));
+        when(resourceService.getResourceReadUrls(List.of(200L))).thenReturn(Map.of(200L,
+                new ResourceReadUrlGetResultBO("https://cdn/cover.png?token=abc&t=1", 1L, "c")));
+
+        List<ProjectListResultBO> result = assembler.assembleList(List.of(project));
+
+        assertEquals("https://cdn/cover.png?token=abc&t=1&eo-img.resize=w/400/h/600",
+                result.get(0).getCoverUrl());
     }
 
     @Test
