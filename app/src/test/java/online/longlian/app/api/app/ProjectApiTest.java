@@ -37,6 +37,33 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("data.total", notNullValue());
     }
 
+    @Test
+    void shouldResizeOnlyListCoversAndKeepDetailAndAvatarsOriginal() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        createResource(2L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1 WHERE id = 1");
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 2 WHERE id = 1");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, cover_file_id, creator_id) " +
+                "VALUES (1, 1, 1, '有封面企划', 1, 1), (2, 1, 1, '无封面企划', 0, 1)");
+        String token = loginAs("orgadmin", "123456");
+
+        Response list = authRequest(token).get("/app/projects");
+        list.then().statusCode(200).body("code", equalTo(0));
+        String coverUrl = list.path("data.list.find { it.id == '1' }.coverUrl");
+        assertThat(coverUrl).contains("&eo-img.resize=w/400/h/600");
+        String avatarUrl = list.path("data.list.find { it.id == '1' }.creatorAvatarUrl");
+        assertThat(avatarUrl).doesNotContain("eo-img.resize");
+        Object absentCover = list.path("data.list.find { it.id == '2' }.coverUrl");
+        assertThat(absentCover).isNull();
+
+        Response detail = authRequest(token).get("/app/projects/1");
+        detail.then().statusCode(200).body("code", equalTo(0));
+        String originalCoverUrl = detail.path("data.coverUrl");
+        assertThat(originalCoverUrl).contains("key=cover/1.png").doesNotContain("eo-img.resize");
+    }
+
     /**
      * 按关键词筛选企划列表成功
      */
