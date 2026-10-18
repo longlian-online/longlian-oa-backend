@@ -13,12 +13,15 @@ import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
+import online.longlian.app.service.app.DeletionRequestService;
 import online.longlian.app.pojo.dto.app.ProjectCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectListDTO;
 import online.longlian.app.pojo.dto.app.ProjectUpdateDTO;
@@ -40,6 +43,7 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final DeletionRequestService deletionRequestService;
 
     @Operation(summary = "分页查询企划列表", description = "支持关键词搜索、类型筛选、排序，仅返回启用状态企划")
     @GetMapping("")
@@ -71,7 +75,7 @@ public class ProjectController {
         summary = "获取企划详情",
         description = """
                 返回企划详细信息、进度统计及当前用户权限标记。
-                isCreator=true 时前端展示「编辑+分享」按钮；false 时展示「添加到工坊+分享」按钮
+                isCreator=true 时前端展示「编辑+删除+分享」按钮；存在项目时删除按钮禁用。false 时展示「添加到工坊+分享」按钮
                 """
     )
     @Parameter(name = "projectId", description = "企划ID")
@@ -132,6 +136,31 @@ public class ProjectController {
                         .thumbnailFileId(projectUpdateDTO.getThumbnailFileId())
                         .status(projectUpdateDTO.getStatus())
                         .build());
+    }
+
+    @Operation(summary = "删除企划", description = "仅企划负责人可删除。企划下仍有项目时请改为提交删除申请")
+    @Parameter(name = "projectId", description = "企划ID")
+    @DeleteMapping("/{projectId}")
+    @ResponseMessage("删除成功")
+    public void deleteProject(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                               @PathVariable Long projectId) {
+        projectService.deleteProject(ProjectDeleteParamsBO.builder()
+                .projectId(projectId)
+                .userId(sessionContext.userId())
+                .orgId(sessionContext.orgId())
+                .build());
+    }
+
+    @Operation(summary = "提交企划删除申请", description = "企划下已有项目时，由企划负责人填写原因后提交，组织管理员审核通过后软删除")
+    @Parameter(name = "projectId", description = "企划ID")
+    @PostMapping("/{projectId}/deletion-requests")
+    @ResponseMessage("已提交删除申请")
+    public void createProjectDeletionRequest(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @RequestBody @Valid DeletionReasonDTO reasonDTO) {
+        deletionRequestService.createProjectRequest(
+                projectId, sessionContext.userId(), sessionContext.orgId(), reasonDTO.getReason());
     }
 
     @Operation(

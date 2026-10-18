@@ -54,6 +54,9 @@ public class ProjectDetailInfoVO {
     @Schema(description = "当前用户是否是该企划的创建者")
     private Boolean isCreator;
 
+    @Schema(description = "企划下是否仍有项目。为 true 时负责人不能删除该企划")
+    private Boolean hasItems;
+
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
 }

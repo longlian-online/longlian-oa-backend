@@ -433,3 +433,23 @@ CREATE TABLE `user_role` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_user_role` (`user_id`, `role_id`) COMMENT "用户-角色唯一"
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "用户角色关联表（冻结：当前授权使用 organization_member.org_role）";
+-- Create "deletion_request" table
+CREATE TABLE `deletion_request` (
+  `id` bigint NOT NULL,
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `target_type` tinyint NOT NULL COMMENT "目标类型 1-PROJECT(企划) 2-ITEM(项目)",
+  `target_id` bigint NOT NULL COMMENT "目标ID",
+  `project_id` bigint NOT NULL COMMENT "所属企划ID；目标为企划时与 target_id 相同",
+  `target_title` varchar(100) NOT NULL COMMENT "提交时的名称",
+  `reason` varchar(500) NOT NULL COMMENT "删除原因",
+  `requester_id` bigint NOT NULL COMMENT "申请人ID",
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态 0-PENDING(待审核) 1-APPROVED(通过) 2-REJECTED(拒绝)",
+  `reviewer_id` bigint NULL COMMENT "审核人ID",
+  `reviewed_at` datetime NULL COMMENT "审核时间",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  `pending_guard` bigint GENERATED ALWAYS AS (IF(`status` = 0 AND `deleted_at` IS NULL, 0, `id`)) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_deletion_request_pending` (`target_type`, `target_id`, `pending_guard`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "删除申请表";

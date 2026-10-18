@@ -11,6 +11,8 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
@@ -45,6 +47,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,6 +61,7 @@ class ItemServiceImplTest {
     @Mock private TaskTemplateNodeMapper taskTemplateNodeMapper;
     @Mock private BaseTaskMapper baseTaskMapper;
     @Mock private TaskInstanceMapper taskInstanceMapper;
+    @Mock private TaskSubmissionMapper taskSubmissionMapper;
     @Mock private ItemQueryBuilder itemQueryBuilder;
     @Mock private ItemAssembler itemAssembler;
 
@@ -65,9 +69,12 @@ class ItemServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskSubmission.class);
         service = new ItemServiceImpl(projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
-                Clock.systemUTC(), itemQueryBuilder, itemAssembler);
+                taskSubmissionMapper, Clock.systemUTC(), itemQueryBuilder, itemAssembler);
+        lenient().when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
+        lenient().when(taskSubmissionMapper.selectObjs(any())).thenReturn(List.of());
     }
 
     @Test

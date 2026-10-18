@@ -64,7 +64,7 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface)（优先
 
 - Controller 只做参数提取和调用 Service，不做业务逻辑
 - Service 接口与实现分离，impl 子包存放实现
-- Service 层使用 MyBatis Plus 的 `ServiceImpl<Mapper, Entity>` 基类
+- Service 层使用 MyBatis Plus 的 `ServiceImpl<Mapper, Entity>` 基类。Service 只处理本领域，跨模块调用对应 Service，不直接使用其他领域的 Mapper。详细规则见 [`docs/standard.md`](docs/standard.md) 的「Service」章节。
 - Mapper 接口继承 MyBatis Plus 的 `BaseMapper<Entity>`；查询优先在 Java 中使用 `LambdaQueryWrapper`，常规查询不另写 SQL 注解或 XML。仅在 Wrapper 无法清晰表达所需 SQL 或有明确性能需求时使用注解/XML，并说明原因；XML 文件同名放在 `resources/mapper/` 下。详细规则见 [`docs/standard.md`](docs/standard.md) 的「Mapper」章节。
 
 ## 数据库变更规范

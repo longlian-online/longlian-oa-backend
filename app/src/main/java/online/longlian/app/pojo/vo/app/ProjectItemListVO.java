@@ -38,6 +38,9 @@ public class ProjectItemListVO {
     @Schema(description = "当前节点名称")
     private String currentNodeName;
 
+    @Schema(description = "是否存在状态为已提交的任务")
+    private Boolean hasSubmittedTask;
+
     @Schema(description = "节点列表")
     private List<ProjectItemNodeVO> nodes;
 }

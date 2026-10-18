@@ -7,12 +7,14 @@ import online.longlian.app.common.mybatis.OffsetPage;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
@@ -21,6 +23,7 @@ import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
+import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
@@ -48,6 +51,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMapper projectMapper;
     private final ProjectTypeMapper projectTypeMapper;
     private final ProjectWorkshopMapper projectWorkshopMapper;
+    private final ItemMapper itemMapper;
     private final ResourceService resourceService;
     private final ProjectQueryBuilder projectQueryBuilder;
     private final ProjectAssembler projectAssembler;
@@ -154,6 +158,8 @@ public class ProjectServiceImpl implements ProjectService {
         ) > 0;
 
         ProjectProgressBO progress = projectProgressHandler.computeProgress(projectId);
+        boolean hasItems = itemMapper.selectCount(new LambdaQueryWrapper<Item>()
+                .eq(Item::getProjectId, projectId)) > 0;
 
         return ProjectDetailResultBO.builder()
                 .id(project.getId())
@@ -170,6 +176,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .pendingTaskCount(progress.getPendingTaskCount())
                 .inWorkshop(inWorkshop)
                 .isCreator(isCreator)
+                .hasItems(hasItems)
                 .createdAt(project.getCreatedAt())
                 .build();
     }
@@ -293,6 +300,36 @@ public class ProjectServiceImpl implements ProjectService {
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProject(ProjectDeleteParamsBO params) {
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
+        if (!project.getCreatorId().equals(params.getUserId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可删除企划");
+        }
+        if (itemMapper.selectCount(new LambdaQueryWrapper<Item>()
+                .eq(Item::getProjectId, params.getProjectId())) > 0) {
+            throw new AppException(ResultCode.PARAM_ERROR, "企划已存在项目，请提交删除申请");
+        }
+        projectMapper.deleteById(params.getProjectId());
+    }
+
+    @Override
+    public String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId) {
+        Project project = getVisibleProject(projectId, orgId);
+        if (!project.getCreatorId().equals(userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可删除企划");
+        }
+        return project.getTitle();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProjectForReview(Long projectId, Long orgId) {
+        Project project = getVisibleProject(projectId, orgId);
+        projectMapper.deleteById(project.getId());
     }
 
     private Project getVisibleProject(Long projectId, Long orgId) {

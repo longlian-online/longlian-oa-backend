@@ -13,7 +13,9 @@ import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.entity.User;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户端用户服务接口。
@@ -126,4 +128,9 @@ public interface UserService extends IService<User> {
      * @param params 包含用户 ID、昵称和头像文件 ID 的更新参数
      */
     void updateMyInfo(UserUpdateMyInfoParamsBO params);
+
+    /**
+     * 批量解析用户展示名。优先昵称，其次用户名；查不到时用用户 ID。
+     */
+    Map<Long, String> displayNames(Collection<Long> userIds);
 }

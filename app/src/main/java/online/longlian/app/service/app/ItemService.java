@@ -50,4 +50,29 @@ public interface ItemService {
      */
     void deleteProjectItem(ItemOperationParamsBO params);
 
+    /**
+     * 审核通过后软删除项目，不再检查创建者或是否已有提交。
+     */
+    void deleteProjectItemForReview(Long projectId, Long itemId, Long orgId);
+
+    /**
+     * 审核通过后软删除企划下仍存在的全部项目。
+     */
+    void deleteProjectItemsForReview(Long projectId, Long orgId);
+
+    /**
+     * 企划下是否仍有项目。
+     */
+    boolean hasProjectItems(Long projectId);
+
+    /**
+     * 项目是否已有状态为已提交的任务。
+     */
+    boolean hasSubmittedTask(Long itemId);
+
+    /**
+     * 确认项目属于该企划并返回项目名称。
+     */
+    String requireItemTitle(Long projectId, Long itemId);
+
 }
