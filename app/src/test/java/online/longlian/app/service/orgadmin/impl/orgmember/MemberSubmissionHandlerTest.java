@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.OrganizationMember;
@@ -24,6 +25,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,4 +68,22 @@ class MemberSubmissionHandlerTest {
         assertThat(wrapper.getParamNameValuePairs().values())
                 .contains(7L, TaskSubmissionStatus.SUBMITTED);
     }
+
+    @Test
+    void getSubmitCounts_returnsZeroWhenBaseTasksHaveNoNodes() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(100L).name("翻译").status(Status.ENABLED).build()));
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of());
+
+        OrgMemberBaseTaskSubmitCountResultBO result = handler.getSubmitCounts(
+                OrganizationMember.builder().id(1L).userId(7L).orgId(1L).submitCount(1).build());
+
+        assertThat(result.getTotalSubmitCount()).isEqualTo(1);
+        assertThat(result.getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getBaseTaskName()).isEqualTo("翻译");
+            assertThat(item.getSubmitCount()).isZero();
+        });
+        verify(taskSubmissionMapper, never()).selectList(any());
+    }
+
 }
