@@ -224,6 +224,40 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     }
 
     /**
+     * 重置和打回的提交已从总数回退，原子任务明细不得再计入。
+     */
+    @Test
+    void shouldExcludeResetAndRejectedSubmissionsFromBaseTaskCounts() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        jdbcTemplate.update("UPDATE organization_member SET submit_count = 1 WHERE id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES "
+                        + "(1, 1, '校对', '[]', 1, 1), (2, 1, '翻译', '[]', 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort) VALUES "
+                        + "(1, 1, 1, 1, 1, '校对节点', '[]', 1, 1), (2, 1, 1, 1, 2, '翻译节点', '[]', 2, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, metadata, status) VALUES "
+                        + "(1, 1, 1, 1, 1, 1, 1, '{}', 3), "
+                        + "(2, 1, 1, 2, 1, 1, 1, '{}', 2), "
+                        + "(3, 1, 1, 3, 2, 1, 1, '{}', 1)");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .get("/orgadmin/members/1/base-tasks/submit-counts")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.totalSubmitCount", equalTo(1))
+                .body("data.list", hasSize(2))
+                .body("data.list[0].baseTaskName", equalTo("校对"))
+                .body("data.list[0].submitCount", equalTo(0))
+                .body("data.list[1].baseTaskName", equalTo("翻译"))
+                .body("data.list[1].submitCount", equalTo(1));
+    }
+
+
+    /**
      * 启用/禁用组员成功
      */
     @Test
