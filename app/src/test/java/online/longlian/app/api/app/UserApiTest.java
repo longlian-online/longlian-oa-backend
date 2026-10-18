@@ -149,7 +149,7 @@ public class UserApiTest extends BaseApiTest {
         }
         createEmailVerifyOTP("EMAIL1", 1L, "new@example.com");
 
-        for (String username : List.of("用户名称", "user1", "ab-c", "ab c", "café", "abcd\n")) {
+        for (String username : List.of("用户名称", "１２３４", "ab-c", "ab c", "café", "abcd\n")) {
             request().body(Map.of(
                             "username", username, "password", "123456", "nickname", "新用户",
                             "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
@@ -164,8 +164,9 @@ public class UserApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM one_time_password WHERE status <> 0", Integer.class)).isZero();
 
+        String validUsername = "create-organization".equals(registrationMode) ? "1234" : "_New_User9";
         request().body(Map.of(
-                        "username", "_New_User", "password", "123456", "nickname", "新用户",
+                        "username", validUsername, "password", "123456", "nickname", "新用户",
                         "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
                         "orgName", "新组织"))
                 .post("/app/user/register/" + registrationMode)
@@ -175,7 +176,7 @@ public class UserApiTest extends BaseApiTest {
         String table = "create-organization".equals(registrationMode) ? "`user`" : "group_application";
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT username FROM " + table + " WHERE email = ?", String.class, "new@example.com"))
-                .isEqualTo("_New_User");
+                .isEqualTo(validUsername);
     }
 
     // ========== 邀请码查询 ==========
