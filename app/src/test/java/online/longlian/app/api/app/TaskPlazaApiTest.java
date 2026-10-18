@@ -6,6 +6,7 @@ import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -290,6 +291,40 @@ public class TaskPlazaApiTest extends BaseApiTest {
                 .body("code", equalTo(0))
                 .body("data.total", equalTo(1))
                 .body("data.list[0].projectId", equalTo("4002"));
+    }
+
+    @Test
+    void shouldFilterAllProjectViewsAtTypeNameLimit() {
+        seedPlazaFixture();
+        jdbcTemplate.update("INSERT INTO project_workshop (id, project_id, user_id) VALUES (4002, 4002, 4001)");
+        String name = "企".repeat(20);
+        jdbcTemplate.update("UPDATE project_type SET name = ? WHERE id = 4001", name);
+        String token = loginAs("plazauser", "123456");
+
+        authRequest(token).queryParam("projectType", name).get("/app/task/instance/plaza")
+                .then().statusCode(200).body("code", equalTo(0))
+                .body("data.total", equalTo(1)).body("data.list[0].projectId", equalTo("4002"));
+        authRequest(token).queryParam("projectType", name).get("/app/projects")
+                .then().statusCode(200).body("code", equalTo(0))
+                .body("data.total", equalTo(1)).body("data.list[0].id", equalTo("4002"));
+        authRequest(token).body(Map.of("projectType", name)).post("/app/workshop/list")
+                .then().statusCode(200).body("code", equalTo(0))
+                .body("data.total", equalTo(1)).body("data.list[0].id", equalTo("4002"));
+    }
+
+    @Test
+    void shouldRejectOverlongTypeFilterEvenWhenLegacyTypeExists() {
+        seedPlazaFixture();
+        String name = "企".repeat(21);
+        jdbcTemplate.update("UPDATE project_type SET name = ? WHERE id = 4001", name);
+        String token = loginAs("plazauser", "123456");
+
+        authRequest(token).queryParam("projectType", name).get("/app/task/instance/plaza")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        authRequest(token).queryParam("projectType", name).get("/app/projects")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        authRequest(token).body(Map.of("projectType", name)).post("/app/workshop/list")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
