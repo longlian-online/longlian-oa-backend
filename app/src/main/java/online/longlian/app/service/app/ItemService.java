@@ -60,4 +60,19 @@ public interface ItemService {
      */
     void deleteProjectItemsForReview(Long projectId, Long orgId);
 
+    /**
+     * 企划下是否仍有项目。
+     */
+    boolean hasProjectItems(Long projectId);
+
+    /**
+     * 项目是否已有状态为已提交的任务。
+     */
+    boolean hasSubmittedTask(Long itemId);
+
+    /**
+     * 确认项目属于该企划并返回项目名称。
+     */
+    String requireItemTitle(Long projectId, Long itemId);
+
 }

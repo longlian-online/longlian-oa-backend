@@ -92,4 +92,14 @@ public interface ProjectService {
      * @param params 包含企划 ID、操作人 ID 和组织 ID 的删除参数
      */
     void deleteProject(ProjectDeleteParamsBO params);
+
+    /**
+     * 确认当前用户是启用企划的负责人，并返回企划名称。
+     */
+    String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId);
+
+    /**
+     * 审核通过后软删除企划。调用方须已处理其下项目。
+     */
+    void deleteProjectForReview(Long projectId, Long orgId);
 }

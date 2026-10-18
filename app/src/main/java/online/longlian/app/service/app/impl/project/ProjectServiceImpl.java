@@ -316,6 +316,22 @@ public class ProjectServiceImpl implements ProjectService {
         projectMapper.deleteById(params.getProjectId());
     }
 
+    @Override
+    public String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId) {
+        Project project = getVisibleProject(projectId, orgId);
+        if (!project.getCreatorId().equals(userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可删除企划");
+        }
+        return project.getTitle();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProjectForReview(Long projectId, Long orgId) {
+        Project project = getVisibleProject(projectId, orgId);
+        projectMapper.deleteById(project.getId());
+    }
+
     private Project getVisibleProject(Long projectId, Long orgId) {
         Project project = projectMapper.selectById(projectId);
         if (project == null || !project.getOrgId().equals(orgId)

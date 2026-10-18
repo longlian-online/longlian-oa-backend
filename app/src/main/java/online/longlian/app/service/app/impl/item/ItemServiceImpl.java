@@ -205,6 +205,16 @@ public class ItemServiceImpl implements ItemService {
         }
     }
 
+    @Override
+    public boolean hasProjectItems(Long projectId) {
+        return itemMapper.selectCount(new LambdaQueryWrapper<Item>().eq(Item::getProjectId, projectId)) > 0;
+    }
+
+    @Override
+    public String requireItemTitle(Long projectId, Long itemId) {
+        return requireItem(projectId, itemId).getTitle();
+    }
+
     private void markSubmittedTasks(List<ProjectItemListVO> list) {
         List<Long> itemIds = list.stream().map(ProjectItemListVO::getId).toList();
         List<Object> submittedIds = taskSubmissionMapper.selectObjs(new LambdaQueryWrapper<TaskSubmission>()
@@ -221,7 +231,8 @@ public class ItemServiceImpl implements ItemService {
         list.forEach(item -> item.setHasSubmittedTask(submitted.contains(item.getId())));
     }
 
-    private boolean hasSubmittedTask(Long itemId) {
+    @Override
+    public boolean hasSubmittedTask(Long itemId) {
         return taskSubmissionMapper.selectCount(new LambdaQueryWrapper<TaskSubmission>()
                 .eq(TaskSubmission::getItemId, itemId)
                 .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)) > 0;

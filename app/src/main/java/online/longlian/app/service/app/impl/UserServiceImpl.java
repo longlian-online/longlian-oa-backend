@@ -55,7 +55,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -145,6 +147,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             builder.avatarUrl(resizeHeaderAvatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId())));
         }
         return builder.build();
+    }
+
+    @Override
+    public Map<Long, String> displayNames(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = userIds.stream().filter(id -> id != null).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, User> users = userMapper.selectList(new LambdaQueryWrapper<User>().in(User::getId, ids))
+                .stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+        Map<Long, String> names = new LinkedHashMap<>();
+        for (Long id : ids) {
+            names.put(id, displayName(users.get(id), id));
+        }
+        return names;
+    }
+
+    private String displayName(User user, Long userId) {
+        if (user != null && StringUtils.hasText(user.getNickname())) {
+            return user.getNickname();
+        }
+        if (user != null && StringUtils.hasText(user.getUsername())) {
+            return user.getUsername();
+        }
+        return String.valueOf(userId);
     }
 
     @Override
