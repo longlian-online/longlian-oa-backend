@@ -8,6 +8,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
@@ -97,6 +98,7 @@ public class TaskInstanceCommandHandler {
 
     /**
      * 提交任务：CLAIMED -> COMPLETED，生成提交记录并累加成员提交计数。
+     * 前置阶段未完成时在绑定附件和改状态之前拒绝。
      */
     public void submit(TaskInstance instance, Long userId, Long orgId, Map<String, Object> values) {
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
@@ -108,6 +110,7 @@ public class TaskInstanceCommandHandler {
         if (node == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
         }
+        requirePreviousStagesCompleted(instance, node);
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
@@ -218,6 +221,18 @@ public class TaskInstanceCommandHandler {
         Long submitterId = instance.getAssigneeId();
         if (submitterId != null) {
             memberSubmitCountHandler.revertSubmitCount(submitterId, instance.getProjectId());
+        }
+    }
+
+    /**
+     * 同一项目中 sort 更小的节点必须全部完成；同一阶段的其他并行槽不拦截。
+     * 接取和放弃不调用：后续阶段可以提前接取，前置未完成只拒绝提交。
+     */
+    private void requirePreviousStagesCompleted(TaskInstance instance, ItemTaskNode node) {
+        List<ItemStageNodeStatusBO> itemNodes = taskInstanceMapper.selectItemStageNodeStatuses(
+                List.of(instance.getItemId()));
+        if (!StageUnlockPolicy.isUnlocked(node.getSort(), itemNodes)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "请先完成前置阶段");
         }
     }
 

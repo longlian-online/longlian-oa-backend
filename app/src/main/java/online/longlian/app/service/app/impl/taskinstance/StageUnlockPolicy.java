@@ -10,7 +10,8 @@ import java.util.Optional;
  * 阶段前置判定（共享口径，与前端 WorkflowInstance {@code isNodeUnlocked} 一致）：
  * 同一项目中 sort 严格小于当前节点的全部节点均已完成，则当前节点已解锁。
  * <p>
- * 目前仅供「我的待办」列表分组使用，未接入 claim / submit 门禁。
+ * 「我的待办」用它划分可提交与等待中。提交调用 {@link #isUnlocked}；
+ * 接取和放弃不调用，后续阶段可以提前接取，前置未完成只拒绝提交。
  */
 public final class StageUnlockPolicy {
 
