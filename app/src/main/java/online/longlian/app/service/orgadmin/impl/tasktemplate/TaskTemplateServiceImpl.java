@@ -78,7 +78,7 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
                 .updatedAt(now)
                 .build();
         taskTemplateMapper.insert(template);
-        baseTaskService.lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        baseTaskService.lockBaseTasks(params.getOrgId(), params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
 
         List<TaskTemplateNode> nodes = params.getNodes().stream()
                 .map(node -> buildNode(template.getId(), node, now))

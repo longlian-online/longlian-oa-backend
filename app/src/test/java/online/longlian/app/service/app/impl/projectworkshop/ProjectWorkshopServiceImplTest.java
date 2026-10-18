@@ -24,6 +24,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -78,7 +79,7 @@ class ProjectWorkshopServiceImplTest {
 
     @Test
     void createWorkshopTaskTemplate_lockedBaseTaskDisappears_rejectsWithoutNodes() {
-        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(1L), any());
         WorkshopTaskTemplateCreateParamsBO params = WorkshopTaskTemplateCreateParamsBO.builder()
                 .orgId(1L)
                 .creatorId(2L)

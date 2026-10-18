@@ -39,6 +39,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -103,6 +104,10 @@ public class ItemServiceImpl implements ItemService {
                         .last("FOR UPDATE"));
         if (baseTasks.size() != baseTaskIds.size()) {
             throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+        }
+        // 个人模板可跨组织复用，但节点快照只能来自模板所属组织，不能抄入其他组织的任务名。
+        if (baseTasks.stream().anyMatch(task -> !Objects.equals(task.getOrgId(), template.getOrgId()))) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权引用该原子任务");
         }
         Map<Long, BaseTask> baseTaskMap = baseTasks.stream()
                 .collect(Collectors.toMap(BaseTask::getId, Function.identity()));

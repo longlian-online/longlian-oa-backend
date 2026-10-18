@@ -115,6 +115,29 @@ public class ItemApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id=1", Integer.class)).isEqualTo(1);
     }
 
+    /** 模板里已写入的外组织原子任务不能在创建项目时把名称抄进节点。 */
+    @Test
+    void shouldRejectCopyingAnotherOrganizationsBaseTaskNameIntoProjectNode() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "组织B");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) VALUES (1, 1, 1, '测试企划', 'alias', '{}', 0, '说明', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 2, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[{\"key\":\"secret\"}]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 2, 1, 1)");
+
+        authRequest(token).body(Map.of("title", "泄露项目", "taskTemplateId", "1"))
+                .post("/app/projects/1/items").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
+        assertThat(jdbcTemplate.queryForList("SELECT name FROM item_task_node", String.class))
+                .doesNotContain("组织B机密任务");
+    }
+
     /**
      * 删除项目成功
      */

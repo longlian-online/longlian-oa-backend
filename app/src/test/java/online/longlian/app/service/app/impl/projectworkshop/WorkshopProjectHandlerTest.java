@@ -26,6 +26,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -81,10 +82,11 @@ class WorkshopProjectHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), TaskTemplate.class);
         when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
                 .id(8L)
+                .orgId(4L)
                 .scope(TaskTemplateScope.PERSONAL)
                 .creatorId(3L)
                 .build());
-        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(4L), any());
 
         assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
                 .templateId(8L)

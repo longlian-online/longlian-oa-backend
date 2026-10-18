@@ -98,7 +98,7 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
                 .updatedAt(now)
                 .build();
         taskTemplateMapper.insert(template);
-        baseTaskService.lockBaseTasks(params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        baseTaskService.lockBaseTasks(params.getOrgId(), params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
         for (WorkshopTaskTemplateNodeCreateParamsBO node : params.getNodes()) {
             TaskTemplateNode taskTemplateNode = buildNode(template.getId(), node, now);
             taskTemplateNodeMapper.insert(taskTemplateNode);

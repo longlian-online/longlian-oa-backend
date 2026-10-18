@@ -20,6 +20,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.doThrow;
 
@@ -58,7 +59,7 @@ class TaskTemplateServiceImplTest {
 
     @Test
     void createTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
-        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(1L), any());
 
         assertThatThrownBy(() -> service.createTaskTemplate(TaskTemplateCreateParamsBO.builder()
                 .orgId(1L)

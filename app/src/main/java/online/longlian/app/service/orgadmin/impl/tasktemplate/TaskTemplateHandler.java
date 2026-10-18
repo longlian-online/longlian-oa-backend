@@ -48,7 +48,7 @@ public class TaskTemplateHandler {
                         .set(TaskTemplate::getDescription, params.getDescription())
                         .set(TaskTemplate::getUpdatedAt, now));
 
-        baseTaskService.lockBaseTasks(params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        baseTaskService.lockBaseTasks(params.getOrgId(), params.getNodes().stream().map(TaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
 
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()

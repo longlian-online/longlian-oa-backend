@@ -97,7 +97,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public void lockBaseTasks(List<Long> baseTaskIds) {
+    public void lockBaseTasks(Long orgId, List<Long> baseTaskIds) {
         List<Long> orderedIds = baseTaskIds.stream().filter(id -> id != null).distinct().sorted().toList();
         if (orderedIds.isEmpty()) {
             return;
@@ -109,6 +109,9 @@ public class BaseTaskServiceImpl implements BaseTaskService {
         if (tasks.size() != orderedIds.size()
                 || tasks.stream().anyMatch(task -> task.getStatus() != Status.ENABLED)) {
             throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+        }
+        if (orgId == null || tasks.stream().anyMatch(task -> !orgId.equals(task.getOrgId()))) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权引用该原子任务");
         }
     }
 

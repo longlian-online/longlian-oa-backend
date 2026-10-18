@@ -122,7 +122,7 @@ class BaseTaskServiceImplTest {
     // 空引用集合（如空模板）不加锁，也不应产生查询。
     @Test
     void shouldSkipLockingWhenTaskIdsEmpty() {
-        service.lockBaseTasks(List.of());
+        service.lockBaseTasks(1L, List.of());
 
         verifyNoInteractions(baseTaskMapper);
     }
@@ -133,7 +133,7 @@ class BaseTaskServiceImplTest {
         when(baseTaskMapper.selectList(any())).thenReturn(List.of(
                 BaseTask.builder().id(10L).status(Status.ENABLED).build()));
 
-        assertThatThrownBy(() -> service.lockBaseTasks(List.of(20L, 10L, 20L)))
+        assertThatThrownBy(() -> service.lockBaseTasks(1L, List.of(20L, 10L, 20L)))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
     }
@@ -143,7 +143,7 @@ class BaseTaskServiceImplTest {
     void shouldRejectMissingTask() {
         when(baseTaskMapper.selectList(any())).thenReturn(List.of());
 
-        assertThatThrownBy(() -> service.lockBaseTasks(List.of(10L)))
+        assertThatThrownBy(() -> service.lockBaseTasks(1L, List.of(10L)))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
     }
@@ -155,7 +155,7 @@ class BaseTaskServiceImplTest {
                 BaseTask.builder().id(10L).status(Status.ENABLED).build(),
                 BaseTask.builder().id(20L).status(Status.DISABLED).build()));
 
-        assertThatThrownBy(() -> service.lockBaseTasks(List.of(10L, 20L)))
+        assertThatThrownBy(() -> service.lockBaseTasks(1L, List.of(10L, 20L)))
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
     }
@@ -169,8 +169,31 @@ class BaseTaskServiceImplTest {
                 new AnnotationTransactionAttributeSource()));
         BaseTaskService proxy = (BaseTaskService) factory.getProxy();
 
-        assertThatThrownBy(() -> proxy.lockBaseTasks(List.of(10L)))
+        assertThatThrownBy(() -> proxy.lockBaseTasks(1L, List.of(10L)))
                 .isInstanceOf(IllegalTransactionStateException.class);
         verifyNoInteractions(baseTaskMapper);
+    }
+
+    @Test
+    void shouldRejectTaskFromAnotherOrganization() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(10L).orgId(1L).name("本组织任务").status(Status.ENABLED).build(),
+                BaseTask.builder().id(20L).orgId(2L).name("组织B机密任务").status(Status.ENABLED).build()));
+
+        assertThatThrownBy(() -> service.lockBaseTasks(1L, List.of(10L, 20L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMsg()).doesNotContain("组织B机密任务");
+                });
+    }
+
+    @Test
+    void shouldRejectLockWhenOrganizationMissing() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(10L).orgId(1L).status(Status.ENABLED).build()));
+
+        assertThatThrownBy(() -> service.lockBaseTasks(null, List.of(10L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 }
