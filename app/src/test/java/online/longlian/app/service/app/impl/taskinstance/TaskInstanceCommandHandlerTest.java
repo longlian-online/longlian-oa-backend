@@ -6,6 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
@@ -60,6 +61,7 @@ class TaskInstanceCommandHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
         handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper,
                 itemTaskNodeMapper, memberSubmitCountHandler, clock, new TaskFormService(), resourceService);
+        lenient().when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of());
     }
 
     @Test
@@ -127,7 +129,7 @@ class TaskInstanceCommandHandlerTest {
                 .build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).metaSchema("[]").build());
 
         handler.submit(instance, 10L, 5L, Map.of());
 
@@ -145,7 +147,7 @@ class TaskInstanceCommandHandlerTest {
         when(taskSubmissionMapper.selectOne(any())).thenReturn(
                 TaskSubmission.builder().id(9L).versionNo(3).build());
         when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).metaSchema("[]").build());
 
         handler.submit(instance, 10L, 5L, Map.of());
 
@@ -162,7 +164,7 @@ class TaskInstanceCommandHandlerTest {
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.selectOne(any())).thenReturn(TaskSubmission.builder().id(9L).build());
         when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).metaSchema("[]").build());
 
         handler.submit(instance, 10L, 5L, Map.of());
 
@@ -178,7 +180,7 @@ class TaskInstanceCommandHandlerTest {
                 .build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).metaSchema("[]").build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).metaSchema("[]").build());
 
         handler.submit(instance, 10L, 5L, Map.of());
 
@@ -196,6 +198,48 @@ class TaskInstanceCommandHandlerTest {
     }
 
     @Test
+    void shouldRejectSubmitWhenPreviousParallelSlotIsIncomplete() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
+                .projectId(2L).itemId(3L).itemTaskNodeId(4L)
+                .build();
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(
+                ItemTaskNode.builder().id(4L).sort(2).metaSchema("[]").build());
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(3L))).thenReturn(List.of(
+                new ItemStageNodeStatusBO(3L, 1L, "翻译", 1, 1, true),
+                new ItemStageNodeStatusBO(3L, 2L, "校对", 1, 2, false),
+                new ItemStageNodeStatusBO(3L, 4L, "嵌字", 2, 1, false)));
+
+        assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("请先完成前置阶段");
+        verifyNoInteractions(resourceService, taskSubmissionMapper, memberSubmitCountHandler);
+        verify(taskInstanceMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldSubmitWhenPreviousStagesCompletedAndSameStageSlotStillPending() {
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
+                .projectId(2L).itemId(3L).itemTaskNodeId(4L)
+                .build();
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(
+                ItemTaskNode.builder().id(4L).sort(2).metaSchema("[]").build());
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(3L))).thenReturn(List.of(
+                new ItemStageNodeStatusBO(3L, 1L, "翻译", 1, 1, true),
+                new ItemStageNodeStatusBO(3L, 2L, "校对", 1, 2, true),
+                new ItemStageNodeStatusBO(3L, 4L, "嵌字", 2, 1, false),
+                new ItemStageNodeStatusBO(3L, 5L, "校对嵌字", 2, 2, false)));
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
+
+        handler.submit(instance, 10L, 5L, Map.of());
+
+        verify(taskSubmissionMapper).insert(any(TaskSubmission.class));
+        verify(memberSubmitCountHandler).incrementSubmitCount(10L, 2L);
+    }
+
+    @Test
     void shouldRejectWrongSubmitterBeforeParsingOrBinding() {
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(20L).build();
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of())).isInstanceOf(AppException.class);
@@ -205,9 +249,9 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldRejectUnknownFieldsBeforeBindingOrStateUpdate() {
-        TaskInstance instance = TaskInstance.builder().id(1L).itemTaskNodeId(4L)
+        TaskInstance instance = TaskInstance.builder().id(1L).itemId(3L).itemTaskNodeId(4L)
                 .status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().metaSchema("[]").build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema("[]").build());
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of("unknown", "value")))
                 .isInstanceOf(AppException.class);
         verifyNoInteractions(resourceService, taskSubmissionMapper, memberSubmitCountHandler);
@@ -216,10 +260,10 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldBindValidatedFilesBeforePersistingSubmission() {
-        TaskInstance instance = TaskInstance.builder().id(1L).itemTaskNodeId(4L).projectId(2L)
+        TaskInstance instance = TaskInstance.builder().id(1L).itemId(3L).itemTaskNodeId(4L).projectId(2L)
                 .status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         String schema = "[{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":true,\"options\":[]}]";
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().metaSchema(schema).build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema(schema).build());
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
 
@@ -240,10 +284,10 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldNotPersistTaskWhenAttachmentBindingFails() {
-        TaskInstance instance = TaskInstance.builder().id(1L).itemTaskNodeId(4L)
+        TaskInstance instance = TaskInstance.builder().id(1L).itemId(3L).itemTaskNodeId(4L)
                 .status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         String schema = "[{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":true,\"options\":[]}]";
-        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().metaSchema(schema).build());
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema(schema).build());
         doThrow(new AppException(online.longlian.app.common.result.ResultCode.UNAUTHORIZED_OPERATION))
                 .when(resourceService).bindBizResources(any());
 
