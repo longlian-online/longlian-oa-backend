@@ -115,6 +115,43 @@ public class ItemApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id=1", Integer.class)).isEqualTo(1);
     }
 
+    /** 模板引用的原子任务停用后，仍可创建项目并执行该节点。 */
+    @Test
+    void shouldCreateAndExecuteProjectWhenTemplateReferencesDisabledBaseTask() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "worker", "123456", "worker@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("orgadmin", "123456");
+        String workerToken = loginAs("worker", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) VALUES (1, 1, 1, '测试企划', 'alias', '{}', 0, '说明', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '停用后的最新任务', '[]', 0, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
+
+        authRequest(token).body(Map.of("title", "停用任务项目", "taskTemplateId", "1"))
+                .post("/app/projects/1/items").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE title = '停用任务项目'", Long.class);
+        String instanceId = authRequest(token).get("/app/item/" + itemId + "/flow").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.nodes.size()", equalTo(1))
+                .body("data.nodes[0].name", equalTo("停用后的最新任务"))
+                .body("data.nodes[0].taskStatus", equalTo("PENDING"))
+                .extract().path("data.nodes[0].taskInstanceId");
+
+        authRequest(workerToken, 1L).post("/app/task/instance/" + instanceId + "/claim").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(workerToken, 1L).body(Map.of("values", Map.of()))
+                .post("/app/task/instance/" + instanceId + "/submit").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("提交成功"));
+        authRequest(token).get("/app/item/" + itemId + "/flow").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.nodes[0].taskStatus", equalTo("COMPLETED"));
+    }
+
+
     /** 模板里已写入的外组织原子任务不能在创建项目时把名称抄进节点。 */
     @Test
     void shouldRejectCopyingAnotherOrganizationsBaseTaskNameIntoProjectNode() {

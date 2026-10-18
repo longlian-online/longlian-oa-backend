@@ -99,11 +99,10 @@ public class ItemServiceImpl implements ItemService {
                 ? Collections.emptyList()
                 : baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
                         .in(BaseTask::getId, baseTaskIds)
-                        .eq(BaseTask::getStatus, Status.ENABLED)
                         .orderByAsc(BaseTask::getId)
                         .last("FOR UPDATE"));
         if (baseTasks.size() != baseTaskIds.size()) {
-            throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+            throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在");
         }
         // 个人模板可跨组织复用，但节点快照只能来自模板所属组织，不能抄入其他组织的任务名。
         if (baseTasks.stream().anyMatch(task -> !Objects.equals(task.getOrgId(), template.getOrgId()))) {
