@@ -62,6 +62,9 @@ public interface BaseTaskService {
      */
     void deleteBaseTask(BaseTaskDeleteParamsBO params);
 
-    /** 在引用写入事务内锁定全部任务，拒绝缺失或禁用任务，避免与删除交错。 */
-    void lockBaseTasks(List<Long> baseTaskIds);
+    /**
+     * 在引用写入事务内锁定全部任务。任务必须属于模板所在组织且为启用状态，
+     * 避免把其他组织的任务名写入本组织模板，并避免与删除交错。
+     */
+    void lockBaseTasks(Long orgId, List<Long> baseTaskIds);
 }

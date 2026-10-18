@@ -71,7 +71,7 @@ public class WorkshopProjectHandler {
                         .set(TaskTemplate::getDescription, params.getDescription())
                         .set(TaskTemplate::getUpdatedAt, now));
 
-        baseTaskService.lockBaseTasks(params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        baseTaskService.lockBaseTasks(template.getOrgId(), params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
 
         taskTemplateNodeMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplateNode>()

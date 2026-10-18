@@ -167,6 +167,40 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template_node", Long.class)).isZero();
     }
 
+    /** 非组织 B 成员不能把 B 的原子任务写入组织 A 的模板，失败更新不改已有节点。 */
+    @Test
+    void shouldRejectTemplateReferencingAnotherOrganizationsBaseTask() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "组织B");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '组织A任务', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[]', 1, 1)");
+
+        authRequest(token).body(Map.of("name", "跨组织模板", "description", "说明",
+                "nodes", new Object[]{
+                        Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1),
+                        Map.of("baseTaskId", 2L, "sort", 2, "parallelSort", 1)}))
+                .post("/orgadmin/task/template").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template_node", Long.class)).isZero();
+
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id) VALUES (1, 1, '原模板', '原说明', 1, 2, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
+        authRequest(token).body(Map.of("name", "被改写", "description", "被改写说明",
+                "nodes", new Object[]{Map.of("baseTaskId", 2L, "sort", 1, "parallelSort", 1)}))
+                .put("/orgadmin/task/template/1").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
+    }
+
     /**
      * 更新任务模板成功
      */

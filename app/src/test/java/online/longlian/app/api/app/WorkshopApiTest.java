@@ -446,6 +446,35 @@ public class WorkshopApiTest extends BaseApiTest {
                 "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
     }
 
+    /** 个人模板同样不能引用当前组织以外的原子任务。 */
+    @Test
+    void shouldRejectPersonalTemplateReferencingAnotherOrganizationsBaseTask() {
+        createUserWithOrganization(1L, "member", "123456", "member@example.com", 1L, 1L, "ORG_USER");
+        createOrganization(2L, "组织B");
+        String token = loginAs("member", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[]', 1, 1)");
+        Map<String, Object> body = Map.of("name", "跨组织个人模板", "description", "说明",
+                "nodes", List.of(Map.of("baseTaskId", "2", "sort", 0, "parallelSort", 1)));
+
+        authRequest(token).body(body).post("/app/workshop/task-template").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '组织A任务', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id) VALUES (1, 1, '原模板', '原说明', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 0, 1)");
+        authRequest(token).body(body).put("/app/workshop/task-template/1").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
+    }
+
     // ========== 认证失败 ==========
 
     /**

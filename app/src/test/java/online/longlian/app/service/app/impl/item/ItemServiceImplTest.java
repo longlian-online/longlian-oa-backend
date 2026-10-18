@@ -101,8 +101,8 @@ class ItemServiceImplTest {
                 TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build(),
                 TaskTemplateNode.builder().id(13L).baseTaskId(22L).sort(3).parallelSort(1).build()));
         when(baseTaskMapper.selectList(any())).thenReturn(List.of(
-                BaseTask.builder().id(21L).name("绘制").status(Status.ENABLED).metaSchema("[]").build(),
-                BaseTask.builder().id(22L).name("翻译").status(Status.ENABLED).metaSchema("[]").build()));
+                BaseTask.builder().id(21L).orgId(1L).name("绘制").status(Status.ENABLED).metaSchema("[]").build(),
+                BaseTask.builder().id(22L).orgId(1L).name("翻译").status(Status.ENABLED).metaSchema("[]").build()));
 
         service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
@@ -229,13 +229,38 @@ class ItemServiceImplTest {
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
                 TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build()));
         when(baseTaskMapper.selectList(any())).thenReturn(List.of(
-                BaseTask.builder().id(22L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
+                BaseTask.builder().id(22L).orgId(1L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
 
         service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
 
         verify(itemMapper).insert(any(Item.class));
         verify(taskTemplateMapper).update(isNull(), any());
+    }
+
+    @Test
+    void createProjectItem_baseTaskFromAnotherOrganization_rejectsWithoutCopyingName() {
+        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(21L).orgId(1L).name("绘制").status(Status.ENABLED).metaSchema("[]").build(),
+                BaseTask.builder().id(22L).orgId(2L).name("组织B机密任务").status(Status.ENABLED).metaSchema("[{\"key\":\"secret\"}]").build()));
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权引用该原子任务")
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(itemTaskFlowMapper, itemTaskNodeMapper, taskInstanceMapper);
+        verify(taskTemplateMapper, never()).update(isNull(), any());
     }
 
 
