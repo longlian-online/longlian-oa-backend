@@ -11,6 +11,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -31,8 +32,7 @@ public class MemberSubmissionHandler {
     private final SubmissionCountAssembler submissionCountAssembler;
 
     /**
-     * 从原子任务→任务节点→提交记录逐层关联，每层结果为空时提前返回
-     * 委托SubmissionCountAssembler组装
+     * 总数在重置和打回时回退，明细必须只计仍有效的提交，否则历史行会让各项之和大于总数。
      */
     public OrgMemberBaseTaskSubmitCountResultBO getSubmitCounts(OrganizationMember member) {
         List<BaseTask> baseTasks = baseTaskMapper.selectList(
@@ -58,7 +58,8 @@ public class MemberSubmissionHandler {
         List<TaskSubmission> submissions = taskSubmissionMapper.selectList(
                 new LambdaQueryWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getSubmitterId, member.getUserId())
-                        .in(TaskSubmission::getItemTaskNodeId, nodeIds));
+                        .in(TaskSubmission::getItemTaskNodeId, nodeIds)
+                        .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED));
 
         return submissionCountAssembler.assembleResult(member, baseTasks, nodeIdToBaseTaskId, submissions);
     }
