@@ -6,6 +6,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Map;
 
@@ -162,25 +164,62 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
-    /**
-     * 更新组织信息时description为空应失败
-     */
-    @Test
-    void shouldFailUpdateOrganizationInfoWithEmptyDescription() {
+    @ParameterizedTest
+    @ValueSource(strings = {"\"\"", "null", "\"   \""})
+    void shouldClearOrganizationDescription(String descriptionJson) {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        jdbcTemplate.update("UPDATE organization SET description = '原简介' WHERE id = 1");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .body("{\"name\":\"组织名\",\"description\":" + descriptionJson + "}")
+                .put("/orgadmin/organizations")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        String expected = "null".equals(descriptionJson) ? null : "\"\"".equals(descriptionJson) ? "" : "   ";
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT description FROM organization WHERE id = 1", String.class)).isEqualTo(expected);
+        authRequest(token).get("/orgadmin/organizations").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.description", equalTo(expected));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", ",\"description\":null", ",\"description\":\"\""})
+    void shouldRenameOrganizationWithoutDescription(String descriptionField) {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
-        Response response = authRequest(token)
-                .body(Map.of(
-                        "name", "组织名",
-                        "avatarFileId", 12345L,
-                        "description", ""
-                ))
-                .put("/orgadmin/organizations");
-
-        response.then()
+        authRequest(token)
+                .body("{\"name\":\"新的组织名\"" + descriptionField + "}")
+                .put("/orgadmin/organizations")
+                .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM organization WHERE id = 1", String.class)).isEqualTo("新的组织名");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT description FROM organization WHERE id = 1", String.class)).isIn(null, "");
+        authRequest(token).get("/orgadmin/organizations").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.name", equalTo("新的组织名"));
+    }
+
+    @Test
+    void shouldAcceptDescriptionAtMaximumLength() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        String description = "简".repeat(500);
+
+        authRequest(token).body(Map.of("name", "组织名", "description", description))
+                .put("/orgadmin/organizations").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT description FROM organization WHERE id = 1", String.class)).isEqualTo(description);
     }
 
     /**
