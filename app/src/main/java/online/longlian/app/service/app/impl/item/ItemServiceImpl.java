@@ -30,6 +30,9 @@ import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
+import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.common.enumeration.TaskSubmissionStatus;
 import online.longlian.common.enumeration.TaskTemplateScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +58,7 @@ public class ItemServiceImpl implements ItemService {
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
     private final BaseTaskMapper baseTaskMapper;
     private final TaskInstanceMapper taskInstanceMapper;
+    private final TaskSubmissionMapper taskSubmissionMapper;
     private final Clock clock;
     private final ItemQueryBuilder itemQueryBuilder;
     private final ItemAssembler itemAssembler;
@@ -73,7 +77,9 @@ public class ItemServiceImpl implements ItemService {
         if (items.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), itemPage.getTotal());
         }
-        return new PageResultBO<>(itemAssembler.assembleList(items), itemPage.getTotal());
+        List<ProjectItemListVO> list = itemAssembler.assembleList(items);
+        markSubmittedTasks(list);
+        return new PageResultBO<>(list, itemPage.getTotal());
     }
 
     @Override
@@ -175,39 +181,95 @@ public class ItemServiceImpl implements ItemService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectItem(ItemOperationParamsBO params) {
         checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+        Item item = requireItem(params.getProjectId(), params.getItemId());
+        if (hasSubmittedTask(params.getItemId())) {
+            throw new AppException(ResultCode.PARAM_ERROR, "项目存在已提交任务，请提交删除申请");
+        }
+        softDeleteItem(item);
+    }
 
-        Item item = itemMapper.selectById(params.getItemId());
-        if (item == null || !item.getProjectId().equals(params.getProjectId())) {
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProjectItemForReview(Long projectId, Long itemId, Long orgId) {
+        requireEnabledProject(projectId, orgId);
+        softDeleteItem(requireItem(projectId, itemId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProjectItemsForReview(Long projectId, Long orgId) {
+        requireEnabledProject(projectId, orgId);
+        List<Item> items = itemMapper.selectList(new LambdaQueryWrapper<Item>().eq(Item::getProjectId, projectId));
+        for (Item item : items) {
+            softDeleteItem(item);
+        }
+    }
+
+    private void markSubmittedTasks(List<ProjectItemListVO> list) {
+        List<Long> itemIds = list.stream().map(ProjectItemListVO::getId).toList();
+        List<Object> submittedIds = taskSubmissionMapper.selectObjs(new LambdaQueryWrapper<TaskSubmission>()
+                .select(TaskSubmission::getItemId)
+                .in(TaskSubmission::getItemId, itemIds)
+                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED));
+        if (submittedIds == null || submittedIds.isEmpty()) {
+            list.forEach(item -> item.setHasSubmittedTask(false));
+            return;
+        }
+        java.util.Set<Long> submitted = submittedIds.stream()
+                .map(id -> ((Number) id).longValue())
+                .collect(java.util.stream.Collectors.toSet());
+        list.forEach(item -> item.setHasSubmittedTask(submitted.contains(item.getId())));
+    }
+
+    private boolean hasSubmittedTask(Long itemId) {
+        return taskSubmissionMapper.selectCount(new LambdaQueryWrapper<TaskSubmission>()
+                .eq(TaskSubmission::getItemId, itemId)
+                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)) > 0;
+    }
+
+    private Item requireItem(Long projectId, Long itemId) {
+        Item item = itemMapper.selectById(itemId);
+        if (item == null || !item.getProjectId().equals(projectId)) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
+        return item;
+    }
+
+    private Project requireEnabledProject(Long projectId, Long orgId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
+        }
+        return project;
+    }
+
+    private void softDeleteItem(Item item) {
         LocalDateTime now = LocalDateTime.now(clock);
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
-                        .eq(Item::getId, params.getItemId())
+                        .eq(Item::getId, item.getId())
                         .set(Item::getDeletedAt, now)
                         .set(Item::getUpdatedAt, now));
         if (updated == 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可重复操作");
         }
 
-        // 级联软删该 Item 下的 flow / node / instance（配合写操作门禁，见 #208）
         itemTaskFlowMapper.update(null,
                 new LambdaUpdateWrapper<ItemTaskFlow>()
-                        .eq(ItemTaskFlow::getItemId, params.getItemId())
+                        .eq(ItemTaskFlow::getItemId, item.getId())
                         .set(ItemTaskFlow::getDeletedAt, now)
                         .set(ItemTaskFlow::getUpdatedAt, now));
         itemTaskNodeMapper.update(null,
                 new LambdaUpdateWrapper<ItemTaskNode>()
-                        .eq(ItemTaskNode::getItemId, params.getItemId())
+                        .eq(ItemTaskNode::getItemId, item.getId())
                         .set(ItemTaskNode::getDeletedAt, now)
                         .set(ItemTaskNode::getUpdatedAt, now));
         taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getItemId, params.getItemId())
+                        .eq(TaskInstance::getItemId, item.getId())
                         .set(TaskInstance::getDeletedAt, now)
                         .set(TaskInstance::getUpdatedAt, now));
-
-        // 项目删除后释放对任务模板的引用，引用计数 -1
         taskTemplateMapper.update(null,
                 new LambdaUpdateWrapper<TaskTemplate>()
                         .eq(TaskTemplate::getId, item.getTaskTemplateId())

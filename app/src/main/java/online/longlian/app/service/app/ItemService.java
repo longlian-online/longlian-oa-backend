@@ -50,4 +50,14 @@ public interface ItemService {
      */
     void deleteProjectItem(ItemOperationParamsBO params);
 
+    /**
+     * 审核通过后软删除项目，不再检查创建者或是否已有提交。
+     */
+    void deleteProjectItemForReview(Long projectId, Long itemId, Long orgId);
+
+    /**
+     * 审核通过后软删除企划下仍存在的全部项目。
+     */
+    void deleteProjectItemsForReview(Long projectId, Long orgId);
+
 }

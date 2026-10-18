@@ -17,6 +17,8 @@ import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
+import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
+import online.longlian.app.service.app.DeletionRequestService;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.ItemService;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class ItemController {
 
     private final ItemService itemService;
+    private final DeletionRequestService deletionRequestService;
 
     @Operation(
         summary = "分页查询项目列表",
@@ -88,6 +91,20 @@ public class ItemController {
                         .orgId(sessionContext.orgId())
                         .operatorId(sessionContext.userId())
                         .build());
+    }
+
+    @Operation(summary = "提交项目删除申请", description = "项目存在已提交任务时，由企划负责人填写原因后提交，组织管理员审核通过后软删除")
+    @Parameter(name = "projectId", description = "企划ID")
+    @Parameter(name = "itemId", description = "项目ID")
+    @PostMapping("/{itemId}/deletion-requests")
+    @ResponseMessage("已提交删除申请")
+    public void createItemDeletionRequest(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @PathVariable Long itemId,
+            @RequestBody @Valid DeletionReasonDTO reasonDTO) {
+        deletionRequestService.createItemRequest(
+                projectId, itemId, sessionContext.userId(), sessionContext.orgId(), reasonDTO.getReason());
     }
 
 }

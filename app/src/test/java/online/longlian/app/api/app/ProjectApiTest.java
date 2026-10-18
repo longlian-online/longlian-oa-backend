@@ -1126,7 +1126,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,企划已存在进行中的项目，无法删除，请联系组织管理员处理"));
+                .body("msg", equalTo("参数错误,企划已存在项目，请提交删除申请"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
     }

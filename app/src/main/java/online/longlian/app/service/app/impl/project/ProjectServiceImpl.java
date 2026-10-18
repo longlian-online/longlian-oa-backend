@@ -311,8 +311,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
         if (itemMapper.selectCount(new LambdaQueryWrapper<Item>()
                 .eq(Item::getProjectId, params.getProjectId())) > 0) {
-            throw new AppException(ResultCode.PARAM_ERROR,
-                    "企划已存在进行中的项目，无法删除，请联系组织管理员处理");
+            throw new AppException(ResultCode.PARAM_ERROR, "企划已存在项目，请提交删除申请");
         }
         projectMapper.deleteById(params.getProjectId());
     }

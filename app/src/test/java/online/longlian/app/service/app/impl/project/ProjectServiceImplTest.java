@@ -549,7 +549,7 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
                     assertThat(ex.getMsg()).isEqualTo(
-                            "参数错误,企划已存在进行中的项目，无法删除，请联系组织管理员处理");
+                            "参数错误,企划已存在项目，请提交删除申请");
                 });
         verify(projectMapper, never()).deleteById(any());
     }
