@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LongLian-OA 邮箱验证码</title>
+    <title>${displayName} 邮箱验证码</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -53,8 +53,8 @@
 <body>
 <div class="email-container">
     <div class="header">
-        <h3>LongLian-OA 邮箱验证码</h3>
-        <img src="https://longlian-oa-sit-1308050490.cos.ap-guangzhou.myqcloud.com/logo.jpg" alt="LongLian OA Logo" width="96" height="96">
+        <h3>${displayName} 邮箱验证码</h3>
+        <img src="https://longlian-oa-sit-1308050490.cos.ap-guangzhou.myqcloud.com/logo.jpg" alt="${displayName} Logo" width="96" height="96">
     </div>
     <div class="content">
         <p>尊敬的${receiver}，您好！</p>
@@ -63,7 +63,7 @@
         <p>感谢您的使用！</p>
     </div>
     <div class="footer">
-        <p>本邮件由 LongLian-OA 自动发送，请勿回复。</p>
+        <p>本邮件由 ${displayName} 自动发送，请勿回复。</p>
     </div>
 </div>
 </body>
