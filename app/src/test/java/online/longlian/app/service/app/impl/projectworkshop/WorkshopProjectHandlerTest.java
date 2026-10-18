@@ -105,6 +105,38 @@ class WorkshopProjectHandlerTest {
         verifyNoInteractions(taskTemplateNodeMapper);
     }
 
+    @Test
+    void updateWorkshopTaskTemplate_organizationScope_rejects() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(4L).scope(TaskTemplateScope.ORGANIZATION).creatorId(3L).build());
+
+        assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).userId(3L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMessage()).contains("仅可编辑个人模板");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
+    @Test
+    void updateWorkshopTaskTemplate_otherCreator_rejects() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(4L).scope(TaskTemplateScope.PERSONAL).creatorId(9L).build());
+
+        assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).userId(3L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMessage()).contains("仅创建者可编辑该模板");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
     private static WorkshopTaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {
         return WorkshopTaskTemplateNodeCreateParamsBO.builder()
                 .baseTaskId(baseTaskId)

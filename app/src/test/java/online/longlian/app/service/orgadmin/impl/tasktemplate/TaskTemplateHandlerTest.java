@@ -72,6 +72,38 @@ class TaskTemplateHandlerTest {
         verifyNoInteractions(taskTemplateNodeMapper);
     }
 
+    @Test
+    void updateTaskTemplate_otherOrganization_rejectsWithoutNodeChanges() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(2L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> handler.updateTaskTemplate(TaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMessage()).contains("无权操作该任务模板");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
+    @Test
+    void updateTaskTemplate_disabled_rejectsWithoutNodeChanges() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(1L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> handler.updateTaskTemplate(TaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+                    assertThat(ex.getMessage()).contains("任务模板已被禁用");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
     private static TaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {
         return TaskTemplateNodeCreateParamsBO.builder()
                 .baseTaskId(baseTaskId)
