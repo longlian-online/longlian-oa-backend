@@ -7,10 +7,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
@@ -24,6 +26,7 @@ import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.service.common.LockService;
@@ -47,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -61,6 +65,8 @@ class ProjectServiceImplTest {
     private ProjectTypeMapper projectTypeMapper;
     @Mock
     private ProjectWorkshopMapper projectWorkshopMapper;
+    @Mock
+    private ItemMapper itemMapper;
     @Mock
     private ResourceService resourceService;
     @Mock
@@ -78,10 +84,13 @@ class ProjectServiceImplTest {
     void setUp() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new ProjectServiceImpl(
                 projectMapper,
                 projectTypeMapper,
                 projectWorkshopMapper,
+                itemMapper,
                 resourceService,
                 projectQueryBuilder,
                 projectAssembler,
@@ -89,6 +98,7 @@ class ProjectServiceImplTest {
                 lockService,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
+        lenient().when(itemMapper.selectCount(any())).thenReturn(0L);
     }
 
     /** 非法 metadata 不应创建项目或绑定资源。 */
@@ -519,5 +529,77 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
         verify(projectMapper, never()).selectSearchPage(any(), any());
+    }
+
+    @Test
+    void deleteProject_withoutItems_softDeletes() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+
+        service.deleteProject(deleteParams(2L));
+
+        verify(projectMapper).deleteById(100L);
+    }
+
+    @Test
+    void deleteProject_withItems_rejectsAndKeepsProject() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+        when(itemMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                    assertThat(ex.getMsg()).isEqualTo(
+                            "参数错误,企划已存在进行中的项目，无法删除，请联系组织管理员处理");
+                });
+        verify(projectMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteProject_nonCreator_rejects() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(3L));
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMsg()).isEqualTo("无权操作,仅企划负责人可删除企划");
+                });
+        verify(projectMapper, never()).deleteById(any());
+        verify(itemMapper, never()).selectCount(any());
+    }
+
+    @Test
+    void deleteProject_disabledProject_rejects() {
+        when(projectMapper.selectById(100L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        verify(projectMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void getProjectDetail_reportsWhetherItemsExist() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0).claimedTaskCount(0).pendingTaskCount(0).build());
+        when(itemMapper.selectCount(any())).thenReturn(2L);
+
+        ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(result.getHasItems()).isTrue();
+    }
+
+    private Project enabledProject(Long creatorId) {
+        return Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(creatorId)
+                .resourceStatus(Status.ENABLED)
+                .build();
+    }
+
+    private ProjectDeleteParamsBO deleteParams(Long userId) {
+        return ProjectDeleteParamsBO.builder().projectId(100L).userId(userId).orgId(1L).build();
     }
 }

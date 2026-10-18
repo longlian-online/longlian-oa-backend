@@ -270,7 +270,8 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("code", equalTo(0))
                 .body("data.id", notNullValue())
                 .body("data.title", notNullValue())
-                .body("data.createdAt", equalTo("2026-03-01 08:30:00"));
+                .body("data.createdAt", equalTo("2026-03-01 08:30:00"))
+                .body("data.hasItems", equalTo(false));
     }
 
     /**
@@ -1077,6 +1078,124 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("data.total", equalTo(0));
     }
 
+    @Test
+    void shouldDeleteProjectWithoutItems() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertProject(1L, 1L, "可删除企划");
+
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("删除成功"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isZero();
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        authRequest(token)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(0));
+    }
+
+    @Test
+    void shouldRejectDeleteProjectWhenItemsExist() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertProject(1L, 1L, "有项目企划");
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "第一章", 1L, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.hasItems", equalTo(true));
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", equalTo("参数错误,企划已存在进行中的项目，无法删除，请联系组织管理员处理"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldDeleteProjectWhenOnlyDeletedItemsRemain() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertProject(1L, 1L, "只剩已删项目");
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, deleted_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW())",
+                1L, 1L, "已删除项目", 1L, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("data.hasItems", equalTo(false));
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isZero();
+    }
+
+    @Test
+    void shouldRejectDeleteProjectByNonCreator() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("member", "123456");
+        insertProject(1L, 1L, "别人的企划");
+
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作,仅企划负责人可删除企划"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldFailDeleteProjectWithoutAuth() {
+        request()
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldFailDeleteDisabledProject() {
+        String token = createDisabledProjectAndLogin();
+
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+    }
+
     private String createDisabledProjectAndLogin() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         jdbcTemplate.update(
@@ -1084,6 +1203,16 @@ public class ProjectApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 1L, 1L, 1L, "禁用企划", 1, 0, 1L);
         return loginAs("orgadmin", "123456");
+    }
+
+    private void insertProject(Long projectId, Long creatorId, String title) {
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "漫画", 1, creatorId);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                projectId, 1L, 1L, title, 1, 1, creatorId);
     }
 
 }
