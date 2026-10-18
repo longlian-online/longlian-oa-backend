@@ -10,7 +10,7 @@ import lombok.Data;
 public class ProjectTypeCreateDTO {
 
     @NotBlank(message = "类型名称不能为空")
-    @Size(max = 50, message = "类型名称不能超过 50 个字符")
+    @Size(max = 20, message = "类型名称不能超过 20 个字符")
     @Schema(description = "类型名称", requiredMode = Schema.RequiredMode.REQUIRED)
     private String name;
 
