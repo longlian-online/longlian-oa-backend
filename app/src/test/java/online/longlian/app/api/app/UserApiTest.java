@@ -6,12 +6,16 @@ import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class UserApiTest extends BaseApiTest {
@@ -41,7 +45,7 @@ public class UserApiTest extends BaseApiTest {
                 .body(Map.of(
                         "email", "newuser_" + userId + "@example.com",
                         "password", "123456",
-                        "username", "newuser_" + userId,
+                        "username", "New_User",
                         "nickname", "新用户",
                         "inviteCode", inviteCode,
                         "code", "123456",
@@ -54,7 +58,7 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         org.junit.jupiter.api.Assertions.assertEquals("ORG_OWNER", jdbcTemplate.queryForObject(
                 "SELECT m.org_role FROM organization_member m JOIN `user` u ON u.id = m.user_id WHERE u.username = ?",
-                String.class, "newuser_" + userId));
+                String.class, "New_User"));
     }
 
     @Test
@@ -122,7 +126,7 @@ public class UserApiTest extends BaseApiTest {
                 .body(Map.of(
                         "email", "newuser_" + userId + "@example.com",
                         "password", "123456",
-                        "username", "newuser_" + userId,
+                        "username", "New_User",
                         "nickname", "新用户",
                         "inviteCode", inviteCode,
                         "code", "123456"
@@ -132,6 +136,46 @@ public class UserApiTest extends BaseApiTest {
         createResponse.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"create-organization", "join-organization"})
+    void shouldRejectDisallowedUsernameWithoutConsumingCodes(String registrationMode) {
+        if ("create-organization".equals(registrationMode)) {
+            createOrganizationCreateInviteOTP("INVITE");
+        } else {
+            createOrganization(1L, "测试组织");
+            createOrganizationUserInviteOTP("INVITE", 1L);
+        }
+        createEmailVerifyOTP("EMAIL1", 1L, "new@example.com");
+
+        for (String username : List.of("用户名称", "user1", "ab-c", "ab c", "café", "abcd\n")) {
+            request().body(Map.of(
+                            "username", username, "password", "123456", "nickname", "新用户",
+                            "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
+                            "orgName", "新组织"))
+                    .post("/app/user/register/" + registrationMode)
+                    .then().statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `user`", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM group_application", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM one_time_password WHERE status <> 0", Integer.class)).isZero();
+
+        request().body(Map.of(
+                        "username", "_New_User", "password", "123456", "nickname", "新用户",
+                        "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
+                        "orgName", "新组织"))
+                .post("/app/user/register/" + registrationMode)
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        String table = "create-organization".equals(registrationMode) ? "`user`" : "group_application";
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT username FROM " + table + " WHERE email = ?", String.class, "new@example.com"))
+                .isEqualTo("_New_User");
     }
 
     // ========== 邀请码查询 ==========
