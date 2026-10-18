@@ -18,8 +18,9 @@ import online.longlian.app.pojo.vo.orgadmin.DeletionRequestInfoVO;
 import online.longlian.app.service.app.DeletionRequestService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,11 +38,11 @@ public class DeletionRequestController {
     private final DeletionRequestService deletionRequestService;
 
     @Operation(summary = "分页查询待审核删除申请", description = "仅返回待审核申请，按申请时间倒序")
-    @PostMapping("")
+    @GetMapping("")
     @ResponseMessage("查询成功")
     public PageResultVO<DeletionRequestInfoVO> listDeletionRequests(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-            @RequestBody @Valid DeletionRequestListDTO listDTO) {
+            @ModelAttribute @Valid DeletionRequestListDTO listDTO) {
         PageResultBO<DeletionRequestInfoBO> result = deletionRequestService.listPending(
                 sessionContext.orgId(), listDTO.getPageNum(), listDTO.getPageSize());
         List<DeletionRequestInfoVO> list = result.getList().stream().map(bo -> {
@@ -54,7 +55,7 @@ public class DeletionRequestController {
 
     @Operation(summary = "审核删除申请", description = "通过后软删除对应企划或项目；拒绝则保留原数据")
     @Parameter(name = "requestId", description = "删除申请ID")
-    @PutMapping("/{requestId}/review")
+    @PatchMapping("/{requestId}")
     @ResponseMessage("审核完成")
     public void reviewDeletionRequest(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,

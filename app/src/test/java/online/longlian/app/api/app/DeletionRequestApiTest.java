@@ -27,8 +27,9 @@ public class DeletionRequestApiTest extends BaseApiTest {
                 .body("msg", equalTo("已提交删除申请"));
 
         String requestId = authRequest(token)
-                .body(Map.of("pageNum", 1, "pageSize", 10))
-                .post("/orgadmin/deletion-requests")
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .get("/orgadmin/deletion-requests")
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -41,7 +42,7 @@ public class DeletionRequestApiTest extends BaseApiTest {
 
         authRequest(token)
                 .body(Map.of("status", "APPROVED"))
-                .put("/orgadmin/deletion-requests/" + requestId + "/review")
+                .patch("/orgadmin/deletion-requests/" + requestId)
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -61,7 +62,7 @@ public class DeletionRequestApiTest extends BaseApiTest {
 
         authRequest(token)
                 .body(Map.of("status", "REJECTED"))
-                .put("/orgadmin/deletion-requests/" + requestId + "/review")
+                .patch("/orgadmin/deletion-requests/" + requestId)
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -110,8 +111,9 @@ public class DeletionRequestApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
         authRequest(token)
-                .body(Map.of("pageNum", 1, "pageSize", 10))
-                .post("/orgadmin/deletion-requests")
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 10)
+                .get("/orgadmin/deletion-requests")
                 .then()
                 .body("data.list[0].targetType", equalTo("ITEM"));
 
@@ -119,7 +121,7 @@ public class DeletionRequestApiTest extends BaseApiTest {
                 "SELECT id FROM deletion_request WHERE target_type = 2", Long.class);
         authRequest(token)
                 .body(Map.of("status", "APPROVED"))
-                .put("/orgadmin/deletion-requests/" + requestId + "/review")
+                .patch("/orgadmin/deletion-requests/" + requestId)
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
