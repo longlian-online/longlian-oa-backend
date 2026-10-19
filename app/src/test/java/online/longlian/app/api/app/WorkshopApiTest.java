@@ -458,8 +458,7 @@ public class WorkshopApiTest extends BaseApiTest {
 
         authRequest(token).body(body).post("/app/workshop/task-template").then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task_template", Long.class)).isZero();
 

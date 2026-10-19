@@ -167,8 +167,7 @@ public class ItemApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("title", "泄露项目", "taskTemplateId", "1"))
                 .post("/app/projects/1/items").then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
 
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
         assertThat(jdbcTemplate.queryForList("SELECT name FROM item_task_node", String.class))

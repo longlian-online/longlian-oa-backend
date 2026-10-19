@@ -80,17 +80,17 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .eq(BaseTask::getId, params.getTaskId())
                 .last("FOR UPDATE"));
         if (task == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "原子任务不存在");
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务不存在");
         }
         if (!task.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该原子任务");
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
         boolean referenced = taskTemplateNodeMapper.selectCount(new LambdaQueryWrapper<TaskTemplateNode>()
                 .eq(TaskTemplateNode::getBaseTaskId, params.getTaskId())) > 0
                 || itemTaskNodeMapper.selectCount(new LambdaQueryWrapper<ItemTaskNode>()
                 .eq(ItemTaskNode::getBaseTaskId, params.getTaskId())) > 0;
         if (referenced) {
-            throw new AppException(ResultCode.PARAM_ERROR, "该原子任务已被任务模板或项目任务节点引用，请改为禁用");
+            throw new AppException(ResultCode.PARAM_ERROR, "该任务已被任务模板或项目任务节点引用，请改为禁用");
         }
         baseTaskMapper.deleteById(params.getTaskId());
     }
@@ -108,10 +108,10 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .last("FOR UPDATE"));
         if (tasks.size() != orderedIds.size()
                 || tasks.stream().anyMatch(task -> task.getStatus() != Status.ENABLED)) {
-            throw new AppException(ResultCode.PARAM_ERROR, "原子任务不存在或已禁用");
+            throw new AppException(ResultCode.PARAM_ERROR, "任务不存在或已禁用");
         }
         if (orgId == null || tasks.stream().anyMatch(task -> !orgId.equals(task.getOrgId()))) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权引用该原子任务");
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权引用该任务");
         }
     }
 
@@ -122,10 +122,10 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                 .eq(BaseTask::getId, params.getTaskId())
                 .last("FOR UPDATE"));
         if (task == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "原子任务不存在");
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务不存在");
         }
         if (!task.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该原子任务");
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
 
         baseTaskMapper.update(null,
@@ -144,10 +144,10 @@ public class BaseTaskServiceImpl implements BaseTaskService {
     public void changeBaseTaskStatus(BaseTaskChangeStatusParamsBO params) {
         BaseTask task = baseTaskMapper.selectById(params.getTaskId());
         if (task == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "原子任务不存在");
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务不存在");
         }
         if (!task.getOrgId().equals(params.getOrgId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该原子任务");
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
         baseTaskMapper.update(null,
                 new LambdaUpdateWrapper<BaseTask>()
