@@ -398,7 +398,7 @@ CREATE TABLE `user` (
   `username` varchar(50) NOT NULL COMMENT "用户名（登录用）",
   `password` varchar(100) NOT NULL COMMENT "密码（加密存储）",
   `nickname` varchar(50) NOT NULL DEFAULT "" COMMENT "昵称（展示用）",
-  `email` varchar(100) NOT NULL DEFAULT "" COMMENT "邮箱（登录/通知）",
+  `email` varchar(100) NULL DEFAULT NULL COMMENT "邮箱（登录/通知，未绑定时为NULL）",
   `avatar_file_id` bigint NULL COMMENT "用户头像",
   `default_org_id` bigint NOT NULL DEFAULT 0 COMMENT "默认组织ID",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
