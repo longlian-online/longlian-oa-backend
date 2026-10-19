@@ -6,8 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
 
-import java.util.Map;
-
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 
@@ -16,32 +14,35 @@ class SystemInfoApiTest extends BaseApiTest {
     @Autowired
     private BuildProperties buildProperties;
 
-    /** 公开接口无需 Token、组织或请求参数，且只公开版本信息。 */
+    /** 公开的发布元数据无需 Token、组织或请求参数。 */
     @Test
-    void shouldReturnOnlyBuildVersionWithoutAuthentication() {
+    void shouldReturnBuildMetadataWithoutAuthentication() {
         request().get("/common/system/info").then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("msg", instanceOf(String.class))
-                .body("data", equalTo(Map.of("version", buildProperties.getVersion())));
+                .body("data.version", equalTo(buildProperties.getVersion()))
+                .body("data.buildTime", equalTo(buildProperties.getTime().toString()));
     }
 
     /** 客户端携带失效凭证也不应阻止读取公开的系统信息。 */
     @Test
-    void shouldReturnBuildVersionWithInvalidToken() {
+    void shouldReturnBuildMetadataWithInvalidToken() {
         authRequest("invalid-token").get("/common/system/info").then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data", equalTo(Map.of("version", buildProperties.getVersion())));
+                .body("data.version", equalTo(buildProperties.getVersion()))
+                .body("data.buildTime", equalTo(buildProperties.getTime().toString()));
     }
 
     /** 系统信息不依赖组织上下文，非法组织头也不能阻止匿名读取。 */
     @Test
-    void shouldReturnBuildVersionWithInvalidOrganizationHeader() {
+    void shouldReturnBuildMetadataWithInvalidOrganizationHeader() {
         request().header("X-Org-Id", "invalid-org").get("/common/system/info").then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data", equalTo(Map.of("version", buildProperties.getVersion())));
+                .body("data.version", equalTo(buildProperties.getVersion()))
+                .body("data.buildTime", equalTo(buildProperties.getTime().toString()));
     }
 
     /** 未提供 POST 映射，认证入口的 handler 查询异常沿用统一 FAIL 响应。 */

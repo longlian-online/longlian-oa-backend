@@ -13,22 +13,22 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.Properties;
 import java.util.List;
 
-import static org.hamcrest.Matchers.aMapWithSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class SystemControllerTest {
 
-    /** 使用实际构建产物与 Fastjson2 验证路由和统一响应包装，防止构建版本未写入。 */
+    /** 使用实际构建产物与 Fastjson2 验证统一包装中的发布元数据。 */
     @Test
-    void shouldReturnWrappedBuildVersion() throws Exception {
+    void shouldReturnWrappedBuildMetadata() throws Exception {
         Properties properties = new Properties();
         try (var input = getClass().getResourceAsStream("/META-INF/build-info.properties")) {
             properties.load(input);
         }
         Properties buildProperties = new Properties();
         buildProperties.setProperty("version", properties.getProperty("build.version"));
+        buildProperties.setProperty("time", properties.getProperty("build.time"));
         var service = new SystemInfoServiceImpl(new BuildProperties(buildProperties));
         var converter = new FastJsonHttpMessageConverter();
         converter.setSupportedMediaTypes(List.of(MediaType.APPLICATION_JSON));
@@ -41,7 +41,7 @@ class SystemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(ResultCode.SUCCESS.getCode()))
                 .andExpect(jsonPath("$.msg").isString())
-                .andExpect(jsonPath("$.data", aMapWithSize(1)))
-                .andExpect(jsonPath("$.data.version").value(properties.getProperty("build.version")));
+                .andExpect(jsonPath("$.data.version").value(properties.getProperty("build.version")))
+                .andExpect(jsonPath("$.data.buildTime").value(new BuildProperties(buildProperties).getTime().toString()));
     }
 }

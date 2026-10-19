@@ -1,6 +1,7 @@
 package online.longlian.app.service.common.impl;
 
 import lombok.RequiredArgsConstructor;
+import java.time.Instant;
 import online.longlian.app.pojo.vo.common.SystemInfoVO;
 import online.longlian.app.service.common.SystemInfoService;
 import org.springframework.boot.info.BuildProperties;
@@ -14,6 +15,7 @@ public class SystemInfoServiceImpl implements SystemInfoService {
 
     @Override
     public SystemInfoVO getSystemInfo() {
-        return new SystemInfoVO(buildProperties.getVersion());
+        Instant buildTime = buildProperties.getTime();
+        return new SystemInfoVO(buildProperties.getVersion(), buildTime == null ? null : buildTime.toString());
     }
 }

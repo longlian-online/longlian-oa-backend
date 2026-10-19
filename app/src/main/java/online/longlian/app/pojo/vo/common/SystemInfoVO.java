@@ -11,4 +11,7 @@ public class SystemInfoVO {
 
     @Schema(description = "后端版本号", example = "1.0.13-SNAPSHOT")
     private String version;
+
+    @Schema(description = "后端构建时间（UTC ISO-8601），缺失时为空", example = "2026-10-19T02:30:00Z")
+    private String buildTime;
 }
