@@ -16,7 +16,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Constraint(validatedBy = NotWeakPasswordValidator.class)
 public @interface NotWeakPassword {
-    String message() default "密码过于常见，请更换密码";
+    String message() default "密码过于简单，请尝试更换更复杂的密码";
 
     Class<?>[] groups() default {};
 
