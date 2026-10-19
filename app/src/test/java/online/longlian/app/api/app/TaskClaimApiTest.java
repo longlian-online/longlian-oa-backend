@@ -68,14 +68,25 @@ class TaskClaimApiTest extends BaseApiTest {
         token = loginAs("claimworker", "123456");
     }
 
-    /** 未加入企划的普通成员接取后，返回 true 并持久化唯一有效关联与接取归属。 */
+    /** 接取后企划进入个人工坊，任务进入可提交待办，不能只写入不可见的关联。 */
     @Test
     void shouldAutoJoinProjectWhenClaimingUnjoinedTask() {
+        authRequest(token, 1L).body("{}").post("/app/workshop/list").then()
+                .statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(0));
+
         assertClaimSuccess(claim(token, 1L), true);
 
         assertClaimed(1L, 1L);
         assertThat(activeMemberships(1L)).isEqualTo(1);
         assertThat(membershipHistory(1L)).isEqualTo(1);
+
+        authRequest(token, 1L).queryParam("bucket", "SUBMITTABLE").get("/app/task/instance/mine").then()
+                .statusCode(200).body("code", equalTo(0))
+                .body("data.list.instanceId", equalTo(List.of("1")))
+                .body("data.list.projectId", equalTo(List.of("1")));
+        authRequest(token, 1L).body("{}").post("/app/workshop/list").then()
+                .statusCode(200).body("code", equalTo(0))
+                .body("data.list.id", equalTo(List.of("1")));
     }
 
     /** 已加入时返回 false，原关联不能被替换或重复新增，接取事务仍须正常提交。 */
