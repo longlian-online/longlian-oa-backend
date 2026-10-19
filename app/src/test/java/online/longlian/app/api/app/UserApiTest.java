@@ -10,18 +10,37 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.*;
 
 public class UserApiTest extends BaseApiTest {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Test
+    void shouldAllowMissingEmailsWithoutRelaxingBoundEmailUniqueness() {
+        createTestUser(1L, "legacyone", "123456", null);
+        createTestUser(2L, "legacytwo", "123456", null);
+
+        jdbcTemplate.update("UPDATE `user` SET email = ? WHERE id = 1", "bound@example.com");
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE `user` SET email = ? WHERE id = 2", "BOUND@example.com"))
+                .isInstanceOf(DuplicateKeyException.class);
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 2", String.class)).isNull();
+
+        jdbcTemplate.update("UPDATE `user` SET email = NULL WHERE id = 1");
+        jdbcTemplate.update("UPDATE `user` SET email = ? WHERE id = 2", "bound@example.com");
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 2", String.class))
+                .isEqualTo("bound@example.com");
+    }
 
     // ========== 注册与创建组织 ==========
 

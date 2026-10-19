@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -61,10 +61,10 @@ public class User implements Serializable {
     private String nickname;
 
     /**
-     * 邮箱（登录/通知）
+     * 邮箱（登录/通知，未绑定时为NULL）
      */
     @TableField("email")
-    @ApiModelProperty("邮箱（登录/通知）")
+    @ApiModelProperty("邮箱（登录/通知，未绑定时为NULL）")
     private String email;
 
     /**
