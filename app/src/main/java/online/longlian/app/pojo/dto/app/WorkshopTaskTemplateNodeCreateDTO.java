@@ -11,7 +11,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 @Schema(description = "工坊任务流模板节点（创建模板时使用）")
 public class WorkshopTaskTemplateNodeCreateDTO {
 
-    @NotNull(message = "原子任务ID不能为空")
+    @NotNull(message = "任务ID不能为空")
     @JsonLongIdString
     @Schema(type = "string", description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long baseTaskId;
