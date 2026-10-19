@@ -14,4 +14,7 @@ public class SystemInfoVO {
 
     @Schema(description = "后端构建时间（UTC ISO-8601），缺失时为空", example = "2026-10-19T02:30:00Z")
     private String buildTime;
+
+    @Schema(description = "系统显示名称，取自 longlian.display-name", example = "龙联 OA")
+    private String displayName;
 }

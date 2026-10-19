@@ -5,10 +5,12 @@ import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 
+@TestPropertySource(properties = "longlian.display-name=测试 <OA> & 团队")
 class SystemInfoApiTest extends BaseApiTest {
 
     @Autowired
@@ -22,6 +24,7 @@ class SystemInfoApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("msg", instanceOf(String.class))
                 .body("data.version", equalTo(buildProperties.getVersion()))
+                .body("data.displayName", equalTo("测试 <OA> & 团队"))
                 .body("data.buildTime", equalTo(buildProperties.getTime().toString()));
     }
 
@@ -32,6 +35,7 @@ class SystemInfoApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.version", equalTo(buildProperties.getVersion()))
+                .body("data.displayName", equalTo("测试 <OA> & 团队"))
                 .body("data.buildTime", equalTo(buildProperties.getTime().toString()));
     }
 
@@ -42,6 +46,7 @@ class SystemInfoApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.version", equalTo(buildProperties.getVersion()))
+                .body("data.displayName", equalTo("测试 <OA> & 团队"))
                 .body("data.buildTime", equalTo(buildProperties.getTime().toString()));
     }
 

@@ -13,14 +13,14 @@ class SystemInfoServiceImplTest {
     void shouldReturnUtcBuildTime() {
         Properties properties = new Properties();
         properties.setProperty("time", "2026-10-19T02:30:00Z");
-        SystemInfoServiceImpl service = new SystemInfoServiceImpl(new BuildProperties(properties));
+        SystemInfoServiceImpl service = new SystemInfoServiceImpl(new BuildProperties(properties), "测试 OA");
 
         assertThat(service.getSystemInfo().getBuildTime()).isEqualTo("2026-10-19T02:30:00Z");
     }
 
     @Test
     void shouldLeaveMissingBuildTimeUnknown() {
-        SystemInfoServiceImpl service = new SystemInfoServiceImpl(new BuildProperties(new Properties()));
+        SystemInfoServiceImpl service = new SystemInfoServiceImpl(new BuildProperties(new Properties()), "测试 OA");
 
         assertThat(service.getSystemInfo().getBuildTime()).isNull();
     }

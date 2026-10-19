@@ -29,7 +29,7 @@ class SystemControllerTest {
         Properties buildProperties = new Properties();
         buildProperties.setProperty("version", properties.getProperty("build.version"));
         buildProperties.setProperty("time", properties.getProperty("build.time"));
-        var service = new SystemInfoServiceImpl(new BuildProperties(buildProperties));
+        var service = new SystemInfoServiceImpl(new BuildProperties(buildProperties), "测试 <OA> & 团队");
         var converter = new FastJsonHttpMessageConverter();
         converter.setSupportedMediaTypes(List.of(MediaType.APPLICATION_JSON));
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new SystemController(service))
@@ -41,6 +41,7 @@ class SystemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(ResultCode.SUCCESS.getCode()))
                 .andExpect(jsonPath("$.msg").isString())
+                .andExpect(jsonPath("$.data.displayName").value("测试 <OA> & 团队"))
                 .andExpect(jsonPath("$.data.version").value(properties.getProperty("build.version")))
                 .andExpect(jsonPath("$.data.buildTime").value(new BuildProperties(buildProperties).getTime().toString()));
     }
