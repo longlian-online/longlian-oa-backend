@@ -9,6 +9,9 @@ import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
@@ -26,6 +29,7 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
+import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.common.enumeration.Status;
@@ -51,6 +55,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final TaskInstanceAssembler taskInstanceAssembler;
     private final TaskInstanceCommandHandler taskInstanceCommandHandler;
     private final UserOperationLogService operationLogService;
+    private final ProjectService projectService;
 
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
@@ -84,11 +89,18 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void claimTask(TaskInstanceOperateParamsBO params) {
+    public TaskClaimResultBO claimTask(TaskInstanceOperateParamsBO params) {
         TaskInstance instance = getAndValidateInstance(params.getInstanceId(), params.getOrgId());
         taskInstanceCommandHandler.claim(instance, params.getUserId());
+        ProjectWorkshopAddResultBO membership = projectService.addToWorkshop(
+                ProjectWorkshopAddParamsBO.builder()
+                        .projectId(instance.getProjectId())
+                        .userId(params.getUserId())
+                        .orgId(params.getOrgId())
+                        .build());
         operationLogService.log(params.getUserId(), instance.getProjectId(),
                 instance.getItemId(), UserOperationType.TASK_CLAIM, params);
+        return new TaskClaimResultBO(membership.isAdded());
     }
 
     @Override

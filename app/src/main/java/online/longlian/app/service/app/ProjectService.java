@@ -8,6 +8,7 @@ import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 
@@ -75,8 +76,9 @@ public interface ProjectService {
      * 将企划添加至当前用户的个人工坊，已添加则幂等返回。
      *
      * @param params 包含企划 ID 和用户 ID 的添加参数
+     * @return 是否在当前事务中新增了有效关联，已加入时为 false
      */
-    void addToWorkshop(ProjectWorkshopAddParamsBO params);
+    ProjectWorkshopAddResultBO addToWorkshop(ProjectWorkshopAddParamsBO params);
 
     /**
      * 将企划从当前用户的个人工坊中移除（软删除）。

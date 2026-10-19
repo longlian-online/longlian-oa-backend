@@ -21,6 +21,7 @@ import online.longlian.app.pojo.bo.app.ProjectListResultBO;
 import online.longlian.app.pojo.bo.app.ProjectSearchResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Item;
@@ -32,8 +33,6 @@ import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
-import online.longlian.app.service.common.LockService;
-import online.longlian.common.service.DistributedLockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -42,7 +41,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Service("appProjectService")
 @RequiredArgsConstructor
@@ -56,7 +54,6 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectQueryBuilder projectQueryBuilder;
     private final ProjectAssembler projectAssembler;
     private final ProjectProgressHandler projectProgressHandler;
-    private final LockService lockService;
     private final Clock clock;
 
     @Override
@@ -278,13 +275,10 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    public void addToWorkshop(ProjectWorkshopAddParamsBO params) {
+    @Transactional(rollbackFor = Exception.class)
+    public ProjectWorkshopAddResultBO addToWorkshop(ProjectWorkshopAddParamsBO params) {
         getVisibleProject(params.getProjectId(), params.getOrgId());
-
-        String lockKey = "workshop:add:" + params.getProjectId() + ":" + params.getUserId();
-        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
-            projectProgressHandler.addToWorkshop(params);
-        }
+        return projectProgressHandler.addToWorkshop(params);
     }
 
     @Override
