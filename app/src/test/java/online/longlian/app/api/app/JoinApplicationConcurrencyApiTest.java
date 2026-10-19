@@ -171,7 +171,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
 
     private Response register(String invite, String code, String username) {
         return request().body(Map.of("inviteCode", invite, "code", code, "username", username,
-                "password", "123456", "nickname", "Candidate", "email", "candidate@example.com"))
+                "password", "River!82Maple", "nickname", "Candidate", "email", "candidate@example.com"))
                 .post("/app/user/register/join-organization");
     }
 

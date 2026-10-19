@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import online.longlian.app.common.annotation.NotWeakPassword;
 import online.longlian.app.common.constants.PatternConstants;
 
 @Data
@@ -23,7 +24,8 @@ public class RegisterByInviteDTO {
 
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 20, message = "密码长度必须在6-20位之间")
-    @Schema(description = "密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotWeakPassword
+    @Schema(description = "密码，6-20位，禁止使用常见弱密码", requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 
     @NotBlank(message = "昵称不能为空")

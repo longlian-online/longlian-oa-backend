@@ -115,7 +115,7 @@ public class SessionApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         Session session = login("testuser");
 
-        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
@@ -199,7 +199,7 @@ public class SessionApiTest extends BaseApiTest {
 
         userRequest(token).delete("/app/session/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
