@@ -34,7 +34,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
                         "WHERE a.id = ? AND o.invited_user_id = a.user_id " +
                         "AND m.user_id = a.user_id AND m.org_id = a.org_id",
                 Integer.class, second)).isEqualTo(1);
-        assertThat(loginAs("newuser","123456")).isNotBlank();
+        assertThat(loginAs("newuser","River!82Maple")).isNotBlank();
         authRequest(token,1L).body(Map.of("applicationStatus","APPROVED")).put("/orgadmin/members/applications/"+second+"/review")
                 .then().body("code",equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
@@ -72,7 +72,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
         request().queryParam("inviteCode", "JOIN01")
                 .get("/app/user/register/join-organization/invite-info")
                 .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
-        request().body(Map.of("username", "newuser", "password", "123456", "nickname", "New",
+        request().body(Map.of("username", "newuser", "password", "River!82Maple", "nickname", "New",
                 "email", "new@example.com", "inviteCode", "JOIN01", "code", "EMAIL1"))
                 .post("/app/user/register/join-organization")
                 .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
@@ -87,7 +87,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
     private void submit(String invite, String code) {
         createOrganizationUserInviteOTP(invite,1L);
         createEmailVerifyOTP(code,1L,"new@example.com");
-        request().body(Map.of("username","newuser","password","123456","nickname","New",
+        request().body(Map.of("username","newuser","password","River!82Maple","nickname","New",
                 "email","new@example.com","inviteCode",invite,"code",code))
                 .post("/app/user/register/join-organization")
                 .then().statusCode(200).body("code",equalTo(ResultCode.SUCCESS.getCode()));
