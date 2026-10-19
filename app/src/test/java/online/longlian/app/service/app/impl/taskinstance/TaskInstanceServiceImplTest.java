@@ -1,11 +1,15 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
@@ -18,11 +22,13 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -56,6 +62,8 @@ class TaskInstanceServiceImplTest {
     private TaskInstanceCommandHandler taskInstanceCommandHandler;
     @Mock
     private UserOperationLogService operationLogService;
+    @Mock
+    private ProjectService projectService;
 
     private TaskInstanceServiceImpl service;
 
@@ -63,7 +71,7 @@ class TaskInstanceServiceImplTest {
     void setUp() {
         service = new TaskInstanceServiceImpl(taskInstanceMapper, taskSubmissionMapper,
                 itemMapper, projectMapper, itemTaskNodeMapper,
-                taskInstanceAssembler, taskInstanceCommandHandler, operationLogService);
+                taskInstanceAssembler, taskInstanceCommandHandler, operationLogService, projectService);
     }
 
     @Test
@@ -124,22 +132,54 @@ class TaskInstanceServiceImplTest {
         assertThat(result).hasSize(1);
     }
 
+    /** 仅在 CAS 接取成功后加入企划，返回所属服务确认的实际新增结果。 */
     @Test
-    void claimTask_validInstance_delegatesToHandler() {
-        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        params.setUserId(1L);
+    void shouldAutoJoinProjectAfterClaimSucceeds() {
+        TaskInstanceOperateParamsBO params = prepareClaim();
+        when(projectService.addToWorkshop(any())).thenReturn(new ProjectWorkshopAddResultBO(true));
 
-        TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
-        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        TaskClaimResultBO result = service.claimTask(params);
 
-        service.claimTask(params);
+        assertThat(result.isAutoJoinedProject()).isTrue();
+        var order = inOrder(taskInstanceCommandHandler, projectService, operationLogService);
+        order.verify(taskInstanceCommandHandler).claim(any(TaskInstance.class), eq(1L));
+        ArgumentCaptor<ProjectWorkshopAddParamsBO> membership = ArgumentCaptor.forClass(ProjectWorkshopAddParamsBO.class);
+        order.verify(projectService).addToWorkshop(membership.capture());
+        assertThat(membership.getValue().getProjectId()).isEqualTo(2L);
+        assertThat(membership.getValue().getUserId()).isEqualTo(1L);
+        assertThat(membership.getValue().getOrgId()).isEqualTo(10L);
+        order.verify(operationLogService).log(eq(1L), eq(2L), eq(1L), any(), eq(params));
+    }
 
-        verify(taskInstanceCommandHandler).claim(instance, 1L);
+    /** 已加入时沿用成功接取流程，但不能误报本次新增。 */
+    @Test
+    void shouldReturnFalseWhenProjectAlreadyJoined() {
+        TaskInstanceOperateParamsBO params = prepareClaim();
+        when(projectService.addToWorkshop(any())).thenReturn(new ProjectWorkshopAddResultBO(false));
+
+        assertThat(service.claimTask(params).isAutoJoinedProject()).isFalse();
         verify(operationLogService).log(eq(1L), eq(2L), eq(1L), any(), eq(params));
+    }
+
+    /** 重复接取或 CAS 竞争失败不得执行加入或成功日志。 */
+    @Test
+    void shouldNotJoinProjectWhenClaimFails() {
+        TaskInstanceOperateParamsBO params = prepareClaim();
+        doThrow(new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更"))
+                .when(taskInstanceCommandHandler).claim(any(), eq(1L));
+
+        assertThatThrownBy(() -> service.claimTask(params)).isInstanceOf(AppException.class);
+        verifyNoInteractions(projectService, operationLogService);
+    }
+
+    /** 加入失败必须继续向事务边界抛出异常，不能返回接取成功。 */
+    @Test
+    void shouldPropagateMembershipFailureWithoutSuccessResult() {
+        TaskInstanceOperateParamsBO params = prepareClaim();
+        when(projectService.addToWorkshop(any())).thenThrow(new IllegalStateException("membership write failed"));
+
+        assertThatThrownBy(() -> service.claimTask(params)).isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(operationLogService);
     }
 
     @Test
@@ -401,6 +441,16 @@ class TaskInstanceServiceImplTest {
         verify(taskInstanceCommandHandler, never()).reset(any(), anyLong());
     }
 
+
+    private TaskInstanceOperateParamsBO prepareClaim() {
+        TaskInstanceOperateParamsBO params = TaskInstanceOperateParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(
+                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        return params;
+    }
 
     private Item writableItem() {
         return Item.builder().id(1L).projectId(2L).build();

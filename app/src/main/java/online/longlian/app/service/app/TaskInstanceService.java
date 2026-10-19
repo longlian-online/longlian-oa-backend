@@ -1,6 +1,7 @@
 package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
+import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
@@ -65,11 +66,12 @@ public interface TaskInstanceService {
     List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params);
 
     /**
-     * 接取任务：{@code PENDING → CLAIMED}，将接取人设为当前用户。
+     * 接取任务：{@code PENDING → CLAIMED}，将接取人设为当前用户，并按需加入企划工坊。
      *
      * @param params 包含任务实例 ID 和用户 ID 的操作参数
+     * @return 是否在本次接取中实际新增了有效企划工坊关联
      */
-    void claimTask(TaskInstanceOperateParamsBO params);
+    TaskClaimResultBO claimTask(TaskInstanceOperateParamsBO params);
 
     /**
      * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，仅接取人可操作。

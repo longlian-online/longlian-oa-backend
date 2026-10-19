@@ -7,11 +7,14 @@ import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.common.enumeration.TaskInstanceStatus;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -65,15 +68,20 @@ public class ProjectProgressHandler {
         return taskInstanceMapper.selectCount(query);
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public void addToWorkshop(ProjectWorkshopAddParamsBO params) {
-        boolean exists = projectWorkshopMapper.selectCount(
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public ProjectWorkshopAddResultBO addToWorkshop(ProjectWorkshopAddParamsBO params) {
+        ProjectWorkshop candidate = projectWorkshopMapper.selectOne(
                 new LambdaQueryWrapper<ProjectWorkshop>()
+                        .select(ProjectWorkshop::getId)
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
-                        .eq(ProjectWorkshop::getUserId, params.getUserId())
-        ) > 0;
-        if (exists) {
-            return;
+                        .eq(ProjectWorkshop::getUserId, params.getUserId()));
+        // 仅锁已找到的主键，避免给不存在的关联加 gap lock；当前读防止旧快照误认已退出的关联。
+        if (candidate != null && projectWorkshopMapper.selectOne(
+                new LambdaQueryWrapper<ProjectWorkshop>()
+                        .select(ProjectWorkshop::getId)
+                        .eq(ProjectWorkshop::getId, candidate.getId())
+                        .last("LOCK IN SHARE MODE")) != null) {
+            return new ProjectWorkshopAddResultBO(false);
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
@@ -83,6 +91,22 @@ public class ProjectProgressHandler {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        projectWorkshopMapper.insert(workshop);
+        try {
+            projectWorkshopMapper.insert(workshop);
+            return new ProjectWorkshopAddResultBO(true);
+        } catch (DuplicateKeyException exception) {
+            // 碰撞后用当前读看见并发提交，不能使用 RR 旧快照；共享锁避免多请求升级排他锁。
+            ProjectWorkshop existing = projectWorkshopMapper.selectOne(
+                    new LambdaQueryWrapper<ProjectWorkshop>()
+                            .select(ProjectWorkshop::getId)
+                            .eq(ProjectWorkshop::getProjectId, params.getProjectId())
+                            .eq(ProjectWorkshop::getUserId, params.getUserId())
+                            .last("LOCK IN SHARE MODE"));
+            // 只有目标有效关联确实存在才是幂等成功；撞到其他关联的主键不能误报已加入。
+            if (existing == null) {
+                throw exception;
+            }
+            return new ProjectWorkshopAddResultBO(false);
+        }
     }
 }
