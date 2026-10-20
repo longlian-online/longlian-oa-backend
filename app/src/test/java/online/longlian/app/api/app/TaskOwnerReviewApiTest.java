@@ -725,6 +725,61 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"owner-cancel", "owner-reject"})
+    void shouldRejectWhenInstanceDisappearsBeforeLockAcquisition(String action) throws Exception {
+        Tokens tokens = createReadyWorkflow(action);
+        String expectedRevision = revision();
+        CountDownLatch beforeLock = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstLock(beforeLock, resume);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CompletableFuture<Response> pending = CompletableFuture.supplyAsync(() ->
+                    operate(tokens.owner(), action, expectedRevision, "旧目标"), executor);
+            Snapshot removed;
+            try {
+                await(beforeLock);
+                jdbcTemplate.update("DELETE FROM task_instance WHERE id = 1");
+                removed = snapshot();
+            } finally {
+                resume.countDown();
+            }
+            assertCode(pending.get(15, TimeUnit.SECONDS), ResultCode.DATA_NOT_EXIT);
+            assertThat(snapshot()).isEqualTo(removed);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"owner-cancel", "owner-reject"})
+    void shouldRejectWhenInstanceMovesToAnotherValidItemBeforeLockAcquisition(String action) throws Exception {
+        Tokens tokens = createReadyWorkflow(action);
+        String expectedRevision = revision();
+        CountDownLatch beforeLock = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        pauseFirstLock(beforeLock, resume);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CompletableFuture<Response> pending = CompletableFuture.supplyAsync(() ->
+                    operate(tokens.owner(), action, expectedRevision, "旧项目目标"), executor);
+            Snapshot relocated;
+            try {
+                await(beforeLock);
+                jdbcTemplate.update("INSERT INTO item (id, project_id, title, task_template_id, creator_id) "
+                        + "VALUES (2, 1, '迁入项目', 0, 1)");
+                jdbcTemplate.update("INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name) "
+                        + "VALUES (2, 2, 1, 1, '迁入任务流')");
+                jdbcTemplate.update("INSERT INTO item_task_node "
+                        + "(id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort) "
+                        + "VALUES (2, 2, 2, 1, 1, '迁入节点', '[]', 1, 1)");
+                jdbcTemplate.update("UPDATE task_instance SET item_id = 2, item_task_node_id = 2, task_flow_id = 2 WHERE id = 1");
+                relocated = snapshot();
+            } finally {
+                resume.countDown();
+            }
+            assertCode(pending.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
+            assertThat(snapshot()).isEqualTo(relocated);
+        }
+    }
+
     private Tokens createWorkflow() {
         createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_USER");
         createTestUser(2L, "worker", "123456", "worker@example.com");

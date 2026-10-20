@@ -173,6 +173,21 @@ class TaskInstanceOwnerCommandHandlerTest {
     }
 
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRejectWhenNodeDisappearsBeforeDownstreamCheck(boolean reject) {
+        TaskInstance instance = instance(reject);
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(null);
+
+        assertThatThrownBy(() -> operate(reject, instance, "7"))
+                .isInstanceOfSatisfying(AppException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        verifyNoInteractions(taskInstanceMapper, taskSubmissionMapper, memberSubmitCountHandler, resourceService);
+        assertThat(instance.getRevision()).isEqualTo(7L);
+        assertThat(instance.getStatus()).isEqualTo(reject ? TaskInstanceStatus.COMPLETED : TaskInstanceStatus.CLAIMED);
+    }
+
+    @ParameterizedTest
     @CsvSource({"false,3", "false,5", "true,3", "true,5"})
     void shouldRejectAnyLaterCompletedStageIncludingAnotherFlow(boolean reject, int completedSort) {
         TaskInstance instance = instance(reject);
