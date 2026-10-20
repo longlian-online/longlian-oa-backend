@@ -63,28 +63,6 @@ public class TaskInstanceCommandHandler {
         requireUpdated(updated);
     }
 
-    /**
-     * 放弃任务：CLAIMED -> PENDING，清空接取人。
-     */
-    public void abandon(TaskInstance instance, Long userId) {
-        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
-        }
-        requireAssignee(instance, userId, "仅接取人可放弃任务");
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, instance.getId())
-                        .eq(TaskInstance::getRevision, instance.getRevision())
-                        .setSql("revision = revision + 1")
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .eq(TaskInstance::getAssigneeId, userId)
-                        .set(TaskInstance::getAssigneeId, null)
-                        .set(TaskInstance::getClaimedAt, null)
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
-                        .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
-        requireUpdated(updated);
-    }
 
     /**
      * 版本号取实例内已有最大版本号 +1；首次提交为 1。
@@ -191,54 +169,21 @@ public class TaskInstanceCommandHandler {
         memberSubmitCountHandler.revertSubmitCount(userId, instance.getProjectId());
     }
 
-    /**
-     * 打回任务：COMPLETED -> CLAIMED，提交记录标记 REJECTED 并回退提交人计数。
-     * 打回人必须是下一阶段执行人；与上一阶段是同一人时同样允许。
-     */
-    public void reject(TaskInstance instance, Long userId, String reviewComment) {
-        if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
-        }
-        if (!isNextStageExecutor(instance, userId)) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅下一阶段执行人可打回该任务");
-        }
-
-        LocalDateTime now = LocalDateTime.now(clock);
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, instance.getId())
-                        .eq(TaskInstance::getRevision, instance.getRevision())
-                        .setSql("revision = revision + 1")
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .set(TaskInstance::getSubmittedAt, null)
-                        .set(TaskInstance::getCompletedAt, null)
-                        .set(TaskInstance::getUpdatedAt, now));
-        requireUpdated(updated);
-
-        int submissionUpdated = taskSubmissionMapper.update(null,
-                new LambdaUpdateWrapper<TaskSubmission>()
-                        .eq(TaskSubmission::getTaskInstanceId, instance.getId())
-                        .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
-                        .set(TaskSubmission::getStatus, TaskSubmissionStatus.REJECTED)
-                        .set(TaskSubmission::getReviewerId, userId)
-                        .set(TaskSubmission::getReviewedAt, now)
-                        .set(TaskSubmission::getReviewComment, reviewComment)
-                        .set(TaskSubmission::getUpdatedAt, now));
-        requireUpdated(submissionUpdated);
-
-        Long submitterId = instance.getAssigneeId();
-        if (submitterId != null) {
-            memberSubmitCountHandler.revertSubmitCount(submitterId, instance.getProjectId());
-        }
-    }
 
     /** 只取消目标槽位，不删除历史提交，也不改变企划成员关系。 */
-    public void ownerCancel(TaskInstance instance, String expectedRevision) {
+    public void abandon(TaskInstance instance, Long userId, boolean projectCreator,
+                        String expectedRevision, String reason) {
         requireRevision(instance, expectedRevision);
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "仅已接取未提交的任务可取消接取");
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
+        }
+        if (!userId.equals(instance.getAssigneeId())) {
+            if (!projectCreator) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人或企划负责人可放弃任务");
+            }
+            if (reason == null || reason.isBlank() || reason.length() > 500) {
+                throw new AppException(ResultCode.PARAM_ERROR, "取消他人接取须填写 1 到 500 个字符的原因");
+            }
         }
         requireNoCompletedLaterStage(instance);
         int updated = taskInstanceMapper.update(null,
@@ -255,10 +200,14 @@ public class TaskInstanceCommandHandler {
     }
 
     /** 当前有效提交精确打回一次；保留原接取人、接取时间及所有成果历史。 */
-    public void ownerReject(TaskInstance instance, Long userId, String expectedRevision, String reason) {
+    public void reject(TaskInstance instance, Long userId, boolean projectCreator,
+                       String expectedRevision, String reviewComment) {
         requireRevision(instance, expectedRevision);
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "仅已完成的任务可打回提交");
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
+        }
+        if (!projectCreator && !isNextStageExecutor(instance, userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人或下一阶段执行人可打回该任务");
         }
         requireNoCompletedLaterStage(instance);
         List<TaskSubmission> currentSubmissions = taskSubmissionMapper.selectList(
@@ -290,7 +239,7 @@ public class TaskInstanceCommandHandler {
                         .set(TaskSubmission::getStatus, TaskSubmissionStatus.REJECTED)
                         .set(TaskSubmission::getReviewerId, userId)
                         .set(TaskSubmission::getReviewedAt, now)
-                        .set(TaskSubmission::getReviewComment, reason)
+                        .set(TaskSubmission::getReviewComment, reviewComment)
                         .set(TaskSubmission::getUpdatedAt, now));
         if (submissionUpdated != 1) {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前提交状态已变更，请刷新后重试");
@@ -323,7 +272,7 @@ public class TaskInstanceCommandHandler {
                 .in(TaskInstance::getItemTaskNodeId, laterNodes.stream().map(ItemTaskNode::getId).toList())
                 .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED));
         if (completed != null && completed > 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "后续阶段已有完成任务，不可执行负责人操作");
+            throw new AppException(ResultCode.OPERATION_FAIL, "后续阶段已有完成任务，不可放弃或打回");
         }
     }
 

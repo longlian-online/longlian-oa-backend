@@ -14,11 +14,13 @@ import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
+import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
@@ -229,19 +231,17 @@ class TaskInstanceServiceImplTest {
 
     @Test
     void abandonTask_validInstance_delegatesToHandler() {
-        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
+        TaskInstanceAbandonParamsBO params = new TaskInstanceAbandonParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(10L);
         params.setUserId(1L);
+        params.setExpectedRevision("0");
 
-        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build();
-        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        TaskInstance instance = prepareReviewInstance();
 
         service.abandonTask(params);
 
-        verify(taskInstanceCommandHandler).abandon(instance, 1L);
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, false, "0", null);
     }
 
     @Test
@@ -286,15 +286,29 @@ class TaskInstanceServiceImplTest {
         params.setOrgId(10L);
         params.setUserId(2L);
         params.setReviewComment("需要修改");
+        params.setExpectedRevision("0");
 
-        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build();
-        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        TaskInstance instance = prepareReviewInstance();
 
         service.rejectTask(params);
 
-        verify(taskInstanceCommandHandler).reject(instance, 2L, "需要修改");
+        verify(taskInstanceCommandHandler).reject(instance, 2L, false, "0", "需要修改");
+    }
+
+    @Test
+    void shouldAuthorizeCreatorAndSynchronouslyAuditRejectWithinTransaction() {
+        TaskInstance instance = prepareReviewInstance();
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L)
+                .creatorId(1L).resourceStatus(Status.ENABLED).build());
+        TaskInstanceRejectParamsBO params = TaskInstanceRejectParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").reviewComment("修改").build();
+        service.rejectTask(params);
+        var order = inOrder(organizationMembershipService, taskInstanceCommandHandler, operationLogService, transactionManager);
+        order.verify(organizationMembershipService).requireEnabledMember(1L, 10L);
+        order.verify(taskInstanceCommandHandler).reject(instance, 1L, true, "0", "修改");
+        order.verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), any(), any());
+        order.verify(transactionManager).commit(any());
+        verify(operationLogService, never()).log(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -470,6 +484,19 @@ class TaskInstanceServiceImplTest {
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(writableItem());
         return params;
+    }
+
+    private TaskInstance prepareReviewInstance() {
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L)
+                .itemTaskNodeId(5L).taskFlowId(6L).build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        when(itemTaskNodeMapper.selectById(5L)).thenReturn(ItemTaskNode.builder()
+                .id(5L).projectId(2L).itemId(1L).itemTaskFlowId(6L).build());
+        when(itemTaskFlowMapper.selectById(6L)).thenReturn(ItemTaskFlow.builder()
+                .id(6L).projectId(2L).itemId(1L).build());
+        return instance;
     }
 
     private Item writableItem() {

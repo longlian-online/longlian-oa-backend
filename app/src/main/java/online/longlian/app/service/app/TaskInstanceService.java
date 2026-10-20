@@ -4,7 +4,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOwnerOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
@@ -75,11 +75,11 @@ public interface TaskInstanceService {
     TaskClaimResultBO claimTask(TaskInstanceOperateParamsBO params);
 
     /**
-     * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，仅接取人可操作。
+     * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，接取人或企划创建人可操作。
      *
-     * @param params 包含任务实例 ID 和用户 ID 的操作参数
+     * @param params 包含当前修订号；取消他人接取时必须填写原因
      */
-    void abandonTask(TaskInstanceOperateParamsBO params);
+    void abandonTask(TaskInstanceAbandonParamsBO params);
 
     /**
      * 提交任务：{@code CLAIMED → COMPLETED}，生成提交记录并累加提交统计。
@@ -102,22 +102,11 @@ public interface TaskInstanceService {
     /**
      * 打回任务：{@code COMPLETED → CLAIMED}，将提交记录标记为 {@code REJECTED} 并附打回意见。
      * <p>
-     * 通常由后一节点的接取人操作，可附带打回意见（视为审核流程）。
-     * 打回后任务回到已接取状态等待重新提交，同时扣减提交统计。
+     * 企划创建人或下一阶段执行人可操作，必须匹配当前修订号并填写打回意见。
+     * 两项操作均禁止后续阶段存在完成任务；打回精确标记唯一当前提交，按实际提交人扣减统计。
      *
      * @param params 包含任务实例 ID、操作者 ID 及打回意见的打回参数
      */
     void rejectTask(TaskInstanceRejectParamsBO params);
 
-    /**
-     * 负责人取消当前接取：CLAIMED → PENDING，保留历史及成员关系。
-     * 必须匹配当前 revision，且同项目后续阶段没有已完成实例。
-     */
-    void ownerCancelTask(TaskInstanceOwnerOperateParamsBO params);
-
-    /**
-     * 负责人打回当前提交：COMPLETED → CLAIMED，保留接取人与历史并记录审核意见。
-     * 提交即完成，无独立审核通过状态；不改变旧 reject 的下一阶段执行人权限。
-     */
-    void ownerRejectTask(TaskInstanceOwnerOperateParamsBO params);
 }

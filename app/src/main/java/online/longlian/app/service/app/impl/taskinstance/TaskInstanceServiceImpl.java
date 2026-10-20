@@ -16,7 +16,7 @@ import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOwnerOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 
@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -103,7 +104,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public TaskClaimResultBO claimTask(TaskInstanceOperateParamsBO params) {
-        return mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
+        return mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             taskInstanceCommandHandler.claim(instance, params.getUserId());
             ProjectWorkshopAddResultBO membership = projectService.addToWorkshop(
                     ProjectWorkshopAddParamsBO.builder()
@@ -118,18 +119,25 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     @Override
-    public void abandonTask(TaskInstanceOperateParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
-            taskInstanceCommandHandler.abandon(instance, params.getUserId());
-            operationLogService.log(params.getUserId(), instance.getProjectId(),
-                    instance.getItemId(), UserOperationType.TASK_ABANDON, params);
+    public void abandonTask(TaskInstanceAbandonParamsBO params) {
+        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            boolean projectCreator = params.getUserId().equals(project.getCreatorId());
+            taskInstanceCommandHandler.abandon(instance, params.getUserId(), projectCreator,
+                    params.getExpectedRevision(), params.getReason());
+            if (projectCreator && params.getReason() != null && !params.getReason().isBlank()) {
+                logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), params.getReason(),
+                        UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
+            } else {
+                operationLogService.log(params.getUserId(), instance.getProjectId(),
+                        instance.getItemId(), UserOperationType.TASK_ABANDON, params);
+            }
             return null;
         });
     }
 
     @Override
     public void submitTask(TaskInstanceSubmitParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
+        mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getOrgId(), params.getValues());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
@@ -139,7 +147,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public void resetTask(TaskInstanceOperateParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
+        mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             taskInstanceCommandHandler.reset(instance, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_RESET, params);
@@ -149,43 +157,31 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public void rejectTask(TaskInstanceRejectParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
-            taskInstanceCommandHandler.reject(instance, params.getUserId(), params.getReviewComment());
-            operationLogService.log(params.getUserId(), instance.getProjectId(),
-                    instance.getItemId(), UserOperationType.TASK_REJECT, params);
+        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            boolean projectCreator = params.getUserId().equals(project.getCreatorId());
+            taskInstanceCommandHandler.reject(instance, params.getUserId(), projectCreator,
+                    params.getExpectedRevision(), params.getReviewComment());
+            if (projectCreator) {
+                logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), params.getReviewComment(),
+                        UserOperationType.TASK_REJECT, "OWNER_REJECT");
+            } else {
+                operationLogService.log(params.getUserId(), instance.getProjectId(),
+                        instance.getItemId(), UserOperationType.TASK_REJECT, params);
+            }
             return null;
         });
     }
 
-    @Override
-    public void ownerCancelTask(TaskInstanceOwnerOperateParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), instance -> {
-            taskInstanceCommandHandler.ownerCancel(instance, params.getExpectedRevision());
-            logOwnerOperation(instance, params, UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
-            return null;
-        });
-    }
-
-    @Override
-    public void ownerRejectTask(TaskInstanceOwnerOperateParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), instance -> {
-            taskInstanceCommandHandler.ownerReject(instance, params.getUserId(),
-                    params.getExpectedRevision(), params.getReason());
-            logOwnerOperation(instance, params, UserOperationType.TASK_REJECT, "OWNER_REJECT");
-            return null;
-        });
-    }
-
-    private void logOwnerOperation(TaskInstance instance, TaskInstanceOwnerOperateParamsBO params,
+    private void logOwnerOperation(TaskInstance instance, Long userId, String expectedRevision, String reason,
                                    UserOperationType type, String action) {
         Map<String, Object> audit = new LinkedHashMap<>();
         audit.put("action", action);
         audit.put("instanceId", instance.getId());
         audit.put("assigneeId", instance.getAssigneeId());
-        audit.put("reason", params.getReason());
-        audit.put("expectedRevision", params.getExpectedRevision());
+        audit.put("reason", reason);
+        audit.put("expectedRevision", expectedRevision);
         audit.put("revision", Long.toString(instance.getRevision() + 1));
-        operationLogService.logSynchronously(params.getUserId(), instance.getProjectId(),
+        operationLogService.logSynchronously(userId, instance.getProjectId(),
                 instance.getItemId(), type, audit);
     }
 
@@ -194,8 +190,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
      * 同 item 的不同实例也必须串行，避免上游打回与下游提交分别通过前置检查。
      * 短暂排队允许不同槽位的并发接取依次成功，仍以锁内状态和修订号拒绝冲突操作。
      */
-    private <T> T mutateTask(Long instanceId, Long orgId, Long requiredCreatorId,
-                             Function<TaskInstance, T> mutation) {
+    private <T> T mutateTask(Long instanceId, Long orgId, Long validatedUserId,
+                             BiFunction<TaskInstance, Project, T> mutation) {
         TaskInstance locator = taskInstanceMapper.selectById(instanceId);
         if (locator == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
@@ -205,11 +201,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             return transaction.execute(status -> {
-                TaskInstance instance = getAndValidateInstance(instanceId, orgId, requiredCreatorId);
+                TaskInstance instance = taskInstanceMapper.selectById(instanceId);
+                if (instance == null) {
+                    throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+                }
+                Project project = getAndValidateProject(instance, orgId, validatedUserId);
                 if (!java.util.Objects.equals(locator.getItemId(), instance.getItemId())) {
                     throw new AppException(ResultCode.OPERATION_FAIL, "任务归属已变更，请刷新后重试");
                 }
-                return mutation.apply(instance);
+                return mutation.apply(instance, project);
             });
         }
     }
@@ -269,11 +269,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());
     }
 
-    private TaskInstance getAndValidateInstance(Long instanceId, Long orgId, Long requiredCreatorId) {
-        TaskInstance instance = taskInstanceMapper.selectById(instanceId);
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+    private Project getAndValidateProject(TaskInstance instance, Long orgId, Long validatedUserId) {
         Project project = projectMapper.selectById(instance.getProjectId());
         if (project == null || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
@@ -288,22 +284,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (item.getDeletedAt() != null) {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可操作任务");
         }
-        if (requiredCreatorId != null) {
-            requireOwnerScope(instance, project, item, requiredCreatorId);
+        if (validatedUserId != null) {
+            organizationMembershipService.requireEnabledMember(validatedUserId, orgId);
+            if (instance.getDeletedAt() != null || project.getDeletedAt() != null
+                    || !instance.getProjectId().equals(item.getProjectId())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
+            }
+            requireTaskStructure(instance);
         }
-        return instance;
-    }
-
-    private void requireOwnerScope(TaskInstance instance, Project project, Item item, Long userId) {
-        organizationMembershipService.requireEnabledMember(userId, project.getOrgId());
-        if (!userId.equals(project.getCreatorId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可操作该任务");
-        }
-        if (instance.getDeletedAt() != null || project.getDeletedAt() != null
-                || !instance.getProjectId().equals(item.getProjectId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
-        }
-        requireTaskStructure(instance);
+        return project;
     }
 
     private void requireTaskStructure(TaskInstance instance) {

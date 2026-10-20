@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskInstanceOwnerOperateParamsBO {
+public class TaskInstanceAbandonParamsBO {
     private Long instanceId;
     private Long userId;
     private Long orgId;

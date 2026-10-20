@@ -97,8 +97,9 @@ class TaskInstanceCommandHandlerTest {
     void abandon_claimedBySameUser_succeeds() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(itemTaskNodeMapper.selectById(any())).thenReturn(ItemTaskNode.builder().sort(1).build());
 
-        handler.abandon(instance, 10L);
+        handler.abandon(instance, 10L, false, "0", null);
 
         assertRevisionIncrement(TaskInstanceStatus.CLAIMED);
     }
@@ -107,7 +108,7 @@ class TaskInstanceCommandHandlerTest {
     void abandon_notClaimed_throws() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
 
-        assertThatThrownBy(() -> handler.abandon(instance, 10L))
+        assertThatThrownBy(() -> handler.abandon(instance, 10L, false, "0", null))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("该任务不可放弃");
     }
@@ -116,9 +117,9 @@ class TaskInstanceCommandHandlerTest {
     void abandon_wrongUser_throws() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(99L).build();
 
-        assertThatThrownBy(() -> handler.abandon(instance, 10L))
+        assertThatThrownBy(() -> handler.abandon(instance, 10L, false, "0", null))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("仅接取人可放弃任务");
+                .hasMessageContaining("仅接取人或企划负责人可放弃任务");
     }
 
     @Test
@@ -329,16 +330,16 @@ class TaskInstanceCommandHandlerTest {
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .build();
 
-        assertThatThrownBy(() -> handler.reject(instance, 10L, "bad"))
+        assertThatThrownBy(() -> handler.reject(instance, 10L, false, "0", "bad"))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("仅下一阶段执行人可打回该任务");
+                .hasMessageContaining("仅企划负责人或下一阶段执行人可打回该任务");
     }
 
     @Test
     void reject_notCompleted_throws() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
 
-        assertThatThrownBy(() -> handler.reject(instance, 20L, "bad"))
+        assertThatThrownBy(() -> handler.reject(instance, 20L, false, "0", "bad"))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("该任务不可打回");
     }
@@ -351,9 +352,9 @@ class TaskInstanceCommandHandlerTest {
                 .build();
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(null);
 
-        assertThatThrownBy(() -> handler.reject(instance, 20L, "bad"))
+        assertThatThrownBy(() -> handler.reject(instance, 20L, false, "0", "bad"))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("仅下一阶段执行人可打回该任务");
+                .hasMessageContaining("仅企划负责人或下一阶段执行人可打回该任务");
     }
 
     @Test
@@ -366,11 +367,13 @@ class TaskInstanceCommandHandlerTest {
         ItemTaskNode nextNode = ItemTaskNode.builder().id(6L).sort(2).build();
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(currentNode);
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(nextNode));
-        when(taskInstanceMapper.selectCount(any())).thenReturn(1L);
+        when(taskInstanceMapper.selectCount(any())).thenReturn(1L, 0L);
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(TaskSubmission.builder()
+                .id(1L).submitterId(10L).build()));
 
-        handler.reject(instance, 20L, "需要修改");
+        handler.reject(instance, 20L, false, "0", "需要修改");
 
         verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
         assertRevisionIncrement(TaskInstanceStatus.COMPLETED);
@@ -386,11 +389,13 @@ class TaskInstanceCommandHandlerTest {
         ItemTaskNode nextNode = ItemTaskNode.builder().id(6L).sort(2).build();
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(currentNode);
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(nextNode));
-        when(taskInstanceMapper.selectCount(any())).thenReturn(1L);
+        when(taskInstanceMapper.selectCount(any())).thenReturn(1L, 0L);
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(TaskSubmission.builder()
+                .id(1L).submitterId(10L).build()));
 
-        handler.reject(instance, 10L, "自己打回");
+        handler.reject(instance, 10L, false, "0", "自己打回");
 
         verify(taskSubmissionMapper).update(isNull(), any());
         verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
@@ -406,9 +411,9 @@ class TaskInstanceCommandHandlerTest {
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(currentNode);
         when(itemTaskNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-        assertThatThrownBy(() -> handler.reject(instance, 20L, "bad"))
+        assertThatThrownBy(() -> handler.reject(instance, 20L, false, "0", "bad"))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("仅下一阶段执行人可打回该任务");
+                .hasMessageContaining("仅企划负责人或下一阶段执行人可打回该任务");
     }
 
     // ---- #223 claimed_at：接取写入、放弃清空、打回/重置不动 ----
@@ -450,8 +455,9 @@ class TaskInstanceCommandHandlerTest {
     void abandon_clearsClaimedAt() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(itemTaskNodeMapper.selectById(any())).thenReturn(ItemTaskNode.builder().sort(1).build());
 
-        handler.abandon(instance, 10L);
+        handler.abandon(instance, 10L, false, "0", null);
 
         assertThat(capturedSqlSet()).contains("claimed_at=");
     }
@@ -464,11 +470,13 @@ class TaskInstanceCommandHandlerTest {
                 .build();
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).build());
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(ItemTaskNode.builder().id(6L).sort(2).build()));
-        when(taskInstanceMapper.selectCount(any())).thenReturn(1L);
+        when(taskInstanceMapper.selectCount(any())).thenReturn(1L, 0L);
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(TaskSubmission.builder()
+                .id(1L).submitterId(10L).build()));
 
-        handler.reject(instance, 20L, "需要修改");
+        handler.reject(instance, 20L, false, "0", "需要修改");
 
         assertThat(capturedSqlSet()).doesNotContain("claimed_at").doesNotContain("assignee_id");
     }

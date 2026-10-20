@@ -83,7 +83,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         givenStages(List.of(), List.of());
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
 
-        handler.ownerCancel(instance, "7");
+        handler.abandon(instance, 20L, true, "7", REASON);
 
         LambdaUpdateWrapper<TaskInstance> update = capturedInstanceUpdate();
         assertTransition(update, TaskInstanceStatus.CLAIMED, TaskInstanceStatus.PENDING, 7L);
@@ -105,7 +105,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
 
-        handler.ownerReject(instance, 20L, "7", REASON);
+        handler.reject(instance, 20L, true, "7", REASON);
 
         LambdaUpdateWrapper<TaskInstance> update = capturedInstanceUpdate();
         assertTransition(update, TaskInstanceStatus.COMPLETED, TaskInstanceStatus.CLAIMED, 7L);
@@ -271,7 +271,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         givenSubmissionHistory(List.of(submission(40L, TaskSubmissionStatus.REJECTED, 3),
                 submission(42L, TaskSubmissionStatus.RESET, 5)));
 
-        assertOperationFails(() -> handler.ownerReject(instance, 20L, "7", REASON));
+        assertOperationFails(() -> handler.reject(instance, 20L, true, "7", REASON));
 
         assertNoStateWrites();
     }
@@ -282,7 +282,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         givenStages(List.of(), List.of());
         givenSubmissionHistory(List.of());
 
-        assertOperationFails(() -> handler.ownerReject(instance, 20L, "7", REASON));
+        assertOperationFails(() -> handler.reject(instance, 20L, true, "7", REASON));
 
         assertNoStateWrites();
     }
@@ -294,7 +294,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         givenSubmissionHistory(List.of(submission(41L, TaskSubmissionStatus.SUBMITTED, 4),
                 submission(42L, TaskSubmissionStatus.SUBMITTED, 5)));
 
-        assertOperationFails(() -> handler.ownerReject(instance, 20L, "7", REASON));
+        assertOperationFails(() -> handler.reject(instance, 20L, true, "7", REASON));
 
         assertNoStateWrites();
     }
@@ -308,7 +308,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.update(isNull(), any())).thenReturn(updatedRows);
 
-        assertOperationFails(() -> handler.ownerReject(instance, 20L, "7", REASON));
+        assertOperationFails(() -> handler.reject(instance, 20L, true, "7", REASON));
 
         assertTransition(capturedInstanceUpdate(), TaskInstanceStatus.COMPLETED, TaskInstanceStatus.CLAIMED, 7L);
         LambdaUpdateWrapper<TaskSubmission> update = capturedSubmissionUpdate();
@@ -409,9 +409,9 @@ class TaskInstanceOwnerCommandHandlerTest {
 
     private void operate(boolean reject, TaskInstance instance, String expectedRevision) {
         if (reject) {
-            handler.ownerReject(instance, 20L, expectedRevision, REASON);
+            handler.reject(instance, 20L, true, expectedRevision, REASON);
         } else {
-            handler.ownerCancel(instance, expectedRevision);
+            handler.abandon(instance, 20L, true, expectedRevision, REASON);
         }
     }
 

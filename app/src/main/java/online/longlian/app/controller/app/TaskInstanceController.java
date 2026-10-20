@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOwnerOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
@@ -22,7 +22,7 @@ import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.dto.app.MyTaskListDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
-import online.longlian.app.pojo.dto.app.TaskInstanceOwnerOperateDTO;
+import online.longlian.app.pojo.dto.app.TaskAbandonDTO;
 
 import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
@@ -163,18 +163,21 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "放弃任务",
-        description = "放弃已接取（CLAIMED）的任务，任务状态恢复为 PENDING，可由他人重新接取"
+        description = "接取人可主动放弃；企划创建人可填写原因取消他人接取。须匹配 revision，且后续阶段没有完成任务"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/abandon")
     @ResponseMessage("已放弃")
     public void abandonTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-                             @PathVariable Long instanceId) {
+                             @PathVariable Long instanceId,
+                             @RequestBody @Valid TaskAbandonDTO request) {
         taskInstanceService.abandonTask(
-                TaskInstanceOperateParamsBO.builder()
+                TaskInstanceAbandonParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
+                        .expectedRevision(request.getExpectedRevision())
+                        .reason(request.getReason())
                         .build());
     }
 
@@ -216,8 +219,8 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "打回任务",
-        description = "下一阶段执行人可将已完成（COMPLETED）的任务打回，" +
-                "任务恢复为 CLAIMED 状态，提交记录标记为 REJECTED，需填写打回意见"
+        description = "企划创建人或下一阶段执行人可将已完成任务打回，保留接取人与提交历史。" +
+                "须匹配 revision 并填写打回意见，且后续阶段没有完成任务"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/reject")
@@ -230,38 +233,10 @@ public class TaskInstanceController {
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
+                        .expectedRevision(taskRejectDTO.getExpectedRevision())
                         .reviewComment(taskRejectDTO.getReviewComment())
                         .build());
     }
 
-    @Operation(summary = "负责人取消接取", description = "仅企划创建者可取消当前接取；后续阶段已有完成任务时禁止操作。保留历史成果和企划成员。")
-    @PostMapping("/{instanceId}/owner-cancel")
-    @ResponseMessage("已取消接取")
-    public void ownerCancelTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-                                @PathVariable Long instanceId,
-                                @RequestBody @Valid TaskInstanceOwnerOperateDTO request) {
-        taskInstanceService.ownerCancelTask(TaskInstanceOwnerOperateParamsBO.builder()
-                .instanceId(instanceId)
-                .userId(sessionContext.userId())
-                .orgId(sessionContext.orgId())
-                .expectedRevision(request.getExpectedRevision())
-                .reason(request.getReason())
-                .build());
-    }
-
-    @Operation(summary = "负责人打回提交", description = "仅企划创建者可打回当前提交；后续阶段已有完成任务时禁止操作。保留接取人与历史成果，不级联回滚。")
-    @PostMapping("/{instanceId}/owner-reject")
-    @ResponseMessage("已打回提交")
-    public void ownerRejectTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-                                @PathVariable Long instanceId,
-                                @RequestBody @Valid TaskInstanceOwnerOperateDTO request) {
-        taskInstanceService.ownerRejectTask(TaskInstanceOwnerOperateParamsBO.builder()
-                .instanceId(instanceId)
-                .userId(sessionContext.userId())
-                .orgId(sessionContext.orgId())
-                .expectedRevision(request.getExpectedRevision())
-                .reason(request.getReason())
-                .build());
-    }
 
 }
