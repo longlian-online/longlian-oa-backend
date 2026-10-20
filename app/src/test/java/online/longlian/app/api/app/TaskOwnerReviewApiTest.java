@@ -57,7 +57,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         List<Map<String, Object>> workshops = workshops();
         assertRevision(tokens.owner(), 1, "0");
 
-        assertCode(operate(tokens.owner(), "abandon", "0", "  调整接取人 \n"), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "0"), ResultCode.SUCCESS);
 
         assertInstance(1, 1, null, 1);
         assertThat(instance(1).get("claimed_at")).isNull();
@@ -67,7 +67,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         assertThat(members()).isEqualTo(members);
         assertThat(workshops()).isEqualTo(workshops);
         assertRevision(tokens.owner(), 1, "1");
-        assertAudit("OWNER_CANCEL", "调整接取人", "0", "1", 3);
+        assertAudit("OWNER_CANCEL", null, "0", "1", 3);
     }
 
     @Test
@@ -117,7 +117,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
     void shouldPreserveAutoJoinedMembershipWhenOwnerCancelsClaim() {
         Tokens tokens = createWorkflow();
         jdbcTemplate.update("DELETE FROM project_workshop WHERE project_id = 1 AND user_id = 2");
-        assertCode(operate(tokens.owner(), "abandon", "0", "重新分配"), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "0"), ResultCode.SUCCESS);
 
         authRequest(tokens.worker()).post("/app/task/instance/1/claim").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -125,7 +125,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         List<Map<String, Object>> autoJoined = workshops();
         assertThat(autoJoined).hasSize(2);
 
-        assertCode(operate(tokens.owner(), "abandon", "2", "保留企划成员"), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "2"), ResultCode.SUCCESS);
 
         assertInstance(1, 1, null, 3);
         assertThat(workshops()).isEqualTo(autoJoined);
@@ -136,7 +136,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
     void shouldRejectStaleCancelAfterClaimAbandonClaimAbaWithoutSideEffects() {
         Tokens tokens = createWorkflow();
         assertRevision(tokens.owner(), 1, "0");
-        assertCode(operate(tokens.owner(), "abandon", "0", "取消"), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "0"), ResultCode.SUCCESS);
         assertCode(authRequest(tokens.worker()).post("/app/task/instance/1/claim"), ResultCode.SUCCESS);
         assertCode(authRequest(tokens.worker()).body(Map.of("expectedRevision", "2"))
                 .post("/app/task/instance/1/abandon"), ResultCode.SUCCESS);
@@ -145,8 +145,8 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         assertRevision(tokens.owner(), 1, "4");
         Snapshot before = snapshot();
 
-        assertCode(operate(tokens.owner(), "abandon", "0", "过期请求"), ResultCode.OPERATION_FAIL);
-        assertCode(operate(tokens.owner(), "abandon", "2", "旧接取版本"), ResultCode.OPERATION_FAIL);
+        assertCode(cancel(tokens.owner(), "0"), ResultCode.OPERATION_FAIL);
+        assertCode(cancel(tokens.owner(), "2"), ResultCode.OPERATION_FAIL);
         assertThat(snapshot()).isEqualTo(before);
     }
 
@@ -196,15 +196,12 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldRecordReasonWhenProjectCreatorAbandonsOwnClaim() {
+    void shouldUseOrdinaryLogWhenProjectCreatorAbandonsOwnClaim() {
         Tokens tokens = createWorkflow();
         jdbcTemplate.update("UPDATE task_instance SET assignee_id = 1 WHERE id = 1");
-        assertCode(operate(tokens.owner(), "abandon", "0", "  主动调整  "), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "0"), ResultCode.SUCCESS);
         assertInstance(1, 1, null, 1);
-        JSONObject audit = JSON.parseObject(ownerAudits().getFirst().get("request_body").toString());
-        assertThat(audit.getString("action")).isEqualTo("OWNER_CANCEL");
-        assertThat(audit.getString("reason")).isEqualTo("主动调整");
-        assertThat(audit.getLong("assigneeId")).isEqualTo(1L);
+        assertThat(ownerAudits()).isEmpty();
     }
 
     @ParameterizedTest
@@ -368,10 +365,10 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         Tokens tokens = createWorkflow();
         jdbcTemplate.update("UPDATE task_instance SET revision = 9007199254740993 WHERE id = 1");
         assertRevision(tokens.owner(), 1, "9007199254740993");
-        assertCode(operate(tokens.owner(), "abandon", "9007199254740993", "精确修订号"), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "9007199254740993"), ResultCode.SUCCESS);
         assertInstance(1, 1, null, 9007199254740994L);
         assertRevision(tokens.owner(), 1, "9007199254740994");
-        assertAudit("OWNER_CANCEL", "精确修订号", "9007199254740993", "9007199254740994", 3);
+        assertAudit("OWNER_CANCEL", null, "9007199254740993", "9007199254740994", 3);
     }
 
     static Stream<Arguments> invalidStates() {
@@ -390,23 +387,21 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
     }
 
     static Stream<Arguments> invalidBodies() {
-        return Stream.of("abandon", "reject").flatMap(action -> Stream.of(
-                "{}", "{\"reason\":\"理由\"}", "{\"expectedRevision\":null,\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"-1\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"+1\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"01\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\" 0 \",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"1e0\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"1.0\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"abc\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"9223372036854775808\",\"reason\":\"理由\"}",
-                "{\"expectedRevision\":\"0\"}", "{\"expectedRevision\":\"0\",\"reason\":null}",
-                "{\"expectedRevision\":\"0\",\"reason\":\"\"}",
-                "{\"expectedRevision\":\"0\",\"reason\":\"  \\n\\t \"}",
-                JSON.toJSONString(Map.of("expectedRevision", "0", "reason", "字".repeat(501))))
+        Stream<Arguments> invalidRevisions = Stream.of("abandon", "reject").flatMap(action -> Stream.of(
+                "{}", "{\"expectedRevision\":null}", "{\"expectedRevision\":\"\"}",
+                "{\"expectedRevision\":\"-1\"}", "{\"expectedRevision\":\"+1\"}",
+                "{\"expectedRevision\":\"01\"}", "{\"expectedRevision\":\" 0 \"}",
+                "{\"expectedRevision\":\"1e0\"}", "{\"expectedRevision\":\"1.0\"}",
+                "{\"expectedRevision\":\"abc\"}", "{\"expectedRevision\":\"9223372036854775808\"}")
                 .map(json -> Arguments.of(action, action.equals("reject")
-                        ? json.replace("\"reason\"", "\"reviewComment\"") : json)));
+                        ? json.replace("}", ",\"reviewComment\":\"意见\"}") : json)));
+        Stream<Arguments> invalidReviewComments = Stream.of(
+                "{\"expectedRevision\":\"0\"}", "{\"expectedRevision\":\"0\",\"reviewComment\":null}",
+                "{\"expectedRevision\":\"0\",\"reviewComment\":\"\"}",
+                "{\"expectedRevision\":\"0\",\"reviewComment\":\"  \\n\\t \"}",
+                JSON.toJSONString(Map.of("expectedRevision", "0", "reviewComment", "字".repeat(501))))
+                .map(json -> Arguments.of("reject", json));
+        return Stream.concat(invalidRevisions, invalidReviewComments);
     }
 
     @ParameterizedTest
@@ -420,17 +415,13 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 500})
-    void shouldAcceptTrimmedReasonBoundariesForBothOwnerOperations(int length) {
-        Tokens tokens = createWorkflow();
-        String reason = "字".repeat(length);
-        assertCode(operate(tokens.owner(), "abandon", "0", " \t" + reason + "\n "), ResultCode.SUCCESS);
-        assertAudit("OWNER_CANCEL", reason, "0", "1", 3);
-        assertCode(authRequest(tokens.worker()).post("/app/task/instance/1/claim"), ResultCode.SUCCESS);
-        assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
-        assertCode(operate(tokens.owner(), "reject", "3", " \t" + reason + "\n "), ResultCode.SUCCESS);
-        assertThat(submissions().getFirst().get("review_comment")).isEqualTo(reason);
-        assertAudit("OWNER_REJECT", reason, "3", "4", 4);
-        assertInstance(1, 2, 2L, 4);
+    void shouldAcceptTrimmedReviewCommentBoundaries(int length) {
+        Tokens tokens = createReadyWorkflow("reject");
+        String reviewComment = "字".repeat(length);
+        assertCode(operate(tokens.owner(), "reject", "1", " \t" + reviewComment + "\n "), ResultCode.SUCCESS);
+        assertThat(submissions().getFirst().get("review_comment")).isEqualTo(reviewComment);
+        assertAudit("OWNER_REJECT", reviewComment, "1", "2", 4);
+        assertInstance(1, 2, 2L, 2);
         assertCount(4);
     }
 
@@ -492,7 +483,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 + "(id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status) "
                 + "VALUES (2, 2, 2, 2, 2, 2, 3)");
         Map<String, Object> other = instance(2);
-        assertCode(operate(tokens.owner(), "abandon", "0", "其他项目不影响"), ResultCode.SUCCESS);
+        assertCode(cancel(tokens.owner(), "0"), ResultCode.SUCCESS);
         assertThat(instance(2)).isEqualTo(other);
     }
 
@@ -614,7 +605,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         pauseFirstLock(beforeLock, resume);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> owner = CompletableFuture.supplyAsync(() ->
-                    operate(tokens.owner(), "abandon", "0", "旧请求"), executor);
+                    cancel(tokens.owner(), "0"), executor);
             Snapshot submitted;
             try {
                 await(beforeLock);
@@ -641,7 +632,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
             Snapshot cancelled;
             try {
                 await(beforeLock);
-                assertCode(operate(tokens.owner(), "abandon", "0", "先取消"), ResultCode.SUCCESS);
+                assertCode(cancel(tokens.owner(), "0"), ResultCode.SUCCESS);
                 cancelled = snapshot();
             } finally {
                 resume.countDown();
@@ -909,12 +900,18 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 id, version, status, comment);
     }
 
-    private Response operate(String token, String action, String expectedRevision, String reason) {
-        return authRequest(token).body(body(action, expectedRevision, reason)).post(path(action));
+    private Response cancel(String token, String expectedRevision) {
+        return authRequest(token).body(Map.of("expectedRevision", expectedRevision)).post(path("abandon"));
     }
 
-    private static Map<String, String> body(String action, String expectedRevision, String reason) {
-        return Map.of("expectedRevision", expectedRevision, action.equals("reject") ? "reviewComment" : "reason", reason);
+    private Response operate(String token, String action, String expectedRevision, String reviewComment) {
+        return authRequest(token).body(body(action, expectedRevision, reviewComment)).post(path(action));
+    }
+
+    private static Map<String, String> body(String action, String expectedRevision, String reviewComment) {
+        return action.equals("reject")
+                ? Map.of("expectedRevision", expectedRevision, "reviewComment", reviewComment)
+                : Map.of("expectedRevision", expectedRevision);
     }
 
     private static String path(String action) {
@@ -949,7 +946,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 .isEqualTo(expected);
     }
 
-    private void assertAudit(String action, String reason, String expectedRevision, String revision, int operationType) {
+    private void assertAudit(String action, String reviewComment, String expectedRevision, String revision, int operationType) {
         List<Map<String, Object>> matching = ownerAudits().stream()
                 .filter(row -> action.equals(JSON.parseObject(row.get("request_body").toString()).getString("action")))
                 .toList();
@@ -961,7 +958,12 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         assertThat(((Number) audit.get("operation_type")).intValue()).isEqualTo(operationType);
         JSONObject payload = JSON.parseObject(audit.get("request_body").toString());
         assertThat(payload.getString("action")).isEqualTo(action);
-        assertThat(payload.getString("reason")).isEqualTo(reason);
+        assertThat(payload).doesNotContainKey("reason");
+        if (action.equals("OWNER_REJECT")) {
+            assertThat(payload.getString("reviewComment")).isEqualTo(reviewComment);
+        } else {
+            assertThat(payload).doesNotContainKey("reviewComment");
+        }
         assertThat(payload.getLong("assigneeId")).isEqualTo(2L);
         assertThat(payload.getString("expectedRevision")).isEqualTo(expectedRevision);
         assertThat(payload.getString("revision")).isEqualTo(revision);

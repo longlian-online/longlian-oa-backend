@@ -39,10 +39,10 @@ class UserOperationLogServiceTest {
     }
 
     @Test
-    void shouldPreserveOwnerAuditIdentityReasonAndRevisionAsStrings() {
+    void shouldPreserveOwnerCancelAuditIdentityAndRevisionWithoutReason() {
         when(mapper.insert(any(UserOperationLog.class))).thenReturn(1);
         Map<String, Object> body = Map.of("action", "OWNER_CANCEL", "instanceId", 41L,
-                "assigneeId", 9L, "reason", "需要重新分配", "expectedRevision", "9007199254740993",
+                "assigneeId", 9L, "expectedRevision", "9007199254740993",
                 "revision", "9007199254740994");
 
         service.logSynchronously(7L, 2L, 3L, UserOperationType.TASK_ABANDON, body);
@@ -58,9 +58,9 @@ class UserOperationLogServiceTest {
         assertThat(request.getLong("instanceId")).isEqualTo(41L);
         assertThat(request.getLong("assigneeId")).isEqualTo(9L);
         assertThat(request).containsEntry("action", "OWNER_CANCEL")
-                .containsEntry("reason", "需要重新分配")
                 .containsEntry("expectedRevision", "9007199254740993")
                 .containsEntry("revision", "9007199254740994");
+        assertThat(request).doesNotContainKeys("reason", "reviewComment");
         assertThat(row.getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 10, 19, 0, 0));
         assertThat(row.getUpdatedAt()).isEqualTo(row.getCreatedAt());
     }
@@ -70,7 +70,7 @@ class UserOperationLogServiceTest {
         when(mapper.insert(any(UserOperationLog.class))).thenReturn(0);
 
         assertThatThrownBy(() -> service.logSynchronously(7L, 2L, 3L,
-                UserOperationType.TASK_REJECT, Map.of("action", "OWNER_REJECT", "reason", "重做")))
+                UserOperationType.TASK_REJECT, Map.of("action", "OWNER_REJECT", "reviewComment", "重做")))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("操作审计写入失败");
     }

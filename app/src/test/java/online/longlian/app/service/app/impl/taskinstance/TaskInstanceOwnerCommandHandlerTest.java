@@ -83,7 +83,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         givenStages(List.of(), List.of());
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
 
-        handler.abandon(instance, 20L, true, "7", REASON);
+        handler.abandon(instance, 20L, true, "7");
 
         LambdaUpdateWrapper<TaskInstance> update = capturedInstanceUpdate();
         assertTransition(update, TaskInstanceStatus.CLAIMED, TaskInstanceStatus.PENDING, 7L);
@@ -411,7 +411,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         if (reject) {
             handler.reject(instance, 20L, true, expectedRevision, REASON);
         } else {
-            handler.abandon(instance, 20L, true, expectedRevision, REASON);
+            handler.abandon(instance, 20L, true, expectedRevision);
         }
     }
 

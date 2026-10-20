@@ -77,7 +77,7 @@ public interface TaskInstanceService {
     /**
      * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，接取人或企划创建人可操作。
      *
-     * @param params 包含当前修订号；取消他人接取时必须填写原因
+     * @param params 包含当前修订号；主动放弃与取消他人接取均无需填写原因
      */
     void abandonTask(TaskInstanceAbandonParamsBO params);
 

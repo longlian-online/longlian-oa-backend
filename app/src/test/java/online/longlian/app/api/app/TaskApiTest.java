@@ -793,10 +793,10 @@ public class TaskApiTest extends BaseApiTest {
     }
 
     /**
-     * 企划创建人取消他人接取必须填写原因。
+     * 企划创建人无需填写原因即可取消他人接取。
      */
     @Test
-    void shouldFailCancelOtherAssigneeWithoutReason() {
+    void shouldCancelOtherAssigneeWithoutReason() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -811,7 +811,7 @@ public class TaskApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**

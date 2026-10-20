@@ -31,6 +31,7 @@ import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.service.DistributedLockService;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.UserOperationType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -241,7 +242,45 @@ class TaskInstanceServiceImplTest {
 
         service.abandonTask(params);
 
-        verify(taskInstanceCommandHandler).abandon(instance, 1L, false, "0", null);
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, false, "0");
+        verify(operationLogService).log(1L, instance.getProjectId(), instance.getItemId(),
+                UserOperationType.TASK_ABANDON, params);
+    }
+
+    @Test
+    void abandonTask_creatorCancelsOtherAssignee_writesSynchronousAuditWithoutReason() {
+        TaskInstanceAbandonParamsBO params = TaskInstanceAbandonParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").build();
+        TaskInstance instance = prepareReviewInstance();
+        instance.setAssigneeId(2L);
+        Project project = enabledProject();
+        project.setCreatorId(1L);
+        when(projectMapper.selectById(2L)).thenReturn(project);
+
+        service.abandonTask(params);
+
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, true, "0");
+        verify(operationLogService).logSynchronously(1L, 2L, 1L, UserOperationType.TASK_ABANDON,
+                Map.of("action", "OWNER_CANCEL", "instanceId", 100L, "assigneeId", 2L,
+                        "expectedRevision", "0", "revision", "1"));
+        verifyNoMoreInteractions(operationLogService);
+    }
+
+    @Test
+    void abandonTask_creatorAbandonsOwnClaim_keepsOrdinaryLog() {
+        TaskInstanceAbandonParamsBO params = TaskInstanceAbandonParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").build();
+        TaskInstance instance = prepareReviewInstance();
+        instance.setAssigneeId(1L);
+        Project project = enabledProject();
+        project.setCreatorId(1L);
+        when(projectMapper.selectById(2L)).thenReturn(project);
+
+        service.abandonTask(params);
+
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, true, "0");
+        verify(operationLogService).log(1L, 2L, 1L, UserOperationType.TASK_ABANDON, params);
+        verifyNoMoreInteractions(operationLogService);
     }
 
     @Test

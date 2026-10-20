@@ -123,9 +123,9 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
             boolean projectCreator = params.getUserId().equals(project.getCreatorId());
             taskInstanceCommandHandler.abandon(instance, params.getUserId(), projectCreator,
-                    params.getExpectedRevision(), params.getReason());
-            if (projectCreator && params.getReason() != null && !params.getReason().isBlank()) {
-                logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), params.getReason(),
+                    params.getExpectedRevision());
+            if (projectCreator && !params.getUserId().equals(instance.getAssigneeId())) {
+                logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), null,
                         UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
             } else {
                 operationLogService.log(params.getUserId(), instance.getProjectId(),
@@ -172,13 +172,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         });
     }
 
-    private void logOwnerOperation(TaskInstance instance, Long userId, String expectedRevision, String reason,
+    private void logOwnerOperation(TaskInstance instance, Long userId, String expectedRevision, String reviewComment,
                                    UserOperationType type, String action) {
         Map<String, Object> audit = new LinkedHashMap<>();
         audit.put("action", action);
         audit.put("instanceId", instance.getId());
         audit.put("assigneeId", instance.getAssigneeId());
-        audit.put("reason", reason);
+        if (reviewComment != null) {
+            audit.put("reviewComment", reviewComment);
+        }
         audit.put("expectedRevision", expectedRevision);
         audit.put("revision", Long.toString(instance.getRevision() + 1));
         operationLogService.logSynchronously(userId, instance.getProjectId(),

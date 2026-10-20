@@ -172,18 +172,13 @@ public class TaskInstanceCommandHandler {
 
     /** 只取消目标槽位，不删除历史提交，也不改变企划成员关系。 */
     public void abandon(TaskInstance instance, Long userId, boolean projectCreator,
-                        String expectedRevision, String reason) {
+                        String expectedRevision) {
         requireRevision(instance, expectedRevision);
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
         }
-        if (!userId.equals(instance.getAssigneeId())) {
-            if (!projectCreator) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人或企划负责人可放弃任务");
-            }
-            if (reason == null || reason.isBlank() || reason.length() > 500) {
-                throw new AppException(ResultCode.PARAM_ERROR, "取消他人接取须填写 1 到 500 个字符的原因");
-            }
+        if (!userId.equals(instance.getAssigneeId()) && !projectCreator) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人或企划负责人可放弃任务");
         }
         requireNoCompletedLaterStage(instance);
         int updated = taskInstanceMapper.update(null,

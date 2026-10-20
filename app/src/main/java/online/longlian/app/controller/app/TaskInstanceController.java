@@ -163,7 +163,7 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "放弃任务",
-        description = "接取人可主动放弃；企划创建人可填写原因取消他人接取。须匹配 revision，且后续阶段没有完成任务"
+        description = "接取人可主动放弃；企划创建人可取消他人接取。须匹配 revision，且后续阶段没有完成任务"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/abandon")
@@ -177,7 +177,6 @@ public class TaskInstanceController {
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
                         .expectedRevision(request.getExpectedRevision())
-                        .reason(request.getReason())
                         .build());
     }
 

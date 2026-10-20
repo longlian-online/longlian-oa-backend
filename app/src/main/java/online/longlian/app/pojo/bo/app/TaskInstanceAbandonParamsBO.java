@@ -14,5 +14,4 @@ public class TaskInstanceAbandonParamsBO {
     private Long userId;
     private Long orgId;
     private String expectedRevision;
-    private String reason;
 }
