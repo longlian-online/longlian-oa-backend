@@ -10,7 +10,8 @@ public enum EmailVerifyBusinessType implements CodeEnum {
 
     LOGIN(0, "登录"),
     REGISTER(1, "注册"),
-    FORGOT_PASSWORD(2, "忘记密码");
+    FORGOT_PASSWORD(2, "忘记密码"),
+    BIND_EMAIL(3, "绑定邮箱");
 
     private final Integer code;
     @Getter

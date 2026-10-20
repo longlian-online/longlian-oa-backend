@@ -709,4 +709,135 @@ public class UserApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
+
+    @Test
+    void shouldBindEmailAndKeepCurrentSession() {
+        createTestUser(1L, "legacyone", "123456", null);
+        String token = loginAs("legacyone", "123456");
+        createEmailVerifyOTP("A1B2C3", 1L, "bind@example.com", EmailVerifyBusinessType.BIND_EMAIL);
+
+        userRequest(token)
+                .body(Map.of("email", "bind@example.com", "code", "A1B2C3"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("邮箱已绑定"));
+
+        userRequest(token)
+                .get("/app/user/")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.email", equalTo("bind@example.com"));
+
+        createEmailVerifyOTP("D4E5F6", 1L, "bind@example.com", EmailVerifyBusinessType.LOGIN);
+        request()
+                .body(Map.of("email", "bind@example.com", "code", "D4E5F6"))
+                .post("/app/session/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.token", notNullValue());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenUserAlreadyHasEmail() {
+        createTestUser(1L, "legacyone", "123456", "bound@example.com");
+        String token = loginAs("legacyone", "123456");
+        createEmailVerifyOTP("A1B2C3", 1L, "other@example.com", EmailVerifyBusinessType.BIND_EMAIL);
+
+        userRequest(token)
+                .body(Map.of("email", "other@example.com", "code", "A1B2C3"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,邮箱已绑定"));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 1", String.class))
+                .isEqualTo("bound@example.com");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM one_time_password WHERE code = ?", Integer.class, "A1B2C3")).isZero();
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenAddressIsTakenWithoutConsumingCode() {
+        createTestUser(1L, "legacyone", "123456", null);
+        createTestUser(2L, "legacytwo", "123456", "taken@example.com");
+        String token = loginAs("legacyone", "123456");
+        createEmailVerifyOTP("A1B2C3", 1L, "taken@example.com", EmailVerifyBusinessType.BIND_EMAIL);
+
+        userRequest(token)
+                .body(Map.of("email", "taken@example.com", "code", "A1B2C3"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,邮箱已存在"));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 1", String.class)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM one_time_password WHERE code = ?", Integer.class, "A1B2C3")).isZero();
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenCodeIsForLogin() {
+        createTestUser(1L, "legacyone", "123456", null);
+        String token = loginAs("legacyone", "123456");
+        createEmailVerifyOTP("A1B2C3", 1L, "bind@example.com", EmailVerifyBusinessType.LOGIN);
+
+        userRequest(token)
+                .body(Map.of("email", "bind@example.com", "code", "A1B2C3"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 1", String.class)).isNull();
+    }
+
+    @Test
+    void shouldRejectBindEmailWithoutAuthOrWithInvalidFields() {
+        createTestUser(1L, "legacyone", "123456", null);
+        String token = loginAs("legacyone", "123456");
+
+        request()
+                .body(Map.of("email", "bind@example.com", "code", "A1B2C3"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+
+        userRequest(token)
+                .body(Map.of("email", "", "code", "A1B2C3"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        userRequest(token)
+                .body(Map.of("email", "bind@example.com", "code", "abc"))
+                .put("/app/user/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldRejectBindEmailCodeWhenEmailIsAlreadyUsed() {
+        createTestUser(1L, "legacyone", "123456", "bound@example.com");
+        Integer before = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM email_verify_otp", Integer.class);
+
+        request()
+                .body(Map.of("email", "bound@example.com", "businessType", "BIND_EMAIL"))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", containsString("邮箱已存在"));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM email_verify_otp", Integer.class))
+                .isEqualTo(before);
+    }
 }

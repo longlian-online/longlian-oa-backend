@@ -56,8 +56,9 @@ public class EmailVerifyService implements OTPStrategyService {
         if (!isValidEmail(receiver)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱格式不合法");
         }
-        if (businessType == EmailVerifyBusinessType.REGISTER && userMapper.selectCount(
-                new LambdaQueryWrapper<User>().eq(User::getEmail, receiver)) > 0) {
+        if ((businessType == EmailVerifyBusinessType.REGISTER
+                || businessType == EmailVerifyBusinessType.BIND_EMAIL)
+                && userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getEmail, receiver)) > 0) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
         }
 

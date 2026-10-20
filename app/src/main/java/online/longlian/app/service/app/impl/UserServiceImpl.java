@@ -20,6 +20,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
@@ -119,6 +120,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         replacePassword(user, passwordEncoder.encode(params.getNewPassword()));
+        clearSessionAfterCommit(user.getId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void bindEmail(UserBindEmailParamsBO params) {
+        User user = userMapper.selectById(params.getUserId());
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        if (StringUtils.hasText(user.getEmail())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已绑定");
+        }
+
+        OTPStrategyService emailVerifyService = otpServiceFactory.get(OTPType.EmailVerify);
+        OneTimePassword emailOtp = emailVerifyService.getValid(
+                OTPValidateContextBO.builder()
+                        .code(params.getCode())
+                        .target(params.getEmail())
+                        .businessType(EmailVerifyBusinessType.BIND_EMAIL)
+                        .build()
+        );
+        try {
+            int updated = userMapper.update(null, new LambdaUpdateWrapper<User>()
+                    .set(User::getEmail, params.getEmail())
+                    .eq(User::getId, user.getId())
+                    .and(wrapper -> wrapper.isNull(User::getEmail).or().eq(User::getEmail, "")));
+            if (updated == 0) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已绑定");
+            }
+        } catch (DuplicateKeyException exception) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
+        }
+        emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
         clearSessionAfterCommit(user.getId());
     }
 

@@ -17,6 +17,6 @@ public class EmailCodeDTO {
     private String email;
 
     @NotNull(message = "业务类型不能为空")
-    @Schema(description = "业务类型 LOGIN-登录 REGISTER-注册 FORGOT_PASSWORD-忘记密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "业务类型 LOGIN-登录 REGISTER-注册 FORGOT_PASSWORD-忘记密码 BIND_EMAIL-绑定邮箱", requiredMode = Schema.RequiredMode.REQUIRED)
     private EmailVerifyBusinessType businessType;
 }

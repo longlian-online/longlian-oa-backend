@@ -14,6 +14,7 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
@@ -220,6 +221,86 @@ class UserServiceImplTest {
         verify(userMapper, never()).updateById(any(User.class));
         verify(sessionService, never()).clearUserSessionCache(any());
         verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
+    @Test
+    void shouldBindEmailAndConsumeCodeWithoutRevokingRefreshSessions() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).build());
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class)))
+                .thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.update(isNull(), any())).thenReturn(1);
+
+        runWithTransactionCommit(() -> service.bindEmail(bindEmailParams()));
+
+        ArgumentCaptor<OTPValidateContextBO> validateCaptor = ArgumentCaptor.forClass(OTPValidateContextBO.class);
+        verify(emailVerifyService).getValid(validateCaptor.capture());
+        assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.BIND_EMAIL);
+        assertThat(validateCaptor.getValue().getTarget()).isEqualTo("bind@example.com");
+        assertThat(validateCaptor.getValue().getCode()).isEqualTo("A1B2C3");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet()).contains("email");
+        verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+        verify(sessionService).clearUserSessionCache(1L);
+        verify(sessionService, never()).revokeRefreshSessions(any());
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenCurrentEmailIsNotBlankWithoutConsumingCode() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).email("kept@example.com").build());
+
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已绑定")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(otpServiceFactory, never()).get(any());
+        verify(emailVerifyService, never()).use(any());
+        verify(userMapper, never()).update(any(), any());
+        verify(sessionService, never()).revokeRefreshSessions(any());
+        verify(sessionService, never()).clearUserSessionCache(any());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenUpdateMatchesNoRow() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).build());
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class)))
+                .thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已绑定")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(emailVerifyService, never()).use(any());
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(sessionService, never()).revokeRefreshSessions(any());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenEmailUniqueIndexConflicts() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).build());
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class)))
+                .thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.update(isNull(), any()))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_email"));
+
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已存在")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(emailVerifyService, never()).use(any());
+        verify(sessionService, never()).revokeRefreshSessions(any());
     }
 
 
@@ -565,6 +646,14 @@ class UserServiceImplTest {
                 .email("user@example.com")
                 .code("A1B2C3")
                 .password("new-password")
+                .build();
+    }
+
+    private UserBindEmailParamsBO bindEmailParams() {
+        return UserBindEmailParamsBO.builder()
+                .userId(1L)
+                .email("bind@example.com")
+                .code("A1B2C3")
                 .build();
     }
 }
