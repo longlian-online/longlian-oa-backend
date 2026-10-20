@@ -2,22 +2,26 @@ package online.longlian.app.api.app;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.app.service.common.LockService;
+import online.longlian.app.mapper.ItemMapper;
+import online.longlian.app.pojo.entity.Item;
 import online.longlian.common.enumeration.UserOperationType;
-import online.longlian.common.service.DistributedLockService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.mybatis.spring.SqlSessionTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.test.util.AopTestUtils;
 
+import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -25,24 +29,25 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
+import org.awaitility.Awaitility;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.spy;
 
 /** API assertions deliberately read committed rows, including the audit and membership side effects. */
 public class TaskOwnerReviewApiTest extends BaseApiTest {
 
     @SpyBean
-    private LockService lockService;
+    private ItemMapper itemMapper;
+
+    @Autowired
+    private SqlSessionTemplate sqlSession;
 
     @SpyBean
     private UserOperationLogService operationLogService;
@@ -548,7 +553,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"claim", "abandon", "submit", "reset", "reject"})
-    void shouldCommitEachMutationThroughSameItemWatchdogLock(String action) {
+    void shouldWaitForItemRowBeforeAnyTaskMutation(String action) throws Exception {
         Tokens tokens = createWorkflow();
         if (action.equals("claim")) {
             jdbcTemplate.update("UPDATE task_instance SET status = 1, assignee_id = NULL, claimed_at = NULL WHERE id = 1");
@@ -557,36 +562,29 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
             assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
         }
         long beforeRevision = Long.parseLong(revision());
-        AtomicInteger lockEntries = new AtomicInteger();
-        AtomicBoolean committedBeforeUnlock = new AtomicBoolean();
-        doAnswer(invocation -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            lockEntries.incrementAndGet();
-            DistributedLockService.Lock acquired = (DistributedLockService.Lock) invocation.callRealMethod();
-            DistributedLockService.Lock observed = spy(acquired);
-            doAnswer(close -> {
+        Snapshot before = snapshot();
+        try (Connection blocker = jdbcTemplate.getDataSource().getConnection()) {
+            blocker.setAutoCommit(false);
+            try (var statement = blocker.createStatement();
+                 var rows = statement.executeQuery("SELECT id FROM item WHERE id = 1 FOR UPDATE")) {
+                assertThat(rows.next()).isTrue();
+            }
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                CompletableFuture<Response> pending = CompletableFuture.supplyAsync(() -> switch (action) {
+                    case "abandon", "reject" -> operate(tokens.owner(), action, Long.toString(beforeRevision), "统一行锁");
+                    case "submit" -> submit(tokens.worker(), 1);
+                    default -> authRequest(tokens.worker()).post(path(action));
+                }, executor);
                 try {
-                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-                    assertThat(Long.parseLong(revision())).isEqualTo(beforeRevision + 1);
-                    committedBeforeUnlock.set(true);
-                    return close.callRealMethod();
+                    awaitItemLockWaiters(1);
+                    assertThat(pending).isNotDone();
+                    assertThat(snapshot()).isEqualTo(before);
                 } finally {
-                    if (!committedBeforeUnlock.get()) {
-                        acquired.close();
-                    }
+                    blocker.commit();
                 }
-            }).when(observed).close();
-            return observed;
-        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), anyLong(), eq(TimeUnit.SECONDS));
-
-        Response response = switch (action) {
-            case "abandon", "reject" -> operate(tokens.owner(), action, Long.toString(beforeRevision), "统一锁");
-            case "submit" -> submit(tokens.worker(), 1);
-            default -> authRequest(tokens.worker()).post(path(action));
-        };
-        assertCode(response, ResultCode.SUCCESS);
-        assertThat(lockEntries).hasValue(1);
-        assertThat(committedBeforeUnlock).isTrue();
+                assertCode(pending.get(15, TimeUnit.SECONDS), ResultCode.SUCCESS);
+            }
+        }
         int expectedStatus = switch (action) {
             case "abandon" -> 1;
             case "submit" -> 3;
@@ -652,25 +650,6 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         Snapshot before = snapshot();
         CountDownLatch auditWritten = new CountDownLatch(1);
         CountDownLatch resume = new CountDownLatch(1);
-        AtomicBoolean closedAfterCommit = new AtomicBoolean();
-        doAnswer(invocation -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            DistributedLockService.Lock acquired = (DistributedLockService.Lock) invocation.callRealMethod();
-            DistributedLockService.Lock observed = spy(acquired);
-            doAnswer(close -> {
-                try {
-                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-                    assertThat(ownerAudits()).hasSize(1);
-                    closedAfterCommit.set(true);
-                    return close.callRealMethod();
-                } finally {
-                    if (!closedAfterCommit.get()) {
-                        acquired.close();
-                    }
-                }
-            }).when(observed).close();
-            return observed;
-        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), anyLong(), eq(TimeUnit.SECONDS));
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
             Object result = invocation.callRealMethod();
@@ -683,23 +662,25 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> first = CompletableFuture.supplyAsync(() ->
                     operate(tokens.owner(), action, expectedRevision, "并发操作"), executor);
+            CompletableFuture<Response> duplicate;
+            CompletableFuture<Response> concurrentSubmit;
             try {
                 await(auditWritten);
-                // The audit has been inserted but no mutation may be visible before transaction commit.
                 assertThat(snapshot()).isEqualTo(before);
-                CompletableFuture<Response> duplicate = CompletableFuture.supplyAsync(() ->
+                duplicate = CompletableFuture.supplyAsync(() ->
                         operate(tokens.owner(), action, expectedRevision, "重复并发"), executor);
-                CompletableFuture<Response> concurrentSubmit = CompletableFuture.supplyAsync(() ->
-                        submit(tokens.worker(), 1), executor);
-                assertCode(duplicate.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
-                assertCode(concurrentSubmit.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
+                concurrentSubmit = CompletableFuture.supplyAsync(() -> submit(tokens.worker(), 1), executor);
+                awaitItemLockWaiters(2);
+                assertThat(duplicate).isNotDone();
+                assertThat(concurrentSubmit).isNotDone();
                 assertThat(snapshot()).isEqualTo(before);
             } finally {
                 resume.countDown();
             }
             assertCode(first.get(15, TimeUnit.SECONDS), ResultCode.SUCCESS);
+            assertCode(duplicate.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
+            assertCode(concurrentSubmit.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
         }
-        assertThat(closedAfterCommit).isTrue();
         assertThat(ownerAudits()).hasSize(1);
         assertInstance(1, action.equals("abandon") ? 1 : 2,
                 action.equals("abandon") ? null : 2L, Long.parseLong(expectedRevision) + 1);
@@ -972,13 +953,22 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
     private void pauseFirstLock(CountDownLatch beforeLock, CountDownLatch resume) {
         AtomicBoolean first = new AtomicBoolean(true);
         doAnswer(invocation -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
             if (first.compareAndSet(true, false)) {
                 beforeLock.countDown();
                 await(resume);
             }
-            return invocation.callRealMethod();
-        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), anyLong(), eq(TimeUnit.SECONDS));
+            Wrapper<Item> query = invocation.getArgument(0);
+            return sqlSession.getMapper(ItemMapper.class).selectOne(query);
+        }).when(itemMapper).selectOne(any());
+    }
+
+    private void awaitItemLockWaiters(int minimum) {
+        Awaitility.await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(DISTINCT w.requesting_trx_id) FROM information_schema.INNODB_LOCK_WAITS w "
+                        + "JOIN information_schema.INNODB_LOCKS l ON l.lock_id = w.requested_lock_id "
+                        + "WHERE l.lock_table = CONCAT('`', DATABASE(), '`.`item`')", Long.class))
+                .isGreaterThanOrEqualTo((long) minimum));
     }
 
     private static void await(CountDownLatch latch) throws InterruptedException {

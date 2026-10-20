@@ -27,9 +27,7 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.common.OrganizationMembershipService;
-import online.longlian.common.service.DistributedLockService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.UserOperationType;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +44,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,8 +74,6 @@ class TaskInstanceServiceImplTest {
     @Mock
     private OrganizationMembershipService organizationMembershipService;
     @Mock
-    private LockService lockService;
-    @Mock
     private PlatformTransactionManager transactionManager;
     @Mock
     private ProjectService projectService;
@@ -90,9 +85,8 @@ class TaskInstanceServiceImplTest {
         service = new TaskInstanceServiceImpl(taskInstanceMapper, taskSubmissionMapper,
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
-                itemTaskFlowMapper, organizationMembershipService, lockService, transactionManager, projectService);
-        lenient().when(lockService.tryAcquireOrThrow(anyString(), anyLong(), any(TimeUnit.class)))
-                .thenReturn(mock(DistributedLockService.Lock.class));
+                itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService);
+        lenient().when(itemMapper.selectOne(any())).thenAnswer(invocation -> itemMapper.selectById(1L));
         lenient().when(transactionManager.getTransaction(any()))
                 .thenAnswer(invocation -> new SimpleTransactionStatus());
     }

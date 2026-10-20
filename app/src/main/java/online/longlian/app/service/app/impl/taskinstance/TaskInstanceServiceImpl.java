@@ -35,9 +35,7 @@ import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.common.OrganizationMembershipService;
-import online.longlian.common.service.DistributedLockService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.UserOperationType;
 import org.springframework.stereotype.Service;
@@ -49,7 +47,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -68,7 +65,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final UserOperationLogService operationLogService;
     private final ItemTaskFlowMapper itemTaskFlowMapper;
     private final OrganizationMembershipService organizationMembershipService;
-    private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
     private final ProjectService projectService;
 
@@ -188,9 +184,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     /**
-     * 定位读取只决定锁键；锁内新事务重新读取状态，且提交完成后才释放 watchdog 锁。
-     * 同 item 的不同实例也必须串行，避免上游打回与下游提交分别通过前置检查。
-     * 短暂排队允许不同槽位的并发接取依次成功，仍以锁内状态和修订号拒绝冲突操作。
+     * 同 item 的写操作先锁项目行，再建立一致性读快照，避免上下游分别通过状态检查。
+     * 锁随事务结束释放；排队期间目标版本发生变化的请求不作用于新一轮接取或提交。
      */
     private <T> T mutateTask(Long instanceId, Long orgId, Long validatedUserId,
                              BiFunction<TaskInstance, Project, T> mutation) {
@@ -198,22 +193,23 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (locator == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
-        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
-                "task:item:" + locator.getItemId(), 5, TimeUnit.SECONDS)) {
-            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            return transaction.execute(status -> {
-                TaskInstance instance = taskInstanceMapper.selectById(instanceId);
-                if (instance == null) {
-                    throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-                }
-                Project project = getAndValidateProject(instance, orgId, validatedUserId);
-                if (!java.util.Objects.equals(locator.getItemId(), instance.getItemId())) {
-                    throw new AppException(ResultCode.OPERATION_FAIL, "任务归属已变更，请刷新后重试");
-                }
-                return mutation.apply(instance, project);
-            });
-        }
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return transaction.execute(status -> {
+            Item item = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
+                    .eq(Item::getId, locator.getItemId())
+                    .last("FOR UPDATE"));
+            TaskInstance instance = taskInstanceMapper.selectById(instanceId);
+            if (instance == null) {
+                throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+            }
+            if (!java.util.Objects.equals(locator.getItemId(), instance.getItemId())
+                    || !java.util.Objects.equals(locator.getRevision(), instance.getRevision())) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "任务状态或归属已变更，请刷新后重试");
+            }
+            Project project = getAndValidateProject(instance, item, orgId, validatedUserId);
+            return mutation.apply(instance, project);
+        });
     }
 
     @Override
@@ -271,7 +267,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());
     }
 
-    private Project getAndValidateProject(TaskInstance instance, Long orgId, Long validatedUserId) {
+    private Project getAndValidateProject(TaskInstance instance, Item item, Long orgId, Long validatedUserId) {
         Project project = projectMapper.selectById(instance.getProjectId());
         if (project == null || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
@@ -279,7 +275,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (!project.getOrgId().equals(orgId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
-        Item item = itemMapper.selectById(instance.getItemId());
         if (item == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
