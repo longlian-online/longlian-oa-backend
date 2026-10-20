@@ -255,9 +255,9 @@ class LocalFileReadApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
-    /** 替换用户头像会废弃旧资源，旧签名链接不再可读。 */
+    /** 替换后的头像作为历史数据保留，不进入物理回收。 */
     @Test
-    void shouldReplaceUserAvatarAndDeprecateOldResource() throws IOException {
+    void shouldPreserveReplacedUserAvatarAsHistory() throws IOException {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("user", "123456");
         byte[] png = createPng();
@@ -301,6 +301,8 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(oldStatus).isEqualTo(FileProcessStatus.Deprecated.getCode());
         assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementBizId).isEqualTo(1L);
+        jdbcTemplate.update("UPDATE resource SET created_at = ? WHERE id IN (?, ?)",
+                testNow().minusDays(30), created.fileId(), replacement.fileId());
 
         createAdmin(2L, "resource_cleanup_admin", "123456", "root");
         String adminToken = adminLoginAs("resource_cleanup_admin", "123456");
@@ -310,16 +312,58 @@ class LocalFileReadApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat(Path.of(properties.getLocal().getDirectory()).resolve(created.key())).doesNotExist();
+        assertThat(Path.of(properties.getLocal().getDirectory()).resolve(created.key())).exists();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT storage_cleaned_at FROM resource WHERE storage_key = ?", Object.class, created.key()))
-                .isNotNull();
+                .isNull();
 
         LocalFileReadParamsBO read = signer.sign(replacement.key());
         byte[] content = request().queryParam("key", read.key()).queryParam("expires", read.expires())
                 .queryParam("signature", read.signature()).get("/common/file/local").then()
                 .statusCode(200).extract().asByteArray();
         assertThat(content).isEqualTo(png);
+    }
+
+    @Test
+    void shouldCleanupExpiredUnboundUploadsAndPreserveRecentUploads() throws IOException {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        byte[] png = createPng();
+        LocalUpload pending = createLocalUpload(token, png.length);
+        LocalUpload uploaded = createLocalUpload(token, png.length);
+        LocalUpload recent = createLocalUpload(token, png.length);
+        for (LocalUpload upload : new LocalUpload[]{pending, uploaded, recent}) {
+            putSignedUpload(upload.uploadUrl(), png)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        }
+        jdbcTemplate.update("UPDATE resource SET created_at = ? WHERE id IN (?, ?)",
+                testNow().minusHours(25), pending.fileId(), uploaded.fileId());
+        jdbcTemplate.update("UPDATE resource SET process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), uploaded.fileId());
+        jdbcTemplate.update("UPDATE resource SET created_at = ? WHERE id = ?",
+                testNow().minusHours(23), recent.fileId());
+
+        createAdmin(2L, "cleanup_admin", "123456", "root");
+        String adminToken = adminLoginAs("cleanup_admin", "123456");
+        authRequest(adminToken).body("{}")
+                .post("/admin/scheduled-tasks/resource-cleanup/trigger").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Path root = Path.of(properties.getLocal().getDirectory());
+        for (LocalUpload expired : new LocalUpload[]{pending, uploaded}) {
+            assertThat(root.resolve(expired.key())).doesNotExist();
+            assertThat(jdbcTemplate.queryForObject(
+                    "SELECT storage_cleaned_at FROM resource WHERE id = ?", Object.class, expired.fileId()))
+                    .isNotNull();
+        }
+        assertThat(root.resolve(recent.key())).exists();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT storage_cleaned_at FROM resource WHERE id = ?", Object.class, recent.fileId()))
+                .isNull();
+
+        userRequest(token).body(Map.of("nickname", "user", "avatarFileId", pending.fileId()))
+                .put("/app/user/").then()
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
     /** 读取签名不能授权上传。 */
