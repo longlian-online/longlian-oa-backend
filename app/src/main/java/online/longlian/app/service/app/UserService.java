@@ -8,6 +8,7 @@ import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
@@ -49,6 +50,13 @@ public interface UserService extends IService<User> {
      * @param params 包含用户 ID、原密码和新密码的参数
      */
     void changePassword(UserChangePasswordParamsBO params);
+
+    /**
+     * 为尚未绑定邮箱的当前用户绑定邮箱。
+     *
+     * @param params 包含用户 ID、邮箱和绑定验证码的参数
+     */
+    void bindEmail(UserBindEmailParamsBO params);
 
 
     /**

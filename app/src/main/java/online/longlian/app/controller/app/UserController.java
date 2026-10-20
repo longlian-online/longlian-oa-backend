@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
@@ -23,6 +24,7 @@ import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.app.ResetPasswordDTO;
 import online.longlian.app.pojo.dto.app.ChangePasswordDTO;
+import online.longlian.app.pojo.dto.app.BindEmailDTO;
 import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
@@ -68,6 +70,19 @@ public class UserController {
                         .userId(sessionContext.userId())
                         .oldPassword(changePasswordDTO.getOldPassword())
                         .newPassword(changePasswordDTO.getNewPassword())
+                        .build());
+    }
+
+    @Operation(summary = "绑定邮箱", description = "已登录且尚未绑定邮箱的用户，使用邮箱验证码绑定邮箱")
+    @PutMapping("/email")
+    @ResponseMessage("邮箱已绑定")
+    public void bindEmail(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
+                          @RequestBody @Valid BindEmailDTO bindEmailDTO) {
+        userService.bindEmail(
+                UserBindEmailParamsBO.builder()
+                        .userId(sessionContext.userId())
+                        .email(bindEmailDTO.getEmail())
+                        .code(bindEmailDTO.getCode())
                         .build());
     }
 
