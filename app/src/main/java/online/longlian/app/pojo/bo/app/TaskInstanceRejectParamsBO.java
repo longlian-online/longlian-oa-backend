@@ -13,5 +13,6 @@ public class TaskInstanceRejectParamsBO {
     private Long instanceId;
     private Long userId;
     private Long orgId;
+    private String expectedRevision;
     private String reviewComment;
 }

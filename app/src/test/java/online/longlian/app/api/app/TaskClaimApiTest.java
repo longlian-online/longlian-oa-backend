@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,7 +138,7 @@ class TaskClaimApiTest extends BaseApiTest {
     @Test
     void shouldJoinOnlyWinnerWhenUsersCompeteForSameTask() throws Exception {
         String otherToken = loginAs("claimowner", "123456");
-        synchronizeTaskSnapshots();
+        synchronizeTaskSnapshots(2);
 
         List<Response> responses = concurrently(List.of(() -> claim(token, 1L), () -> claim(otherToken, 1L)));
 
@@ -160,7 +161,7 @@ class TaskClaimApiTest extends BaseApiTest {
     /** 同一用户并发重复请求仍只有一个成功，不把失败改成幂等接取成功。 */
     @Test
     void shouldRejectConcurrentRepeatedClaim() throws Exception {
-        synchronizeTaskSnapshots();
+        synchronizeTaskSnapshots(2);
 
         List<Response> responses = concurrently(List.of(() -> claim(token, 1L), () -> claim(token, 1L)));
 
@@ -178,17 +179,12 @@ class TaskClaimApiTest extends BaseApiTest {
         assertThat(membershipHistory(1L)).isEqualTo(1);
     }
 
-    /** 同人同企划不同任务同时插入，均须成功，且恰有一次 true；多个败者不能共享锁升级死锁。 */
+    /** 同人同企划不同槽位并发接取均成功，自动加入只发生一次。 */
     @Test
     void shouldJoinExactlyOnceWhenUserClaimsDifferentTasksConcurrently() throws Exception {
         createTaskInstance(2L);
         createTaskInstance(3L);
-        CyclicBarrier beforeInsert = new CyclicBarrier(3);
-        doAnswer(call -> {
-            beforeInsert.await(15, TimeUnit.SECONDS);
-            return sqlSession.getMapper(ProjectWorkshopMapper.class)
-                    .insert(call.getArgument(0, ProjectWorkshop.class));
-        }).when(workshops).insert(any(ProjectWorkshop.class));
+        synchronizeTaskSnapshots(3);
 
         List<Response> responses = concurrently(List.of(
                 () -> claim(token, 1L), () -> claim(token, 2L), () -> claim(token, 3L)));
@@ -474,12 +470,16 @@ class TaskClaimApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT claimed_at FROM task_instance WHERE id=?", java.sql.Timestamp.class, instanceId)).isNull();
     }
 
-    private void synchronizeTaskSnapshots() {
-        CyclicBarrier afterSnapshot = new CyclicBarrier(2);
+    private void synchronizeTaskSnapshots(int parties) {
+        CyclicBarrier afterSnapshot = new CyclicBarrier(parties);
+        AtomicInteger reads = new AtomicInteger();
         doAnswer(call -> {
             TaskInstance snapshot = sqlSession.getMapper(TaskInstanceMapper.class)
                     .selectById(call.getArgument(0, Serializable.class));
-            afterSnapshot.await(15, TimeUnit.SECONDS);
+            // 只同步锁前定位读取；锁内重读不能等待其他尚未取得锁的请求。
+            if (reads.incrementAndGet() <= parties) {
+                afterSnapshot.await(15, TimeUnit.SECONDS);
+            }
             return snapshot;
         }).when(instances).selectById(any(Serializable.class));
     }

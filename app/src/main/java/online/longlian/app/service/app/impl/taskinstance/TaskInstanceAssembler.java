@@ -65,6 +65,7 @@ public class TaskInstanceAssembler {
                     ItemTaskInstanceVO.ItemTaskInstanceVOBuilder builder = ItemTaskInstanceVO.builder()
                             .id(instance.getId())
                             .status(instance.getStatus())
+                            .revision(instance.getRevision().toString())
                             .createdAt(instance.getCreatedAt())
                             .completedAt(instance.getCompletedAt());
 

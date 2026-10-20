@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
@@ -76,5 +77,28 @@ class MemberSubmitCountHandlerTest {
         assertThat(sqlSet)
                 .contains("submit_count = submit_count - 1", "updated_at")
                 .doesNotContain("last_submitted_at");
+    }
+
+    @Test
+    void shouldRevertHistoricalCountForDisabledSubmitterWithoutGoingBelowZero() {
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(1L).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(
+                OrganizationMember.builder().id(10L).userId(100L).orgId(1L)
+                        .status(Status.DISABLED).submitCount(1).build());
+        when(organizationMemberMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.revertSubmitCount(100L, 2L);
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaQueryWrapper> query = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(organizationMemberMapper).selectOne(query.capture());
+        assertThat(query.getValue().getSqlSegment()).contains("user_id", "org_id").doesNotContain("status");
+        assertThat(query.getValue().getParamNameValuePairs().values()).contains(100L, 1L);
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> update = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(organizationMemberMapper).update(isNull(), update.capture());
+        assertThat(update.getValue().getSqlSet()).contains("submit_count = submit_count - 1");
+        assertThat(update.getValue().getSqlSegment()).contains("id =", "submit_count >");
+        assertThat(update.getValue().getParamNameValuePairs().values()).contains(10L, 0);
     }
 }

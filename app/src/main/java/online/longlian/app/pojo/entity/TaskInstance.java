@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -71,10 +71,10 @@ public class TaskInstance implements Serializable {
     private Long assigneeId;
 
     /**
-     * 接取时间：接取写入，放弃清空，打回/重置保留原值
+     * 接取时间（接取写入，放弃清空，打回/重置保留）
      */
-    @ApiModelProperty("接取时间")
     @TableField("claimed_at")
+    @ApiModelProperty("接取时间（接取写入，放弃清空，打回/重置保留）")
     private LocalDateTime claimedAt;
 
     /**
@@ -83,6 +83,13 @@ public class TaskInstance implements Serializable {
     @TableField("status")
     @ApiModelProperty("任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)")
     private TaskInstanceStatus status;
+
+    /**
+     * 任务状态修订号（每次状态写入递增，防止旧操作重放）
+     */
+    @TableField("revision")
+    @ApiModelProperty("任务状态修订号（每次状态写入递增，防止旧操作重放）")
+    private Long revision;
 
     /**
      * 提交时间

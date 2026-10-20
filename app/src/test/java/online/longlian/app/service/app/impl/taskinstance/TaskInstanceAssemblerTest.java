@@ -67,12 +67,14 @@ class TaskInstanceAssemblerTest {
         TaskInstance instance = TaskInstance.builder()
                 .id(1L)
                 .status(TaskInstanceStatus.PENDING)
+                .revision(0L)
                 .createdAt(LocalDateTime.now())
                 .build(); // assigneeId is null
 
         List<ItemTaskInstanceVO> result = assembler.assembleInstances(List.of(instance), Collections.emptyMap());
 
         assertEquals(1, result.size());
+        assertEquals("0", result.get(0).getRevision());
         assertNull(result.get(0).getAssigneeId());
         verify(userMapper, never()).selectBatchIds(anyList());
     }
@@ -89,6 +91,7 @@ class TaskInstanceAssemblerTest {
                 .itemTaskNodeId(50L)
                 .assigneeId(10L)
                 .status(TaskInstanceStatus.CLAIMED)
+                .revision(Long.MAX_VALUE)
                 .createdAt(LocalDateTime.now())
                 .completedAt(null)
                 .build();
@@ -109,6 +112,7 @@ class TaskInstanceAssemblerTest {
         assertEquals(1, result.size());
         ItemTaskInstanceVO vo = result.get(0);
         assertEquals(1L, vo.getId());
+        assertEquals("9223372036854775807", vo.getRevision());
         assertEquals(10L, vo.getAssigneeId());
         assertEquals("alice", vo.getAssigneeNickname());
         assertEquals("https://cdn/avatar.png", vo.getAssigneeAvatarUrl());
@@ -129,6 +133,7 @@ class TaskInstanceAssemblerTest {
                 .id(2L)
                 .assigneeId(10L)
                 .status(TaskInstanceStatus.PENDING)
+                .revision(0L)
                 .build();
 
         when(userMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(assignee));
@@ -148,6 +153,7 @@ class TaskInstanceAssemblerTest {
                 .id(3L)
                 .itemTaskNodeId(999L) // not in map
                 .status(TaskInstanceStatus.PENDING)
+                .revision(0L)
                 .build();
 
         List<ItemTaskInstanceVO> result = assembler.assembleInstances(List.of(instance), Map.of());

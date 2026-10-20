@@ -53,6 +53,8 @@ public class TaskInstanceCommandHandler {
         int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
+                        .setSql("revision = revision + 1")
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
                         .set(TaskInstance::getAssigneeId, userId)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
@@ -61,26 +63,6 @@ public class TaskInstanceCommandHandler {
         requireUpdated(updated);
     }
 
-    /**
-     * 放弃任务：CLAIMED -> PENDING，清空接取人。
-     */
-    public void abandon(TaskInstance instance, Long userId) {
-        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
-        }
-        requireAssignee(instance, userId, "仅接取人可放弃任务");
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, instance.getId())
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .eq(TaskInstance::getAssigneeId, userId)
-                        .set(TaskInstance::getAssigneeId, null)
-                        .set(TaskInstance::getClaimedAt, null)
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
-                        .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
-        requireUpdated(updated);
-    }
 
     /**
      * 版本号取实例内已有最大版本号 +1；首次提交为 1。
@@ -126,6 +108,8 @@ public class TaskInstanceCommandHandler {
         int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
+                        .setSql("revision = revision + 1")
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .eq(TaskInstance::getAssigneeId, userId)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
@@ -165,6 +149,8 @@ public class TaskInstanceCommandHandler {
         int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
+                        .setSql("revision = revision + 1")
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
                         .eq(TaskInstance::getAssigneeId, userId)
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
@@ -183,24 +169,57 @@ public class TaskInstanceCommandHandler {
         memberSubmitCountHandler.revertSubmitCount(userId, instance.getProjectId());
     }
 
-    /**
-     * 打回任务：COMPLETED -> CLAIMED，提交记录标记 REJECTED 并回退提交人计数。
-     * 打回人必须是下一阶段执行人；与上一阶段是同一人时同样允许。
-     */
-    public void reject(TaskInstance instance, Long userId, String reviewComment) {
-        if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
-        }
-        if (!isNextStageExecutor(instance, userId)) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅下一阶段执行人可打回该任务");
-        }
 
-        LocalDateTime now = LocalDateTime.now(clock);
-
+    /** 只取消目标槽位，不删除历史提交，也不改变企划成员关系。 */
+    public void abandon(TaskInstance instance, Long userId, boolean projectCreator,
+                        String expectedRevision) {
+        requireRevision(instance, expectedRevision);
+        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可放弃");
+        }
+        if (!userId.equals(instance.getAssigneeId()) && !projectCreator) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人或企划负责人可放弃任务");
+        }
+        requireNoCompletedLaterStage(instance);
         int updated = taskInstanceMapper.update(null,
                 new LambdaUpdateWrapper<TaskInstance>()
                         .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                        .setSql("revision = revision + 1")
+                        .set(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
+                        .set(TaskInstance::getAssigneeId, null)
+                        .set(TaskInstance::getClaimedAt, null)
+                        .set(TaskInstance::getUpdatedAt, LocalDateTime.now(clock)));
+        requireUpdated(updated);
+    }
+
+    /** 当前有效提交精确打回一次；保留原接取人、接取时间及所有成果历史。 */
+    public void reject(TaskInstance instance, Long userId, boolean projectCreator,
+                       String expectedRevision, String reviewComment) {
+        requireRevision(instance, expectedRevision);
+        if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
+        }
+        if (!projectCreator && !isNextStageExecutor(instance, userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人或下一阶段执行人可打回该任务");
+        }
+        requireNoCompletedLaterStage(instance);
+        List<TaskSubmission> currentSubmissions = taskSubmissionMapper.selectList(
+                new LambdaQueryWrapper<TaskSubmission>()
+                        .eq(TaskSubmission::getTaskInstanceId, instance.getId())
+                        .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED));
+        if (currentSubmissions.size() != 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前提交状态异常，请刷新后重试");
+        }
+        TaskSubmission currentSubmission = currentSubmissions.get(0);
+        LocalDateTime now = LocalDateTime.now(clock);
+        int updated = taskInstanceMapper.update(null,
+                new LambdaUpdateWrapper<TaskInstance>()
+                        .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
                         .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
+                        .setSql("revision = revision + 1")
                         .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                         .set(TaskInstance::getSubmittedAt, null)
                         .set(TaskInstance::getCompletedAt, null)
@@ -209,6 +228,7 @@ public class TaskInstanceCommandHandler {
 
         int submissionUpdated = taskSubmissionMapper.update(null,
                 new LambdaUpdateWrapper<TaskSubmission>()
+                        .eq(TaskSubmission::getId, currentSubmission.getId())
                         .eq(TaskSubmission::getTaskInstanceId, instance.getId())
                         .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
                         .set(TaskSubmission::getStatus, TaskSubmissionStatus.REJECTED)
@@ -216,11 +236,38 @@ public class TaskInstanceCommandHandler {
                         .set(TaskSubmission::getReviewedAt, now)
                         .set(TaskSubmission::getReviewComment, reviewComment)
                         .set(TaskSubmission::getUpdatedAt, now));
-        requireUpdated(submissionUpdated);
+        if (submissionUpdated != 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "当前提交状态已变更，请刷新后重试");
+        }
+        memberSubmitCountHandler.revertSubmitCount(currentSubmission.getSubmitterId(), instance.getProjectId());
+    }
 
-        Long submitterId = instance.getAssigneeId();
-        if (submitterId != null) {
-            memberSubmitCountHandler.revertSubmitCount(submitterId, instance.getProjectId());
+    private void requireRevision(TaskInstance instance, String expectedRevision) {
+        if (!instance.getRevision().toString().equals(expectedRevision)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务状态已变更，请刷新后重试");
+        }
+    }
+
+    private void requireNoCompletedLaterStage(TaskInstance instance) {
+        ItemTaskNode currentNode = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (currentNode == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
+        }
+        // 同 item 可有多个任务流，禁止遗漏较后 sort；同 sort 的其他并行槽不受影响。
+        List<ItemTaskNode> laterNodes = itemTaskNodeMapper.selectList(
+                new LambdaQueryWrapper<ItemTaskNode>()
+                        .select(ItemTaskNode::getId)
+                        .eq(ItemTaskNode::getItemId, instance.getItemId())
+                        .gt(ItemTaskNode::getSort, currentNode.getSort()));
+        if (laterNodes.isEmpty()) {
+            return;
+        }
+        Long completed = taskInstanceMapper.selectCount(new LambdaQueryWrapper<TaskInstance>()
+                .eq(TaskInstance::getItemId, instance.getItemId())
+                .in(TaskInstance::getItemTaskNodeId, laterNodes.stream().map(ItemTaskNode::getId).toList())
+                .eq(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED));
+        if (completed != null && completed > 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "后续阶段已有完成任务，不可放弃或打回");
         }
     }
 

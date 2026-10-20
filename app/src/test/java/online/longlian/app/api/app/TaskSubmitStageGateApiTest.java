@@ -33,7 +33,7 @@ public class TaskSubmitStageGateApiTest extends BaseApiTest {
         assertStatus(2, openStatus);
         assertSubmissionCount(3, 0);
 
-        authRequest(token).post("/app/task/instance/3/abandon").then().statusCode(200)
+        authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/3/abandon").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         assertStatus(3, 1);
         assertThat(jdbcTemplate.queryForObject(

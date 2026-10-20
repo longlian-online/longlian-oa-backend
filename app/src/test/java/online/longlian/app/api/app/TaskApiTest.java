@@ -414,8 +414,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, 2
         );
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/1/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response
                 .then()
@@ -428,8 +427,7 @@ public class TaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailAbandonTaskWithoutAuth() {
-        Response response = request()
-                .post("/app/task/instance/1/abandon");
+        Response response = request().body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response
                 .then()
@@ -510,8 +508,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", "需要修改"))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject");
 
         response
@@ -570,8 +567,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, 3
         );
 
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", ""))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", ""))
                 .post("/app/task/instance/1/reject");
 
         response
@@ -589,8 +585,7 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         String longComment = "a".repeat(501);
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", longComment))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", longComment))
                 .post("/app/task/instance/1/reject");
 
         response
@@ -725,8 +720,7 @@ public class TaskApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/99999/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/99999/abandon");
 
         response
                 .then()
@@ -791,8 +785,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, null, 1 // status=1 PENDING
         );
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/1/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response.then()
                 .statusCode(200)
@@ -800,10 +793,10 @@ public class TaskApiTest extends BaseApiTest {
     }
 
     /**
-     * 非接取人放弃任务应失败（覆盖 abandon requireAssignee 分支）
+     * 企划创建人无需填写原因即可取消他人接取。
      */
     @Test
-    void shouldFailAbandonTaskWhenNotAssignee() {
+    void shouldCancelOtherAssigneeWithoutReason() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -814,12 +807,11 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 999L, 2 // status=2 CLAIMED，接取人为 999，非当前用户1
         );
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/1/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -846,10 +838,10 @@ public class TaskApiTest extends BaseApiTest {
     }
 
     /**
-     * 接取人未接下一阶段时，不能打回自己完成的任务。
+     * 企划创建人即使是当前接取人，也可通过统一接口打回自己的提交。
      */
     @Test
-    void shouldFailRejectTaskByAssignee() {
+    void shouldAllowRejectTaskByAssigneeWhoIsProjectCreator() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -865,14 +857,12 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", "需要修改"))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject");
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)))
-                .body("msg", containsString("仅下一阶段执行人可打回该任务"));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -934,8 +924,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
-        authRequest(token)
-                .body(Map.of("reviewComment", "自己打回"))
+        authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "自己打回"))
                 .post("/app/task/instance/1/reject")
                 .then()
                 .statusCode(200)
@@ -986,13 +975,12 @@ public class TaskApiTest extends BaseApiTest {
         assertTaskNotFound(authRequest(token).get("/app/task/instance/item/1"));
         assertTaskNotFound(authRequest(token).get("/app/task/instance/1/detail"));
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/claim"));
-        assertTaskNotFound(authRequest(token).post("/app/task/instance/1/abandon"));
+        assertTaskNotFound(authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon"));
         assertTaskNotFound(authRequest(token)
                 .body(Map.of("values", Map.of()))
                 .post("/app/task/instance/1/submit"));
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/reset"));
-        assertTaskNotFound(authRequest(token)
-                .body(Map.of("reviewComment", "需要修改"))
+        assertTaskNotFound(authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject"));
     }
 

@@ -4,6 +4,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
@@ -13,24 +14,30 @@ import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
+import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.UserOperationType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.time.LocalDateTime;
 
@@ -63,6 +70,12 @@ class TaskInstanceServiceImplTest {
     @Mock
     private UserOperationLogService operationLogService;
     @Mock
+    private ItemTaskFlowMapper itemTaskFlowMapper;
+    @Mock
+    private OrganizationMembershipService organizationMembershipService;
+    @Mock
+    private PlatformTransactionManager transactionManager;
+    @Mock
     private ProjectService projectService;
 
     private TaskInstanceServiceImpl service;
@@ -71,7 +84,12 @@ class TaskInstanceServiceImplTest {
     void setUp() {
         service = new TaskInstanceServiceImpl(taskInstanceMapper, taskSubmissionMapper,
                 itemMapper, projectMapper, itemTaskNodeMapper,
-                taskInstanceAssembler, taskInstanceCommandHandler, operationLogService, projectService);
+                taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
+                itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService);
+        lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
+                .id(6L).itemId(1L).projectId(2L).build());
+        lenient().when(transactionManager.getTransaction(any()))
+                .thenAnswer(invocation -> new SimpleTransactionStatus());
     }
 
     @Test
@@ -121,7 +139,7 @@ class TaskInstanceServiceImplTest {
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
-        TaskInstance instance = TaskInstance.builder().id(100L).itemTaskNodeId(5L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).itemTaskNodeId(5L).build();
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of(instance));
         ItemTaskNode node = ItemTaskNode.builder().id(5L).build();
         when(itemTaskNodeMapper.selectBatchIds(anyList())).thenReturn(List.of(node));
@@ -199,7 +217,7 @@ class TaskInstanceServiceImplTest {
         TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(99L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).projectId(2L).build());
+        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().revision(0L).id(100L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
         assertThatThrownBy(() -> service.claimTask(params))
@@ -209,19 +227,55 @@ class TaskInstanceServiceImplTest {
 
     @Test
     void abandonTask_validInstance_delegatesToHandler() {
-        TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
+        TaskInstanceAbandonParamsBO params = new TaskInstanceAbandonParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(10L);
         params.setUserId(1L);
+        params.setExpectedRevision("0");
 
-        TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
-        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        TaskInstance instance = prepareReviewInstance();
 
         service.abandonTask(params);
 
-        verify(taskInstanceCommandHandler).abandon(instance, 1L);
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, false, "0");
+        verify(operationLogService).log(1L, instance.getProjectId(), instance.getItemId(),
+                UserOperationType.TASK_ABANDON, params);
+    }
+
+    @Test
+    void abandonTask_creatorCancelsOtherAssignee_writesSynchronousAuditWithoutReason() {
+        TaskInstanceAbandonParamsBO params = TaskInstanceAbandonParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").build();
+        TaskInstance instance = prepareReviewInstance();
+        instance.setAssigneeId(2L);
+        Project project = enabledProject();
+        project.setCreatorId(1L);
+        when(projectMapper.selectById(2L)).thenReturn(project);
+
+        service.abandonTask(params);
+
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, true, "0");
+        verify(operationLogService).logSynchronously(1L, 2L, 1L, UserOperationType.TASK_ABANDON,
+                Map.of("action", "OWNER_CANCEL", "instanceId", 100L, "assigneeId", 2L,
+                        "expectedRevision", "0", "revision", "1"));
+        verifyNoMoreInteractions(operationLogService);
+    }
+
+    @Test
+    void abandonTask_creatorAbandonsOwnClaim_keepsOrdinaryLog() {
+        TaskInstanceAbandonParamsBO params = TaskInstanceAbandonParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").build();
+        TaskInstance instance = prepareReviewInstance();
+        instance.setAssigneeId(1L);
+        Project project = enabledProject();
+        project.setCreatorId(1L);
+        when(projectMapper.selectById(2L)).thenReturn(project);
+
+        service.abandonTask(params);
+
+        verify(taskInstanceCommandHandler).abandon(instance, 1L, true, "0");
+        verify(operationLogService).log(1L, 2L, 1L, UserOperationType.TASK_ABANDON, params);
+        verifyNoMoreInteractions(operationLogService);
     }
 
     @Test
@@ -232,7 +286,7 @@ class TaskInstanceServiceImplTest {
         params.setUserId(1L);
         params.setValues(Map.of("key", "value"));
 
-        TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(writableItem());
@@ -249,7 +303,7 @@ class TaskInstanceServiceImplTest {
         params.setOrgId(10L);
         params.setUserId(1L);
 
-        TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(writableItem());
@@ -266,15 +320,29 @@ class TaskInstanceServiceImplTest {
         params.setOrgId(10L);
         params.setUserId(2L);
         params.setReviewComment("需要修改");
+        params.setExpectedRevision("0");
 
-        TaskInstance instance = TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build();
-        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        TaskInstance instance = prepareReviewInstance();
 
         service.rejectTask(params);
 
-        verify(taskInstanceCommandHandler).reject(instance, 2L, "需要修改");
+        verify(taskInstanceCommandHandler).reject(instance, 2L, false, "0", "需要修改");
+    }
+
+    @Test
+    void shouldAuthorizeCreatorAndSynchronouslyAuditRejectWithinTransaction() {
+        TaskInstance instance = prepareReviewInstance();
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L)
+                .creatorId(1L).resourceStatus(Status.ENABLED).build());
+        TaskInstanceRejectParamsBO params = TaskInstanceRejectParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").reviewComment("修改").build();
+        service.rejectTask(params);
+        var order = inOrder(organizationMembershipService, taskInstanceCommandHandler, operationLogService, transactionManager);
+        order.verify(organizationMembershipService).requireEnabledMember(1L, 10L);
+        order.verify(taskInstanceCommandHandler).reject(instance, 1L, true, "0", "修改");
+        order.verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), any(), any());
+        order.verify(transactionManager).commit(any());
+        verify(operationLogService, never()).log(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -294,7 +362,7 @@ class TaskInstanceServiceImplTest {
         TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(99L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().revision(0L).id(100L).itemId(1L).build());
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
 
@@ -307,7 +375,7 @@ class TaskInstanceServiceImplTest {
     @Test
     void getTaskInstanceDetail_withSubmission_assemblesAuthorizedDetail() {
         TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
-        TaskInstance instance = TaskInstance.builder().id(100L).itemId(1L).itemTaskNodeId(3L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).itemId(1L).itemTaskNodeId(3L).build();
         ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
@@ -324,7 +392,7 @@ class TaskInstanceServiceImplTest {
     @Test
     void getTaskInstanceDetail_noSubmission_assemblesTaskWithoutSubmission() {
         TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
-        TaskInstance instance = TaskInstance.builder().id(100L).itemId(1L).itemTaskNodeId(3L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).itemId(1L).itemTaskNodeId(3L).build();
         ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
@@ -341,7 +409,7 @@ class TaskInstanceServiceImplTest {
         TaskInstanceOperateParamsBO params = new TaskInstanceOperateParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).projectId(2L).build());
+        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().revision(0L).id(100L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(null);
 
         assertThatThrownBy(() -> service.claimTask(params))
@@ -366,7 +434,7 @@ class TaskInstanceServiceImplTest {
         TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(10L);
-        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().id(100L).itemId(1L).build());
+        when(taskInstanceMapper.selectById(100L)).thenReturn(TaskInstance.builder().revision(0L).id(100L).itemId(1L).build());
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(disabledProject());
 
@@ -380,7 +448,7 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(10L);
         when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).build());
+                TaskInstance.builder().revision(0L).id(100L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(disabledProject());
 
         assertThatThrownBy(() -> service.claimTask(params)).isInstanceOf(AppException.class);
@@ -393,7 +461,7 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(10L);
         when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
+                TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(
                 Item.builder().id(1L).projectId(2L)
@@ -412,7 +480,7 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(10L);
         when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
+                TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(null);
 
@@ -429,7 +497,7 @@ class TaskInstanceServiceImplTest {
         params.setInstanceId(100L);
         params.setOrgId(10L);
         when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
+                TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(
                 Item.builder().id(1L).projectId(2L)
@@ -450,6 +518,17 @@ class TaskInstanceServiceImplTest {
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(writableItem());
         return params;
+    }
+
+    private TaskInstance prepareReviewInstance() {
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L)
+                .itemTaskNodeId(5L).taskFlowId(6L).build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
+        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
+        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        when(itemTaskNodeMapper.selectById(5L)).thenReturn(ItemTaskNode.builder()
+                .id(5L).projectId(2L).itemId(1L).itemTaskFlowId(6L).build());
+        return instance;
     }
 
     private Item writableItem() {
