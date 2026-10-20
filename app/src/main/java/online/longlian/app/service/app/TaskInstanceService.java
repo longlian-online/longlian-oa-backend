@@ -3,6 +3,7 @@ package online.longlian.app.service.app;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceOwnerOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
@@ -105,4 +106,16 @@ public interface TaskInstanceService {
      * @param params 包含任务实例 ID、操作者 ID 及打回意见的打回参数
      */
     void rejectTask(TaskInstanceRejectParamsBO params);
+
+    /**
+     * 负责人取消当前接取：CLAIMED → PENDING，保留历史及成员关系。
+     * 必须匹配当前 revision，且同项目后续阶段没有已完成实例。
+     */
+    void ownerCancelTask(TaskInstanceOwnerOperateParamsBO params);
+
+    /**
+     * 负责人打回当前提交：COMPLETED → CLAIMED，保留接取人与历史并记录审核意见。
+     * 提交即完成，无独立审核通过状态；不改变旧 reject 的下一阶段执行人权限。
+     */
+    void ownerRejectTask(TaskInstanceOwnerOperateParamsBO params);
 }

@@ -321,6 +321,7 @@ CREATE TABLE `task_instance` (
   `assignee_id` bigint NULL COMMENT "接取人ID",
   `claimed_at` datetime NULL COMMENT "接取时间（接取写入，放弃清空，打回/重置保留）",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)",
+  `revision` bigint NOT NULL DEFAULT 0 COMMENT "任务状态修订号（每次状态写入递增，防止旧操作重放）",
   `submitted_at` datetime NULL COMMENT "提交时间",
   `completed_at` datetime NULL COMMENT "完成时间",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

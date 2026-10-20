@@ -13,6 +13,7 @@ import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceOwnerOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
@@ -20,10 +21,10 @@ import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.dto.app.MyTaskListDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
+import online.longlian.app.pojo.dto.app.TaskInstanceOwnerOperateDTO;
 
 import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
@@ -228,6 +229,36 @@ public class TaskInstanceController {
                         .orgId(sessionContext.orgId())
                         .reviewComment(taskRejectDTO.getReviewComment())
                         .build());
+    }
+
+    @Operation(summary = "负责人取消接取", description = "仅企划创建者可取消当前接取；后续阶段已有完成任务时禁止操作。保留历史成果和企划成员。")
+    @PostMapping("/{instanceId}/owner-cancel")
+    @ResponseMessage("已取消接取")
+    public void ownerCancelTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                @PathVariable Long instanceId,
+                                @RequestBody @Valid TaskInstanceOwnerOperateDTO request) {
+        taskInstanceService.ownerCancelTask(TaskInstanceOwnerOperateParamsBO.builder()
+                .instanceId(instanceId)
+                .userId(sessionContext.userId())
+                .orgId(sessionContext.orgId())
+                .expectedRevision(request.getExpectedRevision())
+                .reason(request.getReason())
+                .build());
+    }
+
+    @Operation(summary = "负责人打回提交", description = "仅企划创建者可打回当前提交；后续阶段已有完成任务时禁止操作。保留接取人与历史成果，不级联回滚。")
+    @PostMapping("/{instanceId}/owner-reject")
+    @ResponseMessage("已打回提交")
+    public void ownerRejectTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                @PathVariable Long instanceId,
+                                @RequestBody @Valid TaskInstanceOwnerOperateDTO request) {
+        taskInstanceService.ownerRejectTask(TaskInstanceOwnerOperateParamsBO.builder()
+                .instanceId(instanceId)
+                .userId(sessionContext.userId())
+                .orgId(sessionContext.orgId())
+                .expectedRevision(request.getExpectedRevision())
+                .reason(request.getReason())
+                .build());
     }
 
 }

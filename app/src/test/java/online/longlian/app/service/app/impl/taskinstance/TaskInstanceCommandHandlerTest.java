@@ -66,17 +66,17 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void claim_pendingInstance_succeeds() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
 
         handler.claim(instance, 10L);
 
-        verify(taskInstanceMapper).update(isNull(), any());
+        assertRevisionIncrement(TaskInstanceStatus.PENDING);
     }
 
     @Test
     void claim_nonPendingInstance_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).build();
 
         assertThatThrownBy(() -> handler.claim(instance, 10L))
                 .isInstanceOf(AppException.class)
@@ -85,7 +85,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void claim_concurrentUpdate_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> handler.claim(instance, 10L))
@@ -95,17 +95,17 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void abandon_claimedBySameUser_succeeds() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
 
         handler.abandon(instance, 10L);
 
-        verify(taskInstanceMapper).update(isNull(), any());
+        assertRevisionIncrement(TaskInstanceStatus.CLAIMED);
     }
 
     @Test
     void abandon_notClaimed_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
 
         assertThatThrownBy(() -> handler.abandon(instance, 10L))
                 .isInstanceOf(AppException.class)
@@ -114,7 +114,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void abandon_wrongUser_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(99L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(99L).build();
 
         assertThatThrownBy(() -> handler.abandon(instance, 10L))
                 .isInstanceOf(AppException.class)
@@ -123,7 +123,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void submit_firstSubmission_assignsVersionOne() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
@@ -139,7 +139,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void submit_followingSubmission_assignsMaxVersionPlusOne() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
@@ -157,7 +157,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void submit_legacyRowWithoutVersion_stillAssignsVersionOne() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
@@ -174,7 +174,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void submit_claimedBySameUser_succeeds() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
@@ -186,11 +186,12 @@ class TaskInstanceCommandHandlerTest {
 
         verify(taskSubmissionMapper).insert(any(TaskSubmission.class));
         verify(memberSubmitCountHandler).incrementSubmitCount(10L, 2L);
+        assertRevisionIncrement(TaskInstanceStatus.CLAIMED);
     }
 
     @Test
     void submit_notClaimed_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
 
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of()))
                 .isInstanceOf(AppException.class)
@@ -199,7 +200,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldRejectSubmitWhenPreviousParallelSlotIsIncomplete() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
@@ -219,7 +220,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldSubmitWhenPreviousStagesCompletedAndSameStageSlotStillPending() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L)
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
@@ -241,7 +242,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldRejectWrongSubmitterBeforeParsingOrBinding() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(20L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(20L).build();
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of())).isInstanceOf(AppException.class);
         verifyNoInteractions(itemTaskNodeMapper, resourceService, taskSubmissionMapper, memberSubmitCountHandler);
         verify(taskInstanceMapper, never()).update(isNull(), any());
@@ -249,7 +250,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldRejectUnknownFieldsBeforeBindingOrStateUpdate() {
-        TaskInstance instance = TaskInstance.builder().id(1L).itemId(3L).itemTaskNodeId(4L)
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).itemId(3L).itemTaskNodeId(4L)
                 .status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema("[]").build());
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of("unknown", "value")))
@@ -260,7 +261,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldBindValidatedFilesBeforePersistingSubmission() {
-        TaskInstance instance = TaskInstance.builder().id(1L).itemId(3L).itemTaskNodeId(4L).projectId(2L)
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).itemId(3L).itemTaskNodeId(4L).projectId(2L)
                 .status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         String schema = "[{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":true,\"options\":[]}]";
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema(schema).build());
@@ -284,7 +285,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void shouldNotPersistTaskWhenAttachmentBindingFails() {
-        TaskInstance instance = TaskInstance.builder().id(1L).itemId(3L).itemTaskNodeId(4L)
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).itemId(3L).itemTaskNodeId(4L)
                 .status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         String schema = "[{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":true,\"options\":[]}]";
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema(schema).build());
@@ -299,7 +300,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reset_completedBySameUser_succeeds() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .projectId(2L)
                 .build();
@@ -310,11 +311,12 @@ class TaskInstanceCommandHandlerTest {
 
         verify(taskSubmissionMapper).update(isNull(), any());
         verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
+        assertRevisionIncrement(TaskInstanceStatus.COMPLETED);
     }
 
     @Test
     void reset_notCompleted_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).build();
 
         assertThatThrownBy(() -> handler.reset(instance, 10L))
                 .isInstanceOf(AppException.class)
@@ -323,7 +325,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reject_assigneeWithoutNextStage_throws() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .build();
 
@@ -334,7 +336,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reject_notCompleted_throws() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
 
         assertThatThrownBy(() -> handler.reject(instance, 20L, "bad"))
                 .isInstanceOf(AppException.class)
@@ -343,7 +345,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reject_notNextStageExecutor_throws() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .itemTaskNodeId(4L).taskFlowId(5L)
                 .build();
@@ -356,7 +358,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reject_nextStageExecutor_succeeds() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .itemTaskNodeId(4L).taskFlowId(5L).projectId(2L)
                 .build();
@@ -371,11 +373,12 @@ class TaskInstanceCommandHandlerTest {
         handler.reject(instance, 20L, "需要修改");
 
         verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
+        assertRevisionIncrement(TaskInstanceStatus.COMPLETED);
     }
 
     @Test
     void reject_assigneeWhoClaimedNextStage_succeeds() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .itemTaskNodeId(4L).taskFlowId(5L).projectId(2L)
                 .build();
@@ -395,7 +398,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reject_noLaterNodes_throws() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .itemTaskNodeId(4L).taskFlowId(5L)
                 .build();
@@ -417,9 +420,25 @@ class TaskInstanceCommandHandlerTest {
         return ((LambdaUpdateWrapper<TaskInstance>) captor.getValue()).getSqlSet();
     }
 
+    @SuppressWarnings("unchecked")
+    private void assertRevisionIncrement(TaskInstanceStatus previousStatus) {
+        ArgumentCaptor<Wrapper<TaskInstance>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(taskInstanceMapper).update(isNull(), captor.capture());
+        LambdaUpdateWrapper<TaskInstance> update = (LambdaUpdateWrapper<TaskInstance>) captor.getValue();
+        String condition = update.getSqlSegment();
+        assertThat(condition).contains("id =", "status =", "revision =");
+        assertThat(update.getSqlSet().replaceAll("\\s+", "")).contains("revision=revision+1");
+        java.util.regex.Matcher revision = java.util.regex.Pattern.compile(
+                "revision\\s*=\\s*#\\{ew\\.paramNameValuePairs\\.(MPGENVAL\\d+)\\}")
+                .matcher(condition);
+        assertThat(revision.find()).isTrue();
+        assertThat(update.getParamNameValuePairs().get(revision.group(1))).isEqualTo(0L);
+        assertThat(update.getParamNameValuePairs()).containsValue(previousStatus);
+    }
+
     @Test
     void claim_setsClaimedAt() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
 
         handler.claim(instance, 10L);
@@ -429,7 +448,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void abandon_clearsClaimedAt() {
-        TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
 
         handler.abandon(instance, 10L);
@@ -439,7 +458,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reject_keepsClaimedAt() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L)
                 .itemTaskNodeId(4L).taskFlowId(5L).projectId(2L)
                 .build();
@@ -456,7 +475,7 @@ class TaskInstanceCommandHandlerTest {
 
     @Test
     void reset_keepsClaimedAt() {
-        TaskInstance instance = TaskInstance.builder()
+        TaskInstance instance = TaskInstance.builder().revision(0L)
                 .id(1L).status(TaskInstanceStatus.COMPLETED).assigneeId(10L).projectId(2L)
                 .build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);

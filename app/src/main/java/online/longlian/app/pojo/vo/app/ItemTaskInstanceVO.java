@@ -27,6 +27,9 @@ public class ItemTaskInstanceVO {
     @Schema(description = "任务实例状态：PENDING-待接取，CLAIMED-待提交，COMPLETED-已完成")
     private TaskInstanceStatus status;
 
+    @Schema(description = "任务状态修订号，负责人操作必须原样传回当前列表值", example = "0")
+    private String revision;
+
     @JsonLongIdString
     @Schema(type = "string", description = "接取人ID")
     private Long assigneeId;
