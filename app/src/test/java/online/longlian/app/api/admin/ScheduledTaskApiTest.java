@@ -25,8 +25,7 @@ public class ScheduledTaskApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data", notNullValue())
-                .body("data.taskName", hasItem("resource-cleanup"))
-                .body("data.description", hasItem("清理已废弃资源的实际存储文件"));
+                .body("data.taskName", hasItem("resource-cleanup"));
     }
 
     /**

@@ -231,7 +231,7 @@ public class ResourceService {
     /**
      * 将业务对象的单个资源更新为指定资源。
      * <p>
-     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源会被废弃。
+     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源会被废弃，但保留文件和业务关联。
      * {@code resourceId} 为 {@code null} 或非正数时表示清空业务对象资源。
      */
     public void bindBizResource(ResourceBindParamsBO params) {
@@ -336,6 +336,7 @@ public class ResourceService {
         if (!isResourceId(resourceId)) {
             return;
         }
+        // 保留 bizId 作为曾绑定的历史标记，物理回收只能处理 bizId=0 的未绑定上传。
         resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
                 .eq(Resource::getId, resourceId)
                 .eq(Resource::getBizId, bizId)
