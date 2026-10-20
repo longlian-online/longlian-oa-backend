@@ -184,7 +184,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     /**
-     * 同 item 的写操作先锁项目行，再建立一致性读快照，避免上下游分别通过状态检查。
+     * 每个 item 的任务流唯一；先锁任务流行，避免阻塞项目本身的普通字段更新。
      * 锁随事务结束释放；排队期间目标版本发生变化的请求不作用于新一轮接取或提交。
      */
     private <T> T mutateTask(Long instanceId, Long orgId, Long validatedUserId,
@@ -196,9 +196,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         return transaction.execute(status -> {
-            Item item = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
-                    .eq(Item::getId, locator.getItemId())
+            ItemTaskFlow flow = itemTaskFlowMapper.selectOne(new LambdaQueryWrapper<ItemTaskFlow>()
+                    .eq(ItemTaskFlow::getItemId, locator.getItemId())
                     .last("FOR UPDATE"));
+            if (flow == null) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
+            }
             TaskInstance instance = taskInstanceMapper.selectById(instanceId);
             if (instance == null) {
                 throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
@@ -207,7 +210,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     || !java.util.Objects.equals(locator.getRevision(), instance.getRevision())) {
                 throw new AppException(ResultCode.OPERATION_FAIL, "任务状态或归属已变更，请刷新后重试");
             }
-            Project project = getAndValidateProject(instance, item, orgId, validatedUserId);
+            Project project = getAndValidateProject(instance, flow, orgId, validatedUserId);
             return mutation.apply(instance, project);
         });
     }
@@ -267,7 +270,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());
     }
 
-    private Project getAndValidateProject(TaskInstance instance, Item item, Long orgId, Long validatedUserId) {
+    private Project getAndValidateProject(TaskInstance instance, ItemTaskFlow flow, Long orgId, Long validatedUserId) {
         Project project = projectMapper.selectById(instance.getProjectId());
         if (project == null || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
@@ -275,6 +278,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (!project.getOrgId().equals(orgId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
+        Item item = itemMapper.selectById(instance.getItemId());
         if (item == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
@@ -287,12 +291,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     || !instance.getProjectId().equals(item.getProjectId())) {
                 throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
             }
-            requireTaskStructure(instance);
+            requireTaskStructure(instance, flow);
         }
         return project;
     }
 
-    private void requireTaskStructure(TaskInstance instance) {
+    private void requireTaskStructure(TaskInstance instance, ItemTaskFlow flow) {
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
         if (node == null || node.getDeletedAt() != null
                 || !instance.getItemId().equals(node.getItemId())
@@ -300,8 +304,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                 || !instance.getTaskFlowId().equals(node.getItemTaskFlowId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
         }
-        ItemTaskFlow flow = itemTaskFlowMapper.selectById(instance.getTaskFlowId());
-        if (flow == null || flow.getDeletedAt() != null
+        if (flow.getDeletedAt() != null || !instance.getTaskFlowId().equals(flow.getId())
                 || !instance.getItemId().equals(flow.getItemId())
                 || !instance.getProjectId().equals(flow.getProjectId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");

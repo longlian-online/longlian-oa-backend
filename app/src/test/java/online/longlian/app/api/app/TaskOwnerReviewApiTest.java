@@ -7,8 +7,8 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.service.app.impl.UserOperationLogService;
-import online.longlian.app.mapper.ItemMapper;
-import online.longlian.app.pojo.entity.Item;
+import online.longlian.app.mapper.ItemTaskFlowMapper;
+import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.common.enumeration.UserOperationType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,7 +44,7 @@ import static org.mockito.Mockito.doAnswer;
 public class TaskOwnerReviewApiTest extends BaseApiTest {
 
     @SpyBean
-    private ItemMapper itemMapper;
+    private ItemTaskFlowMapper itemTaskFlowMapper;
 
     @Autowired
     private SqlSessionTemplate sqlSession;
@@ -553,7 +553,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"claim", "abandon", "submit", "reset", "reject"})
-    void shouldWaitForItemRowBeforeAnyTaskMutation(String action) throws Exception {
+    void shouldWaitForTaskFlowRowBeforeAnyTaskMutation(String action) throws Exception {
         Tokens tokens = createWorkflow();
         if (action.equals("claim")) {
             jdbcTemplate.update("UPDATE task_instance SET status = 1, assignee_id = NULL, claimed_at = NULL WHERE id = 1");
@@ -566,7 +566,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         try (Connection blocker = jdbcTemplate.getDataSource().getConnection()) {
             blocker.setAutoCommit(false);
             try (var statement = blocker.createStatement();
-                 var rows = statement.executeQuery("SELECT id FROM item WHERE id = 1 FOR UPDATE")) {
+                 var rows = statement.executeQuery("SELECT id FROM item_task_flow WHERE item_id = 1 FOR UPDATE")) {
                 assertThat(rows.next()).isTrue();
             }
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -576,7 +576,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                     default -> authRequest(tokens.worker()).post(path(action));
                 }, executor);
                 try {
-                    awaitItemLockWaiters(1);
+                    awaitTaskFlowLockWaiters(1);
                     assertThat(pending).isNotDone();
                     assertThat(snapshot()).isEqualTo(before);
                 } finally {
@@ -592,6 +592,40 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         };
         assertInstance(1, expectedStatus, expectedStatus == 1 ? null : 2L, beforeRevision + 1);
         assertCount(action.equals("submit") ? 5 : 4);
+    }
+
+    @Test
+    void shouldAllowItemFieldUpdateWhileTaskMutationHoldsFlowLock() throws Exception {
+        Tokens tokens = createWorkflow();
+        CountDownLatch auditWritten = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            Object result = invocation.callRealMethod();
+            auditWritten.countDown();
+            await(resume);
+            return result;
+        }).when(AopTestUtils.<UserOperationLogService>getUltimateTargetObject(operationLogService))
+                .logSynchronously(eq(1L), eq(1L), eq(1L), eq(UserOperationType.TASK_ABANDON), any());
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            CompletableFuture<Response> cancellation = CompletableFuture.supplyAsync(() ->
+                    cancel(tokens.owner(), "0"), executor);
+            try {
+                await(auditWritten);
+                CompletableFuture<Integer> itemUpdate = CompletableFuture.supplyAsync(() ->
+                        jdbcTemplate.update("UPDATE item SET title = '独立更新项目名称' WHERE id = 1"), executor);
+                assertThat(itemUpdate.get(10, TimeUnit.SECONDS)).isEqualTo(1);
+                assertThat(jdbcTemplate.queryForObject("SELECT title FROM item WHERE id = 1", String.class))
+                        .isEqualTo("独立更新项目名称");
+                assertThat(cancellation).isNotDone();
+                assertInstance(1, 2, 2L, 0);
+            } finally {
+                resume.countDown();
+            }
+            assertCode(cancellation.get(15, TimeUnit.SECONDS), ResultCode.SUCCESS);
+        }
+        assertInstance(1, 1, null, 1);
+        assertThat(ownerAudits()).hasSize(1);
     }
 
     /** Pause before acquiring the lock, then let submit commit: the owner request must re-read under the lock. */
@@ -670,7 +704,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 duplicate = CompletableFuture.supplyAsync(() ->
                         operate(tokens.owner(), action, expectedRevision, "重复并发"), executor);
                 concurrentSubmit = CompletableFuture.supplyAsync(() -> submit(tokens.worker(), 1), executor);
-                awaitItemLockWaiters(2);
+                awaitTaskFlowLockWaiters(2);
                 assertThat(duplicate).isNotDone();
                 assertThat(concurrentSubmit).isNotDone();
                 assertThat(snapshot()).isEqualTo(before);
@@ -958,16 +992,16 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 beforeLock.countDown();
                 await(resume);
             }
-            Wrapper<Item> query = invocation.getArgument(0);
-            return sqlSession.getMapper(ItemMapper.class).selectOne(query);
-        }).when(itemMapper).selectOne(any());
+            Wrapper<ItemTaskFlow> query = invocation.getArgument(0);
+            return sqlSession.getMapper(ItemTaskFlowMapper.class).selectOne(query);
+        }).when(itemTaskFlowMapper).selectOne(any());
     }
 
-    private void awaitItemLockWaiters(int minimum) {
+    private void awaitTaskFlowLockWaiters(int minimum) {
         Awaitility.await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(DISTINCT w.requesting_trx_id) FROM information_schema.INNODB_LOCK_WAITS w "
                         + "JOIN information_schema.INNODB_LOCKS l ON l.lock_id = w.requested_lock_id "
-                        + "WHERE l.lock_table = CONCAT('`', DATABASE(), '`.`item`')", Long.class))
+                        + "WHERE l.lock_table = CONCAT('`', DATABASE(), '`.`item_task_flow`')", Long.class))
                 .isGreaterThanOrEqualTo((long) minimum));
     }
 

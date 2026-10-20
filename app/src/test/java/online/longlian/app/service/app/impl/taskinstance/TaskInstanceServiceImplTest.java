@@ -86,7 +86,8 @@ class TaskInstanceServiceImplTest {
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService);
-        lenient().when(itemMapper.selectOne(any())).thenAnswer(invocation -> itemMapper.selectById(1L));
+        lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
+                .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))
                 .thenAnswer(invocation -> new SimpleTransactionStatus());
     }
@@ -527,8 +528,6 @@ class TaskInstanceServiceImplTest {
         when(itemMapper.selectById(1L)).thenReturn(writableItem());
         when(itemTaskNodeMapper.selectById(5L)).thenReturn(ItemTaskNode.builder()
                 .id(5L).projectId(2L).itemId(1L).itemTaskFlowId(6L).build());
-        when(itemTaskFlowMapper.selectById(6L)).thenReturn(ItemTaskFlow.builder()
-                .id(6L).projectId(2L).itemId(1L).build());
         return instance;
     }
 
