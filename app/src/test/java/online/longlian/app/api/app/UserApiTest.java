@@ -10,18 +10,37 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.*;
 
 public class UserApiTest extends BaseApiTest {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Test
+    void shouldAllowMissingEmailsWithoutRelaxingBoundEmailUniqueness() {
+        createTestUser(1L, "legacyone", "123456", null);
+        createTestUser(2L, "legacytwo", "123456", null);
+
+        jdbcTemplate.update("UPDATE `user` SET email = ? WHERE id = 1", "bound@example.com");
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE `user` SET email = ? WHERE id = 2", "BOUND@example.com"))
+                .isInstanceOf(DuplicateKeyException.class);
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 2", String.class)).isNull();
+
+        jdbcTemplate.update("UPDATE `user` SET email = NULL WHERE id = 1");
+        jdbcTemplate.update("UPDATE `user` SET email = ? WHERE id = 2", "bound@example.com");
+        assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 2", String.class))
+                .isEqualTo("bound@example.com");
+    }
 
     // ========== 注册与创建组织 ==========
 
@@ -44,7 +63,7 @@ public class UserApiTest extends BaseApiTest {
         Response response = request()
                 .body(Map.of(
                         "email", "newuser_" + userId + "@example.com",
-                        "password", "123456",
+                        "password", "River!82Maple",
                         "username", "New_User",
                         "nickname", "新用户",
                         "inviteCode", inviteCode,
@@ -86,7 +105,7 @@ public class UserApiTest extends BaseApiTest {
         Response response = request()
                 .body(Map.of(
                         "email", email,
-                        "password", "123456",
+                        "password", "River!82Maple",
                         "username", "wrongcodeuser",
                         "nickname", "错误验证码用户",
                         "inviteCode", inviteCode,
@@ -125,7 +144,7 @@ public class UserApiTest extends BaseApiTest {
         Response createResponse = request()
                 .body(Map.of(
                         "email", "newuser_" + userId + "@example.com",
-                        "password", "123456",
+                        "password", "River!82Maple",
                         "username", "New_User",
                         "nickname", "新用户",
                         "inviteCode", inviteCode,
@@ -151,7 +170,7 @@ public class UserApiTest extends BaseApiTest {
 
         for (String username : List.of("用户名称", "１２３４", "ab-c", "ab c", "café", "abcd\n")) {
             request().body(Map.of(
-                            "username", username, "password", "123456", "nickname", "新用户",
+                            "username", username, "password", "River!82Maple", "nickname", "新用户",
                             "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
                             "orgName", "新组织"))
                     .post("/app/user/register/" + registrationMode)
@@ -166,7 +185,7 @@ public class UserApiTest extends BaseApiTest {
 
         String validUsername = "create-organization".equals(registrationMode) ? "1234" : "_New_User9";
         request().body(Map.of(
-                        "username", validUsername, "password", "123456", "nickname", "新用户",
+                        "username", validUsername, "password", "River!82Maple", "nickname", "新用户",
                         "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
                         "orgName", "新组织"))
                 .post("/app/user/register/" + registrationMode)
@@ -177,6 +196,53 @@ public class UserApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT username FROM " + table + " WHERE email = ?", String.class, "new@example.com"))
                 .isEqualTo(validUsername);
+    }
+
+    /** 弱密码及大小写变体不得创建账号或申请，且失败后仍可使用同一组验证码注册。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"create-organization", "join-organization"})
+    void shouldRejectWeakPasswordsWithoutConsumingRegistrationCodes(String registrationMode) {
+        boolean creatingOrganization = "create-organization".equals(registrationMode);
+        if (creatingOrganization) {
+            createOrganizationCreateInviteOTP("INVITE");
+        } else {
+            createOrganization(1L, "测试组织");
+            createOrganizationUserInviteOTP("INVITE", 1L);
+        }
+        createEmailVerifyOTP("EMAIL1", 1L, "new@example.com");
+
+        for (String password : List.of("123456", "654321", "111111", "password", "PASSWORD", "PaSsWoRd")) {
+            request().body(Map.of(
+                            "username", "newuser", "password", password, "nickname", "新用户",
+                            "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
+                            "orgName", "新组织"))
+                    .post("/app/user/register/" + registrationMode)
+                    .then().statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                    .body("msg", not(blankOrNullString()))
+                    .body("data", nullValue());
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `user`", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM group_application", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization", Integer.class))
+                .isEqualTo(creatingOrganization ? 0 : 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM one_time_password WHERE status <> 0", Integer.class)).isZero();
+
+        String password = "River!82Maple";
+        request().body(Map.of(
+                        "username", "newuser", "password", password, "nickname", "新用户",
+                        "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
+                        "orgName", "新组织"))
+                .post("/app/user/register/" + registrationMode)
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        String hash = creatingOrganization
+                ? jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE username = ?", String.class, "newuser")
+                : jdbcTemplate.queryForObject("SELECT password_hash FROM group_application WHERE username = ?", String.class, "newuser");
+        assertThat(passwordEncoder.matches(password, hash)).isTrue();
+        assertThat(passwordEncoder.matches("river!82maple", hash)).isFalse();
     }
 
     // ========== 邀请码查询 ==========
@@ -519,12 +585,12 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("testuser", "123456");
 
-        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         userRequest(token).get("/app/user/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
-        request().body(Map.of("username", "testuser", "password", "654321")).post("/app/session/pwd")
+        request().body(Map.of("username", "testuser", "password", "River!82Maple")).post("/app/session/pwd")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         request().body(Map.of("username", "testuser", "password", "123456")).post("/app/session/pwd")
                 .then().statusCode(200).body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
@@ -538,7 +604,7 @@ public class UserApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         jdbcTemplate.update("DELETE FROM `user` WHERE id = ?", 1L);
 
-        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()));
     }
@@ -559,16 +625,74 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("testuser", "123456");
 
-        userRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "654321"))
+        userRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
                 .body("msg", equalTo("操作失败,原密码错误"));
-        request().body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        request().body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
         userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "123"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /** 找回密码拒绝弱密码时保留原密码、会话和验证码，同一验证码仍可设置合格密码。 */
+    @Test
+    void shouldRejectWeakResetPasswordsWithoutChangingCredentialsOrConsumingCode() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        String originalHash = jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 1", String.class);
+        createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
+
+        for (String password : List.of("123456", "654321", "password", "PASSWORD", "PaSsWoRd")) {
+            request().body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", password))
+                    .put("/app/user/password")
+                    .then().statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                    .body("msg", not(blankOrNullString()))
+                    .body("data", nullValue());
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 1", String.class))
+                .isEqualTo(originalHash);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code = ?",
+                Integer.class, "A1B2C3")).isZero();
+        userRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        request().body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "River!82Maple"))
+                .put("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(passwordEncoder.matches("River!82Maple", jdbcTemplate.queryForObject(
+                "SELECT password FROM `user` WHERE id = 1", String.class))).isTrue();
+    }
+
+    /** 修改密码拒绝弱新密码时保留原密码和会话，已有弱旧密码仍可用于验证身份。 */
+    @Test
+    void shouldRejectWeakPasswordChangesWithoutChangingCredentialsOrRevokingSession() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("testuser", "123456");
+        String originalHash = jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 1", String.class);
+
+        for (String password : List.of("123456", "654321", "password", "PASSWORD", "PaSsWoRd")) {
+            userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", password))
+                    .patch("/app/user/password")
+                    .then().statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                    .body("msg", not(blankOrNullString()))
+                    .body("data", nullValue());
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 1", String.class))
+                .isEqualTo(originalHash);
+        userRequest(token).get("/app/user/")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
+                .patch("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(passwordEncoder.matches("River!82Maple", jdbcTemplate.queryForObject(
+                "SELECT password FROM `user` WHERE id = 1", String.class))).isTrue();
     }
 
     // ========== 认证失败 ==========

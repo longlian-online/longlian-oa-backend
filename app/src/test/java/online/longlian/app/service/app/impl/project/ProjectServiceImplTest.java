@@ -29,7 +29,6 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
-import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -75,8 +74,6 @@ class ProjectServiceImplTest {
     private ProjectAssembler projectAssembler;
     @Mock
     private ProjectProgressHandler projectProgressHandler;
-    @Mock
-    private LockService lockService;
 
     private ProjectServiceImpl service;
 
@@ -95,7 +92,6 @@ class ProjectServiceImplTest {
                 projectQueryBuilder,
                 projectAssembler,
                 projectProgressHandler,
-                lockService,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
         lenient().when(itemMapper.selectCount(any())).thenReturn(0L);

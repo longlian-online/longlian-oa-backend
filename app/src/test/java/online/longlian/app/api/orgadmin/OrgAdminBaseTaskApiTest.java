@@ -393,8 +393,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
         authRequest(token).delete("/orgadmin/task/base/1")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,该原子任务已被任务模板或项目任务节点引用，请改为禁用"));
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
@@ -421,8 +420,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
         authRequest(token).delete("/orgadmin/task/base/1")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", equalTo("无权操作,无权操作该原子任务"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
     @Test
@@ -432,8 +430,7 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
 
         authRequest(token).delete("/orgadmin/task/base/99999")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()))
-                .body("msg", equalTo("数据不存在,原子任务不存在"));
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     @Test

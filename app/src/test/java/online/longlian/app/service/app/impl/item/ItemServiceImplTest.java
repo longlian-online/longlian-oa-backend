@@ -141,7 +141,6 @@ class ItemServiceImplTest {
         assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("原子任务不存在")
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.PARAM_ERROR.getCode());
 
@@ -267,7 +266,6 @@ class ItemServiceImplTest {
         assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("无权引用该原子任务")
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
 

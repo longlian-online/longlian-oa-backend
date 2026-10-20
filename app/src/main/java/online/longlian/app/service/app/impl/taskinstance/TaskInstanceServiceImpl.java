@@ -10,6 +10,9 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
@@ -29,6 +32,7 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
+import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.common.LockService;
@@ -46,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -66,6 +69,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final OrganizationMembershipService organizationMembershipService;
     private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
+    private final ProjectService projectService;
 
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
@@ -98,11 +102,18 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     @Override
-    public void claimTask(TaskInstanceOperateParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
+    public TaskClaimResultBO claimTask(TaskInstanceOperateParamsBO params) {
+        return mutateTask(params.getInstanceId(), params.getOrgId(), null, instance -> {
             taskInstanceCommandHandler.claim(instance, params.getUserId());
+            ProjectWorkshopAddResultBO membership = projectService.addToWorkshop(
+                    ProjectWorkshopAddParamsBO.builder()
+                            .projectId(instance.getProjectId())
+                            .userId(params.getUserId())
+                            .orgId(params.getOrgId())
+                            .build());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_CLAIM, params);
+            return new TaskClaimResultBO(membership.isAdded());
         });
     }
 
@@ -112,6 +123,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             taskInstanceCommandHandler.abandon(instance, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_ABANDON, params);
+            return null;
         });
     }
 
@@ -121,6 +133,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getOrgId(), params.getValues());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
+            return null;
         });
     }
 
@@ -130,6 +143,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             taskInstanceCommandHandler.reset(instance, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_RESET, params);
+            return null;
         });
     }
 
@@ -139,6 +153,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             taskInstanceCommandHandler.reject(instance, params.getUserId(), params.getReviewComment());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_REJECT, params);
+            return null;
         });
     }
 
@@ -147,6 +162,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), instance -> {
             taskInstanceCommandHandler.ownerCancel(instance, params.getExpectedRevision());
             logOwnerOperation(instance, params, UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
+            return null;
         });
     }
 
@@ -156,6 +172,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             taskInstanceCommandHandler.ownerReject(instance, params.getUserId(),
                     params.getExpectedRevision(), params.getReason());
             logOwnerOperation(instance, params, UserOperationType.TASK_REJECT, "OWNER_REJECT");
+            return null;
         });
     }
 
@@ -175,23 +192,24 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     /**
      * 定位读取只决定锁键；锁内新事务重新读取状态，且提交完成后才释放 watchdog 锁。
      * 同 item 的不同实例也必须串行，避免上游打回与下游提交分别通过前置检查。
+     * 短暂排队允许不同槽位的并发接取依次成功，仍以锁内状态和修订号拒绝冲突操作。
      */
-    private void mutateTask(Long instanceId, Long orgId, Long requiredCreatorId,
-                            Consumer<TaskInstance> mutation) {
+    private <T> T mutateTask(Long instanceId, Long orgId, Long requiredCreatorId,
+                             Function<TaskInstance, T> mutation) {
         TaskInstance locator = taskInstanceMapper.selectById(instanceId);
         if (locator == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
         }
         try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(
-                "task:item:" + locator.getItemId(), 0, TimeUnit.SECONDS)) {
+                "task:item:" + locator.getItemId(), 5, TimeUnit.SECONDS)) {
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            transaction.executeWithoutResult(status -> {
+            return transaction.execute(status -> {
                 TaskInstance instance = getAndValidateInstance(instanceId, orgId, requiredCreatorId);
                 if (!java.util.Objects.equals(locator.getItemId(), instance.getItemId())) {
                     throw new AppException(ResultCode.OPERATION_FAIL, "任务归属已变更，请刷新后重试");
                 }
-                mutation.accept(instance);
+                return mutation.apply(instance);
             });
         }
     }

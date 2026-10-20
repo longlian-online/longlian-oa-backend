@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 public class SessionApiTest extends BaseApiTest {
 
@@ -25,6 +26,50 @@ public class SessionApiTest extends BaseApiTest {
 
     @Autowired
     private StringRedisTemplate stringRedis;
+
+    @Test
+    void shouldLoginDistinctUsersWithoutEmailAndKeepOrganizationAccess() {
+        createUserWithOrganization(1L, "legacyone", "123456", null, 1L, 1L, "ORG_USER");
+        createTestUser(2L, "legacytwo", "123456", null);
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = 1 WHERE id = 2");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+
+        for (String username : new String[]{"legacyone", "legacytwo"}) {
+            Session session = login(username);
+            long userId = "legacyone".equals(username) ? 1L : 2L;
+            userRequest(session.token()).get("/app/user/")
+                    .then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.username", equalTo(username))
+                    .body("data.email", nullValue())
+                    .body("data.defaultOrgId", equalTo("1"));
+            assertThat(jwtUtil.parseToken(session.token()).getSubject()).isEqualTo(Long.toString(userId));
+            authRequest(session.token()).get("/app/user/organizations")
+                    .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.id", equalTo(java.util.List.of("1")));
+            refresh(session.refreshToken()).then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        }
+    }
+
+    @Test
+    void shouldRejectEmptyEmailOperationsForUsersWithoutEmail() {
+        createTestUser(1L, "legacyone", "123456", null);
+
+        request().body(Map.of("email", "", "code", "A1B2C3"))
+                .post("/app/session/email")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        request().body(Map.of("email", "", "businessType", "LOGIN"))
+                .post("/app/session/email/code")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        request().body(Map.of("email", "", "code", "A1B2C3", "password", "River!82Maple"))
+                .put("/app/user/password")
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM email_verify_otp", Integer.class)).isZero();
+        assertThat(passwordEncoder.matches("123456", jdbcTemplate.queryForObject(
+                "SELECT password FROM `user` WHERE id = 1", String.class))).isTrue();
+    }
 
     @Test
     void shouldIssueShortLivedAccessTokenAndRefreshToken() {
@@ -115,7 +160,7 @@ public class SessionApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         Session session = login("testuser");
 
-        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
@@ -199,7 +244,7 @@ public class SessionApiTest extends BaseApiTest {
 
         userRequest(token).delete("/app/session/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "654321"))
+        userRequest(session.token()).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }

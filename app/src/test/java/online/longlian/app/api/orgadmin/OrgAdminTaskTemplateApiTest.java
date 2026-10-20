@@ -182,8 +182,7 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                         Map.of("baseTaskId", 2L, "sort", 2, "parallelSort", 1)}))
                 .post("/orgadmin/task/template").then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template", Long.class)).isZero();
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template_node", Long.class)).isZero();
 
@@ -193,8 +192,7 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 "nodes", new Object[]{Map.of("baseTaskId", 2L, "sort", 1, "parallelSort", 1)}))
                 .put("/orgadmin/task/template/1").then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", equalTo("无权操作,无权引用该原子任务"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                 "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(

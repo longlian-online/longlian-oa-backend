@@ -10,6 +10,7 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
+import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
@@ -29,6 +30,7 @@ import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
+import online.longlian.app.pojo.vo.app.TaskClaimResultVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
@@ -143,19 +145,20 @@ public class TaskInstanceController {
 
     @Operation(
         summary = "接取任务",
-        description = "接取 PENDING 状态的任务，接取后任务状态变为 CLAIMED，归属当前登录用户"
+        description = "接取 PENDING 状态的任务，接取后任务状态变为 CLAIMED，归属当前登录用户；未加入企划时自动加入，返回本次是否新增关联"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/claim")
     @ResponseMessage("接取成功")
-    public void claimTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-                           @PathVariable Long instanceId) {
-        taskInstanceService.claimTask(
+    public TaskClaimResultVO claimTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                      @PathVariable Long instanceId) {
+        TaskClaimResultBO result = taskInstanceService.claimTask(
                 TaskInstanceOperateParamsBO.builder()
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
                         .build());
+        return new TaskClaimResultVO(result.isAutoJoinedProject());
     }
 
     @Operation(

@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
@@ -110,6 +111,25 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         assertCode(operate(tokens.owner(), "owner-reject", "1", "重复"), ResultCode.OPERATION_FAIL);
         assertCode(operate(tokens.owner(), "owner-reject", "2", "状态已改变"), ResultCode.OPERATION_FAIL);
         assertThat(snapshot()).isEqualTo(rejected);
+    }
+
+    @Test
+    void shouldPreserveAutoJoinedMembershipWhenOwnerCancelsClaim() {
+        Tokens tokens = createWorkflow();
+        jdbcTemplate.update("DELETE FROM project_workshop WHERE project_id = 1 AND user_id = 2");
+        assertCode(operate(tokens.owner(), "owner-cancel", "0", "重新分配"), ResultCode.SUCCESS);
+
+        authRequest(tokens.worker()).post("/app/task/instance/1/claim").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.autoJoinedProject", equalTo(true));
+        List<Map<String, Object>> autoJoined = workshops();
+        assertThat(autoJoined).hasSize(2);
+
+        assertCode(operate(tokens.owner(), "owner-cancel", "2", "保留企划成员"), ResultCode.SUCCESS);
+
+        assertInstance(1, 1, null, 3);
+        assertThat(workshops()).isEqualTo(autoJoined);
+        assertCount(4);
     }
 
     @Test
@@ -492,7 +512,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 }
             }).when(observed).close();
             return observed;
-        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), eq(0L), eq(TimeUnit.SECONDS));
+        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), anyLong(), eq(TimeUnit.SECONDS));
 
         Response response = switch (action) {
             case "owner-cancel", "owner-reject" -> operate(tokens.owner(), action, Long.toString(beforeRevision), "统一锁");
@@ -587,7 +607,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 }
             }).when(observed).close();
             return observed;
-        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), eq(0L), eq(TimeUnit.SECONDS));
+        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), anyLong(), eq(TimeUnit.SECONDS));
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
             Object result = invocation.callRealMethod();
@@ -604,8 +624,12 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 await(auditWritten);
                 // The audit has been inserted but no mutation may be visible before transaction commit.
                 assertThat(snapshot()).isEqualTo(before);
-                assertCode(operate(tokens.owner(), action, expectedRevision, "重复并发"), ResultCode.OPERATION_FAIL);
-                assertCode(submit(tokens.worker(), 1), ResultCode.OPERATION_FAIL);
+                CompletableFuture<Response> duplicate = CompletableFuture.supplyAsync(() ->
+                        operate(tokens.owner(), action, expectedRevision, "重复并发"), executor);
+                CompletableFuture<Response> concurrentSubmit = CompletableFuture.supplyAsync(() ->
+                        submit(tokens.worker(), 1), executor);
+                assertCode(duplicate.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
+                assertCode(concurrentSubmit.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
                 assertThat(snapshot()).isEqualTo(before);
             } finally {
                 resume.countDown();
@@ -825,7 +849,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 await(resume);
             }
             return invocation.callRealMethod();
-        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), eq(0L), eq(TimeUnit.SECONDS));
+        }).when(lockService).tryAcquireOrThrow(eq("task:item:1"), anyLong(), eq(TimeUnit.SECONDS));
     }
 
     private static void await(CountDownLatch latch) throws InterruptedException {
