@@ -289,24 +289,36 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             throw new AppException(ResultCode.OPERATION_FAIL, "项目已删除，不可操作任务");
         }
         if (requiredCreatorId != null) {
-            organizationMembershipService.requireEnabledMember(requiredCreatorId, orgId);
-            if (!requiredCreatorId.equals(project.getCreatorId())) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可操作该任务");
-            }
-            ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-            ItemTaskFlow flow = itemTaskFlowMapper.selectById(instance.getTaskFlowId());
-            if (instance.getDeletedAt() != null || project.getDeletedAt() != null
-                    || !instance.getProjectId().equals(item.getProjectId())
-                    || node == null || node.getDeletedAt() != null
-                    || !instance.getItemId().equals(node.getItemId())
-                    || !instance.getProjectId().equals(node.getProjectId())
-                    || !instance.getTaskFlowId().equals(node.getItemTaskFlowId())
-                    || flow == null || flow.getDeletedAt() != null
-                    || !instance.getItemId().equals(flow.getItemId())
-                    || !instance.getProjectId().equals(flow.getProjectId())) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
-            }
+            requireOwnerScope(instance, project, item, requiredCreatorId);
         }
         return instance;
+    }
+
+    private void requireOwnerScope(TaskInstance instance, Project project, Item item, Long userId) {
+        organizationMembershipService.requireEnabledMember(userId, project.getOrgId());
+        if (!userId.equals(project.getCreatorId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可操作该任务");
+        }
+        if (instance.getDeletedAt() != null || project.getDeletedAt() != null
+                || !instance.getProjectId().equals(item.getProjectId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
+        }
+        requireTaskStructure(instance);
+    }
+
+    private void requireTaskStructure(TaskInstance instance) {
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null || node.getDeletedAt() != null
+                || !instance.getItemId().equals(node.getItemId())
+                || !instance.getProjectId().equals(node.getProjectId())
+                || !instance.getTaskFlowId().equals(node.getItemTaskFlowId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
+        }
+        ItemTaskFlow flow = itemTaskFlowMapper.selectById(instance.getTaskFlowId());
+        if (flow == null || flow.getDeletedAt() != null
+                || !instance.getItemId().equals(flow.getItemId())
+                || !instance.getProjectId().equals(flow.getProjectId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "任务归属不一致，不可操作");
+        }
     }
 }
