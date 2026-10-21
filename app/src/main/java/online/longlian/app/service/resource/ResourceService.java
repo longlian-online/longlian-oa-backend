@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -55,11 +56,7 @@ public class ResourceService {
     private final Clock clock;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
-        if (("cover".equals(params.getBizType()) || "thumbnail".equals(params.getBizType()))
-                && params.getFileSize() != null
-                && params.getFileSize() > CommonConstants.FILE_PROJECT_IMAGE_MAX_SIZE) {
-            throw new AppException(ResultCode.PARAM_ERROR, "封面和缩略图不能超过10MB");
-        }
+        rejectOversized(params);
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
             throw new AppException(ResultCode.PARAM_ERROR, "头像、封面和缩略图只能上传图片");
         }
@@ -383,6 +380,36 @@ public class ResourceService {
 
     private String buildStorageKey(String bizType, Long fileId, String ext) {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
+    }
+
+    private void rejectOversized(ResourceCreateParamsBO params) {
+        Long fileSize = params.getFileSize();
+        if (fileSize == null) {
+            return;
+        }
+        if (("cover".equals(params.getBizType()) || "thumbnail".equals(params.getBizType()))
+                && fileSize > CommonConstants.FILE_PROJECT_IMAGE_MAX_SIZE) {
+            throw new AppException(ResultCode.PARAM_ERROR, "封面和缩略图不能超过10MB");
+        }
+        if (isArchive(params.getFileExt())) {
+            if (fileSize > CommonConstants.FILE_ARCHIVE_MAX_SIZE) {
+                throw new AppException(ResultCode.PARAM_ERROR, "压缩包不能超过500MB");
+            }
+            return;
+        }
+        if (fileSize > CommonConstants.FILE_UPLOAD_MAX_SIZE) {
+            throw new AppException(ResultCode.PARAM_ERROR, "文件大小不能超过50MB");
+        }
+    }
+
+    private static boolean isArchive(String fileExt) {
+        if (fileExt == null) {
+            return false;
+        }
+        return switch (fileExt.toLowerCase(Locale.ROOT)) {
+            case "zip", "rar", "7z" -> true;
+            default -> false;
+        };
     }
 
     private boolean isImageBusiness(String bizType) {

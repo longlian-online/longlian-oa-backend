@@ -13,6 +13,7 @@ import online.longlian.app.service.resource.impl.LocalStorageService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
 @TestPropertySource(properties = {
@@ -419,6 +421,75 @@ class LocalFileReadApiTest extends BaseApiTest {
         authRequest(token).body(image).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "zip, application/zip",
+            "rar, application/vnd.rar",
+            "7z, application/x-7z-compressed",
+            "ZIP, application/zip"
+    })
+    void shouldAcceptArchiveAtFiveHundredMegabytes(String ext, String mime) {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO archive = new CreateFileReqDTO(
+                "pack." + ext, ext, 500L * 1024 * 1024, mime, "task_submit");
+
+        authRequest(token).body(archive).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isEqualTo(1L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"zip", "rar", "7z"})
+    void shouldRejectArchiveAboveFiveHundredMegabytesWithoutCreatingResource(String ext) {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO archive = new CreateFileReqDTO(
+                "pack." + ext, ext, 500L * 1024 * 1024 + 1, "application/zip", "task_submit");
+
+        authRequest(token).body(archive).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", containsString("文件大小不能超过500MB"));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
+    }
+
+    @Test
+    void shouldAcceptPlainAttachmentAtFiftyMegabytes() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO document = new CreateFileReqDTO(
+                "notes.pdf", "pdf", 50L * 1024 * 1024, "application/pdf", "task_submit");
+
+        authRequest(token).body(document).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldRejectPlainAttachmentAboveFiftyMegabytesWithoutCreatingResource() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO document = new CreateFileReqDTO(
+                "notes.pdf", "pdf", 50L * 1024 * 1024 + 1, "application/pdf", "task_submit");
+
+        authRequest(token).body(document).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", containsString("文件大小不能超过50MB"));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
+    }
+
+    @Test
+    void shouldAcceptArchiveAboveOrdinaryLimit() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO archive = new CreateFileReqDTO(
+                "pack.zip", "zip", 50L * 1024 * 1024 + 1, "application/zip", "task_submit");
+
+        authRequest(token).body(archive).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isEqualTo(1L);
     }
 
     private void createFile() {
