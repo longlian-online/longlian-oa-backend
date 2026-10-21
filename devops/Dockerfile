@@ -5,30 +5,26 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 ARG INCLUDE_OTEL
 WORKDIR /app
 
-# 复制各级 pom.xml，下载依赖。
-# settings 放在全局配置，避免被 /root/.m2 的 cache mount 盖住。
-COPY pom.xml .
-COPY common/pom.xml common/pom.xml
-COPY app/pom.xml app/pom.xml
-COPY generator/pom.xml generator/pom.xml
-COPY settings.xml /usr/share/maven/conf/settings.xml
-
-# id=m2 与发布工作流注入的 Actions cache 对齐。发版只改 pom 版本时依赖已在 mount 里。
-# 下载依赖及 OpenTelemetry Java Agent（仅 INCLUDE_OTEL=true 时下载）
-RUN --mount=type=cache,id=m2,target=/root/.m2,sharing=locked \
-    mvn dependency:go-offline -B -pl app -am && \
-    mkdir -p /app/otel && \
+# OpenTelemetry agent 与依赖无关，单独下载，避免 dependency:go-offline 把插件依赖也拉全。
+RUN mkdir -p /app/otel && \
     if [ "$INCLUDE_OTEL" = "true" ]; then \
       curl -fL https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar -o /app/otel/opentelemetry-javaagent.jar; \
       if ! jar tf /app/otel/opentelemetry-javaagent.jar > /dev/null 2>&1; then echo 'OTel agent download failed or invalid jar'; exit 1; fi; \
     fi
+
+COPY pom.xml .
+COPY common/pom.xml common/pom.xml
+COPY app/pom.xml app/pom.xml
+COPY generator/pom.xml generator/pom.xml
+# settings 放在全局配置，避免被 /root/.m2 的 cache mount 盖住。
+COPY settings.xml /usr/share/maven/conf/settings.xml
 
 # 复制所有模块源码
 COPY common/src common/src
 COPY generator/src generator/src
 COPY app/src app/src
 
-# 构建 app 模块
+# id=m2 与发布工作流注入的 Actions cache 对齐。命中的依赖不再下载。
 RUN --mount=type=cache,id=m2,target=/root/.m2,sharing=locked \
     mvn package -Dmaven.test.skip=true -B -pl app -am
 
