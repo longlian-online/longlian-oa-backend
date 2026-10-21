@@ -212,8 +212,79 @@ class ProjectServiceImplTest {
         assertThat(updateCaptor.getValue().getSqlSet())
                 .contains("title", "alias", "metadata", "description", "updated_at")
                 .doesNotContain("cover_file_id")
-                .doesNotContain("thumbnail_file_id");
+                .doesNotContain("thumbnail_file_id")
+                .doesNotContain("type_id");
         verify(resourceService, never()).bindBizResource(any());
+    }
+
+    @Test
+    void updateProject_withTypeId_updatesType() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(ProjectType.builder()
+                .id(11L).orgId(1L).status(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build());
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(projectMapper).update(any(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet()).contains("type_id");
+        assertThat(updateCaptor.getValue().getParamNameValuePairs().values()).contains(11L);
+    }
+
+    @Test
+    void updateProject_disabledType_throwsParameterError() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(ProjectType.builder()
+                .id(11L).orgId(1L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void updateProject_otherOrganizationType_throwsParameterError() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(ProjectType.builder()
+                .id(11L).orgId(2L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void updateProject_missingType_throwsParameterError() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any());
     }
 
     @Test

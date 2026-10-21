@@ -18,6 +18,7 @@ public class ProjectUpdateParamsBO {
     private String alias;
     private String metadata;
     private String description;
+    private Long typeId;
     private Long coverFileId;
     private Long thumbnailFileId;
     private ProjectStatus status;

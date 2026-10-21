@@ -131,6 +131,7 @@ public class ProjectController {
                         .title(projectUpdateDTO.getTitle())
                         .alias(projectUpdateDTO.getAlias())
                         .metadata(projectUpdateDTO.getMetadata())
+                        .typeId(projectUpdateDTO.getTypeId())
                         .description(projectUpdateDTO.getDescription())
                         .coverFileId(projectUpdateDTO.getCoverFileId())
                         .thumbnailFileId(projectUpdateDTO.getThumbnailFileId())
