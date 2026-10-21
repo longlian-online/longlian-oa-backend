@@ -19,4 +19,6 @@ README.md
 app/src/main/resources/application.yml
 # 排除 devops 目录（包含 docker-compose 等配置文件）
 devops/
+.ci-cache/
+scratch/
 .devcontainer/
