@@ -31,7 +31,7 @@ public class CreateFileReqDTO {
 
     @NotNull(message = "文件大小不能为空")
     @Positive(message = "文件大小必须大于0")
-    @Max(value = CommonConstants.FILE_UPLOAD_MAX_SIZE, message = "文件大小不能超过50MB")
+    @Max(value = CommonConstants.FILE_ARCHIVE_MAX_SIZE, message = "文件大小不能超过500MB")
     @Schema(description = "文件大小(字节)", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long fileSize;
 

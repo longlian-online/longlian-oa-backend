@@ -131,4 +131,70 @@ public class ResourceServiceTest {
                 .hasMessageContaining("只能上传图片");
         Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"zip", "rar", "7z", "ZIP"})
+    void create_archiveAtFiveHundredMegabytes_createsResource(String fileExt) {
+        allowCreate();
+
+        resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "pack." + fileExt, fileExt, 500L * 1024 * 1024, "application/zip", "task_submit"));
+
+        Mockito.verify(resourceMapper).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_archiveAboveOrdinaryLimit_createsResource() {
+        allowCreate();
+
+        resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "pack.zip", "zip", 50L * 1024 * 1024 + 1, "application/zip", "task_submit"));
+
+        Mockito.verify(resourceMapper).insert(Mockito.any(Resource.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"zip", "rar", "7z"})
+    void create_archiveAboveFiveHundredMegabytes_rejectedBeforeInsert(String fileExt) {
+        assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "pack." + fileExt, fileExt, 500L * 1024 * 1024 + 1, "application/zip", "task_submit")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("压缩包不能超过500MB");
+        Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_plainFileAtFiftyMegabytes_createsResource() {
+        allowCreate();
+
+        resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "notes.pdf", "pdf", 50L * 1024 * 1024, "application/pdf", "task_submit"));
+
+        Mockito.verify(resourceMapper).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_plainFileAboveFiftyMegabytes_rejectedBeforeInsert() {
+        assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "notes.pdf", "pdf", 50L * 1024 * 1024 + 1, "application/pdf", "task_submit")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("文件大小不能超过50MB");
+        Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_coverArchiveAboveTenMegabytes_rejectedBeforeInsert() {
+        assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "cover.zip", "zip", 10L * 1024 * 1024 + 1, "application/zip", "cover")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("封面和缩略图不能超过10MB");
+        Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
+    }
+
+    private void allowCreate() {
+        Mockito.when(resourceMapper.insert(Mockito.any(Resource.class))).thenReturn(1);
+        Mockito.when(storageServiceFactory.get(Mockito.any())).thenReturn(ossStorageService);
+        Mockito.when(ossStorageService.generatePresignedUploadUrl(Mockito.any()))
+                .thenReturn(PresignedUploadUrlResultBO.builder().uploadUrl("xxxxxx").key("k").build());
+    }
 }

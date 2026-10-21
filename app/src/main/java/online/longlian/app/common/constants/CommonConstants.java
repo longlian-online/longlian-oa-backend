@@ -10,6 +10,7 @@ public class CommonConstants {
     public static final Long CODE_LIMIT = 60L;
     public static final Integer CODE_LENGTH = 6;
     public static final long FILE_UPLOAD_MAX_SIZE = 50L * 1024 * 1024;
+    public static final long FILE_ARCHIVE_MAX_SIZE = 500L * 1024 * 1024;
     public static final long FILE_PROJECT_IMAGE_MAX_SIZE = 10L * 1024 * 1024;
 
     public static final String THREAD_NAME_PREFIX = "verify-code-";
