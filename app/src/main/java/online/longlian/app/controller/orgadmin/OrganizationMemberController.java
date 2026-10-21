@@ -104,7 +104,7 @@ public class OrganizationMemberController {
 
     @Operation(
         summary = "分页查询组员列表",
-        description = "仅返回已通过审核的成员，默认按入组时间倒序"
+        description = "仅返回已通过审核的成员，默认按入组时间、成员ID倒序；升序时两者均升序，保证数据未变更时跨页不重复、不遗漏"
     )
     @PostMapping("")
     @ResponseMessage("查询成功")

@@ -4,8 +4,15 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -205,6 +212,46 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"ASC", "DESC"})
+    void shouldPageMembersWithoutDuplicatesWhenJoinedTimesTie(String orderDir) {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        for (long id = 2; id <= 43; id++) {
+            createTestUser(id, "member" + id, "123456", "member" + id + "@example.com");
+            createOrganizationMember(id, 1L, id, "ORG_USER");
+        }
+        createOrganization(2L, "其他组织");
+        createOrganizationMember(44L, 2L, 1L, "ORG_USER");
+        jdbcTemplate.update("UPDATE organization_member SET joined_at = '2026-01-01 12:00:00'");
+        jdbcTemplate.update("UPDATE organization_member SET joined_at = '2026-01-02 12:00:00' WHERE id = 1");
+        String token = loginAs("orgadmin", "123456");
+        boolean ascending = "ASC".equals(orderDir);
+        List<Long> expected = new ArrayList<>(LongStream.rangeClosed(2, 43)
+                .map(id -> ascending ? id : 45 - id).boxed().toList());
+        expected.add(ascending ? expected.size() : 0, 1L);
+        List<Long> actual = new ArrayList<>();
+
+        for (int pageNum = 1; pageNum <= 6; pageNum++) {
+            Map<String, Object> request = new HashMap<>(Map.of("pageNum", pageNum, "pageSize", 10));
+            if (orderDir != null) {
+                request.put("orderDir", orderDir);
+            }
+            Response response = authRequest(token).body(request).post("/orgadmin/members");
+            response.then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.total", equalTo(43));
+            List<Long> ids = response.jsonPath().getList("data.list.id", Long.class);
+            List<Long> userIds = response.jsonPath().getList("data.list.userId", Long.class);
+            int start = Math.min((pageNum - 1) * 10, 43);
+            List<Long> expectedPage = expected.subList(start, Math.min(start + 10, 43));
+            assertThat(ids).containsExactlyElementsOf(expectedPage);
+            assertThat(userIds).containsExactlyElementsOf(expectedPage);
+            actual.addAll(ids);
+        }
+        assertThat(actual).containsExactlyElementsOf(expected).doesNotHaveDuplicates();
     }
 
     /**

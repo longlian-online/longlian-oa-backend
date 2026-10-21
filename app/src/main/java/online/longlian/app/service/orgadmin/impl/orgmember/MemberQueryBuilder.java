@@ -73,10 +73,11 @@ public class MemberQueryBuilder {
             }
         }
 
+        // 同秒入组的成员用唯一 ID 打破平局，避免 LIMIT 翻页时重复或遗漏。
         if (params.getOrderDir() == SortDirection.ASC) {
-            queryWrapper.orderByAsc(OrganizationMember::getJoinedAt);
+            queryWrapper.orderByAsc(OrganizationMember::getJoinedAt, OrganizationMember::getId);
         } else {
-            queryWrapper.orderByDesc(OrganizationMember::getJoinedAt);
+            queryWrapper.orderByDesc(OrganizationMember::getJoinedAt, OrganizationMember::getId);
         }
 
         return queryWrapper;
