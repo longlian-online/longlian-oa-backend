@@ -181,11 +181,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createProject(ProjectCreateParamsBO params) {
-        ProjectType projectType = projectTypeMapper.selectById(params.getTypeId());
-        if (projectType == null || !projectType.getOrgId().equals(params.getOrgId())
-                || projectType.getStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
-        }
+        requireEnabledType(params.getTypeId(), params.getOrgId());
         ProjectMetadataValidator.validate(params.getMetadata());
 
         LocalDateTime now = LocalDateTime.now(clock);
@@ -239,6 +235,9 @@ public class ProjectServiceImpl implements ProjectService {
         if (params.getStatus() == ProjectStatus.ARCHIVED) {
             throw new AppException(ResultCode.PARAM_ERROR, "不允许将企划修改为已归档状态");
         }
+        if (params.getTypeId() != null) {
+            requireEnabledType(params.getTypeId(), params.getOrgId());
+        }
 
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()
@@ -247,6 +246,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(Project::getAlias, params.getAlias())
                         .set(Project::getMetadata, params.getMetadata())
                         .set(Project::getDescription, params.getDescription())
+                        .set(params.getTypeId() != null, Project::getTypeId, params.getTypeId())
                         .set(params.getCoverFileId() != null, Project::getCoverFileId, params.getCoverFileId())
                         .set(params.getThumbnailFileId() != null, Project::getThumbnailFileId, params.getThumbnailFileId())
                         .set(params.getStatus() != null, Project::getStatus, params.getStatus())
@@ -333,5 +333,13 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
         }
         return project;
+    }
+
+    private void requireEnabledType(Long typeId, Long orgId) {
+        ProjectType projectType = projectTypeMapper.selectById(typeId);
+        if (projectType == null || !projectType.getOrgId().equals(orgId)
+                || projectType.getStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.PARAM_ERROR, "企划类型不存在或已禁用");
+        }
     }
 }

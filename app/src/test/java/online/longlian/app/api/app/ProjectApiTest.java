@@ -7,6 +7,7 @@ import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.ProjectStatus;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -505,6 +506,83 @@ public class ProjectApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 2", Integer.class))
                 .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    @Test
+    void shouldUpdateProjectType() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "漫画", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, "小说", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "测试企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "typeId", "2"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT type_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(2L);
+        authRequest(token).get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.typeName", equalTo("小说"));
+    }
+
+    @Test
+    void shouldRejectDisabledOrForeignProjectTypeOnUpdate() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "其他组织");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "漫画", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "停用小说", 0, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                3L, 2L, "他组类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, description, status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", "测试描述", 1, 1L);
+
+        for (String typeId : List.of("2", "3", "99")) {
+            authRequest(token)
+                    .body(Map.of(
+                            "title", "改名不应落库",
+                            "alias", "alias",
+                            "metadata", "{\"tags\":[]}",
+                            "description", "测试描述",
+                            "typeId", typeId))
+                    .put("/app/projects/1")
+                    .then()
+                    .statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT type_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("测试企划");
     }
 
     /**
