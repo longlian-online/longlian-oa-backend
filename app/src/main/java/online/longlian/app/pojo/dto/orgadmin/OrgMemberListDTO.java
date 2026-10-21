@@ -24,6 +24,6 @@ public class OrgMemberListDTO extends PageRequestDTO {
     @Schema(description = "入组时间-结束")
     private LocalDateTime endJoinedTime;
 
-    @Schema(description = "排序方式，默认入组时间倒序")
+    @Schema(description = "排序方式，默认入组时间倒序；入组时间相同时按成员ID同方向排序")
     private SortDirection orderDir = SortDirection.DESC;
 }
