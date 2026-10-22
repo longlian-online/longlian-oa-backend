@@ -67,8 +67,10 @@ class NotificationApiTest extends BaseApiTest {
         assertThat(rows).extracting(row -> row.get("recipient_user_id")).containsExactly(3L,4L);
         assertThat(rows).extracting(row -> row.get("source_id")).containsExactly(201L,202L);
         assertThat(rows).extracting(row -> row.get("trigger_id")).containsOnly(submissionId(102));
-        list(next).then().body("data.list.content.targetPath",equalTo(List.of("/dashboard/planning/10/items/100?taskInstanceId=201")));
-        list(other).then().body("data.list.content.targetPath",equalTo(List.of("/dashboard/planning/10/items/100?taskInstanceId=202")));
+        list(next).then().body("data.list.sourceId",equalTo(List.of("201")))
+                .body("data.list.source.itemId",equalTo(List.of("100")));
+        list(other).then().body("data.list.sourceId",equalTo(List.of("202")))
+                .body("data.list.source.taskSlot.slotIndex",equalTo(List.of(2)));
         success(authRequest(next,1).post("/app/task/instance/203/claim"));
         assertThat(notifications()).hasSize(2);
     }
@@ -95,7 +97,8 @@ class NotificationApiTest extends BaseApiTest {
         assertThat(completion.get("source_id")).isEqualTo(100L);
         assertThat(completion.get("trigger_id")).isEqualTo(submissionId(203));
         assertThat(count("SELECT COUNT(*) FROM user_notification WHERE kind=2 AND recipient_user_id=2")).isZero();
-        list(owner).then().body("data.list.content.targetPath",equalTo(List.of("/dashboard/planning/10/items/100")));
+        list(owner).then().body("data.list.source.itemId",equalTo(List.of("100")))
+                .body("data.list.source.taskSlot",equalTo(Arrays.asList((Object)null)));
     }
 
     @Test
@@ -145,7 +148,7 @@ class NotificationApiTest extends BaseApiTest {
         var rows=notifications();
         assertThat(rows).extracting(row -> row.get("source_id")).containsExactly(401L,401L);
         assertThat(rows).extracting(row -> row.get("trigger_id")).containsExactlyInAnyOrder(firstTrigger,submissionId(101));
-        list(next).then().body("data.list.size()",equalTo(2)).body("data.list.content.targetPath",everyItem(equalTo("/dashboard/planning/10/items/100?taskInstanceId=401")));
+        list(next).then().body("data.list.size()",equalTo(2)).body("data.list.sourceId",everyItem(equalTo("401")));
         assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO user_notification(id,org_id,recipient_user_id,kind,source_id,trigger_id) VALUES(9999,1,3,1,401,?)",firstTrigger))
                 .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
     }
@@ -216,12 +219,12 @@ class NotificationApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE item SET title='新项目' WHERE id=100");
         jdbcTemplate.update("UPDATE task_instance SET assignee_id=4,status=1 WHERE id=201");
         var current=list(owner);success(current);
-        assertThat(current.jsonPath().getList("data.list.content.message",String.class))
-                .allSatisfy(message -> assertThat(message).contains("新企划","新项目"));
+        assertThat(current.jsonPath().getList("data.list.source.projectTitle",String.class)).containsOnly("新企划");
+        assertThat(current.jsonPath().getList("data.list.source.itemTitle",String.class)).containsOnly("新项目");
         jdbcTemplate.update("UPDATE item_task_node SET deleted_at=NOW() WHERE id=1201");
         var missingNode=list(owner);success(missingNode);
         assertThat(missingNode.jsonPath().getList("data.list.id",String.class)).containsExactly("2","1");
-        assertThat(missingNode.jsonPath().getString("data.list[0].content.targetPath")).isEqualTo("/dashboard/planning/10/items/100");
+        assertThat(missingNode.jsonPath().getString("data.list[0].source.itemId")).isEqualTo("100");
         assertUnavailable(missingNode,1);
         success(authRequest(owner,1).put(INBOX+"/1/read"));
         jdbcTemplate.update("UPDATE project SET resource_status=0 WHERE id=10");
@@ -249,8 +252,8 @@ class NotificationApiTest extends BaseApiTest {
         success(authRequest(owner,1).put(INBOX+"/1/read"));
         var response=list(owner);success(response);
         response.then().body("data.list.id",equalTo(List.of("3","2","1")))
-                .body("data.list[0].content.targetPath",equalTo("/dashboard/planning/10/items/100?taskInstanceId=100"))
-                .body("data.list[1].content.targetPath",equalTo("/dashboard/planning/10/items/100"))
+                .body("data.list[0].source.taskSlot.slotIndex",equalTo(4))
+                .body("data.list[1].source.taskSlot",nullValue())
                 .body("data.list[2].createdAt",equalTo("2026-10-21 10:00:00"));
         assertThat(response.jsonPath().getString("data.list[2].readAt")).isNotNull();
         assertThat(response.jsonPath().getString("data.list[0].readAt")).isNull();
@@ -261,18 +264,18 @@ class NotificationApiTest extends BaseApiTest {
         createResource(700,1,1);createResource(701,1,1);createResource(702,2,1);
         jdbcTemplate.update("UPDATE project SET thumbnail_file_id=700,cover_file_id=701 WHERE id=10");
         notification(1,1L,1,2,100,1001,SAME_TIME);
-        String thumbnail=list(owner).jsonPath().getString("data.list[0].content.thumbnailUrl");
+        String thumbnail=list(owner).jsonPath().getString("data.list[0].thumbnailUrl");
         assertThat(thumbnail).contains("700.png","eo-img.resize=w/144/h/144");
         jdbcTemplate.update("UPDATE resource SET process_status=0 WHERE id=700");
-        assertThat(list(owner).jsonPath().getString("data.list[0].content.thumbnailUrl")).contains("701.png");
+        assertThat(list(owner).jsonPath().getString("data.list[0].thumbnailUrl")).contains("701.png");
         jdbcTemplate.update("UPDATE project SET thumbnail_file_id=702,cover_file_id=702 WHERE id=10");
-        assertThat(list(owner).jsonPath().getString("data.list[0].content.thumbnailUrl")).isNull();
+        assertThat(list(owner).jsonPath().getString("data.list[0].thumbnailUrl")).isNull();
         jdbcTemplate.update("UPDATE project SET thumbnail_file_id=701 WHERE id=10");
         var cdn=storageProperties.getCdn();
         boolean wasEnabled=cdn.isEnabled();String prefix=cdn.getUrlPrefix();String key=cdn.getAuthKey();
         try {
             cdn.setEnabled(true);cdn.setUrlPrefix("http://localhost");cdn.setAuthKey("notification-test-key");
-            assertThat(list(owner).jsonPath().getString("data.list[0].content.thumbnailUrl"))
+            assertThat(list(owner).jsonPath().getString("data.list[0].thumbnailUrl"))
                     .contains("eo-img.resize=w/144/h/144","/common/file/local");
         } finally {cdn.setEnabled(wasEnabled);cdn.setUrlPrefix(prefix);cdn.setAuthKey(key);}
     }
@@ -325,8 +328,9 @@ class NotificationApiTest extends BaseApiTest {
     private List<Map<String,Object>> notifications() {return jdbcTemplate.queryForList("SELECT * FROM user_notification ORDER BY source_id,trigger_id");}
     private void status(String token,long org,boolean expected) {authRequest(token,org).get(INBOX+"/status").then().body("code",equalTo(0)).body("data.hasUnread",equalTo(expected));}
     private void assertUnavailable(Response response,int index) {
-        var content=response.jsonPath().getMap("data.list["+index+"].content");
-        assertThat(content).containsEntry("message","通知关联内容已不可访问").containsEntry("targetPath",null).containsEntry("thumbnailUrl",null);
+        var notification=response.jsonPath().getMap("data.list["+index+"]");
+        assertThat(notification).containsEntry("source",null).containsEntry("thumbnailUrl",null);
+        assertThat(notification).doesNotContainKeys("content","message","label","targetPath");
     }
     private List<Response> underFlowLock(List<Supplier<Response>> requests) throws Exception {
         try(Connection blocker=jdbcTemplate.getDataSource().getConnection();var executor=Executors.newVirtualThreadPerTaskExecutor()) {

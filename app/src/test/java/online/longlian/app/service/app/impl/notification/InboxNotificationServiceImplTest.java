@@ -83,7 +83,7 @@ class InboxNotificationServiceImplTest {
                 11L,new ResourceReadUrlGetResultBO("https://cdn.example/cover?sign=ok",2L,"cover"),
                 12L,new ResourceReadUrlGetResultBO("http://localhost/local?key=thumb",2L,"thumb")));
         var page=service.list(new NotificationListParamsBO(1L,2L,null,null));
-        assertThat(page.getList()).extracting(n -> n.getContent().getThumbnailUrl()).containsExactly(
+        assertThat(page.getList()).extracting(NotificationResultBO::getThumbnailUrl).containsExactly(
                 "https://cdn.example/cover?sign=ok&eo-img.resize=w/144/h/144",
                 "http://localhost/local?key=thumb&eo-img.resize=w/144/h/144",null);
         verify(resources).getResourceReadUrls(anyList());
@@ -104,6 +104,6 @@ class InboxNotificationServiceImplTest {
                 .createdAt(LocalDateTime.now(clock)).build();
     }
     private NotificationResolvedSourceBO source(List<Long> images) {
-        return new NotificationResolvedSourceBO(new NotificationContentResultBO("类型","消息",null,null),images);
+        return new NotificationResolvedSourceBO(new NotificationSourceResultBO(1L,"企划",7L,"项目",null),images);
     }
 }

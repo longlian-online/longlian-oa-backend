@@ -56,9 +56,15 @@ public class NotificationController {
     }
 
     private NotificationVO toVO(NotificationResultBO notification) {
-        var content = notification.getContent();
+        var source = notification.getSource();
+        NotificationSourceVO sourceVO = null;
+        if (source != null) {
+            var slot = source.getTaskSlot();
+            sourceVO = new NotificationSourceVO(source.getProjectId(), source.getProjectTitle(), source.getItemId(),
+                    source.getItemTitle(), slot == null ? null : new NotificationTaskSlotVO(slot.getName(),
+                    slot.getSlotIndex(), slot.getSlotTotal(), slot.getSerialStep()));
+        }
         return new NotificationVO(notification.getId(), notification.getKind().name(), notification.getSourceId(),
-                notification.getCreatedAt(), notification.getReadAt(), new NotificationContentVO(content.getLabel(),
-                content.getMessage(), content.getTargetPath(), content.getThumbnailUrl()));
+                notification.getCreatedAt(), notification.getReadAt(), sourceVO, notification.getThumbnailUrl());
     }
 }

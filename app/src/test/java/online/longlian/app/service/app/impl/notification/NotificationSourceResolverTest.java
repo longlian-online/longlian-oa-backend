@@ -51,9 +51,13 @@ class NotificationSourceResolverTest {
                 new NotificationSourceRefBO(1L, InboxNotificationKind.TASK_READY, 7L),
                 new NotificationSourceRefBO(2L, InboxNotificationKind.ITEM_COMPLETED, 7L),
                 new NotificationSourceRefBO(3L, InboxNotificationKind.TASK_READY, 7L))));
-        assertThat(result.get(1L).getContent().getTargetPath()).isEqualTo("/dashboard/planning/9/items/8?taskInstanceId=7");
-        assertThat(result.get(2L).getContent().getTargetPath()).isEqualTo("/dashboard/planning/10/items/7");
-        assertThat(result.get(3L).getContent().getTargetPath()).isEqualTo(result.get(1L).getContent().getTargetPath());
+        assertThat(result.get(1L).getSource().getItemId()).isEqualTo(8L);
+        assertThat(result.get(1L).getSource().getProjectId()).isEqualTo(9L);
+        assertThat(result.get(1L).getSource().getTaskSlot().getSerialStep()).isEqualTo(2);
+        assertThat(result.get(2L).getSource().getItemId()).isEqualTo(7L);
+        assertThat(result.get(2L).getSource().getProjectId()).isEqualTo(10L);
+        assertThat(result.get(2L).getSource().getTaskSlot()).isNull();
+        assertThat(result.get(3L).getSource()).isEqualTo(result.get(1L).getSource());
         assertThat(result.get(1L).getImageResourceIds()).containsExactly(20L, 21L);
         verify(tasks).selectBatchIds(List.of(7L));
         verify(items).selectBatchIds(anyCollection());
@@ -75,10 +79,9 @@ class NotificationSourceResolverTest {
                 new NotificationSourceRefBO(2L,InboxNotificationKind.TASK_READY,2L),
                 new NotificationSourceRefBO(3L,InboxNotificationKind.TASK_READY,3L),
                 new NotificationSourceRefBO(4L,InboxNotificationKind.ITEM_COMPLETED,999L))));
-        assertThat(result.get(1L).getContent().getTargetPath()).isEqualTo("/dashboard/planning/9/items/7?taskInstanceId=1");
+        assertThat(result.get(1L).getSource().getItemId()).isEqualTo(7L);
         for (long id : List.of(2L,3L,4L)) {
-            assertThat(result.get(id).getContent().getTargetPath()).isNull();
-            assertThat(result.get(id).getContent().getThumbnailUrl()).isNull();
+            assertThat(result.get(id).getSource()).isNull();
             assertThat(result.get(id).getImageResourceIds()).isEmpty();
         }
     }

@@ -63,10 +63,9 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
                     .filter(image -> image != null && params.getOrgId().equals(image.getOrganizationId()))
                     .map(ResourceReadUrlGetResultBO::getUrl).filter(url -> url != null && !url.isBlank())
                     .findFirst().orElse(null);
-            source.getContent().setThumbnailUrl(thumbnail == null ? null
-                    : thumbnail + (thumbnail.contains("?") ? "&" : "?") + "eo-img.resize=w/144/h/144");
             return new NotificationResultBO(row.getId(), row.getKind(), row.getSourceId(), row.getCreatedAt(),
-                    row.getReadAt(), source.getContent());
+                    row.getReadAt(), source.getSource(), thumbnail == null ? null
+                    : thumbnail + (thumbnail.contains("?") ? "&" : "?") + "eo-img.resize=w/144/h/144");
         }).toList();
         return new NotificationPageResultBO(list, hasNext, unreadCount);
     }

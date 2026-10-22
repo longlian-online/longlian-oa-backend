@@ -9,9 +9,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NotificationContentResultBO {
-    private String label;
-    private String message;
-    private String targetPath;
-    private String thumbnailUrl;
+public class NotificationSourceResultBO {
+    private Long projectId;
+    private String projectTitle;
+    private Long itemId;
+    private String itemTitle;
+    private NotificationTaskSlotBO taskSlot;
 }

@@ -11,6 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificationResolvedSourceBO {
-    private NotificationContentResultBO content;
+    private NotificationSourceResultBO source;
     private List<Long> imageResourceIds;
 }

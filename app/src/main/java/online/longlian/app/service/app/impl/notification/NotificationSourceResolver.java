@@ -86,15 +86,15 @@ public class NotificationSourceResolver {
             ItemStageNodeStatusBO node = task == null ? null : itemNodes.stream()
                     .filter(candidate -> task.getItemTaskNodeId().equals(candidate.getNodeId())).findFirst().orElse(null);
             if (task == null || !visibleTask(task, items, projects) || node == null) {
-                sources.put(id, unavailable(InboxNotificationKind.TASK_READY));
+                sources.put(id, unavailable());
                 continue;
             }
             Item item = items.get(task.getItemId());
             Project project = projects.get(item.getProjectId());
-            String slot = formatTaskSlotLabel(node.getNodeName(), SlotLabels.of(node.getNodeId(), itemNodes));
-            sources.put(id, resolved(InboxNotificationKind.TASK_READY,
-                    "「" + project.getTitle() + " · " + item.getTitle() + "」的前置步骤已完成，你接取的「" + slot + "」可以开始了。",
-                    "/dashboard/planning/" + project.getId() + "/items/" + item.getId() + "?taskInstanceId=" + id, project));
+            SlotLabels.Position position = SlotLabels.of(node.getNodeId(), itemNodes);
+            NotificationTaskSlotBO slot = new NotificationTaskSlotBO(node.getNodeName(), position.slotIndex(),
+                    position.slotTotal(), position.serialStep());
+            sources.put(id, resolved(project, item, slot));
         }
         return sources;
     }
@@ -106,28 +106,20 @@ public class NotificationSourceResolver {
             Item item = items.get(id);
             Project project = item == null ? null : projects.get(item.getProjectId());
             if (project == null) {
-                sources.put(id, unavailable(InboxNotificationKind.ITEM_COMPLETED));
+                sources.put(id, unavailable());
                 continue;
             }
-            sources.put(id, resolved(InboxNotificationKind.ITEM_COMPLETED,
-                    "「" + project.getTitle() + " · " + item.getTitle() + "」的全部任务已完成。",
-                    "/dashboard/planning/" + project.getId() + "/items/" + id, project));
+            sources.put(id, resolved(project, item, null));
         }
         return sources;
     }
 
-    private String formatTaskSlotLabel(String name, SlotLabels.Position position) {
-        String step = position.serialStep() == null ? "" : "（第 " + position.serialStep() + " 步）";
-        String parallel = position.slotTotal() > 1 ? " · " + position.slotIndex() + "/" + position.slotTotal() : "";
-        return name + step + parallel;
+
+    private NotificationResolvedSourceBO unavailable() {
+        return new NotificationResolvedSourceBO(null, List.of());
     }
 
-    private NotificationResolvedSourceBO unavailable(InboxNotificationKind kind) {
-        return new NotificationResolvedSourceBO(new NotificationContentResultBO(kind.getDesc(),
-                "通知关联内容已不可访问", null, null), List.of());
-    }
-
-    private NotificationResolvedSourceBO resolved(InboxNotificationKind kind, String message, String path, Project project) {
+    private NotificationResolvedSourceBO resolved(Project project, Item item, NotificationTaskSlotBO taskSlot) {
         List<Long> images = new ArrayList<>(2);
         if (project.getThumbnailFileId() != null && project.getThumbnailFileId() > 0) {
             images.add(project.getThumbnailFileId());
@@ -135,6 +127,7 @@ public class NotificationSourceResolver {
         if (project.getCoverFileId() != null && project.getCoverFileId() > 0 && !images.contains(project.getCoverFileId())) {
             images.add(project.getCoverFileId());
         }
-        return new NotificationResolvedSourceBO(new NotificationContentResultBO(kind.getDesc(), message, path, null), images);
+        return new NotificationResolvedSourceBO(new NotificationSourceResultBO(project.getId(), project.getTitle(),
+                item.getId(), item.getTitle(), taskSlot), images);
     }
 }

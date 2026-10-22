@@ -17,5 +17,6 @@ public class NotificationResultBO {
     private Long sourceId;
     private LocalDateTime createdAt;
     private LocalDateTime readAt;
-    private NotificationContentResultBO content;
+    private NotificationSourceResultBO source;
+    private String thumbnailUrl;
 }
