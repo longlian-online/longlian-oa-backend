@@ -129,10 +129,16 @@ class TaskInstanceCommandHandlerTest {
                 .projectId(2L).itemId(3L).itemTaskNodeId(4L)
                 .build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
-        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenReturn(1);
+        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenAnswer(invocation -> {
+            invocation.<TaskSubmission>getArgument(0).setId(901L);
+            return 1;
+        });
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).metaSchema("[]").build());
 
-        handler.submit(instance, 10L, 5L, Map.of());
+        var result = handler.submit(instance, 10L, 5L, Map.of());
+        assertThat(result.getSubmissionId()).isEqualTo(901L);
+        assertThat(result.getTriggeredAt()).isEqualTo(java.time.LocalDateTime.now(clock));
+        assertThat(result.getBeforeNodes()).isEmpty();
 
         verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(
                 submission -> submission.getVersionNo() != null && submission.getVersionNo() == 1));
