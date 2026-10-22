@@ -35,9 +35,9 @@ Git 标签不会自动移动 `main`。`release:prepare` 只会在执行命令的
 git status --short
 git fetch origin --prune
 mvn -B validate -DskipTests
-mvn -B clean verify
-task api-test-docker
 ```
+
+发版不跑测试。合入 `main` 的改动已在 PR 的 CI 中测试，发版时不要执行 `mvn test`、`mvn verify` 或 `task test-docker`。
 
 工作区必须干净。GitHub SSH 权限可以用下面的命令检查：
 
@@ -82,7 +82,8 @@ mvn -B release:prepare \
   -DdryRun=true \
   -DreleaseVersion=1.0.0 \
   -DdevelopmentVersion=1.0.1-SNAPSHOT \
-  -Dtag=v1.0.0
+  -Dtag=v1.0.0 \
+  -Darguments="-DskipTests"
 ```
 
 预览完成后清理 Release Plugin 生成的状态文件：
@@ -97,8 +98,11 @@ mvn -B release:clean
 mvn -B release:prepare \
   -DreleaseVersion=1.0.0 \
   -DdevelopmentVersion=1.0.1-SNAPSHOT \
-  -Dtag=v1.0.0
+  -Dtag=v1.0.0 \
+  -Darguments="-DskipTests"
 ```
+
+`-Darguments="-DskipTests"` 跳过插件默认执行的 `clean verify` 测试。发版不重新跑测试。
 
 执行成功后，插件会完成以下操作：
 
