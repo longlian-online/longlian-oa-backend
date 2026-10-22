@@ -17,6 +17,12 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
+import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.NotificationCreateBO;
+import online.longlian.app.service.app.InboxNotificationService;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -77,6 +83,8 @@ class TaskInstanceServiceImplTest {
     private PlatformTransactionManager transactionManager;
     @Mock
     private ProjectService projectService;
+    @Mock
+    private InboxNotificationService inboxNotificationService;
 
     private TaskInstanceServiceImpl service;
 
@@ -85,7 +93,8 @@ class TaskInstanceServiceImplTest {
         service = new TaskInstanceServiceImpl(taskInstanceMapper, taskSubmissionMapper,
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
-                itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService);
+                itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,
+                inboxNotificationService);
         lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))
@@ -279,21 +288,88 @@ class TaskInstanceServiceImplTest {
     }
 
     @Test
-    void submitTask_validInstance_delegatesToHandler() {
-        TaskInstanceSubmitParamsBO params = new TaskInstanceSubmitParamsBO();
-        params.setInstanceId(100L);
-        params.setOrgId(10L);
-        params.setUserId(1L);
-        params.setValues(Map.of("key", "value"));
+    void shouldNotNotifyUntilLastParallelPredecessorCompletes() {
+        var before = List.of(progressNode(11L, 1, false), progressNode(12L, 1, false),
+                progressNode(21L, 2, false));
+        var after = List.of(progressNode(11L, 1, true), progressNode(12L, 1, false),
+                progressNode(21L, 2, false));
+        service.submitTask(prepareSubmit(before, after));
+        assertThat(capturedNotifications().getNotifications()).isEmpty();
+        verify(taskInstanceMapper, never()).selectList(any());
+    }
 
-        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build();
-        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
-        when(projectMapper.selectById(2L)).thenReturn(enabledProject());
-        when(itemMapper.selectById(1L)).thenReturn(writableItem());
-
+    @Test
+    void shouldKeepSeparateSourcesAndSelfRecipientWhenParallelStageUnlocks() {
+        var before = List.of(progressNode(11L, 1, false), progressNode(12L, 1, true),
+                progressNode(21L, 2, false), progressNode(22L, 2, false));
+        var after = List.of(progressNode(11L, 1, true), progressNode(12L, 1, true),
+                progressNode(21L, 2, false), progressNode(22L, 2, false));
+        var params = prepareSubmit(before, after);
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(201L).assigneeId(1L).build(),
+                TaskInstance.builder().id(202L).assigneeId(1L).build()));
         service.submitTask(params);
+        var batch = capturedNotifications();
+        assertThat(batch.getOrgId()).isEqualTo(10L);
+        assertThat(batch.getNotifications()).extracting(NotificationCreateBO::getSourceId)
+                .containsExactly(201L, 202L);
+        assertThat(batch.getNotifications()).allSatisfy(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(1L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.TASK_READY);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+            assertThat(notification.getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 10, 22, 12, 0));
+        });
+    }
 
-        verify(taskInstanceCommandHandler).submit(instance, 1L, 10L, Map.of("key", "value"));
+    @Test
+    void shouldReunlockDistantClaimedStageAfterEarlyReset() {
+        var before = List.of(progressNode(11L, 1, false), progressNode(21L, 2, true),
+                progressNode(31L, 3, true), progressNode(41L, 4, false));
+        var after = List.of(progressNode(11L, 1, true), progressNode(21L, 2, true),
+                progressNode(31L, 3, true), progressNode(41L, 4, false));
+        var params = prepareSubmit(before, after);
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(401L).assigneeId(4L).build()));
+        service.submitTask(params);
+        assertThat(capturedNotifications().getNotifications())
+                .extracting(NotificationCreateBO::getSourceId).containsExactly(401L);
+    }
+
+    @Test
+    void shouldNotifyPlanningCreatorOnlyWhenItemBecomesFullyComplete() {
+        var params = prepareSubmit(List.of(progressNode(11L, 1, true), progressNode(21L, 2, false)),
+                List.of(progressNode(11L, 1, true), progressNode(21L, 2, true)));
+        service.submitTask(params);
+        assertThat(capturedNotifications().getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(99L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.ITEM_COMPLETED);
+            assertThat(notification.getSourceId()).isEqualTo(1L);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+        });
+    }
+
+    private ItemStageNodeStatusBO progressNode(Long id, int sort, boolean completed) {
+        return new ItemStageNodeStatusBO(1L, id, "任务", sort, 1, completed);
+    }
+
+    private TaskInstanceSubmitParamsBO prepareSubmit(List<ItemStageNodeStatusBO> before,
+                                                    List<ItemStageNodeStatusBO> after) {
+        var instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L).build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
+        when(itemMapper.selectById(1L)).thenReturn(writableItem());
+        var project = enabledProject();
+        project.setCreatorId(99L);
+        when(projectMapper.selectById(2L)).thenReturn(project);
+        when(taskInstanceCommandHandler.submit(eq(instance), eq(1L), eq(10L), anyMap()))
+                .thenReturn(new TaskInstanceSubmitResultBO(901L, LocalDateTime.of(2026, 10, 22, 12, 0), before));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(1L))).thenReturn(after);
+        return TaskInstanceSubmitParamsBO.builder().instanceId(100L).orgId(10L).userId(1L).values(Map.of()).build();
+    }
+
+    private NotificationBatchCreateParamsBO capturedNotifications() {
+        var captor = ArgumentCaptor.forClass(NotificationBatchCreateParamsBO.class);
+        verify(inboxNotificationService).createBatch(captor.capture());
+        return captor.getValue();
     }
 
     @Test

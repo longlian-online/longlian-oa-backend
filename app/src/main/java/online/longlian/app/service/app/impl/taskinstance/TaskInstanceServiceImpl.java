@@ -11,6 +11,10 @@ import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
@@ -33,6 +37,9 @@ import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.app.InboxNotificationService;
+import online.longlian.common.enumeration.InboxNotificationKind;
+import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.common.OrganizationMembershipService;
@@ -44,6 +51,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
@@ -67,6 +75,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final OrganizationMembershipService organizationMembershipService;
     private final PlatformTransactionManager transactionManager;
     private final ProjectService projectService;
+    private final InboxNotificationService inboxNotificationService;
 
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
@@ -134,11 +143,42 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public void submitTask(TaskInstanceSubmitParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
-            taskInstanceCommandHandler.submit(instance, params.getUserId(), params.getOrgId(), params.getValues());
+            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
+                    instance, params.getUserId(), params.getOrgId(), params.getValues());
+            recordProgressNotifications(instance, project, result);
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
             return null;
         });
+    }
+
+    private void recordProgressNotifications(TaskInstance instance, Project project,
+                                             TaskInstanceSubmitResultBO result) {
+        List<ItemStageNodeStatusBO> beforeNodes = result.getBeforeNodes();
+        List<ItemStageNodeStatusBO> afterNodes = taskInstanceMapper.selectItemStageNodeStatuses(
+                List.of(instance.getItemId()));
+        List<Long> unlockedNodeIds = afterNodes.stream()
+                .filter(node -> !StageUnlockPolicy.isUnlocked(node.getSort(), beforeNodes)
+                        && StageUnlockPolicy.isUnlocked(node.getSort(), afterNodes))
+                .map(ItemStageNodeStatusBO::getNodeId).toList();
+        List<NotificationCreateBO> notifications = new ArrayList<>();
+        if (!unlockedNodeIds.isEmpty()) {
+            List<TaskInstance> targets = taskInstanceMapper.selectList(new LambdaQueryWrapper<TaskInstance>()
+                    .eq(TaskInstance::getItemId, instance.getItemId())
+                    .in(TaskInstance::getItemTaskNodeId, unlockedNodeIds)
+                    .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                    .isNotNull(TaskInstance::getAssigneeId));
+            for (TaskInstance target : targets) {
+                notifications.add(new NotificationCreateBO(target.getAssigneeId(), InboxNotificationKind.TASK_READY,
+                        target.getId(), result.getSubmissionId(), result.getTriggeredAt()));
+            }
+        }
+        if (!afterNodes.isEmpty() && afterNodes.stream().allMatch(node -> Boolean.TRUE.equals(node.getCompleted()))
+                && !beforeNodes.stream().allMatch(node -> Boolean.TRUE.equals(node.getCompleted()))) {
+            notifications.add(new NotificationCreateBO(project.getCreatorId(), InboxNotificationKind.ITEM_COMPLETED,
+                    instance.getItemId(), result.getSubmissionId(), result.getTriggeredAt()));
+        }
+        inboxNotificationService.createBatch(new NotificationBatchCreateParamsBO(project.getOrgId(), notifications));
     }
 
     @Override
