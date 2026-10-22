@@ -38,6 +38,8 @@ jobs:
 
       - name: Install Task
         uses: go-task/setup-task@v2
+        with:
+          version: 3.50.0
       - name: Run all tests in Docker
         run: |
           mkdir -p .ci-cache/m2
