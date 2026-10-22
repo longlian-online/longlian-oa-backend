@@ -15,4 +15,5 @@ public class NotificationListParamsBO {
     private Long orgId;
     private LocalDateTime beforeCreatedAt;
     private Long beforeId;
+    private Boolean beforeUnread;
 }

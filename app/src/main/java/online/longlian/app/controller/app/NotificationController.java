@@ -35,7 +35,7 @@ public class NotificationController {
     public NotificationPageVO list(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext session,
                                     @Valid @ModelAttribute NotificationListDTO dto) {
         var result = inboxNotificationService.list(new NotificationListParamsBO(session.userId(), session.orgId(),
-                dto.getBeforeCreatedAt(), dto.getBeforeId()));
+                dto.getBeforeCreatedAt(), dto.getBeforeId(), dto.getBeforeUnread()));
         return new NotificationPageVO(result.getList().stream().map(this::toVO).toList(),
                 result.isHasNext(), result.getUnreadCount());
     }

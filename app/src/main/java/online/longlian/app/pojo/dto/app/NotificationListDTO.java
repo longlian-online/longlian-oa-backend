@@ -14,10 +14,11 @@ public class NotificationListDTO {
     private LocalDateTime beforeCreatedAt;
     @Positive
     private Long beforeId;
+    private Boolean beforeUnread;
 
-    @AssertTrue(message = "通知游标参数必须成对提供")
+    @AssertTrue(message = "通知游标参数必须同时提供")
     @Schema(hidden = true)
     public boolean isCursorPaired() {
-        return (beforeCreatedAt == null) == (beforeId == null);
+        return (beforeCreatedAt == null) == (beforeId == null) && (beforeId == null) == (beforeUnread == null);
     }
 }
