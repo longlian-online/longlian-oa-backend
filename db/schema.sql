@@ -454,3 +454,20 @@ CREATE TABLE `deletion_request` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_deletion_request_pending` (`target_type`, `target_id`, `pending_guard`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "删除申请表";
+-- Create "user_notification" table
+CREATE TABLE `user_notification` (
+  `id` bigint NOT NULL COMMENT "通知ID",
+  `org_id` bigint NULL COMMENT "组织作用域",
+  `recipient_user_id` bigint NOT NULL COMMENT "固定收件人ID",
+  `kind` tinyint NOT NULL COMMENT "类型 1-TASK_READY 2-ITEM_COMPLETED",
+  `source_id` bigint NOT NULL COMMENT "类型定义的来源ID",
+  `trigger_id` bigint NOT NULL COMMENT "类型定义的一次触发ID",
+  `read_at` datetime NULL COMMENT "已读时间，NULL为未读",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_notification_event` (`recipient_user_id`, `kind`, `source_id`, `trigger_id`),
+  INDEX `idx_user_notification_inbox` (`org_id`, `recipient_user_id`, `created_at`, `id`),
+  INDEX `idx_user_notification_unread` (`org_id`, `recipient_user_id`, `read_at`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "站内通知表";
