@@ -92,7 +92,7 @@ class InboxEmailOutboxHandlerTest {
         handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME);
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(ready));
         assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 可以开始");
-        assertThat(InboxEmailCopy.slotLabel(new NotificationTaskSlotBO("翻译", 1, 1, 2))).isEqualTo("翻译（第 2 步）");
+        assertThat(InboxEmailCopy.slotLabel(new NotificationTaskSlotBO("翻译", 1, 1, 0))).isEqualTo("翻译");
 
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
         handler.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
@@ -163,6 +163,29 @@ class InboxEmailOutboxHandlerTest {
     }
 
     @Test
+    void shouldRejectEachMissingPayloadField() {
+        List<String> payloads = List.of(
+                "{\"orgId\":1,\"recipientUserId\":4,\"kind\":\"TASK_READY\",\"sourceId\":202}",
+                "{\"notificationId\":9,\"recipientUserId\":4,\"kind\":\"TASK_READY\",\"sourceId\":202}",
+                "{\"notificationId\":9,\"orgId\":1,\"kind\":\"TASK_READY\",\"sourceId\":202}",
+                "{\"notificationId\":9,\"orgId\":1,\"recipientUserId\":4,\"sourceId\":202}",
+                "{\"notificationId\":9,\"orgId\":1,\"recipientUserId\":4,\"kind\":\"TASK_READY\"}");
+        for (String payload : payloads) {
+            assertThatThrownBy(() -> handler.deliver(OutboxMessage.builder().payload(payload).build(), EXECUTE_TIME))
+                    .isInstanceOf(OutboxPermanentException.class).hasMessage("payload 无法解析");
+        }
+        verifyNoInteractions(mailUtil);
+    }
+
+    @Test
+    void shouldSkipWhenResolvedSourceIsAbsent() {
+        when(resolver.resolve(any())).thenReturn(Map.of());
+        assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
+                .isInstanceOf(OutboxSkipException.class).hasMessage("来源不可用");
+        verifyNoInteractions(userMapper, mailUtil);
+    }
+
+    @Test
     void shouldFailConstructionWhenTemplateIsMissing() {
         assertThatThrownBy(() -> handler(new DefaultResourceLoader() {
             @Override
@@ -170,6 +193,23 @@ class InboxEmailOutboxHandlerTest {
                 return new ClassPathResource("templates/missing-inbox-notification.html");
             }
         }, DISPLAY_NAME)).isInstanceOf(IllegalStateException.class).hasMessage("站内通知邮件模板缺失");
+    }
+
+    @Test
+    void shouldFailConstructionWhenTemplateCannotBeRead() {
+        assertThatThrownBy(() -> handler(new DefaultResourceLoader() {
+            @Override
+            public org.springframework.core.io.Resource getResource(String location) {
+                return new ClassPathResource("templates/inbox-notification.html") {
+                    @Override
+                    public java.io.InputStream getInputStream() throws java.io.IOException {
+                        throw new java.io.IOException("boom");
+                    }
+                };
+            }
+        }, DISPLAY_NAME)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("站内通知邮件模板缺失")
+                .hasCauseInstanceOf(java.io.IOException.class);
     }
 
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName) {

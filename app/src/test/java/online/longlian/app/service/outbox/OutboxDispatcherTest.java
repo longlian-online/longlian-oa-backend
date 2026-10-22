@@ -223,11 +223,11 @@ class OutboxDispatcherTest {
     void shouldUseExceptionClassNameWhenMessageIsNull() {
         stubPage(List.of(row(11L, OutboxMessageStatus.PENDING, 0, EXECUTE_TIME)));
         when(mapper.update(isNull(), any())).thenReturn(1);
-        doThrow(new SilentFailure()).when(handler).deliver(any(), any());
+        doThrow(new SilentFailureException()).when(handler).deliver(any(), any());
 
         dispatcher().dispatch(EXECUTE_TIME);
 
-        assertThat(assignments(updates().get(1))).containsEntry("last_error", "SilentFailure");
+        assertThat(assignments(updates().get(1))).containsEntry("last_error", "SilentFailureException");
     }
 
     @Test
@@ -240,6 +240,36 @@ class OutboxDispatcherTest {
         verify(handler, never()).deliver(any(), any());
         assertThat(assignments(updates().get(1))).containsEntry("status", OutboxMessageStatus.FAILED)
                 .containsEntry("last_error", "没有对应的 outbox 处理器");
+    }
+
+    @Test
+    void shouldContinueWhenClaimingOneMessageThrows() {
+        stubPage(List.of(row(13L, OutboxMessageStatus.PENDING, 0, EXECUTE_TIME)));
+        when(mapper.update(isNull(), any())).thenThrow(new IllegalStateException("claim failed"));
+
+        dispatcher().dispatch(EXECUTE_TIME);
+
+        verify(handler, never()).deliver(any(), any());
+    }
+
+    @Test
+    void shouldUseBinaryNameWhenExceptionHasNoSimpleName() {
+        stubPage(List.of(row(14L, OutboxMessageStatus.PENDING, 0, EXECUTE_TIME)));
+        when(mapper.update(isNull(), any())).thenReturn(1);
+        doThrow(new RuntimeException((String) null) {
+        }).when(handler).deliver(any(), any());
+
+        dispatcher().dispatch(EXECUTE_TIME);
+
+        assertThat(assignments(updates().get(1)).get("last_error").toString()).contains("OutboxDispatcherTest");
+    }
+
+    @Test
+    void shouldRejectHandlerWithoutType() {
+        OutboxHandler untyped = mock(OutboxHandler.class);
+        when(untyped.type()).thenReturn(null);
+        assertThatThrownBy(() -> new OutboxDispatcher(List.of(untyped), mapper, transactionManager()))
+                .isInstanceOf(IllegalStateException.class).hasMessage("outbox 处理器缺少类型");
     }
 
     @Test
@@ -307,8 +337,8 @@ class OutboxDispatcherTest {
         };
     }
 
-    private static final class SilentFailure extends RuntimeException {
-        private SilentFailure() {
+    private static final class SilentFailureException extends RuntimeException {
+        private SilentFailureException() {
             super((String) null);
         }
     }

@@ -32,7 +32,7 @@ public class OutboxDispatcher {
 
     public OutboxDispatcher(List<OutboxHandler> handlers, OutboxMessageMapper mapper,
                             PlatformTransactionManager transactionManager) {
-        this.handlers = index(handlers);
+        this.handlers = Map.copyOf(index(handlers));
         this.mapper = mapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -85,21 +85,21 @@ public class OutboxDispatcher {
         OutboxMessageType type = message.getType();
         OutboxHandler handler = type == null ? null : handlers.get(type);
         if (handler == null) {
-            return Outcome.terminal(OutboxMessageStatus.FAILED, "没有对应的 outbox 处理器");
+            return new Outcome(OutboxMessageStatus.FAILED, "没有对应的 outbox 处理器", null);
         }
         try {
             handler.deliver(message, executeTime);
-            return Outcome.sent();
+            return new Outcome(OutboxMessageStatus.SENT, null, null);
         } catch (OutboxSkipException exception) {
-            return Outcome.terminal(OutboxMessageStatus.SKIPPED, errorText(exception));
+            return new Outcome(OutboxMessageStatus.SKIPPED, errorText(exception), null);
         } catch (OutboxPermanentException exception) {
-            return Outcome.terminal(OutboxMessageStatus.FAILED, errorText(exception));
+            return new Outcome(OutboxMessageStatus.FAILED, errorText(exception), null);
         } catch (RuntimeException exception) {
             String error = errorText(exception);
             if (message.getAttemptCount() >= MAX_ATTEMPTS) {
-                return Outcome.terminal(OutboxMessageStatus.FAILED, error);
+                return new Outcome(OutboxMessageStatus.FAILED, error, null);
             }
-            return Outcome.retry(error, retryAt(message.getAttemptCount(), executeTime));
+            return new Outcome(OutboxMessageStatus.PENDING, error, retryAt(message.getAttemptCount(), executeTime));
         }
     }
 
@@ -164,20 +164,30 @@ public class OutboxDispatcher {
                 throw new IllegalStateException("outbox 类型 " + type + " 没有处理器");
             }
         }
-        return Map.copyOf(indexed);
+        return indexed;
     }
 
-    private record Outcome(OutboxMessageStatus status, String lastError, LocalDateTime availableAt) {
-        private static Outcome sent() {
-            return new Outcome(OutboxMessageStatus.SENT, null, null);
+    private static final class Outcome {
+        private final OutboxMessageStatus status;
+        private final String lastError;
+        private final LocalDateTime availableAt;
+
+        private Outcome(OutboxMessageStatus status, String lastError, LocalDateTime availableAt) {
+            this.status = status;
+            this.lastError = lastError;
+            this.availableAt = availableAt;
         }
 
-        private static Outcome terminal(OutboxMessageStatus status, String lastError) {
-            return new Outcome(status, lastError, null);
+        private OutboxMessageStatus status() {
+            return status;
         }
 
-        private static Outcome retry(String lastError, LocalDateTime availableAt) {
-            return new Outcome(OutboxMessageStatus.PENDING, lastError, availableAt);
+        private String lastError() {
+            return lastError;
+        }
+
+        private LocalDateTime availableAt() {
+            return availableAt;
         }
     }
 }
