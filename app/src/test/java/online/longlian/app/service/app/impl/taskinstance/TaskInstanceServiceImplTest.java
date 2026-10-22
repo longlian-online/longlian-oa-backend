@@ -299,7 +299,7 @@ class TaskInstanceServiceImplTest {
     }
 
     @Test
-    void shouldKeepSeparateSourcesAndSelfRecipientWhenParallelStageUnlocks() {
+    void shouldOmitEverySlotClaimedBySubmitter() {
         var before = List.of(progressNode(11L, 1, false), progressNode(12L, 1, true),
                 progressNode(21L, 2, false), progressNode(22L, 2, false));
         var after = List.of(progressNode(11L, 1, true), progressNode(12L, 1, true),
@@ -309,15 +309,24 @@ class TaskInstanceServiceImplTest {
                 TaskInstance.builder().id(201L).assigneeId(1L).build(),
                 TaskInstance.builder().id(202L).assigneeId(1L).build()));
         service.submitTask(params);
-        var batch = capturedNotifications();
-        assertThat(batch.getOrgId()).isEqualTo(10L);
-        assertThat(batch.getNotifications()).extracting(NotificationCreateBO::getSourceId)
-                .containsExactly(201L, 202L);
-        assertThat(batch.getNotifications()).allSatisfy(notification -> {
-            assertThat(notification.getRecipientUserId()).isEqualTo(1L);
+        assertThat(capturedNotifications().getNotifications()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepOnlyOtherAssigneesWhenSubmitterAlsoClaimedASlot() {
+        var before = List.of(progressNode(11L, 1, false), progressNode(12L, 1, true),
+                progressNode(21L, 2, false), progressNode(22L, 2, false));
+        var after = List.of(progressNode(11L, 1, true), progressNode(12L, 1, true),
+                progressNode(21L, 2, false), progressNode(22L, 2, false));
+        var params = prepareSubmit(before, after);
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(201L).assigneeId(1L).build(),
+                TaskInstance.builder().id(202L).assigneeId(4L).build()));
+        service.submitTask(params);
+        assertThat(capturedNotifications().getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(4L);
+            assertThat(notification.getSourceId()).isEqualTo(202L);
             assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.TASK_READY);
-            assertThat(notification.getTriggerId()).isEqualTo(901L);
-            assertThat(notification.getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 10, 22, 12, 0));
         });
     }
 
@@ -346,6 +355,17 @@ class TaskInstanceServiceImplTest {
             assertThat(notification.getSourceId()).isEqualTo(1L);
             assertThat(notification.getTriggerId()).isEqualTo(901L);
         });
+    }
+
+    @Test
+    void shouldOmitItemCompletionWhenPlanningCreatorSubmitsLastTask() {
+        var params = prepareSubmit(List.of(progressNode(11L, 1, true), progressNode(21L, 2, false)),
+                List.of(progressNode(11L, 1, true), progressNode(21L, 2, true)));
+        var project = enabledProject();
+        project.setCreatorId(1L);
+        when(projectMapper.selectById(2L)).thenReturn(project);
+        service.submitTask(params);
+        assertThat(capturedNotifications().getNotifications()).isEmpty();
     }
 
     private ItemStageNodeStatusBO progressNode(Long id, int sort, boolean completed) {

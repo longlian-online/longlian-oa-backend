@@ -145,7 +145,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
-            recordProgressNotifications(instance, project, result);
+            recordProgressNotifications(instance, project, result, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
             return null;
@@ -153,7 +153,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     private void recordProgressNotifications(TaskInstance instance, Project project,
-                                             TaskInstanceSubmitResultBO result) {
+                                             TaskInstanceSubmitResultBO result, Long actorUserId) {
         List<ItemStageNodeStatusBO> beforeNodes = result.getBeforeNodes();
         List<ItemStageNodeStatusBO> afterNodes = taskInstanceMapper.selectItemStageNodeStatuses(
                 List.of(instance.getItemId()));
@@ -169,12 +169,16 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
                     .isNotNull(TaskInstance::getAssigneeId));
             for (TaskInstance target : targets) {
+                if (java.util.Objects.equals(target.getAssigneeId(), actorUserId)) {
+                    continue;
+                }
                 notifications.add(new NotificationCreateBO(target.getAssigneeId(), InboxNotificationKind.TASK_READY,
                         target.getId(), result.getSubmissionId(), result.getTriggeredAt()));
             }
         }
         if (!afterNodes.isEmpty() && afterNodes.stream().allMatch(node -> Boolean.TRUE.equals(node.getCompleted()))
-                && !beforeNodes.stream().allMatch(node -> Boolean.TRUE.equals(node.getCompleted()))) {
+                && !beforeNodes.stream().allMatch(node -> Boolean.TRUE.equals(node.getCompleted()))
+                && !java.util.Objects.equals(project.getCreatorId(), actorUserId)) {
             notifications.add(new NotificationCreateBO(project.getCreatorId(), InboxNotificationKind.ITEM_COMPLETED,
                     instance.getItemId(), result.getSubmissionId(), result.getTriggeredAt()));
         }

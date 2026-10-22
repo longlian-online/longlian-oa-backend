@@ -76,13 +76,24 @@ class NotificationApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldKeepTwoSlotsForSameRecipientIncludingSubmitter() {
+    void shouldOmitBothSlotsWhenSubmitterClaimedThem() {
         jdbcTemplate.update("UPDATE task_instance SET assignee_id=2 WHERE id IN(201,202)");
         success(submit(worker,101));success(submit(worker,102));
+        assertThat(notifications()).isEmpty();
+        list(worker).then().body("data.list",empty());
+    }
+
+    @Test
+    void shouldNotifyOnlyTheOtherAssigneeWhenSubmitterClaimedOneSlot() {
+        jdbcTemplate.update("UPDATE task_instance SET assignee_id=2 WHERE id=201");
+        success(submit(worker,101));success(submit(worker,102));
         var rows=notifications();
-        assertThat(rows).extracting(row -> row.get("recipient_user_id")).containsOnly(2L);
-        assertThat(rows).extracting(row -> row.get("source_id")).containsExactly(201L,202L);
-        list(worker).then().body("data.list.size()",equalTo(2));
+        assertThat(rows).singleElement().satisfies(row -> {
+            assertThat(row.get("recipient_user_id")).isEqualTo(4L);
+            assertThat(row.get("source_id")).isEqualTo(202L);
+        });
+        list(worker).then().body("data.list",empty());
+        list(other).then().body("data.list.sourceId",equalTo(List.of("202")));
     }
 
     @Test
@@ -99,6 +110,16 @@ class NotificationApiTest extends BaseApiTest {
         assertThat(count("SELECT COUNT(*) FROM user_notification WHERE kind=2 AND recipient_user_id=2")).isZero();
         list(owner).then().body("data.list.source.itemId",equalTo(List.of("100")))
                 .body("data.list.source.taskSlot",equalTo(Arrays.asList((Object)null)));
+    }
+
+    @Test
+    void shouldOmitItemCompletionWhenCreatorSubmitsLastTask() {
+        jdbcTemplate.update("UPDATE project SET creator_id=3 WHERE id=10");
+        success(submit(worker,101));success(submit(worker,102));
+        success(submit(next,201));success(submit(other,202));
+        success(authRequest(next,1).post("/app/task/instance/203/claim"));
+        success(submit(next,203));
+        assertThat(count("SELECT COUNT(*) FROM user_notification WHERE kind=2")).isZero();
     }
 
     @Test
