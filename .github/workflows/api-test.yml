@@ -2,8 +2,6 @@ name: All Tests
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, release/v1.0.0 ]
   pull_request:
     branches: [ main, release/v1.0.0 ]
 
