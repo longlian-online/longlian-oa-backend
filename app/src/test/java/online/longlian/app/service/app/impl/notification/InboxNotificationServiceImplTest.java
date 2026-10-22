@@ -25,12 +25,13 @@ class InboxNotificationServiceImplTest {
     @Mock UserNotificationMapper mapper;
     @Mock NotificationSourceResolver resolver;
     @Mock ResourceService resources;
+    @Mock InboxEmailOutboxWriter writer;
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneOffset.UTC);
     InboxNotificationServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new InboxNotificationServiceImpl(resolver, resources, clock);
+        service = new InboxNotificationServiceImpl(resolver, resources, clock, writer);
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
                 new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
                 UserNotification.class);
@@ -97,6 +98,41 @@ class InboxNotificationServiceImplTest {
         when(resources.getResourceReadUrls(anyList())).thenThrow(new IllegalStateException("signer unavailable"));
         assertThatThrownBy(() -> service.list(new NotificationListParamsBO(1L,2L,null,null)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("signer unavailable");
+    }
+
+    @Test
+    void shouldNotEnqueueWhenNothingWasNotified() {
+        service.createBatch(new NotificationBatchCreateParamsBO(1L, List.of()));
+        verifyNoInteractions(writer);
+    }
+
+    @Test
+    void shouldRejectMissingNotificationIdsWithoutEnqueue() {
+        InboxNotificationServiceImpl spyService = spy(service);
+        doReturn(true).when(spyService).saveBatch(anyCollection());
+        assertThatThrownBy(() -> spyService.createBatch(new NotificationBatchCreateParamsBO(1L, List.of(created()))))
+                .isInstanceOf(IllegalStateException.class).hasMessage("站内通知未生成ID");
+        verifyNoInteractions(writer);
+    }
+
+    @Test
+    void shouldEnqueueNotificationsAfterIdsAreGenerated() {
+        InboxNotificationServiceImpl spyService = spy(service);
+        doAnswer(invocation -> {
+            List<UserNotification> rows = invocation.getArgument(0);
+            long id = 11;
+            for (UserNotification row : rows) {
+                row.setId(id++);
+            }
+            return true;
+        }).when(spyService).saveBatch(anyCollection());
+        spyService.createBatch(new NotificationBatchCreateParamsBO(8L, List.of(created(), created())));
+        verify(writer).enqueue(eq(8L), argThat(rows -> rows.stream().map(UserNotification::getId).toList().equals(List.of(11L, 12L))));
+    }
+
+    private NotificationCreateBO created() {
+        return NotificationCreateBO.builder().recipientUserId(4L).kind(InboxNotificationKind.TASK_READY)
+                .sourceId(202L).triggerId(9L).createdAt(LocalDateTime.now(clock)).build();
     }
 
     private UserNotification row(Long id) {

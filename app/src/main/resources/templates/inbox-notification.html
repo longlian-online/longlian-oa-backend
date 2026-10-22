@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${displayName}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            width: 600px;
+            max-width: 100%;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        .header img {
+            max-width: 96px;
+            height: auto;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .footer {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 30px;
+            color: #7f8c8d;
+            padding-top: 20px;
+            border-top: 1px solid #eeeeee;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <h3>${displayName}</h3>
+        <img src="https://longlian-oa-sit-1308050490.cos.ap-guangzhou.myqcloud.com/logo.jpg" alt="${displayName} Logo" width="96" height="96">
+    </div>
+    <div class="content">
+        <p>${message}</p>
+    </div>
+    <div class="footer">
+        <p>本邮件由 ${displayName} 自动发送，请勿回复。</p>
+    </div>
+</div>
+</body>
+</html>

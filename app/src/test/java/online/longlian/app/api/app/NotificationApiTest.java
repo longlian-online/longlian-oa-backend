@@ -1,6 +1,7 @@
 package online.longlian.app.api.app;
 
 import io.restassured.response.Response;
+import com.alibaba.fastjson2.JSONObject;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.properties.StorageProperties;
@@ -153,6 +154,66 @@ class NotificationApiTest extends BaseApiTest {
         } finally {jdbcTemplate.execute("DROP TRIGGER IF EXISTS fail_notification");}
         success(submit(worker,102));
         assertThat(notifications()).hasSize(2);
+    }
+
+    @Test
+    void shouldEnqueueInboxEmailOnlyForNotificationsCreatedBySubmit() {
+        success(submit(worker,101));
+        assertThat(notifications()).isEmpty();
+        assertThat(outbox()).isEmpty();
+        success(submit(worker,102));
+        var notes=notifications();
+        var rows=outbox();
+        assertThat(rows).hasSize(2);
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(((Number) row.get("type")).intValue()).isEqualTo(1);
+            assertThat(((Number) row.get("status")).intValue()).isEqualTo(1);
+        });
+        assertThat(rows).extracting(row -> String.valueOf(row.get("dedupe_key")))
+                .containsExactlyInAnyOrderElementsOf(notes.stream().map(note -> String.valueOf(note.get("id"))).toList());
+        assertThat(rows).extracting(row -> payloadOf(row).getString("kind")).containsOnly("TASK_READY");
+        assertThat(rows).extracting(row -> payloadOf(row).getLong("recipientUserId")).containsExactlyInAnyOrder(3L,4L);
+        assertThat(rows).extracting(row -> payloadOf(row).getLong("sourceId")).containsExactlyInAnyOrder(201L,202L);
+    }
+
+    @Test
+    void shouldEnqueueItemCompletionEmailOnlyForPlanningOwner() {
+        success(submit(worker,101));success(submit(worker,102));
+        success(submit(next,201));success(submit(other,202));
+        success(authRequest(next,1).post("/app/task/instance/203/claim"));
+        success(submit(next,203));
+        var completion=jdbcTemplate.queryForMap("SELECT * FROM user_notification WHERE kind=2");
+        var completed=outbox().stream().filter(row -> "ITEM_COMPLETED".equals(payloadOf(row).getString("kind"))).toList();
+        assertThat(completed).singleElement().satisfies(row -> {
+            assertThat(String.valueOf(row.get("dedupe_key"))).isEqualTo(String.valueOf(completion.get("id")));
+            assertThat(payloadOf(row).getLong("recipientUserId")).isEqualTo(1L);
+            assertThat(payloadOf(row).getLong("sourceId")).isEqualTo(100L);
+        });
+        assertThat(completed).extracting(row -> payloadOf(row).getLong("recipientUserId")).doesNotContain(2L);
+    }
+
+    @Test
+    void shouldOmitItemCompletionEmailWhenOwnerSubmitsLastTask() {
+        jdbcTemplate.update("UPDATE project SET creator_id=3 WHERE id=10");
+        success(submit(worker,101));success(submit(worker,102));
+        success(submit(next,201));success(submit(other,202));
+        success(authRequest(next,1).post("/app/task/instance/203/claim"));
+        success(submit(next,203));
+        assertThat(count("SELECT COUNT(*) FROM user_notification WHERE kind=2")).isZero();
+        assertThat(outbox().stream().map(row -> payloadOf(row).getString("kind"))).doesNotContain("ITEM_COMPLETED");
+    }
+
+    @Test
+    void shouldRollbackSubmissionWhenOutboxInsertFails() {
+        success(submit(worker,101));
+        jdbcTemplate.execute("CREATE TRIGGER fail_outbox_message BEFORE INSERT ON outbox_message FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='outbox write failure'");
+        try {
+            assertThat(submit(worker,102).jsonPath().getInt("code")).isNotZero();
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id=102",Integer.class)).isEqualTo(2);
+            assertThat(count("SELECT COUNT(*) FROM task_submission WHERE task_instance_id=102")).isZero();
+            assertThat(notifications()).isEmpty();
+            assertThat(outbox()).isEmpty();
+        } finally {jdbcTemplate.execute("DROP TRIGGER IF EXISTS fail_outbox_message");}
     }
 
     @Test
@@ -347,6 +408,12 @@ class NotificationApiTest extends BaseApiTest {
     private long count(String sql) {return jdbcTemplate.queryForObject(sql,Long.class);}
     private long submissionId(long instance) {return jdbcTemplate.queryForObject("SELECT id FROM task_submission WHERE task_instance_id=? ORDER BY version_no DESC LIMIT 1",Long.class,instance);}
     private List<Map<String,Object>> notifications() {return jdbcTemplate.queryForList("SELECT * FROM user_notification ORDER BY source_id,trigger_id");}
+    private List<Map<String,Object>> outbox() {return jdbcTemplate.queryForList("SELECT * FROM outbox_message ORDER BY id");}
+    private JSONObject payloadOf(Map<String,Object> row) {
+        Object payload=row.get("payload");
+        String json=payload instanceof byte[] bytes ? new String(bytes, java.nio.charset.StandardCharsets.UTF_8) : String.valueOf(payload);
+        return JSONObject.parseObject(json);
+    }
     private void status(String token,long org,boolean expected) {authRequest(token,org).get(INBOX+"/status").then().body("code",equalTo(0)).body("data.hasUnread",equalTo(expected));}
     private void assertUnavailable(Response response,int index) {
         var notification=response.jsonPath().getMap("data.list["+index+"]");
