@@ -196,19 +196,38 @@ class NotificationApiTest extends BaseApiTest {
                 .containsExactlyElementsOf(LongStream.rangeClosed(6,25).mapToObj(i -> Long.toString(base+31-i)).toList());
         first.then().body("data.hasNext",equalTo(true)).body("data.unreadCount",equalTo(25));
         notification(base+26,1L,1,2,100,5026,SAME_TIME);
-        Response second=authRequest(owner,1).queryParam("beforeCreatedAt",SAME_TIME).queryParam("beforeId",Long.toString(base+6)).get(INBOX);
+        Response second=authRequest(owner,1).queryParam("beforeCreatedAt",SAME_TIME).queryParam("beforeId",Long.toString(base+6)).queryParam("beforeUnread",true).get(INBOX);
         success(second);
         assertThat(second.jsonPath().getList("data.list.id",String.class)).containsExactly(
                 Long.toString(base+5),Long.toString(base+4),Long.toString(base+3),Long.toString(base+2),Long.toString(base+1));
         second.then().body("data.hasNext",equalTo(false)).body("data.unreadCount",equalTo(26));
-        authRequest(owner,1).queryParam("beforeCreatedAt",SAME_TIME).queryParam("beforeId",Long.toString(base+1)).get(INBOX)
+        authRequest(owner,1).queryParam("beforeCreatedAt",SAME_TIME).queryParam("beforeId",Long.toString(base+1)).queryParam("beforeUnread",true).get(INBOX)
                 .then().body("code",equalTo(0)).body("data.list",empty()).body("data.unreadCount",equalTo(26));
+    }
+
+    @Test
+    void shouldKeepUnreadAheadOfNewerReadNotifications() {
+        notification(11,1L,1,2,100,11,"2026-10-22 09:00:00");
+        notification(12,1L,1,2,100,12,"2026-10-22 13:00:00");
+        notification(13,1L,1,2,100,13,"2026-10-22 10:00:00");
+        notification(14,1L,1,2,100,14,"2026-10-22 08:00:00");
+        jdbcTemplate.update("UPDATE user_notification SET read_at='2026-10-22 13:30:00' WHERE id=12");
+        jdbcTemplate.update("UPDATE user_notification SET read_at='2026-10-22 14:00:00' WHERE id=14");
+        var page=list(owner);
+        success(page);
+        assertThat(page.jsonPath().getList("data.list.id",String.class)).containsExactly("13","11","12","14");
+        Response next=authRequest(owner,1).queryParam("beforeCreatedAt","2026-10-22 09:00:00").queryParam("beforeId","11").queryParam("beforeUnread",true).get(INBOX);
+        success(next);
+        assertThat(next.jsonPath().getList("data.list.id",String.class)).containsExactly("12","14");
+        authRequest(owner,1).queryParam("beforeCreatedAt","2026-10-22 13:00:00").queryParam("beforeId","12").queryParam("beforeUnread",false).get(INBOX)
+                .then().body("data.list.id",equalTo(List.of("14")));
     }
 
     @ParameterizedTest
     @ValueSource(strings={"beforeId=1","beforeCreatedAt=2026-10-22%2012:00:00","beforeCreatedAt=bad&beforeId=1",
             "beforeCreatedAt=2026-10-22%2012:00:00&beforeId=0","beforeCreatedAt=2026-10-22%2012:00:00&beforeId=-1",
-            "beforeCreatedAt=2026-10-22%2012:00:00&beforeId=9223372036854775808"})
+            "beforeCreatedAt=2026-10-22%2012:00:00&beforeId=9223372036854775808",
+            "beforeCreatedAt=2026-10-22%2012:00:00&beforeId=1","beforeUnread=true"})
     void shouldRejectInvalidCursor(String query) {
         authRequest(owner,1).urlEncodingEnabled(false).get(INBOX+"?"+query).then().body("code",equalTo(ResultCode.PARAM_ERROR.getCode()));
     }

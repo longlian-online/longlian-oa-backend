@@ -82,7 +82,7 @@ class InboxNotificationServiceImplTest {
                 10L,new ResourceReadUrlGetResultBO("https://wrong.example/img",99L,"wrong"),
                 11L,new ResourceReadUrlGetResultBO("https://cdn.example/cover?sign=ok",2L,"cover"),
                 12L,new ResourceReadUrlGetResultBO("http://localhost/local?key=thumb",2L,"thumb")));
-        var page=service.list(new NotificationListParamsBO(1L,2L,null,null));
+        var page=service.list(new NotificationListParamsBO(1L,2L,null,null,null));
         assertThat(page.getList()).extracting(NotificationResultBO::getThumbnailUrl).containsExactly(
                 "https://cdn.example/cover?sign=ok&eo-img.resize=w/144/h/144",
                 "http://localhost/local?key=thumb&eo-img.resize=w/144/h/144",null);
@@ -95,7 +95,7 @@ class InboxNotificationServiceImplTest {
         when(mapper.selectCount(any())).thenReturn(1L);
         when(resolver.resolve(any())).thenReturn(Map.of(1L,source(List.of(10L))));
         when(resources.getResourceReadUrls(anyList())).thenThrow(new IllegalStateException("signer unavailable"));
-        assertThatThrownBy(() -> service.list(new NotificationListParamsBO(1L,2L,null,null)))
+        assertThatThrownBy(() -> service.list(new NotificationListParamsBO(1L,2L,null,null,null)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("signer unavailable");
     }
 

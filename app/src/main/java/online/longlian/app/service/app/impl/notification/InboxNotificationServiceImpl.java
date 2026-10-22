@@ -40,12 +40,23 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
     public NotificationPageResultBO list(NotificationListParamsBO params) {
         LambdaQueryWrapper<UserNotification> query = inbox(params.getOrgId(), params.getUserId());
         if (params.getBeforeCreatedAt() != null) {
-            query.and(cursor -> cursor.lt(UserNotification::getCreatedAt, params.getBeforeCreatedAt())
-                    .or(sameTime -> sameTime.eq(UserNotification::getCreatedAt, params.getBeforeCreatedAt())
-                            .lt(UserNotification::getId, params.getBeforeId())));
+            LocalDateTime createdAt = params.getBeforeCreatedAt();
+            Long beforeId = params.getBeforeId();
+            if (Boolean.TRUE.equals(params.getBeforeUnread())) {
+                query.and(cursor -> cursor.and(unread -> unread.isNull(UserNotification::getReadAt)
+                                .and(older -> older.lt(UserNotification::getCreatedAt, createdAt)
+                                        .or(same -> same.eq(UserNotification::getCreatedAt, createdAt)
+                                                .lt(UserNotification::getId, beforeId))))
+                        .or(read -> read.isNotNull(UserNotification::getReadAt)));
+            } else {
+                query.isNotNull(UserNotification::getReadAt)
+                        .and(older -> older.lt(UserNotification::getCreatedAt, createdAt)
+                                .or(same -> same.eq(UserNotification::getCreatedAt, createdAt)
+                                        .lt(UserNotification::getId, beforeId)));
+            }
         }
-        List<UserNotification> rows = baseMapper.selectList(query.orderByDesc(UserNotification::getCreatedAt)
-                .orderByDesc(UserNotification::getId).last("LIMIT 21"));
+        List<UserNotification> rows = baseMapper.selectList(query.last(
+                "ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC LIMIT 21"));
         boolean hasNext = rows.size() > 20;
         List<UserNotification> page = hasNext ? rows.subList(0, 20) : rows;
         long unreadCount = baseMapper.selectCount(inbox(params.getOrgId(), params.getUserId())
