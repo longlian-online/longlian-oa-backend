@@ -25,6 +25,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
@@ -605,6 +606,7 @@ class ProjectServiceImplTest {
         service.deleteProject(deleteParams(2L));
 
         verify(projectMapper).deleteById(100L);
+        verify(resourceService, never()).abandonBound(any());
     }
 
     @Test
@@ -619,6 +621,7 @@ class ProjectServiceImplTest {
                             "参数错误,企划已存在项目，请提交删除申请");
                 });
         verify(projectMapper, never()).deleteById(any());
+        verify(resourceService, never()).abandonBound(any());
     }
 
     @Test
@@ -642,6 +645,34 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
         verify(projectMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteProject_withoutItems_abandonsCoverAndThumbnail() {
+        Project project = enabledProject(2L);
+        project.setCoverFileId(11L);
+        project.setThumbnailFileId(12L);
+        when(projectMapper.selectById(100L)).thenReturn(project);
+
+        service.deleteProject(deleteParams(2L));
+
+        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
+        verify(resourceService).abandonBound(abandoned.capture());
+        assertThat(abandoned.getValue().getOrgId()).isEqualTo(1L);
+        assertThat(abandoned.getValue().getResourceIds()).containsExactly(11L, 12L);
+        verify(projectMapper).deleteById(100L);
+    }
+
+    @Test
+    void deleteProjectForReview_abandonsCurrentImages() {
+        Project project = enabledProject(2L);
+        project.setCoverFileId(11L);
+        when(projectMapper.selectById(100L)).thenReturn(project);
+
+        service.deleteProjectForReview(100L, 1L);
+
+        verify(resourceService).abandonBound(any());
+        verify(projectMapper).deleteById(100L);
     }
 
     @Test

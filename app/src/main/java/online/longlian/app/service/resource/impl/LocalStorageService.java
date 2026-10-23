@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 @Service
@@ -133,6 +134,19 @@ public class LocalStorageService implements StorageService {
             Files.deleteIfExists(resolveKey(key));
         } catch (IOException e) {
             throw new IllegalStateException("本地文件删除失败", e);
+        }
+    }
+
+    @Override
+    public OptionalLong findContentLength(String key) {
+        Path target = resolveKey(key);
+        try {
+            if (!Files.isRegularFile(target)) {
+                return OptionalLong.empty();
+            }
+            return OptionalLong.of(Files.size(target));
+        } catch (IOException e) {
+            throw new IllegalStateException("本地文件大小读取失败", e);
         }
     }
 

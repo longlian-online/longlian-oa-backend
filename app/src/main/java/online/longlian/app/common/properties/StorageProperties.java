@@ -12,6 +12,8 @@ public class StorageProperties {
     private StorageType type;
     private long presignedUrlTtlSeconds = 300;
     private Duration unboundResourceRetention = Duration.ofHours(24);
+    private Duration abandonedResourceRetention = Duration.ofDays(30);
+    private Duration sizeReconcileInterval = Duration.ofHours(24);
     private CdnConfig cdn;
     private LocalConfig local;
     private OssConfig oss;
