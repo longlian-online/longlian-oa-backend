@@ -18,6 +18,8 @@ longlian:
   display-name: "longlian-oa"
   # 对外部署地址；与 Ingress Host 一致，本地文件绝对地址复用这里
   server-url: https://oa.longlian.online
+  # 用户端站点根地址，邮件跳转使用。只写协议和主机。
+  web-url: https://oa.longlian.online
   datasource:
     type: mariadb
   cache:

@@ -40,6 +40,7 @@ class InboxEmailOutboxHandlerTest {
     private static final LocalDateTime EXECUTE_TIME = LocalDateTime.of(2026, 10, 23, 9, 0);
     private static final String DISPLAY_NAME = "龙联<OA>";
     private static final String FROM = "mailer@example.com";
+    private static final String WEB = "https://oa.example/";
 
     @Mock NotificationSourceResolver resolver;
     @Mock UserMapper userMapper;
@@ -78,6 +79,7 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent.content()).contains("<title>" + HtmlUtils.htmlEscape(DISPLAY_NAME) + "</title>");
         assertThat(sent.content()).doesNotContain("<title>" + DISPLAY_NAME + "</title>");
         assertThat(sent.content()).contains("<p>" + HtmlUtils.htmlEscape(message) + "</p>");
+        assertThat(sent.content()).contains("href=\"" + HtmlUtils.htmlEscape(link(InboxNotificationKind.TASK_READY, 202L)) + "\"");
         assertThat(sent.content()).doesNotContain("企划<A>");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_READY, new NotificationSourceResultBO(
                 1L, "企划<A>", 7L, "项目", new NotificationTaskSlotBO("翻译", 2, 2, null)))).isEqualTo(message);
@@ -98,6 +100,8 @@ class InboxEmailOutboxHandlerTest {
         handler.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
         String completed = "「企划 · 项目」的全部任务已完成。";
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(completed));
+        assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(link(InboxNotificationKind.ITEM_COMPLETED, 100L)) + "\"");
+        assertThat(sent().content()).doesNotContain("taskInstanceId");
         assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 项目完成");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.ITEM_COMPLETED,
                 new NotificationSourceResultBO(1L, "企划", 7L, "项目", null))).isEqualTo(completed);
@@ -211,9 +215,18 @@ class InboxEmailOutboxHandlerTest {
                 .hasMessage("站内通知邮件模板缺失")
                 .hasCauseInstanceOf(java.io.IOException.class);
     }
+    @Test
+    void shouldRejectWebUrlThatIsNotAnOrigin() {
+        assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, "https://user:secret@oa.example/app?x=1"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.web-url 无效");
+    }
 
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName) {
-        return new InboxEmailOutboxHandler(resolver, userMapper, mailUtil, objectMapper, resources, FROM, displayName);
+        return handler(resources, displayName, WEB);
+    }
+
+    private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName, String webUrl) {
+        return new InboxEmailOutboxHandler(resolver, userMapper, mailUtil, objectMapper, resources, FROM, displayName, webUrl);
     }
 
     private OutboxMessage message(InboxNotificationKind kind, long sourceId) throws Exception {
@@ -226,6 +239,10 @@ class InboxEmailOutboxHandlerTest {
                 List.of());
     }
 
+    private static String link(InboxNotificationKind kind, long sourceId) {
+        return InboxEmailLink.href("https://oa.example", kind, 1L,
+                new NotificationSourceResultBO(1L, "企划", 7L, "项目", null), sourceId);
+    }
     private MailUtil.SendParam sent() {
         ArgumentCaptor<MailUtil.SendParam> captor = ArgumentCaptor.forClass(MailUtil.SendParam.class);
         verify(mailUtil, org.mockito.Mockito.atLeastOnce()).send(captor.capture());

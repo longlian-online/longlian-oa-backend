@@ -21,6 +21,8 @@ longlian:
   display-name: "longlian-oa"
   # 对外部署地址；部署时替换为当前环境域名。
   server-url: https://api.example.com
+  # 用户端站点根地址，邮件跳转使用。只写协议和主机。
+  web-url: https://oa.example.com
   datasource:
     type: mariadb
   cache:

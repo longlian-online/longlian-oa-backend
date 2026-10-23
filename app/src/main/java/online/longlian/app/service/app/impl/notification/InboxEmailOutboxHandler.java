@@ -36,19 +36,29 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
     private final ObjectMapper objectMapper;
     private final String fromEmail;
     private final String displayName;
+    private final String webOrigin;
     private final String htmlTemplate;
 
     public InboxEmailOutboxHandler(NotificationSourceResolver sourceResolver, UserMapper userMapper, MailUtil mailUtil,
                                    ObjectMapper objectMapper, ResourceLoader resourceLoader,
                                    @Value("${spring.mail.username}") String fromEmail,
-                                   @Value("${longlian.display-name}") String displayName) {
+                                   @Value("${longlian.display-name}") String displayName,
+                                   @Value("${longlian.web-url}") String webUrl) {
         this.sourceResolver = sourceResolver;
         this.userMapper = userMapper;
         this.mailUtil = mailUtil;
         this.objectMapper = objectMapper;
         this.fromEmail = fromEmail;
         this.displayName = displayName;
-        this.htmlTemplate = load(resourceLoader).replace("${displayName}", HtmlUtils.htmlEscape(displayName));
+        this.webOrigin = InboxEmailLink.origin(webUrl);
+        String raw = load(resourceLoader);
+        int linkAt = raw.indexOf("${link}");
+        if (linkAt < 0 || raw.indexOf("${link}", linkAt + "${link}".length()) >= 0) {
+            throw new IllegalStateException("站内通知邮件模板缺失");
+        }
+        String withLink = raw.substring(0, linkAt) + InboxEmailLink.PLACEHOLDER
+                + raw.substring(linkAt + "${link}".length());
+        this.htmlTemplate = withLink.replace("${displayName}", HtmlUtils.htmlEscape(displayName));
     }
 
     @Override
@@ -69,7 +79,9 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
             throw new OutboxSkipException("收件人未绑定邮箱");
         }
         String body = InboxEmailCopy.message(payload.kind(), source);
-        String html = htmlTemplate.replace("${message}", HtmlUtils.htmlEscape(body));
+        String href = InboxEmailLink.href(webOrigin, payload.kind(), payload.orgId(), source, payload.sourceId());
+        String html = htmlTemplate.replace(InboxEmailLink.PLACEHOLDER, HtmlUtils.htmlEscape(href))
+                .replace("${message}", HtmlUtils.htmlEscape(body));
         mailUtil.send(new MailUtil.SendParam(fromEmail, email.trim(), displayName,
                 displayName + " " + payload.kind().getDesc(), html));
     }

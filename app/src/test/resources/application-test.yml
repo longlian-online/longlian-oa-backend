@@ -10,6 +10,7 @@
 longlian:
   display-name: "longlian-oa"
   server-url: https://api.test.longlian.online
+  web-url: https://oa.test.longlian.online
   datasource:
     type: mariadb
   cache:
