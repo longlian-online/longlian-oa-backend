@@ -5,11 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserUpdateEmailNotificationsParamsBO {
+public class UserConfigParamsBO {
     private Long userId;
-    private Boolean enabled;
+    private Map<String, Object> config;
 }

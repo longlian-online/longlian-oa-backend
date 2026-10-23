@@ -16,7 +16,7 @@ import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
-import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -129,22 +129,17 @@ class UserServiceImplTest {
     }
 
     @Test
-    void shouldRejectPreferenceUpdatesForMissingUser() {
-        assertThatThrownBy(() -> service.updateEmailNotifications(
-                new UserUpdateEmailNotificationsParamsBO(1L, false)))
+    void shouldRejectConfigOperationsWhenUserNoLongerExists() {
+        UserConfigParamsBO params = new UserConfigParamsBO(1L, Map.of("emailNotificationsEnabled", false));
+        assertThatThrownBy(() -> service.replaceConfig(params))
                 .isInstanceOf(AppException.class)
                 .extracting("code")
                 .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
-    }
-
-    @Test
-    void shouldNotResolveAnEmailRecipientWhenUserNoLongerExists() {
-        assertThat(service.getEmailNotificationRecipient(1L)).isNull();
-    }
-
-    @Test
-    void shouldRejectPreferenceReadWhenUserNoLongerExists() {
-        assertThatThrownBy(() -> service.getEmailNotifications(1L))
+        assertThatThrownBy(() -> service.patchConfig(params))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+        assertThatThrownBy(() -> service.getConfig(1L))
                 .isInstanceOf(AppException.class)
                 .extracting("code")
                 .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());

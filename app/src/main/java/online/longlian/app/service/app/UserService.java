@@ -5,7 +5,7 @@ import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
-import online.longlian.app.pojo.bo.app.UserEmailNotificationsResultBO;
+import online.longlian.app.pojo.bo.app.UserConfigResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
-import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.entity.User;
 
 import java.util.Collection;
@@ -140,11 +140,14 @@ public interface UserService extends IService<User> {
      */
     void updateMyInfo(UserUpdateMyInfoParamsBO params);
 
-    /** 更新邮件通知开关，保留用户的其他配置。 */
-    void updateEmailNotifications(UserUpdateEmailNotificationsParamsBO params);
+    /** 获取完整用户配置；用户不存在时抛出用户不存在异常。 */
+    UserConfigResultBO getConfig(Long userId);
 
-    /** 获取当前用户邮件通知开关，未配置时默认开启。 */
-    UserEmailNotificationsResultBO getEmailNotifications(Long userId);
+    /** 用请求中的完整配置对象替换当前用户配置。 */
+    void replaceConfig(UserConfigParamsBO params);
+
+    /** 只更新请求中出现的配置字段，值为 null 时删除该字段。 */
+    void patchConfig(UserConfigParamsBO params);
 
     /** 按最新用户配置查询邮件收件人；用户不存在时返回 null。 */
     UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId);

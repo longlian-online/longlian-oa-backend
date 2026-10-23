@@ -20,7 +20,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
-import online.longlian.app.pojo.bo.app.UserEmailNotificationsResultBO;
+import online.longlian.app.pojo.bo.app.UserConfigResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
@@ -28,7 +28,7 @@ import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
-import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
@@ -189,19 +189,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public void updateEmailNotifications(UserUpdateEmailNotificationsParamsBO params) {
-        if (userMapper.updateEmailNotifications(params.getUserId(), params.getEnabled().toString()) == 0) {
+    public UserConfigResultBO getConfig(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return new UserConfigResultBO(JSON.parseObject(user.getConfig()));
+    }
+
+    @Override
+    public void replaceConfig(UserConfigParamsBO params) {
+        if (userMapper.replaceConfig(params.getUserId(), JSON.toJSONString(params.getConfig())) == 0) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
     }
 
     @Override
-    public UserEmailNotificationsResultBO getEmailNotifications(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
+    public void patchConfig(UserConfigParamsBO params) {
+        if (userMapper.patchConfig(params.getUserId(), JSON.toJSONString(params.getConfig())) == 0) {
             throw new AppException(ResultCode.USER_NOT_EXIT);
         }
-        return new UserEmailNotificationsResultBO(emailNotificationsEnabled(user));
     }
 
     @Override

@@ -465,7 +465,8 @@ class NotificationApiTest extends BaseApiTest {
     }
 
     private void setEmailNotifications(String token, boolean enabled) {
-        success(userRequest(token).body(Map.of("enabled", enabled)).put("/app/user/config/email-notifications"));
+        success(userRequest(token).body(Map.of("config", Map.of("emailNotificationsEnabled", enabled)))
+                .patch("/app/user/config"));
     }
 
     private List<Integer> emailStatuses(long recipient) {
