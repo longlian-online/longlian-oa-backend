@@ -5,11 +5,14 @@ import com.alibaba.fastjson2.JSONObject;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.properties.StorageProperties;
+import online.longlian.app.common.util.MailUtil;
+import online.longlian.app.service.outbox.OutboxDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.awaitility.Awaitility;
 
 import java.sql.Connection;
@@ -21,9 +24,14 @@ import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class NotificationApiTest extends BaseApiTest {
     @Autowired StorageProperties storageProperties;
+    @Autowired OutboxDispatcher outboxDispatcher;
+    @MockBean MailUtil mailUtil;
     String owner;
     String worker;
     String next;
@@ -190,6 +198,48 @@ class NotificationApiTest extends BaseApiTest {
             assertThat(payloadOf(row).getLong("sourceId")).isEqualTo(100L);
         });
         assertThat(completed).extracting(row -> payloadOf(row).getLong("recipientUserId")).doesNotContain(2L);
+    }
+
+    @Test
+    void shouldSkipQueuedTaskMailAfterDisablingAndSendNewMailAfterEnabling() {
+        success(submit(worker, 101));
+        success(submit(worker, 102));
+        setEmailNotifications(next, false);
+
+        outboxDispatcher.dispatch(testNow().plusSeconds(1));
+
+        assertThat(emailStatuses(3L)).containsExactly(5);
+        assertThat(emailStatuses(4L)).containsExactly(3);
+        verify(mailUtil, never()).send(argThat(mail -> mail.receiver().equals("notifynext@example.com")));
+        verify(mailUtil).send(argThat(mail -> mail.receiver().equals("notifyother@example.com")));
+        list(next).then().body("data.list.sourceId", equalTo(List.of("201")));
+
+        setEmailNotifications(next, true);
+        success(authRequest(worker, 1).post("/app/task/instance/101/reset"));
+        success(submit(worker, 101));
+        outboxDispatcher.dispatch(testNow().plusSeconds(2));
+
+        assertThat(emailStatuses(3L)).containsExactly(5, 3);
+        verify(mailUtil).send(argThat(mail -> mail.receiver().equals("notifynext@example.com")));
+    }
+
+    @Test
+    void shouldSkipProjectCompletionMailWithoutSuppressingInboxOrOtherRecipients() {
+        success(submit(worker, 101));
+        success(submit(worker, 102));
+        success(submit(next, 201));
+        success(submit(other, 202));
+        success(authRequest(next, 1).post("/app/task/instance/203/claim"));
+        success(submit(next, 203));
+        setEmailNotifications(owner, false);
+
+        outboxDispatcher.dispatch(testNow().plusSeconds(1));
+
+        assertThat(emailStatuses(1L)).containsExactly(5);
+        assertThat(emailStatuses(3L)).containsExactly(3);
+        assertThat(emailStatuses(4L)).containsExactly(3);
+        verify(mailUtil, never()).send(argThat(mail -> mail.receiver().equals("notifyowner@example.com")));
+        list(owner).then().body("data.list.sourceId", equalTo(List.of("100")));
     }
 
     @Test
@@ -412,6 +462,16 @@ class NotificationApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE organization_member SET status=0 WHERE id=1");
         assertThat(list(owner).jsonPath().getInt("code")).isNotZero();
         assertThat(authRequest(owner,1).get(INBOX+"/status").jsonPath().getInt("code")).isNotZero();
+    }
+
+    private void setEmailNotifications(String token, boolean enabled) {
+        success(userRequest(token).body(Map.of("config", Map.of("emailNotificationsEnabled", enabled)))
+                .patch("/app/user/config"));
+    }
+
+    private List<Integer> emailStatuses(long recipient) {
+        return jdbcTemplate.queryForList("SELECT status FROM outbox_message "
+                + "WHERE JSON_EXTRACT(payload, '$.recipientUserId') = ? ORDER BY id", Integer.class, recipient);
     }
 
     private void slot(long instance,long node,int sort,int parallel,Long assignee) {

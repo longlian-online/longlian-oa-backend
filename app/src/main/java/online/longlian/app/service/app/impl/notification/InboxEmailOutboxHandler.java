@@ -3,12 +3,12 @@ package online.longlian.app.service.app.impl.notification;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import online.longlian.app.common.util.MailUtil;
-import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
 import online.longlian.app.pojo.bo.app.NotificationSourceRefBO;
 import online.longlian.app.pojo.bo.app.NotificationSourceResolveParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationSourceResultBO;
 import online.longlian.app.pojo.entity.OutboxMessage;
-import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.app.UserService;
 import online.longlian.app.service.outbox.OutboxHandler;
 import online.longlian.app.service.outbox.OutboxPermanentException;
 import online.longlian.app.service.outbox.OutboxSkipException;
@@ -31,7 +31,7 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
     private static final String TEMPLATE = "classpath:templates/inbox-notification.html";
 
     private final NotificationSourceResolver sourceResolver;
-    private final UserMapper userMapper;
+    private final UserService userService;
     private final MailUtil mailUtil;
     private final ObjectMapper objectMapper;
     private final String fromEmail;
@@ -39,13 +39,13 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
     private final String webOrigin;
     private final String htmlTemplate;
 
-    public InboxEmailOutboxHandler(NotificationSourceResolver sourceResolver, UserMapper userMapper, MailUtil mailUtil,
+    public InboxEmailOutboxHandler(NotificationSourceResolver sourceResolver, UserService userService, MailUtil mailUtil,
                                    ObjectMapper objectMapper, ResourceLoader resourceLoader,
                                    @Value("${spring.mail.username}") String fromEmail,
                                    @Value("${longlian.display-name}") String displayName,
                                    @Value("${longlian.web-url}") String webUrl) {
         this.sourceResolver = sourceResolver;
-        this.userMapper = userMapper;
+        this.userService = userService;
         this.mailUtil = mailUtil;
         this.objectMapper = objectMapper;
         this.fromEmail = fromEmail;
@@ -69,15 +69,18 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
     @Override
     public void deliver(OutboxMessage message, LocalDateTime executeTime) {
         InboxEmailPayload payload = payload(message.getPayload());
-        NotificationSourceResultBO source = source(payload);
-        User user = userMapper.selectById(payload.recipientUserId());
-        if (user == null) {
+        UserEmailNotificationRecipientResultBO recipient = userService.getEmailNotificationRecipient(payload.recipientUserId());
+        if (recipient == null) {
             throw new OutboxSkipException("收件人不存在");
         }
-        String email = user.getEmail();
+        if (!recipient.isEmailNotificationsEnabled()) {
+            throw new OutboxSkipException("收件人已关闭邮件通知");
+        }
+        String email = recipient.getEmail();
         if (email == null || email.trim().isEmpty()) {
             throw new OutboxSkipException("收件人未绑定邮箱");
         }
+        NotificationSourceResultBO source = source(payload);
         String body = InboxEmailCopy.message(payload.kind(), source);
         String href = InboxEmailLink.href(webOrigin, payload.kind(), payload.orgId(), source, payload.sourceId());
         String html = htmlTemplate.replace(InboxEmailLink.PLACEHOLDER, HtmlUtils.htmlEscape(href))
