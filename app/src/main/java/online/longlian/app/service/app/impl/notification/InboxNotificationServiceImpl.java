@@ -28,6 +28,7 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
     private final NotificationSourceResolver sourceResolver;
     private final ResourceService resourceService;
     private final Clock clock;
+    private final InboxEmailOutboxWriter inboxEmailOutboxWriter;
 
     @Override
     public NotificationStatusResultBO getStatus(NotificationStatusParamsBO params) {
@@ -121,7 +122,7 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
         if (params.getNotifications().isEmpty()) {
             return;
         }
-        saveBatch(params.getNotifications().stream().map(notification -> UserNotification.builder()
+        List<UserNotification> notifications = params.getNotifications().stream().map(notification -> UserNotification.builder()
                 .orgId(params.getOrgId())
                 .recipientUserId(notification.getRecipientUserId())
                 .kind(notification.getKind())
@@ -129,6 +130,11 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
                 .triggerId(notification.getTriggerId())
                 .createdAt(notification.getCreatedAt())
                 .updatedAt(notification.getCreatedAt())
-                .build()).toList());
+                .build()).toList();
+        saveBatch(notifications);
+        if (notifications.stream().anyMatch(notification -> notification.getId() == null)) {
+            throw new IllegalStateException("站内通知未生成ID");
+        }
+        inboxEmailOutboxWriter.enqueue(params.getOrgId(), notifications);
     }
 }

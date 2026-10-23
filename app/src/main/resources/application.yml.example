@@ -25,6 +25,8 @@ longlian:
   display-name: "longlian-oa"
   # 对外部署地址；用于 OpenAPI 文档及需生成绝对地址的业务代码。
   server-url: http://localhost:10003
+  # 用户端站点根地址，邮件等第三方入口拼 /go。只写协议和主机，不要带路径。
+  web-url: http://localhost:5173
   datasource:
     # mariadb | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
     type: mariadb
@@ -150,6 +152,10 @@ notify:
   email:
     template:
       path: classpath:templates/verify-code.html
+
+outbox:
+  # 关闭后定时任务不领取消息。缺省 true，线上漏配仍会投递
+  dispatch-enabled: true
 
 jwt:
   # HS256 密钥至少 32 字节。生产必须换成高强度随机串，泄露等于可伪造登录

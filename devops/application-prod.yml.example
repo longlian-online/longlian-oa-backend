@@ -21,6 +21,8 @@ longlian:
   display-name: "longlian-oa"
   # 对外部署地址；部署时替换为当前环境域名。
   server-url: https://api.example.com
+  # 用户端站点根地址，邮件跳转使用。只写协议和主机。
+  web-url: https://oa.example.com
   datasource:
     type: mariadb
   cache:
@@ -123,6 +125,10 @@ notify:
   email:
     template:
       path: classpath:templates/verify-code.html
+
+outbox:
+  # 关闭后定时任务不领取消息。缺省 true，线上漏配仍会投递
+  dispatch-enabled: true
 
 jwt:
   # HS256 至少 32 字节。生产必须换成高强度随机串
