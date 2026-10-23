@@ -20,6 +20,7 @@ import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationsResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
@@ -195,13 +196,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public UserEmailNotificationsResultBO getEmailNotifications(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return new UserEmailNotificationsResultBO(emailNotificationsEnabled(user));
+    }
+
+    @Override
     public UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             return null;
         }
+        return new UserEmailNotificationRecipientResultBO(user.getEmail(), emailNotificationsEnabled(user));
+    }
+
+    private boolean emailNotificationsEnabled(User user) {
         Boolean enabled = JSON.parseObject(user.getConfig()).getBoolean("emailNotificationsEnabled");
-        return new UserEmailNotificationRecipientResultBO(user.getEmail(), !Boolean.FALSE.equals(enabled));
+        return !Boolean.FALSE.equals(enabled);
     }
 
     @Override

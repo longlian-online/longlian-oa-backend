@@ -13,6 +13,7 @@ import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationsResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
@@ -33,6 +34,7 @@ import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
+import online.longlian.app.pojo.vo.app.UserEmailNotificationsVO;
 import online.longlian.app.service.app.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -157,6 +159,14 @@ public class UserController {
                         .nickname(updateMyInfoDTO.getNickname())
                         .avatarFileId(updateMyInfoDTO.getAvatarFileId())
                         .build());
+    }
+
+    @Operation(summary = "获取邮件通知开关", description = "返回当前用户邮件通知开关，未配置时默认开启。无需选择组织")
+    @GetMapping("/config/email-notifications")
+    public UserEmailNotificationsVO getEmailNotifications(
+            @UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext) {
+        UserEmailNotificationsResultBO result = userService.getEmailNotifications(sessionContext.userId());
+        return new UserEmailNotificationsVO(result.isEnabled());
     }
 
     @Operation(summary = "设置邮件通知开关", description = "仅修改当前用户配置，默认开启。关闭后不再接收前置任务完成和项目完成邮件，包括尚未投递的邮件；不影响站内通知和验证码邮件。无需选择组织")

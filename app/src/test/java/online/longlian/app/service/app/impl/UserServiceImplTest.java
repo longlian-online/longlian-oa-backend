@@ -143,6 +143,14 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldRejectPreferenceReadWhenUserNoLongerExists() {
+        assertThatThrownBy(() -> service.getEmailNotifications(1L))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+    }
+
+    @Test
     void shouldResetPasswordAndConsumeEmailCode() {
         UserResetPasswordParamsBO params = resetPasswordParams();
         OneTimePassword otp = OneTimePassword.builder().id(10L).build();

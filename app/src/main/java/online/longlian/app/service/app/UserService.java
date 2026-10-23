@@ -5,6 +5,7 @@ import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationsResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
@@ -141,6 +142,9 @@ public interface UserService extends IService<User> {
 
     /** 更新邮件通知开关，保留用户的其他配置。 */
     void updateEmailNotifications(UserUpdateEmailNotificationsParamsBO params);
+
+    /** 获取当前用户邮件通知开关，未配置时默认开启。 */
+    UserEmailNotificationsResultBO getEmailNotifications(Long userId);
 
     /** 按最新用户配置查询邮件收件人；用户不存在时返回 null。 */
     UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId);

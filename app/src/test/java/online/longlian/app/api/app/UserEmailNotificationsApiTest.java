@@ -23,15 +23,24 @@ class UserEmailNotificationsApiTest extends BaseApiTest {
         jdbcTemplate.update("UPDATE `user` SET config = ? WHERE id = 1",
                 "{\"theme\":\"dark\",\"other\":{\"enabled\":false}}");
         String token = loginAs("emailprefs", "123456");
+        userRequest(token).get(ENDPOINT).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.enabled", equalTo(true));
 
         setEnabled(token, false);
         assertThat(config(1L)).isEqualTo(JSON.parseObject(
                 "{\"theme\":\"dark\",\"other\":{\"enabled\":false},\"emailNotificationsEnabled\":false}"));
+        userRequest(token).get(ENDPOINT).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.enabled", equalTo(false));
 
         setEnabled(token, true);
         setEnabled(token, true);
         assertThat(config(1L)).isEqualTo(JSON.parseObject(
                 "{\"theme\":\"dark\",\"other\":{\"enabled\":false},\"emailNotificationsEnabled\":true}"));
+        userRequest(token).get(ENDPOINT).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.enabled", equalTo(true));
     }
 
     @Test
@@ -46,6 +55,10 @@ class UserEmailNotificationsApiTest extends BaseApiTest {
 
         assertThat(config(1L).getBoolean("emailNotificationsEnabled")).isFalse();
         assertThat(config(2L)).isEqualTo(new JSONObject());
+        String otherToken = loginAs("emailother", "123456");
+        userRequest(otherToken).queryParam("userId", "1").get(ENDPOINT).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.enabled", equalTo(true));
     }
 
     @ParameterizedTest
@@ -64,6 +77,8 @@ class UserEmailNotificationsApiTest extends BaseApiTest {
     void shouldRequireUserAuthentication() {
         request().body(Map.of("enabled", false)).put(ENDPOINT)
                 .then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        request().get(ENDPOINT).then().statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
