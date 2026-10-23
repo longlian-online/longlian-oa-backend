@@ -83,6 +83,21 @@ public class OrganizationImpl implements OrganizationService {
     }
 
     @Override
+    public PageResultBO<AdminOrganizationIdentityBO> pageIdentities(@NonNull AdminOrganizationListParamsBO params) {
+        Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
+                .select(Organization::getId, Organization::getName, Organization::getStatus)
+                .like(StringUtils.hasText(params.getOrgName()), Organization::getName, params.getOrgName())
+                .orderByDesc(Organization::getId);
+        Page<Organization> organizationPage = organizationMapper.selectPage(page, queryWrapper);
+        List<AdminOrganizationIdentityBO> list = organizationPage.getRecords().stream()
+                .map(organization -> new AdminOrganizationIdentityBO(
+                        organization.getId(), organization.getName(), organization.getStatus()))
+                .toList();
+        return new PageResultBO<>(list, organizationPage.getTotal());
+    }
+
+    @Override
     public AdminGenerateInviteCodeResultBO generateCreateOrgInviteCode(@NonNull AdminGenerateCreateOrgInviteCodeParamsBO params) {
         requireRoot(params.getCreatorId());
         OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationInvite).generate(

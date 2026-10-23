@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class UnboundResourceCleanupTask implements ScheduledTask {
     private static final ScheduledTaskDefinition DEFINITION = new ScheduledTaskDefinition(
-            "resource-cleanup", "清理超过保留期且从未绑定业务对象的上传文件", "0 0/5 * * * ?", true);
+            "resource-cleanup", "回收过期的未绑定和已废弃文件，并核对存储大小", "0 0/5 * * * ?", true);
 
     private final UnboundResourceCleanupService cleanupService;
 

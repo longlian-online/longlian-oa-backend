@@ -27,7 +27,9 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.service.app.ItemService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.mapper.TaskSubmissionMapper;
@@ -59,6 +61,7 @@ public class ItemServiceImpl implements ItemService {
     private final BaseTaskMapper baseTaskMapper;
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
+    private final ResourceService resourceService;
     private final Clock clock;
     private final ItemQueryBuilder itemQueryBuilder;
     private final ItemAssembler itemAssembler;
@@ -185,14 +188,14 @@ public class ItemServiceImpl implements ItemService {
         if (hasSubmittedTask(params.getItemId())) {
             throw new AppException(ResultCode.PARAM_ERROR, "项目存在已提交任务，请提交删除申请");
         }
-        softDeleteItem(item);
+        softDeleteItem(item, params.getOrgId());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectItemForReview(Long projectId, Long itemId, Long orgId) {
         requireEnabledProject(projectId, orgId);
-        softDeleteItem(requireItem(projectId, itemId));
+        softDeleteItem(requireItem(projectId, itemId), orgId);
     }
 
     @Override
@@ -201,7 +204,7 @@ public class ItemServiceImpl implements ItemService {
         requireEnabledProject(projectId, orgId);
         List<Item> items = itemMapper.selectList(new LambdaQueryWrapper<Item>().eq(Item::getProjectId, projectId));
         for (Item item : items) {
-            softDeleteItem(item);
+            softDeleteItem(item, orgId);
         }
     }
 
@@ -255,7 +258,13 @@ public class ItemServiceImpl implements ItemService {
         return project;
     }
 
-    private void softDeleteItem(Item item) {
+    private void softDeleteItem(Item item, Long orgId) {
+        List<Long> instanceIds = taskInstanceMapper.selectList(new LambdaQueryWrapper<TaskInstance>()
+                        .select(TaskInstance::getId)
+                        .eq(TaskInstance::getItemId, item.getId()))
+                .stream()
+                .map(TaskInstance::getId)
+                .toList();
         LocalDateTime now = LocalDateTime.now(clock);
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
@@ -287,6 +296,13 @@ public class ItemServiceImpl implements ItemService {
                         .gt(TaskTemplate::getRefCount, 0)
                         .setSql("ref_count = ref_count - 1")
                         .set(TaskTemplate::getUpdatedAt, now));
+        if (!instanceIds.isEmpty()) {
+            resourceService.abandonBound(ResourceAbandonParamsBO.builder()
+                    .orgId(orgId)
+                    .bizType("task_submit")
+                    .bizIds(instanceIds)
+                    .build());
+        }
     }
 
 
