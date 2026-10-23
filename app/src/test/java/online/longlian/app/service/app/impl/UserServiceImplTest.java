@@ -138,6 +138,11 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldNotResolveAnEmailRecipientWhenUserNoLongerExists() {
+        assertThat(service.getEmailNotificationRecipient(1L)).isNull();
+    }
+
+    @Test
     void shouldResetPasswordAndConsumeEmailCode() {
         UserResetPasswordParamsBO params = resetPasswordParams();
         OneTimePassword otp = OneTimePassword.builder().id(10L).build();
