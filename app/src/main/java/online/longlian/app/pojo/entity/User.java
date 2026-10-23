@@ -82,6 +82,13 @@ public class User implements Serializable {
     private Long defaultOrgId;
 
     /**
+     * 用户配置
+     */
+    @TableField("config")
+    @ApiModelProperty("用户配置")
+    private String config;
+
+    /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")

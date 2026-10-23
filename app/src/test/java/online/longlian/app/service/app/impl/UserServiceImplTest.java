@@ -16,6 +16,7 @@ import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -42,6 +43,8 @@ import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -110,6 +113,28 @@ class UserServiceImplTest {
                 sessionService,
                 tokenBlacklistService
         );
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "{}|true",
+            "{\"emailNotificationsEnabled\":false}|false",
+            "{\"emailNotificationsEnabled\":true}|true"
+    }, delimiter = '|')
+    void shouldResolveCurrentEmailNotificationPreference(String config, boolean enabled) {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L)
+                .email("user@example.com").config(config).build());
+
+        assertThat(service.getEmailNotificationRecipient(1L).isEmailNotificationsEnabled()).isEqualTo(enabled);
+    }
+
+    @Test
+    void shouldRejectPreferenceUpdatesForMissingUser() {
+        assertThatThrownBy(() -> service.updateEmailNotifications(
+                new UserUpdateEmailNotificationsParamsBO(1L, false)))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
     }
 
     @Test

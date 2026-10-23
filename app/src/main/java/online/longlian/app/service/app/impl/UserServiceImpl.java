@@ -1,5 +1,6 @@
 package online.longlian.app.service.app.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -18,6 +19,7 @@ import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
@@ -25,6 +27,7 @@ import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
@@ -182,6 +185,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             builder.avatarUrl(resizeHeaderAvatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId())));
         }
         return builder.build();
+    }
+
+    @Override
+    public void updateEmailNotifications(UserUpdateEmailNotificationsParamsBO params) {
+        if (userMapper.updateEmailNotifications(params.getUserId(), params.getEnabled().toString()) == 0) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+    }
+
+    @Override
+    public UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        Boolean enabled = JSON.parseObject(user.getConfig()).getBoolean("emailNotificationsEnabled");
+        return new UserEmailNotificationRecipientResultBO(user.getEmail(), !Boolean.FALSE.equals(enabled));
     }
 
     @Override

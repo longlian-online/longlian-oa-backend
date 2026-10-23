@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
@@ -12,6 +13,7 @@ import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
 import online.longlian.app.pojo.entity.User;
 
 import java.util.Collection;
@@ -136,6 +138,12 @@ public interface UserService extends IService<User> {
      * @param params 包含用户 ID、昵称和头像文件 ID 的更新参数
      */
     void updateMyInfo(UserUpdateMyInfoParamsBO params);
+
+    /** 更新邮件通知开关，保留用户的其他配置。 */
+    void updateEmailNotifications(UserUpdateEmailNotificationsParamsBO params);
+
+    /** 按最新用户配置查询邮件收件人；用户不存在时返回 null。 */
+    UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId);
 
     /**
      * 批量解析用户展示名。优先昵称，其次用户名；查不到时用用户 ID。

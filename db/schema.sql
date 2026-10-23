@@ -420,6 +420,7 @@ CREATE TABLE `user` (
   `email` varchar(100) NULL DEFAULT NULL COMMENT "邮箱（登录/通知，未绑定时为NULL）",
   `avatar_file_id` bigint NULL COMMENT "用户头像",
   `default_org_id` bigint NOT NULL DEFAULT 0 COMMENT "默认组织ID",
+  `config` json NOT NULL DEFAULT '{}' COMMENT "用户配置",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

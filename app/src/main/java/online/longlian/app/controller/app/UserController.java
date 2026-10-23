@@ -20,12 +20,14 @@ import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserUpdateEmailNotificationsParamsBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.app.ResetPasswordDTO;
 import online.longlian.app.pojo.dto.app.ChangePasswordDTO;
 import online.longlian.app.pojo.dto.app.BindEmailDTO;
 import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
+import online.longlian.app.pojo.dto.app.UpdateEmailNotificationsDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
@@ -155,6 +157,17 @@ public class UserController {
                         .nickname(updateMyInfoDTO.getNickname())
                         .avatarFileId(updateMyInfoDTO.getAvatarFileId())
                         .build());
+    }
+
+    @Operation(summary = "设置邮件通知开关", description = "仅修改当前用户配置，默认开启。关闭后不再接收前置任务完成和项目完成邮件，包括尚未投递的邮件；不影响站内通知和验证码邮件。无需选择组织")
+    @PutMapping("/config/email-notifications")
+    @ResponseMessage("邮件通知配置已更新")
+    public void updateEmailNotifications(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
+                                         @RequestBody @Valid UpdateEmailNotificationsDTO dto) {
+        userService.updateEmailNotifications(UserUpdateEmailNotificationsParamsBO.builder()
+                .userId(sessionContext.userId())
+                .enabled(dto.getEnabled())
+                .build());
     }
 
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")

@@ -2,13 +2,13 @@ package online.longlian.app.service.app.impl.notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import online.longlian.app.common.util.MailUtil;
-import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.service.app.UserService;
 import online.longlian.app.pojo.bo.app.NotificationResolvedSourceBO;
 import online.longlian.app.pojo.bo.app.NotificationSourceResolveParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationSourceResultBO;
 import online.longlian.app.pojo.bo.app.NotificationTaskSlotBO;
 import online.longlian.app.pojo.entity.OutboxMessage;
-import online.longlian.app.pojo.entity.User;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
 import online.longlian.app.service.outbox.OutboxPermanentException;
 import online.longlian.app.service.outbox.OutboxSkipException;
 import online.longlian.common.enumeration.InboxNotificationKind;
@@ -16,6 +16,8 @@ import online.longlian.common.enumeration.OutboxMessageType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,7 +32,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -43,7 +44,7 @@ class InboxEmailOutboxHandlerTest {
     private static final String WEB = "https://oa.example/";
 
     @Mock NotificationSourceResolver resolver;
-    @Mock UserMapper userMapper;
+    @Mock UserService userService;
     @Mock MailUtil mailUtil;
     InboxEmailOutboxHandler handler;
     final ObjectMapper objectMapper = new ObjectMapper();
@@ -58,8 +59,8 @@ class InboxEmailOutboxHandlerTest {
         String message = "「企划<A> · 项目」的前置步骤已完成，你接取的「翻译 · 2/2」可以开始了。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划<A>", "项目",
                 new NotificationTaskSlotBO("翻译", 2, 2, null))));
-        when(userMapper.selectById(4L)).thenReturn(User.builder().id(4L).nickname("张三")
-                .email("  user@example.com  ").build());
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(
+                new UserEmailNotificationRecipientResultBO("  user@example.com  ", true));
 
         handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME);
 
@@ -90,7 +91,7 @@ class InboxEmailOutboxHandlerTest {
         String ready = "「企划 · 项目」的前置步骤已完成，你接取的「翻译（第 2 步）」可以开始了。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目",
                 new NotificationTaskSlotBO("翻译", 1, 1, 2))));
-        when(userMapper.selectById(4L)).thenReturn(User.builder().email("user@example.com").build());
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
         handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME);
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(ready));
         assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 可以开始");
@@ -111,7 +112,7 @@ class InboxEmailOutboxHandlerTest {
     void shouldNotRescanPlaceholdersInsertedByDisplayNameOrMessage() throws Exception {
         InboxEmailOutboxHandler named = handler(new DefaultResourceLoader(), "名${displayName}");
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划${message}", "项目${displayName}", null)));
-        when(userMapper.selectById(4L)).thenReturn(User.builder().email("user@example.com").build());
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
 
         named.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
 
@@ -124,10 +125,10 @@ class InboxEmailOutboxHandlerTest {
 
     @Test
     void shouldSkipBlankEmailMissingUserAndUnavailableSourceWithoutSending() {
-        when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目",
-                new NotificationTaskSlotBO("翻译", 1, 1, null))));
-        when(userMapper.selectById(4L)).thenReturn(User.builder().email(null).build(),
-                User.builder().email("").build(), User.builder().email("  ").build());
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(
+                new UserEmailNotificationRecipientResultBO(null, true),
+                new UserEmailNotificationRecipientResultBO("", true),
+                new UserEmailNotificationRecipientResultBO("  ", true));
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
                 .isInstanceOf(OutboxSkipException.class).hasMessage("收件人未绑定邮箱");
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
@@ -135,24 +136,35 @@ class InboxEmailOutboxHandlerTest {
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
                 .isInstanceOf(OutboxSkipException.class).hasMessage("收件人未绑定邮箱");
 
-        when(userMapper.selectById(4L)).thenReturn(null);
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(null);
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
                 .isInstanceOf(OutboxSkipException.class).hasMessage("收件人不存在");
 
-        org.mockito.Mockito.clearInvocations(userMapper);
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
         when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(null, List.of())));
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
                 .isInstanceOf(OutboxSkipException.class).hasMessage("来源不可用");
-        verify(userMapper, never()).selectById(any());
         verifyNoInteractions(mailUtil);
+    }
+
+    @ParameterizedTest
+    @EnumSource(InboxNotificationKind.class)
+    void shouldSkipBothNotificationKindsWhenEmailNotificationsAreDisabled(InboxNotificationKind kind) {
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(
+                new UserEmailNotificationRecipientResultBO("user@example.com", false));
+
+        assertThatThrownBy(() -> handler.deliver(message(kind, 202L), EXECUTE_TIME))
+                .isInstanceOf(OutboxSkipException.class);
+        verifyNoInteractions(resolver, mailUtil);
     }
 
     @Test
     void shouldSkipTaskReadyWhenSlotIsMissing() {
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
                 .isInstanceOf(OutboxSkipException.class).hasMessage("来源不可用");
-        verifyNoInteractions(userMapper, mailUtil);
+        verifyNoInteractions(mailUtil);
     }
 
     @Test
@@ -163,7 +175,7 @@ class InboxEmailOutboxHandlerTest {
         message.setPayload("{\"notificationId\":9}");
         assertThatThrownBy(() -> handler.deliver(message, EXECUTE_TIME))
                 .isInstanceOf(OutboxPermanentException.class).hasMessage("payload 无法解析");
-        verifyNoInteractions(resolver, userMapper, mailUtil);
+        verifyNoInteractions(resolver, userService, mailUtil);
     }
 
     @Test
@@ -184,9 +196,10 @@ class InboxEmailOutboxHandlerTest {
     @Test
     void shouldSkipWhenResolvedSourceIsAbsent() {
         when(resolver.resolve(any())).thenReturn(Map.of());
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
         assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
                 .isInstanceOf(OutboxSkipException.class).hasMessage("来源不可用");
-        verifyNoInteractions(userMapper, mailUtil);
+        verifyNoInteractions(mailUtil);
     }
 
     @Test
@@ -226,12 +239,16 @@ class InboxEmailOutboxHandlerTest {
     }
 
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName, String webUrl) {
-        return new InboxEmailOutboxHandler(resolver, userMapper, mailUtil, objectMapper, resources, FROM, displayName, webUrl);
+        return new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper, resources, FROM, displayName, webUrl);
     }
 
     private OutboxMessage message(InboxNotificationKind kind, long sourceId) throws Exception {
         return OutboxMessage.builder().type(OutboxMessageType.INBOX_EMAIL)
                 .payload(objectMapper.writeValueAsString(new InboxEmailPayload(9L, 1L, 4L, kind, sourceId))).build();
+    }
+
+    private static UserEmailNotificationRecipientResultBO recipient() {
+        return new UserEmailNotificationRecipientResultBO("user@example.com", true);
     }
 
     private static NotificationResolvedSourceBO source(String projectTitle, String itemTitle, NotificationTaskSlotBO slot) {
