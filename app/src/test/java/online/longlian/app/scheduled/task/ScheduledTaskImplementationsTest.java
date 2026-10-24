@@ -37,7 +37,7 @@ class ScheduledTaskImplementationsTest {
         LocalDateTime executeTime = LocalDateTime.of(2026, 10, 23, 1, 2, 3);
 
         assertThat(task.getDefinition().getTaskName()).isEqualTo("outbox-dispatch");
-        assertThat(task.getDefinition().getCronExpression()).isEqualTo("0/15 * * * * ?");
+        assertThat(task.getDefinition().getCronExpression()).isEqualTo("0 * * * * ?");
         task.execute(executeTime);
 
         verifyNoInteractions(dispatcher);

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Component
 public class OutboxDispatchTask implements ScheduledTask {
     private static final ScheduledTaskDefinition DEFINITION = new ScheduledTaskDefinition(
-            "outbox-dispatch", "投递到期的 outbox 消息", "0/15 * * * * ?", true);
+            "outbox-dispatch", "投递到期的 outbox 消息", "0 * * * * ?", true);
 
     private final OutboxDispatcher dispatcher;
     private final boolean dispatchEnabled;
