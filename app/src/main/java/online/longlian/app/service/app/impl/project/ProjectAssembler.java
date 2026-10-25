@@ -83,7 +83,7 @@ public class ProjectAssembler {
                             .projectStatus(project.getStatus())
                             .metadata(project.getMetadata())
                             .creatorAvatarUrl(avatarUrl)
-                            .creatorUsername(creator != null ? creator.getUsername() : null)
+                            .creatorNickname(creator != null ? creator.getNickname() : null)
                             .creatorLastSubmittedAt(member != null ? member.getLastSubmittedAt() : null)
                             .build();
                 })

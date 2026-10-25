@@ -22,6 +22,6 @@ public class ProjectListResultBO {
     private ProjectStatus projectStatus;
     private String metadata;
     private String creatorAvatarUrl;
-    private String creatorUsername;
+    private String creatorNickname;
     private LocalDateTime creatorLastSubmittedAt;
 }

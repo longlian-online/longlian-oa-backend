@@ -40,8 +40,8 @@ public class ProjectInfoVO {
     @Schema(description = "创建人头像URL")
     private String creatorAvatarUrl;
 
-    @Schema(description = "创建人用户名")
-    private String creatorUsername;
+    @Schema(description = "创建人昵称")
+    private String creatorNickname;
 
     @Schema(description = "创建人在当前组织最近一次任务提交时间，打回不回退；无提交记录时为空")
     private LocalDateTime creatorLastSubmittedAt;

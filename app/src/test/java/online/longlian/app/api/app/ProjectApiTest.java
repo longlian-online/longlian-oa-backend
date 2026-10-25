@@ -57,9 +57,9 @@ public class ProjectApiTest extends BaseApiTest {
         Response response = authRequest(token).get("/app/projects");
 
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat(response.path("data.list[0].creatorUsername").toString()).isEqualTo("owner-account");
+        assertThat(response.path("data.list[0].creatorNickname").toString()).isEqualTo("展示昵称");
         assertThat(response.path("data.list[0].creatorLastSubmittedAt").toString()).isEqualTo("2026-10-24 09:30:00");
-        assertThat(response.asString()).doesNotContain("展示昵称");
+        assertThat(response.asString()).doesNotContain("owner-account");
     }
 
     @Test
@@ -72,7 +72,7 @@ public class ProjectApiTest extends BaseApiTest {
         Response response = authRequest(token).get("/app/projects");
 
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat((Object) response.path("data.list[0].creatorUsername")).isNull();
+        assertThat((Object) response.path("data.list[0].creatorNickname")).isNull();
         assertThat((Object) response.path("data.list[0].creatorLastSubmittedAt")).isNull();
     }
 

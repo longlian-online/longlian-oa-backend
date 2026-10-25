@@ -51,10 +51,10 @@ class ProjectSearchApiTest extends BaseApiTest {
         Response response = search("星海");
 
         response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat((String) response.path("data.list[0].creatorUsername")).isEqualTo("searchuser");
+        assertThat((String) response.path("data.list[0].creatorNickname")).isEqualTo("搜索昵称");
         assertThat((String) response.path("data.list[0].creatorLastSubmittedAt"))
                 .isEqualTo("2026-10-24 09:30:00");
-        assertThat(response.asString()).doesNotContain("搜索昵称");
+        assertThat(response.asString()).doesNotContain("searchuser");
     }
 
     /** 英文完整关键词命中按 5/3/1 字段权重排序。 */
