@@ -33,10 +33,6 @@ on:
         required: false
         type: string
         default: ""
-    outputs:
-      pushed:
-        description: true only when both images were pushed
-        value: ${{ jobs.publish.outputs.pushed }}
     secrets:
       GIT_PASSWORD:
         required: true
@@ -55,8 +51,6 @@ jobs:
       packages: write
       # 覆盖默认权限后，恢复 Actions cache 需要显式打开。
       actions: read
-    outputs:
-      pushed: ${{ steps.result.outputs.pushed }}
     env:
       GHCR_REGISTRY: ghcr.io
       CNB_REGISTRY: docker.cnb.cool
@@ -247,13 +241,3 @@ jobs:
           labels: ${{ steps.meta-migration.outputs.labels }}
           annotations: ${{ steps.meta-migration.outputs.annotations }}
 
-      - name: Record whether images were pushed
-        id: result
-        if: always()
-        run: |
-          set -Eeuo pipefail
-          if [ "${{ steps.app.outcome }}" = "success" ] && [ "${{ steps.migration.outcome }}" = "success" ]; then
-            echo "pushed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "pushed=false" >> "$GITHUB_OUTPUT"
-          fi
