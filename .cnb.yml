@@ -1,0 +1,20 @@
+$:
+  tag_deploy.production:
+    - name: deploy-production
+      runner:
+        cpus: 1
+      docker:
+        build:
+          dockerfile: devops/cnb/Dockerfile
+          by:
+            - devops/cnb/Dockerfile
+      lock:
+        key: deploy-production
+        wait: true
+        cancel-in-wait: true
+      imports:
+        - https://cnb.cool/longlian.online/oa-deploy-secrets/-/blob/main/prod.yml
+      stages:
+        - name: deploy
+          script: |
+            bash devops/cnb/deploy-production.sh

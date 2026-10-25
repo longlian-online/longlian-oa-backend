@@ -78,8 +78,8 @@ migrate Job（prod apply，读同一份配置，先于/伴随应用执行）
 
 1. 可用的 k8s 集群与 `kubectl`（命名空间内资源 + Secret 权限）。
 2. 镜像已发布：`docker.cnb.cool/longlian.online/longlian-oa-backend`
-   （应用 `:latest` / `:1.2.3`；迁移 `:migration-latest` / `:1.2.3-migration`，
-   由 `.github/workflows/publish-docker.yml` 在打 tag 时推送）。
+   （正式服应用 `:<version>`、迁移 `:<version>-migration`；测试服为 `:sit` 与 `:sit-migration`。
+   版本镜像由 `.github/workflows/publish-docker.yml` 在打 tag 时推送，不再推 `:latest`）。
 3. 服务器有 git 访问权限（用于拉取仓库更新）。
 4. （可选）Traefik（含 CRD）用于对外暴露；cert-manager 用于备选 Ingress 方案。
 5. 默认全量部署**不需要**任何外部 MariaDB / Redis。

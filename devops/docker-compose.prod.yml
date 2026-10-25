@@ -6,10 +6,10 @@
 # 准备：
 #   cp devops/application-prod.yml.example devops/application-prod.yml
 #   填写外部地址与密钥
+#   设置 APP_TAG 与 MIGRATION_TAG。测试服用 sit / sit-migration，
+#   正式服用 X.Y.Z / X.Y.Z-migration。不要用 latest 或 migration-latest。
 # 启动：
-#   task prod
-# 停止：
-#   task prod-down
+#   APP_TAG=1.2.3 MIGRATION_TAG=1.2.3-migration task prod
 #
 # 应用配置挂载为 /app/config/application.yml。
 # 存储、CDN、密钥等项直接写在 YAML 中。
@@ -23,7 +23,7 @@ name: longlian-oa-prod
 
 services:
   migrate:
-    image: ghcr.io/longlian-online/longlian-oa-backend:migration-latest
+    image: ghcr.io/longlian-online/longlian-oa-backend:${MIGRATION_TAG:?Set MIGRATION_TAG}
     container_name: longlian-oa-migrate-prod
     restart: "no"
     extra_hosts:
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   longlian-oa:
-    image: ghcr.io/longlian-online/longlian-oa-backend:latest
+    image: ghcr.io/longlian-online/longlian-oa-backend:${APP_TAG:?Set APP_TAG}
     container_name: longlian-oa-prod
     restart: unless-stopped
     volumes:

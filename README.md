@@ -122,7 +122,7 @@ cp app/src/main/resources/application.yml.example app/src/main/resources/applica
 
 `application.yml` 不要提交。字段说明写在模板注释里。
 
-Docker 开发环境挂载本模板，compose 用环境变量覆盖 MariaDB/Redis 主机名。生产复制 `devops/application-prod.yml.example` 后 `task prod`。测试使用已提交的 `app/src/test/resources/application-test.yml`。
+Docker 开发环境挂载本模板，compose 用环境变量覆盖 MariaDB/Redis 主机名。生产复制 `devops/application-prod.yml.example` 后设置 `APP_TAG`、`MIGRATION_TAG` 再执行 `task prod`。测试使用已提交的 `app/src/test/resources/application-test.yml`。
 
 存储与 CDN 项直接写在 YAML 中。CDN 接入与签名算法见 [docs/cdn.md](docs/cdn.md)。
 

@@ -54,8 +54,8 @@ spec:
         fsGroup: 100
       containers:
         - name: longlian-oa
-          # 发布版本对应镜像 tag：v1.2.3 → :1.2.3；非预发布同时打 :latest
-          # （见 .github/workflows/publish-docker.yml，推送到 docker.cnb.cool）
+          # 发布工作流只推 :<version>（v1.2.3 → :1.2.3），不再推 :latest。
+          # 应用前改成要部署的版本。测试服固定标签是 :sit。
           image: docker.cnb.cool/longlian.online/longlian-oa-backend:latest
           ports:
             - name: http

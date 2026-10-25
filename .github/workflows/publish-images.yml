@@ -1,0 +1,229 @@
+# 构建并推送应用镜像与迁移镜像（linux/amd64）。
+# 调用方决定标签。本工作流不部署。
+#
+# 镜像:
+#   ghcr.io/<owner>/<repo>
+#   docker.cnb.cool/longlian.online/longlian-oa-backend
+#
+# CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
+#
+# 依赖来自 main 上 All Tests 写入的 Actions cache（tag 与 sit 工作流读得到 main 的 cache，
+# 写出去的缓存下一发构建读不到）。
+# 不再用 type=gha,mode=max：层缓存会被 pom 版本打穿，导出本身要数分钟，而且仓库 cache 配额只有 10GB。
+name: Publish images
+
+on:
+  workflow_call:
+    inputs:
+      app-tags:
+        description: docker/metadata-action tags for the app image
+        required: true
+        type: string
+      migration-tags:
+        description: docker/metadata-action tags for the migration image
+        required: true
+        type: string
+      tip-branch:
+        description: If set, push only while this branch still points at the current commit
+        required: false
+        type: string
+        default: ""
+    outputs:
+      pushed:
+        description: true only when both images were pushed
+        value: ${{ jobs.publish.outputs.pushed }}
+    secrets:
+      GIT_PASSWORD:
+        required: true
+
+jobs:
+  publish:
+    name: Build and push
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+      # 覆盖默认权限后，恢复 Actions cache 需要显式打开。
+      actions: read
+    outputs:
+      pushed: ${{ steps.result.outputs.pushed }}
+    env:
+      GHCR_REGISTRY: ghcr.io
+      CNB_REGISTRY: docker.cnb.cool
+      GHCR_IMAGE: ${{ github.repository }}
+      CNB_IMAGE: longlian.online/longlian-oa-backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Skip if the branch tip has moved
+        id: gate
+        run: |
+          set -Eeuo pipefail
+          tip_branch="${{ inputs.tip-branch }}"
+          if [ -z "$tip_branch" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$tip_branch" in
+            *[!A-Za-z0-9._/-]*)
+              echo "invalid tip-branch" >&2
+              exit 1
+              ;;
+          esac
+          git fetch --no-tags origin "refs/heads/${tip_branch}"
+          tip="$(git rev-parse FETCH_HEAD)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip: origin/${tip_branch} is ${tip}, this run is ${GITHUB_SHA}"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        id: buildx
+        if: success() && steps.gate.outputs.proceed == 'true'
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Maven cache key
+        id: m2key
+        if: success() && steps.gate.outputs.proceed == 'true'
+        run: echo "hash=$(python3 devops/ci/m2-cache-key.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Maven repository
+        if: success() && steps.gate.outputs.proceed == 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .ci-cache/m2
+          key: m2-${{ runner.os }}-${{ steps.m2key.outputs.hash }}
+          restore-keys: |
+            m2-${{ runner.os }}-
+            maven-${{ runner.os }}-
+
+      - name: Ensure Maven cache directory
+        if: success() && steps.gate.outputs.proceed == 'true'
+        run: mkdir -p .ci-cache/m2
+
+      - name: Inject Maven cache into BuildKit
+        if: success() && steps.gate.outputs.proceed == 'true'
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          cache-map: |
+            {
+              ".ci-cache/m2": {
+                "target": "/root/.m2",
+                "id": "m2"
+              }
+            }
+          skip-extraction: true
+
+      - name: Log in to GHCR
+        if: success() && steps.gate.outputs.proceed == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to CNB
+        if: success() && steps.gate.outputs.proceed == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.CNB_REGISTRY }}
+          username: cnb
+          password: ${{ secrets.GIT_PASSWORD }}
+
+      - name: Recheck the branch tip before pushing
+        id: recheck
+        if: success() && steps.gate.outputs.proceed == 'true'
+        run: |
+          set -Eeuo pipefail
+          tip_branch="${{ inputs.tip-branch }}"
+          if [ -z "$tip_branch" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags origin "refs/heads/${tip_branch}"
+          tip="$(git rev-parse FETCH_HEAD)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip push: origin/${tip_branch} is ${tip}, this run is ${GITHUB_SHA}"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Docker metadata (app)
+        id: meta
+        if: success() && steps.recheck.outputs.proceed == 'true'
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
+            ${{ env.CNB_REGISTRY }}/${{ env.CNB_IMAGE }}
+          flavor: |
+            latest=false
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: ${{ inputs.app-tags }}
+
+      - name: Build and push app image
+        id: app
+        if: success() && steps.recheck.outputs.proceed == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./devops/Dockerfile
+          build-args: |
+            INCLUDE_OTEL=true
+          push: true
+          platforms: linux/amd64
+          # CNB Docker 制品库拒绝 Buildx 默认附带的 provenance attestation。
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+
+      - name: Extract Docker metadata (migration)
+        id: meta-migration
+        if: success() && steps.recheck.outputs.proceed == 'true'
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
+            ${{ env.CNB_REGISTRY }}/${{ env.CNB_IMAGE }}
+          flavor: |
+            latest=false
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: ${{ inputs.migration-tags }}
+
+      - name: Build and push migration image
+        id: migration
+        if: success() && steps.recheck.outputs.proceed == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./devops/Dockerfile.migration
+          push: true
+          platforms: linux/amd64
+          # 与应用镜像保持一致，避免 CNB 拒绝 provenance attestation。
+          provenance: false
+          tags: ${{ steps.meta-migration.outputs.tags }}
+          labels: ${{ steps.meta-migration.outputs.labels }}
+          annotations: ${{ steps.meta-migration.outputs.annotations }}
+
+      - name: Record whether images were pushed
+        id: result
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          if [ "${{ steps.app.outcome }}" = "success" ] && [ "${{ steps.migration.outcome }}" = "success" ]; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          fi

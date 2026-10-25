@@ -1,0 +1,22 @@
+# CNB 密钥仓库文件，不要放进本仓库。
+# 放到 https://cnb.cool/longlian.online/oa-deploy-secrets/-/blob/main/prod.yml
+# 流水线 .cnb.yml 的 tag_deploy.production 会 imports 这份文件。
+#
+# 不要设置 allow_branches：部署时 CNB_BRANCH 是标签名，不是 main。
+# 不要设置 allow_images：流水线级 imports 给脚本任务使用，声明 allow_images 后无法引用。
+allow_slugs:
+  - longlian.online/longlian-oa-backend
+allow_events:
+  - tag_deploy.production
+
+DEPLOY_SSH_HOST: "203.0.113.10"
+DEPLOY_SSH_PORT: "22"
+DEPLOY_SSH_USER: "root"
+DEPLOY_DIR: "/root/longlian-oa-deploy"
+# ssh-keyscan -p 22 <host> 的输出。必须包含主机名或 IP，与 DEPLOY_SSH_HOST 一致。
+DEPLOY_SSH_KNOWN_HOSTS: |
+  203.0.113.10 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleOnlyReplaceThisKey
+DEPLOY_SSH_KEY: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  replace-with-the-prod-deploy-private-key
+  -----END OPENSSH PRIVATE KEY-----

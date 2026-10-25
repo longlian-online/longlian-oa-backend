@@ -1,0 +1,9 @@
+environments:
+  - name: production
+    title: 部署正式服
+    description: 正式服。先等 GitHub 上该标签的镜像构建成功，再部署。vX.Y.Z 使用镜像 X.Y.Z 与 X.Y.Z-migration。
+    permissions:
+      roles:
+        - master
+    env:
+      tag_name: $CNB_BRANCH
