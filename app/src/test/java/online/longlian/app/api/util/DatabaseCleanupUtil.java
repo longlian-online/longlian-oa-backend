@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 
 @Slf4j
@@ -92,16 +93,22 @@ public class DatabaseCleanupUtil {
             return;
         }
 
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
-        for (String table : tableNames) {
-            try {
-                jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
-            } catch (Exception e) {
-                log.warn("TRUNCATE 表 {} 失败: {}", table, e.getMessage());
+        // 外键开关是会话级变量：必须在同一个连接上完成「关闭 → TRUNCATE → 恢复」，
+        // 否则连接池分到不同连接时外键检查仍生效，TRUNCATE 会静默失败并污染后续用例。
+        try (Connection conn = dataSource.getConnection()) {
+            try (Statement statement = conn.createStatement()) {
+                statement.execute("SET FOREIGN_KEY_CHECKS = 0");
+                for (String table : tableNames) {
+                    statement.execute("TRUNCATE TABLE `" + table + "`");
+                }
+            } finally {
+                try (Statement restore = conn.createStatement()) {
+                    restore.execute("SET FOREIGN_KEY_CHECKS = 1");
+                }
             }
+        } catch (SQLException e) {
+            throw new IllegalStateException("测试数据清理失败", e);
         }
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
-        log.debug("已清空 {} 张表", tableNames.size());
     }
 
     private List<String> getAllTableNames() {

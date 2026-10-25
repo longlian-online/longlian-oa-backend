@@ -1,5 +1,6 @@
 package online.longlian.app.service.app.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -18,12 +19,16 @@ import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
+import online.longlian.app.pojo.bo.app.UserConfigResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
@@ -55,7 +60,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -63,6 +70,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    /** 页头右上角用户头像、左上角当前组织头像按 EdgeOne 参数缩放到 64x64。 */
+    private static final String HEADER_AVATAR_RESIZE_PARAM = "eo-img.resize=w/64/h/64";
 
     private final PasswordEncoder passwordEncoder;
     private final OrganizationMapper organizationMapper;
@@ -117,6 +127,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         clearSessionAfterCommit(user.getId());
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void bindEmail(UserBindEmailParamsBO params) {
+        User user = userMapper.selectById(params.getUserId());
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        if (StringUtils.hasText(user.getEmail())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已绑定");
+        }
+
+        OTPStrategyService emailVerifyService = otpServiceFactory.get(OTPType.EmailVerify);
+        OneTimePassword emailOtp = emailVerifyService.getValid(
+                OTPValidateContextBO.builder()
+                        .code(params.getCode())
+                        .target(params.getEmail())
+                        .businessType(EmailVerifyBusinessType.BIND_EMAIL)
+                        .build()
+        );
+        try {
+            int updated = userMapper.update(null, new LambdaUpdateWrapper<User>()
+                    .set(User::getEmail, params.getEmail())
+                    .eq(User::getId, user.getId())
+                    .and(wrapper -> wrapper.isNull(User::getEmail).or().eq(User::getEmail, "")));
+            if (updated == 0) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已绑定");
+            }
+        } catch (DuplicateKeyException exception) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
+        }
+        emailVerifyService.use(OTPUseContextBO.builder().otpId(emailOtp.getId()).build());
+        clearSessionAfterCommit(user.getId());
+    }
+
     private void clearSessionAfterCommit(Long userId) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -139,9 +183,75 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null && user.getAvatarFileId() > 0) {
-            builder.avatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId()));
+            builder.avatarUrl(resizeHeaderAvatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId())));
         }
         return builder.build();
+    }
+
+    @Override
+    public UserConfigResultBO getConfig(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+        return new UserConfigResultBO(JSON.parseObject(user.getConfig()));
+    }
+
+    @Override
+    public void replaceConfig(UserConfigParamsBO params) {
+        if (userMapper.replaceConfig(params.getUserId(), JSON.toJSONString(params.getConfig())) == 0) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+    }
+
+    @Override
+    public void patchConfig(UserConfigParamsBO params) {
+        if (userMapper.patchConfig(params.getUserId(), JSON.toJSONString(params.getConfig())) == 0) {
+            throw new AppException(ResultCode.USER_NOT_EXIT);
+        }
+    }
+
+    @Override
+    public UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return new UserEmailNotificationRecipientResultBO(user.getEmail(), emailNotificationsEnabled(user));
+    }
+
+    private boolean emailNotificationsEnabled(User user) {
+        Boolean enabled = JSON.parseObject(user.getConfig()).getBoolean("emailNotificationsEnabled");
+        return !Boolean.FALSE.equals(enabled);
+    }
+
+    @Override
+    public Map<Long, String> displayNames(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = userIds.stream().filter(id -> id != null).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, User> users = userMapper.selectList(new LambdaQueryWrapper<User>().in(User::getId, ids))
+                .stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+        Map<Long, String> names = new LinkedHashMap<>();
+        for (Long id : ids) {
+            names.put(id, displayName(users.get(id), id));
+        }
+        return names;
+    }
+
+    private String displayName(User user, Long userId) {
+        if (user != null && StringUtils.hasText(user.getNickname())) {
+            return user.getNickname();
+        }
+        if (user != null && StringUtils.hasText(user.getUsername())) {
+            return user.getUsername();
+        }
+        return String.valueOf(userId);
     }
 
     @Override
@@ -167,7 +277,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
                 ? Collections.emptyMap()
                 : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> resizeHeaderAvatarUrl(e.getValue().getUrl())));
 
         return orgs.stream()
                 .map(org -> OrgSimpleInfoBO.builder()
@@ -176,6 +286,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .avatarUrl(avatarUrlMap.get(org.getAvatarFileId()))
                         .build())
                 .toList();
+    }
+
+    private static String resizeHeaderAvatarUrl(String url) {
+        return url + (url.contains("?") ? "&" : "?") + HEADER_AVATAR_RESIZE_PARAM;
     }
 
     @Override
@@ -245,7 +359,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         OrganizationMember organizationMember = OrganizationMember.builder()
                 .orgId(organization.getId())
                 .userId(user.getId())
-                .orgRole(InviteConstants.ROLE_ORG_ADMIN)
+                .orgRole(InviteConstants.ROLE_ORG_OWNER)
                 .joinedAt(now)
                 .submitCount(0)
                 .status(Status.ENABLED)
@@ -438,7 +552,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, user.getId())
                 .set(User::getPassword, encodedPassword));
-        // 密码一变，此前签发的 token 全部作废；黑名单是鉴权链上的统一校验入口
+        // 先作废刷新会话，再写入访问凭证截点。截点取在刷新锁释放之后，并发换发的新访问凭证也会落在截点之前。
+        sessionService.revokeRefreshSessions(user.getId());
         tokenBlacklistService.blacklistAllUserTokens(TokenType.User, user.getId(), "密码变更");
     }
 

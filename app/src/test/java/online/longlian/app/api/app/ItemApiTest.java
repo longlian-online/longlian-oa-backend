@@ -94,7 +94,7 @@ public class ItemApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
         jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) VALUES (1, 1, 1, '测试企划', 'alias', '{}', 0, '说明', 1, 1)");
         jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 1, 1)");
-        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '禁用任务', '[]', 0, 1), (2, 1, '启用任务', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '任务A', '[]', 1, 1), (2, 1, '启用任务', '[]', 1, 1)");
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 2, 0, 1), (2, 1, 1, 1, 1), (3, 1, 2, 2, 1)");
 
         authRequest(token).body(Map.of("title", "批量快照项目", "taskTemplateId", "1"))
@@ -104,7 +104,7 @@ public class ItemApiTest extends BaseApiTest {
         authRequest(token).get("/app/item/" + itemId + "/flow").then()
                 .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.nodes.baseTaskId", equalTo(java.util.List.of("2", "1", "2")))
-                .body("data.nodes.name", equalTo(java.util.List.of("启用任务", "禁用任务", "启用任务")));
+                .body("data.nodes.name", equalTo(java.util.List.of("启用任务", "任务A", "启用任务")));
 
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (4, 1, 999, 3, 1)");
         authRequest(token).body(Map.of("title", "缺失任务项目", "taskTemplateId", "1"))
@@ -115,77 +115,66 @@ public class ItemApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id=1", Integer.class)).isEqualTo(1);
     }
 
-    /**
-     * 删除项目成功
-     */
+    /** 模板引用的原子任务停用后，仍可创建项目并执行该节点。 */
     @Test
-    void shouldDeleteItemSuccessfully() {
+    void shouldCreateAndExecuteProjectWhenTemplateReferencesDisabledBaseTask() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "worker", "123456", "worker@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         String token = loginAs("orgadmin", "123456");
+        String workerToken = loginAs("worker", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) VALUES (1, 1, 1, '测试企划', 'alias', '{}', 0, '说明', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '停用后的最新任务', '[]', 0, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
 
-        jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试类型", 1, 1L
-        );
+        authRequest(token).body(Map.of("title", "停用任务项目", "taskTemplateId", "1"))
+                .post("/app/projects/1/items").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE title = '停用任务项目'", Long.class);
+        String instanceId = authRequest(token).get("/app/item/" + itemId + "/flow").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.nodes.size()", equalTo(1))
+                .body("data.nodes[0].name", equalTo("停用后的最新任务"))
+                .body("data.nodes[0].taskStatus", equalTo("PENDING"))
+                .extract().path("data.nodes[0].taskInstanceId");
 
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
-        );
-
-        jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
-        );
-
-        Response response = authRequest(token)
-                .delete("/app/projects/1/items/1");
-
-        response
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(0));
+        authRequest(workerToken, 1L).post("/app/task/instance/" + instanceId + "/claim").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(workerToken, 1L).body(Map.of("values", Map.of()))
+                .post("/app/task/instance/" + instanceId + "/submit").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("提交成功"));
+        authRequest(token).get("/app/item/" + itemId + "/flow").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.nodes[0].taskStatus", equalTo("COMPLETED"));
     }
 
-    /**
-     * 公布项目成功
-     */
+
+    /** 模板里已写入的外组织原子任务不能在创建项目时把名称抄进节点。 */
     @Test
-    void shouldPublishItemSuccessfully() {
+    void shouldRejectCopyingAnotherOrganizationsBaseTaskNameIntoProjectNode() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "组织B");
         String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id) VALUES (1, 1, 1, '测试企划', 'alias', '{}', 0, '说明', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 2, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[{\"key\":\"secret\"}]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 2, 1, 1)");
 
-        jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试类型", 1, 1L
-        );
-
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
-        );
-
-        jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
-        );
-
-        createTaskInstance(1L, 3);
-
-        Response response = authRequest(token)
-                .patch("/app/projects/1/items/1/publish");
-
-        response
-                .then()
+        authRequest(token).body(Map.of("title", "泄露项目", "taskTemplateId", "1"))
+                .post("/app/projects/1/items").then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
+        assertThat(jdbcTemplate.queryForList("SELECT name FROM item_task_node", String.class))
+                .doesNotContain("组织B机密任务");
     }
+
+
 
     /**
      * 获取项目任务流成功
@@ -208,9 +197,9 @@ public class ItemApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -245,6 +234,7 @@ public class ItemApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data", notNullValue())
+                .body("data.itemTitle", equalTo("测试项目"))
                 .body("data.nodes", hasSize(1))
                 .body("data.nodes[0].baseTaskIcon", equalTo("Languages"));
     }
@@ -297,33 +287,7 @@ public class ItemApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
-    /**
-     * 未认证删除项目失败
-     */
-    @Test
-    void shouldFailDeleteItemWithoutAuth() {
-        Response response = request()
-                .delete("/app/projects/1/items/1");
 
-        response
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
-    }
-
-    /**
-     * 未认证公布项目失败
-     */
-    @Test
-    void shouldFailPublishItemWithoutAuth() {
-        Response response = request()
-                .patch("/app/projects/1/items/1/publish");
-
-        response
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
-    }
 
     /**
      * Token无效查询项目列表失败
@@ -425,69 +389,9 @@ public class ItemApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
-    /**
-     * 删除不存在的项目应失败
-     */
-    @Test
-    void shouldFailDeleteNonExistentItem() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
 
-        jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试类型", 1, 1L
-        );
+    // ========== 业务规则：完成情况筛选与模板 ==========
 
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
-        );
-
-        Response response = authRequest(token)
-                .delete("/app/projects/1/items/99999");
-
-        response
-                .then()
-                .statusCode(200)
-                .body("code", not(equalTo(0)));
-    }
-
-    // ========== 业务规则：发布与模板 ==========
-
-    /**
-     * 重复公布已公布的项目应失败（覆盖 publishProjectItem PUBLISHED 分支）
-     */
-    @Test
-    void shouldFailPublishAlreadyPublishedItem() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
-
-        jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试类型", 1, 1L
-        );
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
-        );
-        // status=3 → ItemStatus.PUBLISHED，已公布
-        jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 3, 1L
-        );
-
-        Response response = authRequest(token)
-                .patch("/app/projects/1/items/1/publish");
-
-        response.then()
-                .statusCode(200)
-                .body("code", not(equalTo(0)));
-    }
 
     /**
      * 项目列表存在数据时返回组装后的项目信息
@@ -496,13 +400,14 @@ public class ItemApiTest extends BaseApiTest {
     void shouldListItemsWithData() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
-        createProjectWithItem(1);
+        createProjectWithItem();
         createTaskNode(1L);
         createTaskInstance(1L, 3);
 
         Response response = authRequest(token)
                 .queryParam("pageNum", 1)
                 .queryParam("pageSize", 10)
+                .queryParam("status", "COMPLETED")
                 .get("/app/projects/1/items");
 
         response
@@ -514,52 +419,37 @@ public class ItemApiTest extends BaseApiTest {
                 .body("data.list[0].progressPercent", equalTo(100));
     }
 
-    /**
-     * 存在未完成任务时不允许公布，且项目状态保持不变
-     */
     @Test
-    void shouldFailPublishItemWithUnfinishedTask() {
+    void shouldTreatItemWithoutTasksAsInProgress() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
-        createProjectWithItem(1);
+        createProjectWithItem();
 
-        // status=3 已完成 + status=1 待接取，项目仍有任务未完成
+        authRequest(token).queryParam("status", "IN_PROGRESS").get("/app/projects/1/items")
+                .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(1));
+        authRequest(token).queryParam("status", "COMPLETED").get("/app/projects/1/items")
+                .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(0));
+    }
+
+    @Test
+    void shouldKeepItemInProgressWhenAnyTaskIsUnfinished() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        createProjectWithItem();
         createTaskInstance(1L, 3);
         createTaskInstance(2L, 1);
 
-        Response response = authRequest(token)
-                .patch("/app/projects/1/items/1/publish");
-
-        response.then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
-        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
-                .isEqualTo(1);
+        authRequest(token).queryParam("status", "IN_PROGRESS").get("/app/projects/1/items")
+                .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(1));
+        authRequest(token).queryParam("status", "COMPLETED").get("/app/projects/1/items")
+                .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(0));
     }
 
-    /**
-     * 项目没有任何任务实例时不允许公布
-     */
-    @Test
-    void shouldFailPublishItemWithoutTasks() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
-        createProjectWithItem(1);
-
-        Response response = authRequest(token)
-                .patch("/app/projects/1/items/1/publish");
-
-        response.then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
-        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
-                .isEqualTo(1);
-    }
 
     /**
      * 只创建企划与项目本身，任务实例按用例需要补充
      */
-    private void createProjectWithItem(int itemStatus) {
+    private void createProjectWithItem() {
         jdbcTemplate.update(
                 "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
@@ -571,9 +461,9 @@ public class ItemApiTest extends BaseApiTest {
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, itemStatus, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
     }
 
@@ -709,9 +599,9 @@ public class ItemApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 1L, 1L, 1L, "禁用企划", 1, 0, 1L);
         jdbcTemplate.update(
-                "INSERT INTO item (id, project_id, title, task_template_id, status, creator_id) " +
-                        "VALUES (?, ?, ?, ?, ?, ?)",
-                1L, 1L, "测试项目", 1L, 1, 1L);
+                "INSERT INTO item (id, project_id, title, task_template_id, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "测试项目", 1L, 1L);
 
         assertProjectNotFound(authRequest(token)
                 .queryParam("pageNum", 1)
@@ -720,8 +610,6 @@ public class ItemApiTest extends BaseApiTest {
         assertProjectNotFound(authRequest(token)
                 .body(Map.of("title", "新项目", "taskTemplateId", "1"))
                 .post("/app/projects/1/items"));
-        assertProjectNotFound(authRequest(token).delete("/app/projects/1/items/1"));
-        assertProjectNotFound(authRequest(token).patch("/app/projects/1/items/1/publish"));
         assertProjectNotFound(authRequest(token).get("/app/item/1/flow"));
     }
 

@@ -15,10 +15,13 @@ import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
 import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
 import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
+import online.longlian.app.pojo.bo.app.SessionRefreshResultBO;
 import online.longlian.app.pojo.dto.app.EmailCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByCodeDTO;
 import online.longlian.app.pojo.dto.app.LoginByPwdDTO;
+import online.longlian.app.pojo.dto.app.RefreshSessionDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
+import online.longlian.app.pojo.vo.app.SessionRefreshVO;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.common.enumeration.OTPType;
@@ -81,6 +84,17 @@ public class SessionController {
         );
     }
 
+    @Operation(summary = "刷新会话", description = "用刷新凭证换发访问凭证。不改变当前组织。", security = {})
+    @PostMapping("/refresh")
+    @UserSession(OrganizationDeclaration.NONE)
+    @ResponseMessage("刷新成功")
+    public SessionRefreshVO refresh(@RequestBody @Valid RefreshSessionDTO refreshSessionDTO) {
+        SessionRefreshResultBO resultBO = sessionService.refresh(refreshSessionDTO.getRefreshToken());
+        SessionRefreshVO sessionRefreshVO = new SessionRefreshVO();
+        BeanUtils.copyProperties(resultBO, sessionRefreshVO);
+        return sessionRefreshVO;
+    }
+
     @Operation(summary = "退出登录")
     @DeleteMapping("/")
     @UserSession(OrganizationDeclaration.NONE)
@@ -88,7 +102,7 @@ public class SessionController {
     public void logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return;
+            return; // skipcq: TCV-001 没有凭证时安全链已经拒绝，进不到这里
         }
         String token = authHeader.substring(7);
         sessionService.logout(

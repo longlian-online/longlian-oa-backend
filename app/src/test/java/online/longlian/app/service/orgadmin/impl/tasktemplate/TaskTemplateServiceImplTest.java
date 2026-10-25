@@ -4,10 +4,13 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,8 +23,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TaskTemplateServiceImplTest {
@@ -58,7 +65,7 @@ class TaskTemplateServiceImplTest {
 
     @Test
     void createTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
-        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(1L), any());
 
         assertThatThrownBy(() -> service.createTaskTemplate(TaskTemplateCreateParamsBO.builder()
                 .orgId(1L)
@@ -72,6 +79,33 @@ class TaskTemplateServiceImplTest {
                 });
 
         verifyNoInteractions(taskTemplateNodeMapper);
+    }
+
+    @Test
+    void changeTaskTemplateStatus_otherOrganization_rejectsWithoutUpdate() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(2L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> service.changeTaskTemplateStatus(TaskTemplateChangeStatusParamsBO.builder()
+                .templateId(8L).orgId(1L).status(Status.DISABLED).build()))
+                .isInstanceOfSatisfying(AppException.class, ex ->
+                        assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+
+        verify(taskTemplateMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void getTaskTemplateDetail_disabledTemplate_rejects() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(1L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.getTaskTemplateDetail(8L, 1L))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+                    assertThat(ex.getMessage()).contains("任务模板已被禁用");
+                });
+
+        verifyNoInteractions(taskTemplateAssembler);
     }
 
     private static TaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {

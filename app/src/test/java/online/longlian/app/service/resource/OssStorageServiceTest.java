@@ -25,7 +25,7 @@ public class OssStorageServiceTest {
     void testGeneratePresignedUploadUrl() {
         AtomicReference<PresignedUploadUrlResultBO> result = new AtomicReference<>();
         Assertions.assertThatCode(()->{
-            result.set(ossStorageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("key")));
+            result.set(ossStorageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO("key", null)));
         }).doesNotThrowAnyException();
 
         Assertions.assertThat(result.get()).isNotNull();

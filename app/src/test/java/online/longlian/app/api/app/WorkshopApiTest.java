@@ -4,6 +4,8 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 import java.util.Map;
@@ -11,6 +13,90 @@ import java.util.Map;
 import static org.hamcrest.Matchers.*;
 
 public class WorkshopApiTest extends BaseApiTest {
+
+    @ParameterizedTest
+    @CsvSource({
+            "RECENT_SUBMISSION, 20, 10, 40, 30",
+            "CREATED_DESC, 40, 30, 20, 10",
+            "CREATED_ASC, 10, 20, 30, 40"
+    })
+    void shouldSortAcrossPagesWithStableTies(String sortBy, String first, String second,
+            String third, String fourth) {
+        String token = createSortingFixture();
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 2, "sortBy", sortBy))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.total", equalTo(4))
+                .body("data.list.id", contains(first, second));
+        authRequest(token).body(Map.of("pageNum", 2, "pageSize", 2, "sortBy", sortBy))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.total", equalTo(4))
+                .body("data.list.id", contains(third, fourth));
+    }
+
+    @Test
+    void shouldDefaultToLatestSubmissionAndDisplayMatchingSubmitter() {
+        String token = createSortingFixture();
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list.id", contains("20", "10", "40", "30"))
+                .body("data.list[0].lastSubmitterAt", equalTo("2026-10-03 12:00:00"))
+                .body("data.list[0].lastSubmitterUsername", equalTo("submitter"))
+                .body("data.list[1].lastSubmitterAt", equalTo("2026-10-01 12:00:00"))
+                .body("data.list[2].lastSubmitterAt", nullValue());
+    }
+
+    @Test
+    void shouldKeepAllFiltersWhenSorting() {
+        String token = createSortingFixture();
+        jdbcTemplate.update("UPDATE project SET creator_id = 2 WHERE id = 20");
+        jdbcTemplate.update("UPDATE project SET type_id = 2 WHERE id = 40");
+        authRequest(token).body(Map.of("pageNum", 1, "pageSize", 2, "sortBy", "CREATED_ASC",
+                        "keyword", "企划", "projectType", "漫画", "isMyCreated", true))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(0)).body("data.total", equalTo(2))
+                .body("data.list.id", contains("10", "30"));
+    }
+
+    @Test
+    void shouldRejectInvalidSortBy() {
+        String token = createSortingFixture();
+        authRequest(token).body(Map.of("sortBy", "created_at; DROP TABLE project"))
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        authRequest(token).body("{\"sortBy\":null}")
+                .post("/app/workshop/list").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    private String createSortingFixture() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "submitter", "123456", "submitter@example.com");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        for (long id : List.of(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L, 90L)) {
+            String createdAt = id <= 20 ? "2026-09-01 12:00:00" : "2026-09-02 12:00:00";
+            jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id, created_at) VALUES (?, ?, 1, ?, 1, ?)",
+                    id, id == 60 ? 2L : 1L, "企划" + id, createdAt);
+            jdbcTemplate.update("INSERT INTO project_workshop (id, project_id, user_id) VALUES (?, ?, ?)",
+                    id, id, id == 50 ? 2L : 1L);
+        }
+        jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 70");
+        jdbcTemplate.update("UPDATE project_workshop SET deleted_at = NOW() WHERE project_id = 80");
+        jdbcTemplate.update("UPDATE project SET deleted_at = NOW() WHERE id = 90");
+        insertSortingSubmission(1, 10, 1, "2026-10-01 12:00:00");
+        insertSortingSubmission(2, 20, 1, "2026-10-02 12:00:00");
+        insertSortingSubmission(3, 20, 2, "2026-10-03 12:00:00");
+        insertSortingSubmission(4, 20, 1, "2026-10-03 12:00:00");
+        jdbcTemplate.update("UPDATE task_submission SET deleted_at = NOW() WHERE id = 4");
+        insertSortingSubmission(5, 30, 1, "2026-10-04 12:00:00");
+        jdbcTemplate.update("UPDATE task_submission SET deleted_at = NOW() WHERE id = 5");
+        return loginAs("orgadmin", "123456");
+    }
+
+    private void insertSortingSubmission(long id, long projectId, long submitterId, String createdAt) {
+        jdbcTemplate.update("INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, created_at) "
+                        + "VALUES (?, ?, 1, 1, 1, ?, ?)", id, projectId, submitterId, createdAt);
+    }
 
     @Test
     void shouldReturnLatestSubmissionPerProject() {
@@ -356,6 +442,34 @@ public class WorkshopApiTest extends BaseApiTest {
                 "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                 "SELECT description FROM task_template WHERE id = 1", String.class)).isEqualTo("原说明");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
+    }
+
+    /** 个人模板同样不能引用当前组织以外的原子任务。 */
+    @Test
+    void shouldRejectPersonalTemplateReferencingAnotherOrganizationsBaseTask() {
+        createUserWithOrganization(1L, "member", "123456", "member@example.com", 1L, 1L, "ORG_USER");
+        createOrganization(2L, "组织B");
+        String token = loginAs("member", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[]', 1, 1)");
+        Map<String, Object> body = Map.of("name", "跨组织个人模板", "description", "说明",
+                "nodes", List.of(Map.of("baseTaskId", "2", "sort", 0, "parallelSort", 1)));
+
+        authRequest(token).body(body).post("/app/workshop/task-template").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '组织A任务', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id) VALUES (1, 1, '原模板', '原说明', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 0, 1)");
+        authRequest(token).body(body).put("/app/workshop/task-template/1").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                 "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
     }

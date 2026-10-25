@@ -24,15 +24,14 @@ public class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
     private LockService lockService;
 
     /**
-     * 请求通过入口鉴权后暂停在组织锁前；另一个管理员先提交降级，恢复时必须按当前角色重新授权。
+     * 请求通过入口鉴权后暂停在组织锁前；锁内必须按数据库里的当前角色重新授权。
      */
     @Test
-    void shouldRejectDemotedOperatorAfterAuthentication() throws Exception {
-        createUserWithOrganization(1L, "firstadmin", "123456", "first@example.com", 1L, 1L, "ORG_ADMIN");
-        createTestUser(2L, "secondadmin", "123456", "second@example.com");
-        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
-        String firstToken = loginAs("firstadmin", "123456");
-        String secondToken = loginAs("secondadmin", "123456");
+    void shouldRejectOperatorWhoLostOwnershipBeforeLock() throws Exception {
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String ownerToken = loginAs("owner", "123456");
 
         CountDownLatch blockedBeforeLock = new CountDownLatch(1);
         CountDownLatch resume = new CountDownLatch(1);
@@ -47,14 +46,11 @@ public class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Response> staleRequest = CompletableFuture.supplyAsync(() ->
-                    authRequest(firstToken).body(Map.of("orgRole", "ORG_USER"))
+                    authRequest(ownerToken).body(Map.of("orgRole", "ORG_ADMIN"))
                             .patch("/orgadmin/members/2/role"), executor);
             try {
                 assertThat(blockedBeforeLock.await(15, TimeUnit.SECONDS)).isTrue();
-                Response demotion = authRequest(secondToken).body(Map.of("orgRole", "ORG_USER"))
-                        .patch("/orgadmin/members/1/role");
-                demotion.then().statusCode(200);
-                assertThat(demotion.jsonPath().getInt("code")).isEqualTo(ResultCode.SUCCESS.getCode());
+                jdbcTemplate.update("UPDATE organization_member SET org_role = 'ORG_USER' WHERE id = 1");
             } finally {
                 resume.countDown();
             }
@@ -65,9 +61,7 @@ public class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
         }
 
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 1", String.class)).isEqualTo("ORG_USER");
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_ADMIN");
+                "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
     }
 
     /**
@@ -75,7 +69,7 @@ public class OrgAdminMemberConcurrencyApiTest extends BaseApiTest {
      */
     @Test
     void shouldRejectDisableAfterTargetBecomesAdmin() throws Exception {
-        createUserWithOrganization(1L, "firstadmin", "123456", "first@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "firstadmin", "123456", "first@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         String token = loginAs("firstadmin", "123456");

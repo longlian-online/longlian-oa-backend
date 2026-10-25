@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
@@ -20,6 +21,7 @@ import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
+import online.longlian.app.common.util.ContentDispositionUtil;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -53,8 +56,9 @@ public class ResourceService {
     private final Clock clock;
 
     public ResourceCreateVO create(ResourceCreateParamsBO params) {
+        rejectOversized(params);
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
-            throw new AppException(ResultCode.PARAM_ERROR, "头像和封面只能上传图片");
+            throw new AppException(ResultCode.PARAM_ERROR, "头像、封面和缩略图只能上传图片");
         }
         // 1. 生成文件ID
         long fileId = IdWorker.getId();
@@ -80,13 +84,18 @@ public class ResourceService {
                 .updatedAt(LocalDateTime.now(clock))
                 .build();
 
-        // 4. 获取上传链接
+        // 4. 获取上传链接；任务附件把原文件名写进对象头，下载时由存储/CDN 透传还原名称。
         StorageService storageService = storageFactory.get(file.getStorageType());
-        PresignedUploadUrlResultBO uploadBO = storageService.generatePresignedUploadUrl(new PresignedUploadUrlParamsBO(storageKey));
+        String contentDisposition = "task_submit".equals(params.getBizType())
+                ? ContentDispositionUtil.attachment(params.getFileName())
+                : null;
+        PresignedUploadUrlResultBO uploadBO = storageService.generatePresignedUploadUrl(
+                new PresignedUploadUrlParamsBO(storageKey, contentDisposition));
 
         resourceMapper.insert(file);
 
-        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(), file.getStorageType());
+        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(),
+                file.getStorageType(), uploadBO.getContentDisposition());
     }
 
     public String getResourceReadUrl(Long fileId) {
@@ -112,7 +121,9 @@ public class ResourceService {
                 Resource::getId,
                 Resource::getStorageKey,
                 Resource::getStorageType,
-                Resource::getOrgId
+                Resource::getOrgId,
+                Resource::getBizType,
+                Resource::getFileName
         ).in(Resource::getId, resourceIds);
         query.eq(Resource::getProcessStatus, FileProcessStatus.Activated);
 
@@ -133,7 +144,13 @@ public class ResourceService {
 
     private String getCdnReadUrl(Resource resource, long cdnTimestamp) {
         if (!isCdnEnabled()) {
-            return storageFactory.get(resource.getStorageType()).getResourceReadUrl(resource.getStorageKey());
+            // CDN 关闭时读取走存储原生 URL；任务附件带原文件名覆盖响应头，下载名即原文件名。
+            StorageService storageService = storageFactory.get(resource.getStorageType());
+            if (!"task_submit".equals(resource.getBizType())) {
+                return storageService.getResourceReadUrl(resource.getStorageKey());
+            }
+            return storageService.getResourceReadUrl(resource.getStorageKey(),
+                    ContentDispositionUtil.attachment(resource.getFileName()));
         }
         if (resource.getStorageType() != StorageType.LOCAL) {
             return cdnUrlSigner.sign(resource.getStorageKey(), cdnTimestamp);
@@ -211,7 +228,7 @@ public class ResourceService {
     /**
      * 将业务对象的单个资源更新为指定资源。
      * <p>
-     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源会被废弃。
+     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源会被废弃，但保留文件和业务关联。
      * {@code resourceId} 为 {@code null} 或非正数时表示清空业务对象资源。
      */
     public void bindBizResource(ResourceBindParamsBO params) {
@@ -316,6 +333,7 @@ public class ResourceService {
         if (!isResourceId(resourceId)) {
             return;
         }
+        // 保留 bizId 作为曾绑定的历史标记，物理回收只能处理 bizId=0 的未绑定上传。
         resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
                 .eq(Resource::getId, resourceId)
                 .eq(Resource::getBizId, bizId)
@@ -364,8 +382,38 @@ public class ResourceService {
         return String.format("%s.%s", Paths.get(bizType, String.valueOf(fileId)), ext);
     }
 
+    private void rejectOversized(ResourceCreateParamsBO params) {
+        Long fileSize = params.getFileSize();
+        if (fileSize == null) {
+            return;
+        }
+        if (("cover".equals(params.getBizType()) || "thumbnail".equals(params.getBizType()))
+                && fileSize > CommonConstants.FILE_PROJECT_IMAGE_MAX_SIZE) {
+            throw new AppException(ResultCode.PARAM_ERROR, "封面和缩略图不能超过10MB");
+        }
+        if (isArchive(params.getFileExt())) {
+            if (fileSize > CommonConstants.FILE_ARCHIVE_MAX_SIZE) {
+                throw new AppException(ResultCode.PARAM_ERROR, "压缩包不能超过500MB");
+            }
+            return;
+        }
+        if (fileSize > CommonConstants.FILE_UPLOAD_MAX_SIZE) {
+            throw new AppException(ResultCode.PARAM_ERROR, "文件大小不能超过50MB");
+        }
+    }
+
+    private static boolean isArchive(String fileExt) {
+        if (fileExt == null) {
+            return false;
+        }
+        return switch (fileExt.toLowerCase(Locale.ROOT)) {
+            case "zip", "rar", "7z" -> true;
+            default -> false;
+        };
+    }
+
     private boolean isImageBusiness(String bizType) {
-        return "avatar".equals(bizType) || "cover".equals(bizType);
+        return "avatar".equals(bizType) || "cover".equals(bizType) || "thumbnail".equals(bizType);
     }
 
 }

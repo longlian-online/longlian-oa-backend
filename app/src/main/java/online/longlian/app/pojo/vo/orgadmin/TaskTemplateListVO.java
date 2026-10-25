@@ -7,6 +7,7 @@ import lombok.Data;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Schema(description = "任务模板列表行信息")
@@ -37,4 +38,10 @@ public class TaskTemplateListVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
+
+    @Schema(description = "任务节点数量（含并行节点）")
+    private Integer taskCount;
+
+    @Schema(description = "阶段预览。按 sort、parallelSort 排序，不含提交字段；编辑模板仍使用详情接口")
+    private List<TaskTemplateListNodeVO> nodes;
 }

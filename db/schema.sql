@@ -37,7 +37,7 @@ CREATE TABLE `email_verify_otp` (
   `id` bigint NOT NULL COMMENT "邮箱验证码ID",
   `otp_id` bigint NOT NULL COMMENT "关联验证码ID",
   `receiver` varchar(255) NOT NULL COMMENT "接收者邮箱",
-  `business_type` tinyint NOT NULL DEFAULT 0 COMMENT "业务类型 0-登录 1-注册 2-忘记密码",
+  `business_type` tinyint NOT NULL DEFAULT 0 COMMENT "业务类型 0-登录 1-注册 2-忘记密码 3-绑定邮箱",
   `send_status` tinyint NOT NULL DEFAULT 0 COMMENT "发送状态 0-待发送 1-发送成功 2-发送失败",
   `sent_at` datetime NULL COMMENT "发送成功时间",
   `failed_at` datetime NULL COMMENT "发送失败时间",
@@ -75,13 +75,14 @@ CREATE TABLE `item` (
   `id` bigint NOT NULL,
   `project_id` bigint NOT NULL COMMENT "所属企划ID",
   `title` varchar(100) NOT NULL COMMENT "项目名称",
+  `sort` bigint NOT NULL DEFAULT 0 COMMENT "企划内项目展示顺序",
   `task_template_id` bigint NOT NULL COMMENT "创建时关联的任务模板ID（仅记录溯源）",
-  `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-进行中 2-已完成 3-已公布",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_item_project_order` (`project_id`, `deleted_at`, `sort`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "项目表";
 -- Create "item_task_flow" table
 CREATE TABLE `item_task_flow` (
@@ -169,7 +170,7 @@ CREATE TABLE `organization_member` (
   `id` bigint NOT NULL,
   `org_id` bigint NOT NULL COMMENT "组织ID",
   `user_id` bigint NOT NULL COMMENT "用户ID",
-  `org_role` varchar(20) NOT NULL DEFAULT "ORG_USER" COMMENT "组织内角色：ORG_ADMIN/ORG_USER",
+  `org_role` varchar(20) NOT NULL DEFAULT "ORG_USER" COMMENT "组织内角色：ORG_OWNER/ORG_ADMIN/ORG_USER",
   `joined_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "入组时间",
   `last_submitted_at` datetime NULL COMMENT "上次提交任务时间",
   `submit_count` int NOT NULL DEFAULT 0 COMMENT "任务提交总数",
@@ -180,6 +181,38 @@ CREATE TABLE `organization_member` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
+-- Create "organization_preset_tag" table
+CREATE TABLE `organization_preset_tag` (
+  `id` bigint NOT NULL COMMENT "组织预制标签ID",
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `name` varchar(50) NOT NULL COMMENT "标签名",
+  `color` varchar(16) NULL COMMENT "颜色，空为默认。blue/green/amber/rose/violet",
+  `priority` int NOT NULL DEFAULT 0 COMMENT "优先级，仅用户端下拉按值降序",
+  `creator_id` bigint NOT NULL COMMENT "创建人ID",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_org_preset_tag_org` (`org_id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织预制标签表";
+-- Create "outbox_message" table
+CREATE TABLE `outbox_message` (
+  `id` bigint NOT NULL COMMENT "消息ID",
+  `type` tinyint NOT NULL COMMENT "投递类型 1-INBOX_EMAIL",
+  `dedupe_key` varchar(64) NOT NULL COMMENT "同一类型内的幂等键",
+  `payload` json NOT NULL COMMENT "该 type 专用的 JSON",
+  `status` tinyint NOT NULL COMMENT "1-PENDING 2-PROCESSING 3-SENT 4-FAILED 5-SKIPPED",
+  `attempt_count` int NOT NULL DEFAULT 0 COMMENT "已领取次数，含崩溃后再次领取",
+  `available_at` datetime NOT NULL COMMENT "PENDING 可领取时间",
+  `locked_until` datetime NULL COMMENT "PROCESSING 租约",
+  `last_error` varchar(500) NULL COMMENT "最近一次失败或跳过原因，不含邮箱地址和正文",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_outbox_message_dedupe` (`type`, `dedupe_key`),
+  INDEX `idx_outbox_message_pending` (`status`, `available_at`, `id`),
+  INDEX `idx_outbox_message_processing` (`status`, `locked_until`, `id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "通用 outbox。一种 type 对应一个投递器";
 -- Create "permission" table
 CREATE TABLE `permission` (
   `id` bigint NOT NULL COMMENT "权限ID",
@@ -205,6 +238,7 @@ CREATE TABLE `project` (
   `alias` varchar(100) NULL DEFAULT "" COMMENT "别名",
   `metadata` json NULL COMMENT "扩展信息(JSON字符串)",
   `cover_file_id` bigint NULL COMMENT "封面图",
+  `thumbnail_file_id` bigint NULL COMMENT "缩略图",
   `description` text NULL COMMENT "简介",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-进行中 2-已完成 3-已归档",
   `resource_status` tinyint NOT NULL DEFAULT 1 COMMENT "资源状态 1-启用 0-禁用",
@@ -319,7 +353,9 @@ CREATE TABLE `task_instance` (
   `item_task_node_id` bigint NOT NULL COMMENT "关联项目任务节点ID",
   `task_flow_id` bigint NOT NULL COMMENT "关联任务流ID",
   `assignee_id` bigint NULL COMMENT "接取人ID",
+  `claimed_at` datetime NULL COMMENT "接取时间（接取写入，放弃清空，打回/重置保留）",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "任务状态 1-PENDING(待接取) 2-CLAIMED(待提交) 3-COMPLETED(已完成)",
+  `revision` bigint NOT NULL DEFAULT 0 COMMENT "任务状态修订号（每次状态写入递增，防止旧操作重放）",
   `submitted_at` datetime NULL COMMENT "提交时间",
   `completed_at` datetime NULL COMMENT "完成时间",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -336,6 +372,7 @@ CREATE TABLE `task_submission` (
   `task_instance_id` bigint NOT NULL COMMENT "所属任务实例ID",
   `item_task_node_id` bigint NOT NULL COMMENT "关联项目任务节点ID",
   `submitter_id` bigint NOT NULL COMMENT "提交人ID",
+  `version_no` int NULL COMMENT "提交版本号（任务实例内从 1 递增；存量数据由数据迁移回填）",
   `metadata` json NULL COMMENT "提交元数据(JSON对象，按节点 meta_schema 组织)",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)",
   `reviewer_id` bigint NULL COMMENT "审核人ID（打回操作人）",
@@ -345,6 +382,7 @@ CREATE TABLE `task_submission` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_submission_version` (`task_instance_id`, `version_no`),
   INDEX `idx_project_deleted_created` (`project_id`, `deleted_at`, `created_at`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务提交记录表";
 -- Create "task_template" table
@@ -395,9 +433,10 @@ CREATE TABLE `user` (
   `username` varchar(50) NOT NULL COMMENT "用户名（登录用）",
   `password` varchar(100) NOT NULL COMMENT "密码（加密存储）",
   `nickname` varchar(50) NOT NULL DEFAULT "" COMMENT "昵称（展示用）",
-  `email` varchar(100) NOT NULL DEFAULT "" COMMENT "邮箱（登录/通知）",
+  `email` varchar(100) NULL DEFAULT NULL COMMENT "邮箱（登录/通知，未绑定时为NULL）",
   `avatar_file_id` bigint NULL COMMENT "用户头像",
   `default_org_id` bigint NOT NULL DEFAULT 0 COMMENT "默认组织ID",
+  `config` json NOT NULL DEFAULT '{}' COMMENT "用户配置",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -430,3 +469,40 @@ CREATE TABLE `user_role` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_user_role` (`user_id`, `role_id`) COMMENT "用户-角色唯一"
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "用户角色关联表（冻结：当前授权使用 organization_member.org_role）";
+-- Create "deletion_request" table
+CREATE TABLE `deletion_request` (
+  `id` bigint NOT NULL,
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `target_type` tinyint NOT NULL COMMENT "目标类型 1-PROJECT(企划) 2-ITEM(项目)",
+  `target_id` bigint NOT NULL COMMENT "目标ID",
+  `project_id` bigint NOT NULL COMMENT "所属企划ID；目标为企划时与 target_id 相同",
+  `target_title` varchar(100) NOT NULL COMMENT "提交时的名称",
+  `reason` varchar(500) NOT NULL COMMENT "删除原因",
+  `requester_id` bigint NOT NULL COMMENT "申请人ID",
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态 0-PENDING(待审核) 1-APPROVED(通过) 2-REJECTED(拒绝)",
+  `reviewer_id` bigint NULL COMMENT "审核人ID",
+  `reviewed_at` datetime NULL COMMENT "审核时间",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  `pending_guard` bigint GENERATED ALWAYS AS (IF(`status` = 0 AND `deleted_at` IS NULL, 0, `id`)) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_deletion_request_pending` (`target_type`, `target_id`, `pending_guard`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "删除申请表";
+-- Create "user_notification" table
+CREATE TABLE `user_notification` (
+  `id` bigint NOT NULL COMMENT "通知ID",
+  `org_id` bigint NULL COMMENT "组织作用域",
+  `recipient_user_id` bigint NOT NULL COMMENT "固定收件人ID",
+  `kind` tinyint NOT NULL COMMENT "类型 1-TASK_READY 2-ITEM_COMPLETED",
+  `source_id` bigint NOT NULL COMMENT "类型定义的来源ID",
+  `trigger_id` bigint NOT NULL COMMENT "类型定义的一次触发ID",
+  `read_at` datetime NULL COMMENT "已读时间，NULL为未读",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_notification_event` (`recipient_user_id`, `kind`, `source_id`, `trigger_id`),
+  INDEX `idx_user_notification_inbox` (`org_id`, `recipient_user_id`, `created_at`, `id`),
+  INDEX `idx_user_notification_unread` (`org_id`, `recipient_user_id`, `read_at`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "站内通知表";

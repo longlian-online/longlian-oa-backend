@@ -7,7 +7,10 @@ import org.junit.jupiter.api.Test;
 import static org.hamcrest.Matchers.equalTo;
 
 class SwaggerDisabledApiTest extends BaseApiTest {
-    /** 默认配置不能匿名暴露接口文档。 */
+    /**
+     * 默认关闭 springdoc 时，文档路径不在免鉴权白名单；无 handler 时入口返回 NOT_FOUND，
+     * 不能匿名拿到 OpenAPI 内容。
+     */
     @Test
     void shouldNotExposeDocumentationByDefault() {
         for (String path : new String[]{"/v3/api-docs", "/swagger-ui.html"}) {

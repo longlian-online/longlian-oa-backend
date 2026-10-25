@@ -1,12 +1,16 @@
 package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
+import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 
@@ -18,10 +22,11 @@ import java.util.List;
  * 负责企划的浏览、创建、编辑以及个人工坊管理：
  * <ol>
  *   <li><b>企划列表</b>：分页查询，支持关键词搜索、类型筛选、排序，仅返回启用状态的企划</li>
- *   <li><b>企划详情</b>：返回基本信息、类型、封面、进度统计及当前用户的权限标记
+ *   <li><b>企划详情</b>：返回基本信息、类型、封面、进度统计、是否仍有项目，以及当前用户的权限标记
  *       （{@code isCreator} / {@code inWorkshop}）</li>
  *   <li><b>企划类型</b>：获取当前组织下所有启用的企划类型列表</li>
  *   <li><b>个人工坊</b>：创建时默认加入创建者工坊；也可手动添加/移除，添加操作幂等</li>
+ *   <li><b>删除企划</b>：仅企划负责人可删；仍有项目时拒绝</li>
  * </ol>
  */
 public interface ProjectService {
@@ -73,8 +78,9 @@ public interface ProjectService {
      * 将企划添加至当前用户的个人工坊，已添加则幂等返回。
      *
      * @param params 包含企划 ID 和用户 ID 的添加参数
+     * @return 是否在当前事务中新增了有效关联，已加入时为 false
      */
-    void addToWorkshop(ProjectWorkshopAddParamsBO params);
+    ProjectWorkshopAddResultBO addToWorkshop(ProjectWorkshopAddParamsBO params);
 
     /**
      * 将企划从当前用户的个人工坊中移除（软删除）。
@@ -83,4 +89,24 @@ public interface ProjectService {
      * @param params 包含企划 ID 和用户 ID 的移除参数
      */
     void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params);
+
+    /**
+     * 删除企划。仅创建者可操作；企划下仍有项目时拒绝。
+     *
+     * @param params 包含企划 ID、操作人 ID 和组织 ID 的删除参数
+     */
+    void deleteProject(ProjectDeleteParamsBO params);
+
+    /**
+     * 确认当前用户是启用企划的负责人，并返回企划名称。
+     */
+    String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId);
+
+    /** 锁定启用企划，供调用方事务中的项目写入共用。 */
+    ProjectAccessResultBO lockEnabledProject(ProjectAccessParamsBO params);
+
+    /**
+     * 审核通过后软删除企划。调用方须已处理其下项目。
+     */
+    void deleteProjectForReview(Long projectId, Long orgId);
 }

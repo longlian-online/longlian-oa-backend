@@ -18,4 +18,5 @@ public class ProjectCreateParamsBO {
     private String metadata;
     private String description;
     private Long coverFileId;
+    private Long thumbnailFileId;
 }

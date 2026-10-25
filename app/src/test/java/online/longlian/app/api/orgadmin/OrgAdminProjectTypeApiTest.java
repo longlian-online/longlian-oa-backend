@@ -56,6 +56,39 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
         authRequest(token).get("/app/projects/types").then()
                 .body("data.name", contains("默认类型", "重命名"));
     }
+
+    @Test
+    void shouldCreateAndUpdateProjectTypeAtNameLimit() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        String name = "企".repeat(20);
+
+        authRequest(token).body(Map.of("name", name)).post("/orgadmin/project-types")
+                .then().statusCode(200).body("code", equalTo(0));
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM project_type WHERE name = ?", Long.class, name);
+        authRequest(token).body(Map.of("name", name)).put("/orgadmin/project-types/" + id)
+                .then().statusCode(200).body("code", equalTo(0));
+        authRequest(token).body(Map.of("name", name + "划")).put("/orgadmin/project-types/" + id)
+                .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT name FROM project_type WHERE id = ?", String.class, id))
+                .isEqualTo(name);
+    }
+
+    @Test
+    void shouldShortenLegacyLongNameWithoutChangingReferencesOrPriority() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (1, 1, ?, 7, 1, 1)",
+                "企".repeat(50));
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '历史企划', 1)");
+
+        authRequest(token).body(Map.of("name", "新名称")).put("/orgadmin/project-types/1")
+                .then().statusCode(200).body("code", equalTo(0));
+
+        assertThat(jdbcTemplate.queryForMap("SELECT name, priority FROM project_type WHERE id = 1"))
+                .containsEntry("name", "新名称").containsEntry("priority", 7);
+        assertThat(jdbcTemplate.queryForObject("SELECT type_id FROM project WHERE id = 1", Long.class)).isEqualTo(1L);
+    }
     // ========== 成功路径 ==========
 
     /**
@@ -74,6 +107,29 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list", notNullValue())
                 .body("data.total", notNullValue());
+    }
+
+    /**
+     * 列表返回企划类型引用数，供前端禁用有引用时的删除
+     */
+    @Test
+    void shouldListProjectTypesWithRefCount() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "在用类型", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "空闲类型", 1, 1L);
+        jdbcTemplate.update("INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "企划A", 1L);
+        jdbcTemplate.update("INSERT INTO `project` (id, org_id, type_id, title, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, 1L, "企划B", 1L);
+
+        authRequest(token).get("/orgadmin/project-types?pageNum=1&pageSize=10")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.find { it.id == '1' }.refCount", equalTo(2))
+                .body("data.list.find { it.id == '2' }.refCount", equalTo(0));
     }
 
     /**
@@ -309,7 +365,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
-        String longName = "a".repeat(51);
+        String longName = "企".repeat(21);
         Response response = authRequest(token)
                 .body(Map.of("name", longName))
                 .post("/orgadmin/project-types");
@@ -317,6 +373,7 @@ public class OrgAdminProjectTypeApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM project_type", Integer.class)).isZero();
     }
 
     /**

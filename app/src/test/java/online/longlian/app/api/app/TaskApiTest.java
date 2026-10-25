@@ -74,9 +74,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -150,9 +150,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -233,9 +233,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -308,9 +308,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -385,9 +385,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -414,8 +414,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, 2
         );
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/1/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response
                 .then()
@@ -428,8 +427,7 @@ public class TaskApiTest extends BaseApiTest {
      */
     @Test
     void shouldFailAbandonTaskWithoutAuth() {
-        Response response = request()
-                .post("/app/task/instance/1/abandon");
+        Response response = request().body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response
                 .then()
@@ -462,9 +460,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -510,8 +508,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", "需要修改"))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject");
 
         response
@@ -541,9 +538,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -570,8 +567,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, 3
         );
 
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", ""))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", ""))
                 .post("/app/task/instance/1/reject");
 
         response
@@ -589,8 +585,7 @@ public class TaskApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         String longComment = "a".repeat(501);
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", longComment))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", longComment))
                 .post("/app/task/instance/1/reject");
 
         response
@@ -622,9 +617,9 @@ public class TaskApiTest extends BaseApiTest {
         );
 
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
 
         jdbcTemplate.update(
@@ -725,8 +720,7 @@ public class TaskApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/99999/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/99999/abandon");
 
         response
                 .then()
@@ -791,8 +785,7 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, null, 1 // status=1 PENDING
         );
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/1/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response.then()
                 .statusCode(200)
@@ -800,10 +793,10 @@ public class TaskApiTest extends BaseApiTest {
     }
 
     /**
-     * 非接取人放弃任务应失败（覆盖 abandon requireAssignee 分支）
+     * 企划创建人无需填写原因即可取消他人接取。
      */
     @Test
-    void shouldFailAbandonTaskWhenNotAssignee() {
+    void shouldCancelOtherAssigneeWithoutReason() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
@@ -814,12 +807,11 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 999L, 2 // status=2 CLAIMED，接取人为 999，非当前用户1
         );
 
-        Response response = authRequest(token)
-                .post("/app/task/instance/1/abandon");
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon");
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
     /**
@@ -846,19 +838,18 @@ public class TaskApiTest extends BaseApiTest {
     }
 
     /**
-     * 接取人打回自己的任务应失败（覆盖 reject userId==assigneeId 分支）
+     * 企划创建人即使是当前接取人，也可通过统一接口打回自己的提交。
      */
     @Test
-    void shouldFailRejectTaskByAssignee() {
+    void shouldAllowRejectTaskByAssigneeWhoIsProjectCreator() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
 
         insertBaseTaskData();
-        // 当前用户(id=1)既是接取人，也是打回发起人 → 不能打回自己的任务
         jdbcTemplate.update(
                 "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, 1L, 1L, 1L, 3 // status=3 COMPLETED，接取人=1
+                1L, 1L, 1L, 1L, 1L, 1L, 3
         );
         jdbcTemplate.update(
                 "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
@@ -866,13 +857,88 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
 
-        Response response = authRequest(token)
-                .body(Map.of("reviewComment", "需要修改"))
+        Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject");
 
         response.then()
                 .statusCode(200)
-                .body("code", not(equalTo(0)));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+    }
+
+    /**
+     * 同一人完成上一阶段并接取下一阶段时，可以打回自己的提交，意见写入版本。
+     */
+    @Test
+    void shouldRejectOwnTaskWhenAssigneeClaimedNextStage() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "原子任务", "描述", null, "[]", 1, 1L
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item_task_flow` (id, item_id, project_id, task_template_id, name, description, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1L, "任务流", "描述"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1L, 1L, "节点1", "[]", 1, 1
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, 1L, 1L, 1L, "节点2", "[]", 2, 1
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1L, 1L, 1L, 3
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `task_instance` (id, project_id, item_id, item_task_node_id, task_flow_id, assignee_id, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, 1L, 2L, 1L, 1L, 2
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `task_submission` (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, metadata, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
+        );
+
+        authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "自己打回"))
+                .post("/app/task/instance/1/reject")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0));
+
+        Integer instanceStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM task_instance WHERE id = 1", Integer.class);
+        Integer submissionStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM task_submission WHERE id = 1", Integer.class);
+        String comment = jdbcTemplate.queryForObject(
+                "SELECT review_comment FROM task_submission WHERE id = 1", String.class);
+        org.junit.jupiter.api.Assertions.assertEquals(2, instanceStatus);
+        org.junit.jupiter.api.Assertions.assertEquals(2, submissionStatus);
+        org.junit.jupiter.api.Assertions.assertEquals("自己打回", comment);
     }
 
     // ========== 权限检查 ==========
@@ -909,13 +975,12 @@ public class TaskApiTest extends BaseApiTest {
         assertTaskNotFound(authRequest(token).get("/app/task/instance/item/1"));
         assertTaskNotFound(authRequest(token).get("/app/task/instance/1/detail"));
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/claim"));
-        assertTaskNotFound(authRequest(token).post("/app/task/instance/1/abandon"));
+        assertTaskNotFound(authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon"));
         assertTaskNotFound(authRequest(token)
                 .body(Map.of("values", Map.of()))
                 .post("/app/task/instance/1/submit"));
         assertTaskNotFound(authRequest(token).post("/app/task/instance/1/reset"));
-        assertTaskNotFound(authRequest(token)
-                .body(Map.of("reviewComment", "需要修改"))
+        assertTaskNotFound(authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject"));
     }
 
@@ -937,9 +1002,9 @@ public class TaskApiTest extends BaseApiTest {
                 1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
         );
         jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1, 1L
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试项目", 0L, 1L
         );
         jdbcTemplate.update(
                 "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) " +

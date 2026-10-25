@@ -26,7 +26,7 @@ public class MemberSubmitCountHandler {
         if (project == null) {
             return;
         }
-        OrganizationMember member = findMember(userId, project.getOrgId());
+        OrganizationMember member = findMember(userId, project.getOrgId(), true);
         if (member == null) {
             return;
         }
@@ -44,7 +44,8 @@ public class MemberSubmitCountHandler {
         if (project == null) {
             return;
         }
-        OrganizationMember member = findMember(userId, project.getOrgId());
+        // 已禁用的提交人仍保留历史提交计数，打回时同样需要撤回这一次有效提交。
+        OrganizationMember member = findMember(userId, project.getOrgId(), false);
         if (member == null) {
             return;
         }
@@ -54,16 +55,15 @@ public class MemberSubmitCountHandler {
                         .eq(OrganizationMember::getId, member.getId())
                         .gt(OrganizationMember::getSubmitCount, 0)
                         .setSql("submit_count = submit_count - 1")
-                        .set(OrganizationMember::getLastSubmittedAt, now)
                         .set(OrganizationMember::getUpdatedAt, now));
     }
 
-    private OrganizationMember findMember(Long userId, Long orgId) {
+    private OrganizationMember findMember(Long userId, Long orgId, boolean enabledOnly) {
         return organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getUserId, userId)
                         .eq(OrganizationMember::getOrgId, orgId)
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)
+                        .eq(enabledOnly, OrganizationMember::getStatus, Status.ENABLED)
                         .last("LIMIT 1"));
     }
 }

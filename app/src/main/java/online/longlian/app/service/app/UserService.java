@@ -4,23 +4,29 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
+import online.longlian.app.pojo.bo.app.UserConfigResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.entity.User;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户端用户服务接口。
  * <p>
  * 负责用户注册、个人信息维护及组织加入流程：
  * <ol>
- *   <li><b>注册 + 创建组织</b>：新用户通过邀请码注册并同时创建新组织，用户自动成为该组织管理员</li>
+ *   <li><b>注册 + 创建组织</b>：新用户通过邀请码注册并同时创建新组织，用户自动成为该组织所有者</li>
  *   <li><b>注册 + 加入组织</b>：新用户通过邀请码注册后提交加入1申请（生成
  *       {@link online.longlian.app.pojo.entity.GroupApplication} 待管理员审核）</li>
  *   <li><b>已有用户加入组织</b>：已注册用户通过邀请码提交加入申请</li>
@@ -47,6 +53,13 @@ public interface UserService extends IService<User> {
      * @param params 包含用户 ID、原密码和新密码的参数
      */
     void changePassword(UserChangePasswordParamsBO params);
+
+    /**
+     * 为尚未绑定邮箱的当前用户绑定邮箱。
+     *
+     * @param params 包含用户 ID、邮箱和绑定验证码的参数
+     */
+    void bindEmail(UserBindEmailParamsBO params);
 
 
     /**
@@ -80,7 +93,7 @@ public interface UserService extends IService<User> {
     /**
      * 新用户注册并创建组织（邀请制）。
      * <p>
-     * 在一个事务内完成三项操作：创建用户 → 创建组织 → 将用户设为组织管理员。
+     * 在一个事务内完成三项操作：创建用户 → 创建组织 → 将用户设为组织所有者。
      * 需同时提供邮箱验证码和创建组织邀请码。
      *
      * @param params 包含用户名、密码、邮箱、邮箱验证码、邀请码、组织名称的注册参数
@@ -126,4 +139,21 @@ public interface UserService extends IService<User> {
      * @param params 包含用户 ID、昵称和头像文件 ID 的更新参数
      */
     void updateMyInfo(UserUpdateMyInfoParamsBO params);
+
+    /** 获取完整用户配置；用户不存在时抛出用户不存在异常。 */
+    UserConfigResultBO getConfig(Long userId);
+
+    /** 用请求中的完整配置对象替换当前用户配置。 */
+    void replaceConfig(UserConfigParamsBO params);
+
+    /** 只更新请求中出现的配置字段，值为 null 时删除该字段。 */
+    void patchConfig(UserConfigParamsBO params);
+
+    /** 按最新用户配置查询邮件收件人；用户不存在时返回 null。 */
+    UserEmailNotificationRecipientResultBO getEmailNotificationRecipient(Long userId);
+
+    /**
+     * 批量解析用户展示名。优先昵称，其次用户名；查不到时用用户 ID。
+     */
+    Map<Long, String> displayNames(Collection<Long> userIds);
 }

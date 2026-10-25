@@ -16,6 +16,8 @@ COS GET 预签名每次带不同的 `q-sign-*` 参数，CDN 无法复用缓存�
 | 读取（CDN 关闭） | `StorageService.getResourceReadUrl`：COS/OSS GET 预签名，LOCAL 为 `/common/file/local` HMAC |
 | 读取（CDN 开启） | `CdnUrlSigner` 签发 EdgeOne Type D URL；COS 源站用私有桶回源鉴权 |
 
+`POST /common/file/upload` 的封面（`cover`）和缩略图（`thumbnail`）最大为 10MB（10 × 1024 × 1024 字节，含边界）。超过上限时返回参数错误，不创建资源或签发上传链接。压缩包（zip、rar、7z）最大为 500MB（500 × 1024 × 1024 字节，含边界）。头像和其他文件最大为 50MB。图片上传允许 WebP 和 AVIF 扩展名及 MIME 类型，上传元信息以最终选用的文件为准。
+
 ## 配置
 
 ```yaml
@@ -49,6 +51,7 @@ storage:
 3. 缓存键忽略 `token`、`t`，否则每个签名都是新对象，CDN 没有命中。
 4. 不要把 COS 预签名 URL 的查询参数带进 CDN。
 5. LOCAL 存储走 CDN 时，回源路径是应用的 `GET /common/file/local`，不是对象 key。
+6. 在「多媒体服务 → 图片处理」开启「指定参数处理」。业务 URL 的 `eo-img.resize=w/400/h/600` 表示企划列表封面固定缩放到宽 400、高 600，`eo-img.resize=w/144/h/144` 表示工坊和任务大厅缩略图固定缩放到 144×144，`eo-img.resize=w/64/h/64` 表示页头当前用户头像和当前组织头像固定缩放到 64×64，均不保持原始宽高比；该参数不能与 `token`、`t` 一起从缓存键中忽略，否则不同尺寸可能串用缓存。未开启时 EdgeOne 会返回原图。参见[图片即时处理](https://cloud.tencent.com/document/product/1552/84731#87fb27be-cf15-43b6-8117-6e724526a340)。
 
 ## 签名算法（Type D）
 
@@ -141,6 +144,11 @@ https://static.example.com/common/file/local
 - LOCAL 回源响应会返回不超过当前 URL 剩余鉴权期的 `Cache-Control: max-age=..., must-revalidate`。COS/OSS 需在 EdgeOne 响应头规则中设置同样上限；不要设置超过最短剩余鉴权期的浏览器缓存时间。
 - 对象 key 使用 UUID/内容版本，覆盖写时路径会变，避免旧缓存。
 - 删除或覆盖后应主动刷新对应 EdgeOne 路径，否则 TTL 内节点可能继续返回旧对象。
+
+- EdgeOne 响应头规则不得覆盖 `Content-Disposition`：下载还原原文件名依赖源站对象头透传。
+  任务附件上传时 COS/OSS 预签名已把 `content-disposition`（`attachment; filename*`，见 `ContentDispositionUtil`）
+  写入对象元数据，回源透传后浏览器保存名即原文件名。CDN 关闭时由读取预签名的 `response-content-disposition`
+  覆盖实现同样效果。
 
 ## 任务附件
 

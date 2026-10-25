@@ -115,6 +115,33 @@ class EmailVerifyServiceTest {
         verify(oneTimePasswordService).generateOTP(any());
     }
 
+    @Test
+    void shouldRejectBindEmailCodeForExistingEmailBeforeCreatingOtp() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service().generate(params(EmailVerifyBusinessType.BIND_EMAIL)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已存在");
+
+        verify(oneTimePasswordService, never()).generateOTP(any());
+        verify(emailVerifyOtpMapper, never()).insert(any(EmailVerifyOtp.class));
+    }
+
+    @Test
+    void shouldAllowBindEmailCodeForUnusedEmail() {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params(EmailVerifyBusinessType.BIND_EMAIL));
+
+        verify(oneTimePasswordService).generateOTP(any());
+        verify(emailVerifyOtpMapper).insert(any(EmailVerifyOtp.class));
+    }
+
     private EmailVerifyService service() {
         return new EmailVerifyService(
                 oneTimePasswordService,

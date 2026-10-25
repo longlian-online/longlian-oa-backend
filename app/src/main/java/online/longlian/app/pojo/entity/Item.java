@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import online.longlian.common.enumeration.ItemStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -20,7 +19,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -50,18 +49,18 @@ public class Item implements Serializable {
     private String title;
 
     /**
+     * 企划内项目展示顺序
+     */
+    @TableField("sort")
+    @ApiModelProperty("企划内项目展示顺序")
+    private Long sort;
+
+    /**
      * 创建时关联的任务模板ID（仅记录溯源）
      */
     @TableField("task_template_id")
     @ApiModelProperty("创建时关联的任务模板ID（仅记录溯源）")
     private Long taskTemplateId;
-
-    /**
-     * 状态 1-进行中 2-已完成 3-已公布
-     */
-    @TableField("status")
-    @ApiModelProperty("状态 1-进行中 2-已完成 3-已公布")
-    private ItemStatus status;
 
     /**
      * 创建人ID

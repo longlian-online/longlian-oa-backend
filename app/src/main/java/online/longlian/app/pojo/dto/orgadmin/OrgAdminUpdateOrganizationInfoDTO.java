@@ -22,8 +22,7 @@ public class OrgAdminUpdateOrganizationInfoDTO {
     @Schema(type = "string", description = "组织头像文件ID；不传表示保持原头像，0 表示清空头像")
     private Long avatarFileId;
 
-    @NotBlank(message = "组织简介不能为空")
     @Size(max = 500, message = "组织简介不能超过 500 个字符")
-    @Schema(description = "组织简介", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "组织简介，选填，最多 500 个字符；空字符串、null 或不传表示清空", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private String description;
 }

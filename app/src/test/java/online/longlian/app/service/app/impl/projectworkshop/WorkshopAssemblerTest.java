@@ -136,6 +136,43 @@ class WorkshopAssemblerTest {
         verify(resourceService, never()).getResourceReadUrls(anyList());
     }
 
+    @Test
+    void assembleProjectList_thumbnailUrlResized_coverAndAvatarStayOriginal() {
+        Project plain = Project.builder()
+                .id(1L)
+                .title("Plain")
+                .coverFileId(200L)
+                .thumbnailFileId(400L)
+                .creatorId(10L)
+                .build();
+        Project signed = Project.builder()
+                .id(2L)
+                .title("Signed")
+                .thumbnailFileId(401L)
+                .creatorId(10L)
+                .build();
+        User creator = User.builder().id(10L).avatarFileId(300L).build();
+
+        when(userMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(creator));
+        when(resourceService.getResourceReadUrls(List.of(200L)))
+                .thenReturn(Map.of(200L, new ResourceReadUrlGetResultBO("https://cdn/cover.png", 1L, "c")));
+        when(resourceService.getResourceReadUrls(List.of(400L, 401L)))
+                .thenReturn(Map.of(
+                        400L, new ResourceReadUrlGetResultBO("https://cdn/thumb.png", 1L, "t"),
+                        401L, new ResourceReadUrlGetResultBO("https://cdn/thumb.png?token=abc&t=1", 1L, "t")));
+        when(resourceService.getResourceReadUrls(List.of(300L)))
+                .thenReturn(Map.of(300L, new ResourceReadUrlGetResultBO("https://cdn/avatar.png", 1L, "a")));
+
+        List<WorkshopProjectInfoVO> result = assembler.assembleProjectList(List.of(plain, signed));
+
+        assertEquals("https://cdn/thumb.png?eo-img.resize=w/144/h/144", result.get(0).getThumbnailUrl());
+        assertEquals("https://cdn/cover.png", result.get(0).getCoverUrl());
+        assertEquals("https://cdn/avatar.png", result.get(0).getCreatorAvatarUrl());
+        assertEquals("https://cdn/thumb.png?token=abc&t=1&eo-img.resize=w/144/h/144",
+                result.get(1).getThumbnailUrl());
+        assertNull(result.get(1).getCoverUrl());
+    }
+
     // ---- assembleTemplateList ----
 
     @Test

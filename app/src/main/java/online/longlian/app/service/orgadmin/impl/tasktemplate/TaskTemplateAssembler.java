@@ -6,6 +6,7 @@ import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
+import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListNodeResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.TaskTemplateNodeResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
@@ -36,18 +37,25 @@ public class TaskTemplateAssembler {
         }
 
         Map<Long, User> userMap = resolveCreators(templates);
+        Map<Long, List<TaskTemplateNode>> nodeMap = loadNodes(templates);
+        Map<Long, BaseTask> baseTaskMap = loadBaseTasks(nodeMap);
 
         return templates.stream()
-                .map(template -> TaskTemplateListResultBO.builder()
-                        .id(template.getId())
-                        .name(template.getName())
-                        .description(template.getDescription())
-                        .status(template.getStatus())
-                        .refCount(template.getRefCount())
-                        .creatorId(template.getCreatorId())
-                        .creatorNickname(userMap.getOrDefault(template.getCreatorId(), User.builder().build()).getNickname())
-                        .createdAt(template.getCreatedAt())
-                        .build())
+                .map(template -> {
+                    List<TaskTemplateNode> nodes = nodeMap.getOrDefault(template.getId(), List.of());
+                    return TaskTemplateListResultBO.builder()
+                            .id(template.getId())
+                            .name(template.getName())
+                            .description(template.getDescription())
+                            .status(template.getStatus())
+                            .refCount(template.getRefCount())
+                            .creatorId(template.getCreatorId())
+                            .creatorNickname(userMap.getOrDefault(template.getCreatorId(), User.builder().build()).getNickname())
+                            .createdAt(template.getCreatedAt())
+                            .taskCount(nodes.size())
+                            .nodes(nodes.stream().map(node -> toListNode(node, baseTaskMap)).toList())
+                            .build();
+                })
                 .toList();
     }
 
@@ -91,6 +99,41 @@ public class TaskTemplateAssembler {
                 .creatorNickname(userMap.getOrDefault(template.getCreatorId(), User.builder().build()).getNickname())
                 .createdAt(template.getCreatedAt())
                 .nodes(nodeResults)
+                .build();
+    }
+
+    private Map<Long, List<TaskTemplateNode>> loadNodes(List<TaskTemplate> templates) {
+        List<Long> templateIds = templates.stream().map(TaskTemplate::getId).toList();
+        return taskTemplateNodeMapper.selectList(
+                        new LambdaQueryWrapper<TaskTemplateNode>()
+                                .in(TaskTemplateNode::getTaskTemplateId, templateIds)
+                                .orderByAsc(TaskTemplateNode::getSort)
+                                .orderByAsc(TaskTemplateNode::getParallelSort))
+                .stream()
+                .collect(Collectors.groupingBy(TaskTemplateNode::getTaskTemplateId));
+    }
+
+    private Map<Long, BaseTask> loadBaseTasks(Map<Long, List<TaskTemplateNode>> nodeMap) {
+        List<Long> baseTaskIds = nodeMap.values().stream()
+                .flatMap(List::stream)
+                .map(TaskTemplateNode::getBaseTaskId)
+                .distinct()
+                .toList();
+        if (baseTaskIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return baseTaskMapper.selectBatchIds(baseTaskIds).stream()
+                .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
+    }
+
+    private TaskTemplateListNodeResultBO toListNode(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap) {
+        BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
+        return TaskTemplateListNodeResultBO.builder()
+                .baseTaskId(node.getBaseTaskId())
+                .baseTaskName(baseTask != null ? baseTask.getName() : null)
+                .baseTaskIcon(baseTask != null ? baseTask.getIcon() : null)
+                .sort(node.getSort())
+                .parallelSort(node.getParallelSort())
                 .build();
     }
 

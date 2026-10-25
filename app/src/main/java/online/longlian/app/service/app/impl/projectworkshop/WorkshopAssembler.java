@@ -27,6 +27,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WorkshopAssembler {
 
+    /** 工坊卡片缩略图按 EdgeOne 图片即时处理参数缩放到 144x144。 */
+    private static final String THUMBNAIL_RESIZE_PARAM = "eo-img.resize=w/144/h/144";
+
     private final UserMapper userMapper;
     private final BaseTaskMapper baseTaskMapper;
     private final TaskTemplateNodeMapper taskTemplateNodeMapper;
@@ -49,6 +52,13 @@ public class WorkshopAssembler {
                 : resourceService.getResourceReadUrls(coverFileIds).entrySet().stream()
                         .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
 
+        List<Long> thumbnailFileIds = projects.stream()
+                .map(Project::getThumbnailFileId).filter(id -> id != null && id > 0).distinct().toList();
+        Map<Long, String> thumbnailUrlMap = thumbnailFileIds.isEmpty()
+                ? Collections.emptyMap()
+                : resourceService.getResourceReadUrls(thumbnailFileIds).entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+
         List<Long> creatorIds = projects.stream().map(Project::getCreatorId).distinct().toList();
         Map<Long, User> userMap = userMapper.selectBatchIds(creatorIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
@@ -67,6 +77,8 @@ public class WorkshopAssembler {
                     workshopProjectInfoVO.setId(project.getId());
                     workshopProjectInfoVO.setTitle(project.getTitle());
                     workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
+                    workshopProjectInfoVO.setThumbnailUrl(
+                            resizeThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId())));
                     if (creator != null && creator.getAvatarFileId() != null) {
                         workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
                     }
@@ -78,6 +90,13 @@ public class WorkshopAssembler {
                     return workshopProjectInfoVO;
                 })
                 .toList();
+    }
+
+    private static String resizeThumbnailUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
     }
 
     public List<WorkshopTaskTemplateVO> assembleTemplateList(List<TaskTemplate> templates, Long currentUserId) {

@@ -11,9 +11,12 @@ import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.bo.common.OTPUseContextBO;
 import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -40,6 +43,8 @@ import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -108,6 +113,36 @@ class UserServiceImplTest {
                 sessionService,
                 tokenBlacklistService
         );
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "{}|true",
+            "{\"emailNotificationsEnabled\":false}|false",
+            "{\"emailNotificationsEnabled\":true}|true"
+    }, delimiter = '|')
+    void shouldResolveCurrentEmailNotificationPreference(String config, boolean enabled) {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L)
+                .email("user@example.com").config(config).build());
+
+        assertThat(service.getEmailNotificationRecipient(1L).isEmailNotificationsEnabled()).isEqualTo(enabled);
+    }
+
+    @Test
+    void shouldRejectConfigOperationsWhenUserNoLongerExists() {
+        UserConfigParamsBO params = new UserConfigParamsBO(1L, Map.of("emailNotificationsEnabled", false));
+        assertThatThrownBy(() -> service.replaceConfig(params))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+        assertThatThrownBy(() -> service.patchConfig(params))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+        assertThatThrownBy(() -> service.getConfig(1L))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
     }
 
     @Test
@@ -219,6 +254,86 @@ class UserServiceImplTest {
         verify(userMapper, never()).updateById(any(User.class));
         verify(sessionService, never()).clearUserSessionCache(any());
         verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
+    @Test
+    void shouldBindEmailAndConsumeCodeWithoutRevokingRefreshSessions() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).build());
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class)))
+                .thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.update(isNull(), any())).thenReturn(1);
+
+        runWithTransactionCommit(() -> service.bindEmail(bindEmailParams()));
+
+        ArgumentCaptor<OTPValidateContextBO> validateCaptor = ArgumentCaptor.forClass(OTPValidateContextBO.class);
+        verify(emailVerifyService).getValid(validateCaptor.capture());
+        assertThat(validateCaptor.getValue().getBusinessType()).isEqualTo(EmailVerifyBusinessType.BIND_EMAIL);
+        assertThat(validateCaptor.getValue().getTarget()).isEqualTo("bind@example.com");
+        assertThat(validateCaptor.getValue().getCode()).isEqualTo("A1B2C3");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet()).contains("email");
+        verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
+        verify(sessionService).clearUserSessionCache(1L);
+        verify(sessionService, never()).revokeRefreshSessions(any());
+        verify(tokenBlacklistService, never()).blacklistAllUserTokens(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenCurrentEmailIsNotBlankWithoutConsumingCode() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).email("kept@example.com").build());
+
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已绑定")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(otpServiceFactory, never()).get(any());
+        verify(emailVerifyService, never()).use(any());
+        verify(userMapper, never()).update(any(), any());
+        verify(sessionService, never()).revokeRefreshSessions(any());
+        verify(sessionService, never()).clearUserSessionCache(any());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenUpdateMatchesNoRow() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).build());
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class)))
+                .thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已绑定")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(emailVerifyService, never()).use(any());
+        verify(sessionService, never()).clearUserSessionCache(any());
+        verify(sessionService, never()).revokeRefreshSessions(any());
+    }
+
+    @Test
+    void shouldRejectBindEmailWhenEmailUniqueIndexConflicts() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).build());
+        when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(OTPValidateContextBO.class)))
+                .thenReturn(OneTimePassword.builder().id(10L).build());
+        when(userMapper.update(isNull(), any()))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_email"));
+
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邮箱已存在")
+                .extracting("code")
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+
+        verify(emailVerifyService, never()).use(any());
+        verify(sessionService, never()).revokeRefreshSessions(any());
     }
 
 
@@ -422,8 +537,21 @@ class UserServiceImplTest {
         assertThat(service.getMyOrganizations(1L))
                 .extracting("id", "name", "avatarUrl")
                 .containsExactly(
-                        org.assertj.core.api.Assertions.tuple(10L, "with avatar", "https://cdn.example/avatar.png"),
+                        org.assertj.core.api.Assertions.tuple(10L, "with avatar",
+                                "https://cdn.example/avatar.png?eo-img.resize=w/64/h/64"),
                         org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
+    }
+
+    @Test
+    void shouldResizeCurrentUserAvatar() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).username("u").avatarFileId(9L).build());
+        when(resourceService.getResourceReadUrl(9L))
+                .thenReturn("https://cdn.example/avatar.png?token=abc&t=1");
+
+        UserGetMyInfoResultBO info = service.getMyInfo(1L);
+
+        assertThat(info.getAvatarUrl())
+                .isEqualTo("https://cdn.example/avatar.png?token=abc&t=1&eo-img.resize=w/64/h/64");
     }
 
     @Test
@@ -451,6 +579,22 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldAssignOwnerWhenRegisteringAndCreatingOrganization() {
+        stubRegisterValidation();
+        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
+        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        UserRegisterByInviteParamsBO params = registerParams();
+        params.setOrgName("测试组织");
+
+        service.registerAndCreateOrganizationByInvite(params);
+
+        ArgumentCaptor<OrganizationMember> memberCaptor = ArgumentCaptor.forClass(OrganizationMember.class);
+        verify(organizationMemberMapper).insert(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getOrgRole()).isEqualTo("ORG_OWNER");
+    }
+
+    @Test
     void shouldRejectJoinRegistrationWhenApplicationIsAlreadyPending() {
         stubRegisterValidation();
         stubJoinInvite();
@@ -474,7 +618,9 @@ class UserServiceImplTest {
         verify(userMapper).update(isNull(), captor.capture());
         assertThat(captor.getValue().getSqlSet()).contains("password");
         verify(userMapper, never()).updateById(any(User.class));
-        verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
+        var order = inOrder(sessionService, tokenBlacklistService);
+        order.verify(sessionService).revokeRefreshSessions(userId);
+        order.verify(tokenBlacklistService).blacklistAllUserTokens(TokenType.User, userId, "密码变更");
     }
 
     private void runWithTransactionCommit(Runnable action) {
@@ -533,6 +679,14 @@ class UserServiceImplTest {
                 .email("user@example.com")
                 .code("A1B2C3")
                 .password("new-password")
+                .build();
+    }
+
+    private UserBindEmailParamsBO bindEmailParams() {
+        return UserBindEmailParamsBO.builder()
+                .userId(1L)
+                .email("bind@example.com")
+                .code("A1B2C3")
                 .build();
     }
 }

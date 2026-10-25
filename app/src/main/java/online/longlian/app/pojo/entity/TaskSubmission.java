@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
- * @since 2026-04-19
+ * @since 
  */
 @Data
 @Builder
@@ -69,6 +69,13 @@ public class TaskSubmission implements Serializable {
     @ApiModelProperty("提交人ID")
     @TableField("submitter_id")
     private Long submitterId;
+
+    /**
+     * 提交版本号（任务实例内从 1 递增；存量数据由数据迁移回填）
+     */
+    @TableField("version_no")
+    @ApiModelProperty("提交版本号（任务实例内从 1 递增；存量数据由数据迁移回填）")
+    private Integer versionNo;
 
     /**
      * 提交元数据(JSON对象，按节点 meta_schema 组织)

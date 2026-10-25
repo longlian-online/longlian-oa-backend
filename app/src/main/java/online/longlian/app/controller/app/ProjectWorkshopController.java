@@ -39,7 +39,7 @@ public class ProjectWorkshopController {
 
     @Operation(
         summary = "分页查询工坊企划列表",
-        description = "查询当前用户工坊中的企划列表，支持标题模糊搜索、类型筛选、仅看我创建，默认按添加时间倒序。"
+        description = "查询当前用户工坊中的企划列表，支持标题模糊搜索、类型筛选、仅看我创建，以及最近提交、最新创建、最早创建排序，默认最近提交。"
     )
     @PostMapping("/list")
     @ResponseMessage("查询成功")
@@ -53,6 +53,7 @@ public class ProjectWorkshopController {
                         .keyword(workshopListDTO.getKeyword())
                         .projectType(workshopListDTO.getProjectType())
                         .isMyCreated(workshopListDTO.getIsMyCreated())
+                        .sortBy(workshopListDTO.getSortBy())
                         .page(new PageParamsBO(workshopListDTO.getPageNum(), workshopListDTO.getPageSize()))
                         .build());
         return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());

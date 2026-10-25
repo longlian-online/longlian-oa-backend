@@ -7,10 +7,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
+import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
@@ -22,9 +27,9 @@ import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
-import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -37,6 +42,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -44,7 +50,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +66,8 @@ class ProjectServiceImplTest {
     @Mock
     private ProjectWorkshopMapper projectWorkshopMapper;
     @Mock
+    private ItemMapper itemMapper;
+    @Mock
     private ResourceService resourceService;
     @Mock
     private ProjectQueryBuilder projectQueryBuilder;
@@ -65,8 +75,6 @@ class ProjectServiceImplTest {
     private ProjectAssembler projectAssembler;
     @Mock
     private ProjectProgressHandler projectProgressHandler;
-    @Mock
-    private LockService lockService;
 
     private ProjectServiceImpl service;
 
@@ -74,17 +82,20 @@ class ProjectServiceImplTest {
     void setUp() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new ProjectServiceImpl(
                 projectMapper,
                 projectTypeMapper,
                 projectWorkshopMapper,
+                itemMapper,
                 resourceService,
                 projectQueryBuilder,
                 projectAssembler,
                 projectProgressHandler,
-                lockService,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
+        lenient().when(itemMapper.selectCount(any())).thenReturn(0L);
     }
 
     /** 非法 metadata 不应创建项目或绑定资源。 */
@@ -201,8 +212,80 @@ class ProjectServiceImplTest {
         verify(projectMapper).update(any(), updateCaptor.capture());
         assertThat(updateCaptor.getValue().getSqlSet())
                 .contains("title", "alias", "metadata", "description", "updated_at")
-                .doesNotContain("cover_file_id");
+                .doesNotContain("cover_file_id")
+                .doesNotContain("thumbnail_file_id")
+                .doesNotContain("type_id");
         verify(resourceService, never()).bindBizResource(any());
+    }
+
+    @Test
+    void updateProject_withTypeId_updatesType() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(ProjectType.builder()
+                .id(11L).orgId(1L).status(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build());
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(projectMapper).update(any(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet()).contains("type_id");
+        assertThat(updateCaptor.getValue().getParamNameValuePairs().values()).contains(11L);
+    }
+
+    @Test
+    void updateProject_disabledType_throwsParameterError() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(ProjectType.builder()
+                .id(11L).orgId(1L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void updateProject_otherOrganizationType_throwsParameterError() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(ProjectType.builder()
+                .id(11L).orgId(2L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void updateProject_missingType_throwsParameterError() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).typeId(10L).resourceStatus(Status.ENABLED).build());
+        when(projectTypeMapper.selectById(11L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .typeId(11L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+        verify(projectMapper, never()).update(any(), any());
     }
 
     @Test
@@ -226,6 +309,82 @@ class ProjectServiceImplTest {
         verify(resourceService).bindBizResource(bindCaptor.capture());
         assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(21L);
         assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(20L);
+    }
+
+    @Test
+    void createProject_withThumbnail_bindsThumbnailSeparatelyFromCover() {
+        when(projectTypeMapper.selectById(10L)).thenReturn(
+                ProjectType.builder().id(10L).orgId(1L).status(Status.ENABLED).build());
+        doAnswer(invocation -> {
+            invocation.getArgument(0, Project.class).setId(100L);
+            return 1;
+        }).when(projectMapper).insert(any(Project.class));
+
+        service.createProject(ProjectCreateParamsBO.builder()
+                .orgId(1L)
+                .creatorId(2L)
+                .title("测试企划")
+                .alias("alias")
+                .typeId(10L)
+                .metadata("{\"tags\":[]}")
+                .description("描述")
+                .coverFileId(20L)
+                .thumbnailFileId(21L)
+                .build());
+
+        ArgumentCaptor<Project> projectCaptor = ArgumentCaptor.forClass(Project.class);
+        verify(projectMapper).insert(projectCaptor.capture());
+        assertThat(projectCaptor.getValue().getThumbnailFileId()).isEqualTo(21L);
+        ArgumentCaptor<ResourceBindParamsBO> bindCaptor = ArgumentCaptor.forClass(ResourceBindParamsBO.class);
+        verify(resourceService, times(2)).bindBizResource(bindCaptor.capture());
+        assertThat(bindCaptor.getAllValues())
+                .anySatisfy(bind -> {
+                    assertThat(bind.getBizType()).isEqualTo("thumbnail");
+                    assertThat(bind.getResourceId()).isEqualTo(21L);
+                    assertThat(bind.getBizId()).isEqualTo(100L);
+                });
+    }
+
+    @Test
+    void updateProject_withThumbnail_replacesThumbnailWithoutCover() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L)
+                .coverFileId(20L).thumbnailFileId(30L).resourceStatus(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .thumbnailFileId(31L).build());
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> updateCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(projectMapper).update(any(), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getSqlSet())
+                .contains("thumbnail_file_id")
+                .doesNotContain("cover_file_id");
+        ArgumentCaptor<ResourceBindParamsBO> bindCaptor = ArgumentCaptor.forClass(ResourceBindParamsBO.class);
+        verify(resourceService).bindBizResource(bindCaptor.capture());
+        assertThat(bindCaptor.getValue().getBizType()).isEqualTo("thumbnail");
+        assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(31L);
+        assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(30L);
+    }
+
+    @Test
+    void getProjectDetail_returnsThumbnailUrl() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L).title("测试企划")
+                .coverFileId(20L).thumbnailFileId(21L).resourceStatus(Status.ENABLED).build());
+        when(resourceService.getResourceReadUrl(20L)).thenReturn("https://cdn/cover.png");
+        when(resourceService.getResourceReadUrl(21L)).thenReturn("https://cdn/thumb.png");
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0).claimedTaskCount(0).pendingTaskCount(0).build());
+
+        ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(result.getCoverUrl()).isEqualTo("https://cdn/cover.png");
+        assertThat(result.getThumbnailUrl()).isEqualTo("https://cdn/thumb.png");
     }
 
     @Test
@@ -293,6 +452,29 @@ class ProjectServiceImplTest {
     }
 
     @Test
+    void getProjectDetail_returnsCreatedAt() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 3, 1, 8, 30);
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(2L)
+                .title("测试企划")
+                .resourceStatus(Status.ENABLED)
+                .createdAt(createdAt)
+                .build());
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0)
+                .claimedTaskCount(0)
+                .pendingTaskCount(0)
+                .build());
+
+        ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(result.getCreatedAt()).isEqualTo(createdAt);
+    }
+
+    @Test
     void updateProject_disabledProject_throwsNotFound() {
         when(projectMapper.selectById(100L)).thenReturn(disabledProject());
 
@@ -357,7 +539,7 @@ class ProjectServiceImplTest {
         Page<ProjectSearchResultBO> page = new Page<>(2, 10, 12);
         page.setRecords(List.of(row));
         when(projectMapper.selectSearchPage(any(), any())).thenReturn(page);
-        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+        when(projectAssembler.assembleList(List.of(project), 7L)).thenReturn(List.of(
                 ProjectListResultBO.builder().id(1L).metadata(original).build()));
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(ProjectListParamsBO.builder()
@@ -384,7 +566,7 @@ class ProjectServiceImplTest {
 
         assertThat(result.getList()).isEmpty();
         assertThat(result.getTotal()).isEqualTo(12);
-        verify(projectAssembler, never()).assembleList(any());
+        verify(projectAssembler, never()).assembleList(any(), any());
     }
 
     @Test
@@ -397,7 +579,7 @@ class ProjectServiceImplTest {
         page.setRecords(List.of(project));
         when(projectQueryBuilder.buildListQuery(params, null)).thenReturn(wrapper);
         when(projectMapper.selectPage(any(), any())).thenReturn(page);
-        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+        when(projectAssembler.assembleList(List.of(project), params.getOrgId())).thenReturn(List.of(
                 ProjectListResultBO.builder().metadata(project.getMetadata()).build()));
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(params);
@@ -415,5 +597,93 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
         verify(projectMapper, never()).selectSearchPage(any(), any());
+    }
+
+    @Test
+    void deleteProject_withoutItems_softDeletes() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+
+        service.deleteProject(deleteParams(2L));
+
+        verify(projectMapper).deleteById(100L);
+    }
+
+    @Test
+    void deleteProject_withItems_rejectsAndKeepsProject() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+        when(itemMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                    assertThat(ex.getMsg()).isEqualTo(
+                            "参数错误,企划已存在项目，请提交删除申请");
+                });
+        verify(projectMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteProject_nonCreator_rejects() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(3L));
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMsg()).isEqualTo("无权操作,仅企划负责人可删除企划");
+                });
+        verify(projectMapper, never()).deleteById(any());
+        verify(itemMapper, never()).selectCount(any());
+    }
+
+    @Test
+    void deleteProject_disabledProject_rejects() {
+        when(projectMapper.selectById(100L)).thenReturn(disabledProject());
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        verify(projectMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void getProjectDetail_reportsWhetherItemsExist() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0).claimedTaskCount(0).pendingTaskCount(0).build());
+        when(itemMapper.selectCount(any())).thenReturn(2L);
+
+        ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(result.getHasItems()).isTrue();
+    }
+
+    @Test
+    void lockEnabledProject_rejectsForeignOrganization() {
+        when(projectMapper.selectOne(any())).thenReturn(enabledProject(2L));
+        assertThatThrownBy(() -> service.lockEnabledProject(new ProjectAccessParamsBO(100L, 99L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void lockEnabledProject_rejectsDisabledProject() {
+        when(projectMapper.selectOne(any())).thenReturn(disabledProject());
+        assertThatThrownBy(() -> service.lockEnabledProject(new ProjectAccessParamsBO(100L, 1L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    private Project enabledProject(Long creatorId) {
+        return Project.builder()
+                .id(100L)
+                .orgId(1L)
+                .creatorId(creatorId)
+                .resourceStatus(Status.ENABLED)
+                .build();
+    }
+
+    private ProjectDeleteParamsBO deleteParams(Long userId) {
+        return ProjectDeleteParamsBO.builder().projectId(100L).userId(userId).orgId(1L).build();
     }
 }

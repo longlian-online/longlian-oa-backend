@@ -5,8 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import online.longlian.common.enumeration.ItemStatus;
-import online.longlian.app.common.enumeration.SortByTime;
-import online.longlian.app.common.enumeration.SortDirection;
+import online.longlian.app.common.enumeration.ItemSortBy;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 
 @EqualsAndHashCode(callSuper = true)
@@ -18,12 +17,9 @@ public class ProjectItemListDTO extends PageRequestDTO {
     @Schema(description = "项目标题关键词（模糊匹配）")
     private String keyword;
 
-    @Schema(description = "项目状态筛选：IN_PROGRESS-进行中，COMPLETED-已完成；默认进行中")
+    @Schema(description = "完成情况筛选：IN_PROGRESS-进行中（没有任务或存在未完成任务），COMPLETED-已完成（至少有一个任务且全部已完成）；默认进行中")
     private ItemStatus status = ItemStatus.IN_PROGRESS;
 
-    @Schema(description = "排序字段：CREATE-创建时间，UPDATE-更新时间")
-    private SortByTime sortByTime = SortByTime.UPDATE;
-
-    @Schema(description = "排序方式：DESC-倒序，ASC-正序")
-    private SortDirection orderDir = SortDirection.DESC;
+    @Schema(description = "项目排序，默认自定义顺序")
+    private ItemSortBy sortBy = ItemSortBy.MANUAL;
 }

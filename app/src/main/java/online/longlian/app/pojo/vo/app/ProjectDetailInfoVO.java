@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.common.enumeration.ProjectStatus;
 
+import java.time.LocalDateTime;
+
 @Data
 @Schema(description = "企划详情")
 public class ProjectDetailInfoVO {
@@ -23,10 +25,13 @@ public class ProjectDetailInfoVO {
     @Schema(description = "封面图片URL")
     private String coverUrl;
 
+    @Schema(description = "缩略图URL")
+    private String thumbnailUrl;
+
     @Schema(description = "企划类型名称")
     private String typeName;
 
-    @Schema(description = "扩展信息(JSON对象字符串，包含 tags 数组，每项仅含 key、value)")
+    @Schema(description = "扩展信息(JSON对象字符串，包含 tags 数组，每项含 key 及可选的 value、color；value 缺失或为空串表示单键标签，color 为 blue、green、amber、rose、violet 之一；按保存顺序原样返回)")
     private String metadata;
 
     @Schema(description = "企划简介")
@@ -48,4 +53,10 @@ public class ProjectDetailInfoVO {
     private Boolean inWorkshop;
     @Schema(description = "当前用户是否是该企划的创建者")
     private Boolean isCreator;
+
+    @Schema(description = "企划下是否仍有项目。为 true 时负责人不能删除该企划")
+    private Boolean hasItems;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createdAt;
 }

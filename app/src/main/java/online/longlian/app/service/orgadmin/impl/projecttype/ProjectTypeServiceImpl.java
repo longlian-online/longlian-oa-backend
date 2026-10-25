@@ -46,7 +46,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
         if (projectTypes.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), projectTypePage.getTotal());
         }
-        return new PageResultBO<>(projectTypeAssembler.assembleList(projectTypes), projectTypePage.getTotal());
+        return new PageResultBO<>(projectTypeAssembler.assembleList(projectTypes, params.getOrgId()), projectTypePage.getTotal());
     }
 
     @Override

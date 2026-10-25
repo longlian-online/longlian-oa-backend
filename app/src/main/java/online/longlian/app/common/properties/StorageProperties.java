@@ -4,11 +4,14 @@ import lombok.Data;
 import online.longlian.common.enumeration.StorageType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+
 @ConfigurationProperties(prefix = "storage")
 @Data
 public class StorageProperties {
     private StorageType type;
     private long presignedUrlTtlSeconds = 300;
+    private Duration unboundResourceRetention = Duration.ofHours(24);
     private CdnConfig cdn;
     private LocalConfig local;
     private OssConfig oss;

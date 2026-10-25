@@ -9,8 +9,6 @@
 
 [![DeepSource](https://app.deepsource.com/gh/longlian-online/longlian-oa-backend.svg/?label=code+coverage&show_trend=false&token=y6MhTlTi6rIPFrHHYU3JlkWj)](https://app.deepsource.com/gh/longlian-online/longlian-oa-backend/)
 
----
-
 ## 项目架构
 
 ```

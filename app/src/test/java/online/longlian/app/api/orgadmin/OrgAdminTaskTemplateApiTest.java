@@ -5,6 +5,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
@@ -30,6 +31,63 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.list", notNullValue())
                 .body("data.total", notNullValue());
+    }
+
+    /**
+     * 列表直接返回阶段名、图标、顺序和任务数，不附带提交字段。
+     */
+    @Test
+    void shouldIncludeStagePreviewWithoutSubmitFields() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "翻译", "描述", "Languages", "[{\"key\":\"link\"}]", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `base_task` (id, org_id, name, description, icon, meta_schema, status, creator_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, "校对", "描述", "BookOpen", "[]", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "name", "翻译流程",
+                        "description", "阶段预览",
+                        "nodes", new Object[]{
+                                Map.of("baseTaskId", 2L, "sort", 1, "parallelSort", 2),
+                                Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1),
+                                Map.of("baseTaskId", 1L, "sort", 2, "parallelSort", 1)
+                        }
+                ))
+                .post("/orgadmin/task/template")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        jdbcTemplate.update(
+                "INSERT INTO `task_template` (id, org_id, name, description, status, scope, creator_id, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                99L, 1L, "空流程", "", 1, 2, 1L);
+
+        Response response = authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/task/template/list");
+
+        response.then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.find { it.name == '翻译流程' }.taskCount", equalTo(3))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.baseTaskName",
+                        equalTo(List.of("翻译", "校对", "翻译")))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.baseTaskIcon",
+                        equalTo(List.of("Languages", "BookOpen", "Languages")))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.sort", equalTo(List.of(1, 1, 2)))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.parallelSort", equalTo(List.of(1, 2, 1)))
+                .body("data.list.find { it.name == '翻译流程' }.nodes.baseTaskId", equalTo(List.of("1", "2", "1")))
+                .body("data.list.find { it.name == '翻译流程' }.nodes[0].submitFields", nullValue())
+                .body("data.list.find { it.name == '空流程' }.taskCount", equalTo(0))
+                .body("data.list.find { it.name == '空流程' }.nodes", empty());
     }
 
     /**
@@ -107,6 +165,38 @@ public class OrgAdminTaskTemplateApiTest extends BaseApiTest {
                 .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template", Long.class)).isZero();
         org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template_node", Long.class)).isZero();
+    }
+
+    /** 非组织 B 成员不能把 B 的原子任务写入组织 A 的模板，失败更新不改已有节点。 */
+    @Test
+    void shouldRejectTemplateReferencingAnotherOrganizationsBaseTask() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "组织B");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '组织A任务', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[]', 1, 1)");
+
+        authRequest(token).body(Map.of("name", "跨组织模板", "description", "说明",
+                "nodes", new Object[]{
+                        Map.of("baseTaskId", 1L, "sort", 1, "parallelSort", 1),
+                        Map.of("baseTaskId", 2L, "sort", 2, "parallelSort", 1)}))
+                .post("/orgadmin/task/template").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template", Long.class)).isZero();
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_template_node", Long.class)).isZero();
+
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, description, status, scope, creator_id) VALUES (1, 1, '原模板', '原说明', 1, 2, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
+        authRequest(token).body(Map.of("name", "被改写", "description", "被改写说明",
+                "nodes", new Object[]{Map.of("baseTaskId", 2L, "sort", 1, "parallelSort", 1)}))
+                .put("/orgadmin/task/template/1").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM task_template WHERE id = 1", String.class)).isEqualTo("原模板");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_task_id FROM task_template_node WHERE task_template_id = 1 AND deleted_at IS NULL", Long.class)).isEqualTo(1L);
     }
 
     /**

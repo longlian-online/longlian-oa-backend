@@ -43,6 +43,7 @@ public class DataSourceConfig {
         ds.setUrl(url);
         ds.setUsername(username);
         ds.setPassword(password);
+        ds.setValidationQuery("SELECT 1");
         return ds;
     }
 }

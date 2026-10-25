@@ -20,6 +20,9 @@ public class WorkshopProjectInfoVO {
     @Schema(description = "封面图片URL")
     private String coverUrl;
 
+    @Schema(description = "缩略图URL")
+    private String thumbnailUrl;
+
     @Schema(description = "创建人头像URL")
     private String creatorAvatarUrl;
 

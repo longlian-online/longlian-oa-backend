@@ -4,8 +4,15 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -207,6 +214,46 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
 
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"ASC", "DESC"})
+    void shouldPageMembersWithoutDuplicatesWhenJoinedTimesTie(String orderDir) {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        for (long id = 2; id <= 43; id++) {
+            createTestUser(id, "member" + id, "123456", "member" + id + "@example.com");
+            createOrganizationMember(id, 1L, id, "ORG_USER");
+        }
+        createOrganization(2L, "其他组织");
+        createOrganizationMember(44L, 2L, 1L, "ORG_USER");
+        jdbcTemplate.update("UPDATE organization_member SET joined_at = '2026-01-01 12:00:00'");
+        jdbcTemplate.update("UPDATE organization_member SET joined_at = '2026-01-02 12:00:00' WHERE id = 1");
+        String token = loginAs("orgadmin", "123456");
+        boolean ascending = "ASC".equals(orderDir);
+        List<Long> expected = new ArrayList<>(LongStream.rangeClosed(2, 43)
+                .map(id -> ascending ? id : 45 - id).boxed().toList());
+        expected.add(ascending ? expected.size() : 0, 1L);
+        List<Long> actual = new ArrayList<>();
+
+        for (int pageNum = 1; pageNum <= 6; pageNum++) {
+            Map<String, Object> request = new HashMap<>(Map.of("pageNum", pageNum, "pageSize", 10));
+            if (orderDir != null) {
+                request.put("orderDir", orderDir);
+            }
+            Response response = authRequest(token).body(request).post("/orgadmin/members");
+            response.then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.total", equalTo(43));
+            List<Long> ids = response.jsonPath().getList("data.list.id", Long.class);
+            List<Long> userIds = response.jsonPath().getList("data.list.userId", Long.class);
+            int start = Math.min((pageNum - 1) * 10, 43);
+            List<Long> expectedPage = expected.subList(start, Math.min(start + 10, 43));
+            assertThat(ids).containsExactlyElementsOf(expectedPage);
+            assertThat(userIds).containsExactlyElementsOf(expectedPage);
+            actual.addAll(ids);
+        }
+        assertThat(actual).containsExactlyElementsOf(expected).doesNotHaveDuplicates();
+    }
+
     /**
      * 查询组员各原子任务提交数成功
      */
@@ -222,6 +269,40 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
     }
+
+    /**
+     * 重置和打回的提交已从总数回退，原子任务明细不得再计入。
+     */
+    @Test
+    void shouldExcludeResetAndRejectedSubmissionsFromBaseTaskCounts() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        jdbcTemplate.update("UPDATE organization_member SET submit_count = 1 WHERE id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES "
+                        + "(1, 1, '校对', '[]', 1, 1), (2, 1, '翻译', '[]', 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort) VALUES "
+                        + "(1, 1, 1, 1, 1, '校对节点', '[]', 1, 1), (2, 1, 1, 1, 2, '翻译节点', '[]', 2, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, metadata, status) VALUES "
+                        + "(1, 1, 1, 1, 1, 1, 1, '{}', 3), "
+                        + "(2, 1, 1, 2, 1, 1, 1, '{}', 2), "
+                        + "(3, 1, 1, 3, 2, 1, 1, '{}', 1)");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .get("/orgadmin/members/1/base-tasks/submit-counts")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.totalSubmitCount", equalTo(1))
+                .body("data.list", hasSize(2))
+                .body("data.list[0].baseTaskName", equalTo("校对"))
+                .body("data.list[0].submitCount", equalTo(0))
+                .body("data.list[1].baseTaskName", equalTo("翻译"))
+                .body("data.list[1].submitCount", equalTo(1));
+    }
+
 
     /**
      * 启用/禁用组员成功
@@ -280,13 +361,15 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     }
     @Test
     void shouldPromoteAndDemoteMemberWithinOrganization() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "owner", "123456", "owner@example.com", 1L, 1L, "ORG_OWNER");
         createTestUser(2L, "member", "123456", "member@example.com");
         createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         createTestUser(3L, "secondadmin", "123456", "secondadmin@example.com");
         createOrganization(3L, "其他组织");
         createOrganizationMember(3L, 3L, 3L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
+        createTestUser(4L, "orgadmin", "123456", "orgadmin@example.com");
+        createOrganizationMember(4L, 1L, 4L, "ORG_ADMIN");
+        String token = loginAs("owner", "123456");
 
         authRequest(token).body(Map.of("orgRole", "ORG_ADMIN")).patch("/orgadmin/members/2/role")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -301,12 +384,26 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,组织至少保留一名管理员"));
+                .body("msg", equalTo("操作失败,不能修改组织所有者的角色"));
+        authRequest(token).body(Map.of("orgRole", "ORG_OWNER")).patch("/orgadmin/members/2/role")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,不能分配组织所有者"));
+        authRequest(loginAs("orgadmin", "123456")).body(Map.of("orgRole", "ORG_USER"))
+                .patch("/orgadmin/members/2/role")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/4/role")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 1", String.class)).isEqualTo("ORG_OWNER");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 3", String.class)).isEqualTo("ORG_ADMIN");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT org_role FROM organization_member WHERE id = 4", String.class)).isEqualTo("ORG_USER");
     }
 
     @Test

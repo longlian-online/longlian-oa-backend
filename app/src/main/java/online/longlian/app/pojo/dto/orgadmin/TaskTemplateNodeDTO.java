@@ -11,7 +11,7 @@ import lombok.Data;
 @Schema(description = "任务模板节点（创建/更新模板时使用）")
 public class TaskTemplateNodeDTO {
 
-    @NotNull(message = "原子任务ID不能为空")
+    @NotNull(message = "任务ID不能为空")
     @JsonLongIdString
     @Schema(type = "string", description = "关联的原子任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long baseTaskId;

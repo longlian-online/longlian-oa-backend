@@ -13,5 +13,6 @@ public class SessionLoginResultBO {
     private Long userId;
     private Long defaultOrgId;
     private String token;
+    private String refreshToken;
     private String role;
 }

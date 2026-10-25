@@ -1,5 +1,7 @@
 package online.longlian.app.pojo.dto.app;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -26,6 +28,10 @@ public class ProjectListDTO extends PageRequestDTO {
 
     @Schema(description = "排序方式")
     private SortDirection orderDir = SortDirection.DESC;
+
+    @Min(value = 0, message = "offset不能小于0")
+    @Schema(description = "显式起始偏移量，传入后以它计算分页窗口（可跨页窗口），忽略 pageNum 的偏移意义")
+    private Integer offset;
 
     @Override
     protected boolean canEqual(final Object other) {

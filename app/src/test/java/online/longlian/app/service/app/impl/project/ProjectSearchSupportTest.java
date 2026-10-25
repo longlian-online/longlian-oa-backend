@@ -65,6 +65,16 @@ class ProjectSearchSupportTest {
                 Map.of("key", "语言", "value", "中文"));
     }
 
+    @Test
+    void shouldMoveKeyAndValueMatchesOnceWhilePreservingTagAttributes() {
+        String original = "{\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"重点\",\"color\":\"amber\"},{\"key\":\"重点\",\"value\":\"重点\",\"color\":\"rose\"},{\"key\":\"分类\",\"value\":\"重点\"},{\"key\":\"语言\",\"value\":\"中文\"}]}";
+        String result = ProjectSearchSupport.prioritizeMetadata(original,
+                "[\"$.tags[3].value\",\"$.tags[2].value\",\"$.tags[2].key\",\"$.tags[1].key\"]");
+        var tags = JSON.parseObject(original).getJSONArray("tags");
+        assertThat(JSON.parseObject(result).getJSONArray("tags"))
+                .containsExactly(tags.get(1), tags.get(2), tags.get(3), tags.get(0), tags.get(4));
+    }
+
     /** 无命中时保留原始 JSON 格式。 */
     @Test
     void shouldPreserveNonMatchingMetadata() {

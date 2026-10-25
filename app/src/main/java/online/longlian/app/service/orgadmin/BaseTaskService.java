@@ -6,6 +6,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 
 import java.util.List;
 
@@ -38,6 +39,12 @@ public interface BaseTaskService {
     void createBaseTask(BaseTaskCreateParamsBO params);
 
     /**
+     * 更新原子任务定义；模板和后续新建实例使用新定义，已有实例保留名称和字段快照。
+     * 图标动态读取原子任务，更新后所有关联实例使用新图标。
+     */
+    void updateBaseTask(BaseTaskUpdateParamsBO params);
+
+    /**
      * 变更基础任务状态（启用/禁用）。
      * <p>
      * 仅组织管理员可操作，且仅允许操作本组织的基础任务。
@@ -55,6 +62,9 @@ public interface BaseTaskService {
      */
     void deleteBaseTask(BaseTaskDeleteParamsBO params);
 
-    /** 在引用写入事务内锁定全部任务，拒绝缺失或禁用任务，避免与删除交错。 */
-    void lockBaseTasks(List<Long> baseTaskIds);
+    /**
+     * 在引用写入事务内锁定全部任务。任务必须属于模板所在组织且为启用状态，
+     * 避免把其他组织的任务名写入本组织模板，并避免与删除交错。
+     */
+    void lockBaseTasks(Long orgId, List<Long> baseTaskIds);
 }

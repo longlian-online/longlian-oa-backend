@@ -24,6 +24,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -55,7 +56,7 @@ class TaskTemplateHandlerTest {
                 .orgId(1L)
                 .status(Status.ENABLED)
                 .build());
-        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(any());
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(1L), any());
 
         assertThatThrownBy(() -> handler.updateTaskTemplate(TaskTemplateUpdateParamsBO.builder()
                 .templateId(8L)
@@ -69,6 +70,38 @@ class TaskTemplateHandlerTest {
                 });
 
         verifyNoInteractions(taskTemplateNodeMapper);
+    }
+
+    @Test
+    void updateTaskTemplate_otherOrganization_rejectsWithoutNodeChanges() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(2L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> handler.updateTaskTemplate(TaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMessage()).contains("无权操作该任务模板");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
+    @Test
+    void updateTaskTemplate_disabled_rejectsWithoutNodeChanges() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(1L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> handler.updateTaskTemplate(TaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+                    assertThat(ex.getMessage()).contains("任务模板已被禁用");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
     }
 
     private static TaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {

@@ -3,13 +3,17 @@ package online.longlian.app.service.app;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
+import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+
+import java.util.List;
 
 /**
  * 用户端项目（Item）服务接口。
  * <p>
- * 负责任务项目的创建、列表查询和状态管理：
+ * 负责任务项目的创建、列表查询和删除：
  * <ol>
  *   <li><b>创建项目</b>：根据选定的任务模板实例化完整的任务流：
  *       <ul>
@@ -20,9 +24,7 @@ import online.longlian.app.pojo.vo.app.ProjectItemListVO;
  *             状态均为 {@code PENDING}，不指定接取人</li>
  *       </ul>
  *   </li>
- *   <li><b>项目发布</b>：项目中所有任务实例均为已完成（{@code COMPLETED}）时才可将项目状态切换为 {@code PUBLISHED}，
- *       已发布的项目不可重复发布</li>
- *   <li><b>项目删除</b>：软删除，设置 deletedAt 时间戳</li>
+ *   <li><b>审核删除</b>：软删除 Item，并级联软删其下 ItemTaskFlow / ItemTaskNode / TaskInstance</li>
  * </ol>
  */
 public interface ItemService {
@@ -45,20 +47,33 @@ public interface ItemService {
      */
     void createProjectItem(ItemCreateParamsBO params);
 
-    /**
-     * 软删除项目。
-     *
-     * @param params 包含项目 ID 和所属企划 ID 的操作参数
-     */
-    void deleteProjectItem(ItemOperationParamsBO params);
+    List<ItemOrderEntryResultBO> getProjectItemOrder(ItemOrderQueryParamsBO params);
+
+    void reorderProjectItems(ItemReorderParamsBO params);
 
     /**
-     * 发布项目，将状态切换为 {@code PUBLISHED}。
-     * <p>
-     * 仅当项目下所有任务实例均已完成时才允许发布，存在未完成任务或没有任务时拒绝发布；
-     * 已发布的项目不可重复发布。
-     *
-     * @param params 包含项目 ID 和所属企划 ID 的操作参数
+     * 审核通过后软删除项目，不再检查创建者或是否已有提交。
      */
-    void publishProjectItem(ItemOperationParamsBO params);
+    void deleteProjectItemForReview(Long projectId, Long itemId, Long orgId);
+
+    /**
+     * 审核通过后软删除企划下仍存在的全部项目。
+     */
+    void deleteProjectItemsForReview(Long projectId, Long orgId);
+
+    /**
+     * 企划下是否仍有项目。
+     */
+    boolean hasProjectItems(Long projectId);
+
+    /**
+     * 项目是否已有状态为已提交的任务。
+     */
+    boolean hasSubmittedTask(Long itemId);
+
+    /**
+     * 确认项目属于该企划并返回项目名称。
+     */
+    String requireItemTitle(Long projectId, Long itemId);
+
 }

@@ -4,8 +4,10 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
+import online.longlian.common.enumeration.ProjectStatus;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +36,71 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("code", equalTo(0))
                 .body("data.list", notNullValue())
                 .body("data.total", notNullValue());
+    }
+
+    @Test
+    void shouldExposeCurrentOrganizationOwnerSubmissionAndKeepOtherOrganizationsSeparate() {
+        createUserWithOrganization(1L, "viewer", "123456", "viewer@example.com", 1L, 1L, "ORG_USER");
+        createOrganization(2L, "组织2");
+        createTestUser(2L, "owner-account", "123456", "owner@example.com");
+        jdbcTemplate.update("UPDATE `user` SET nickname = ? WHERE id = ?", "展示昵称", 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        createOrganizationMember(3L, 2L, 2L, "ORG_USER");
+        jdbcTemplate.update("UPDATE organization_member SET last_submitted_at = ?, status = 0 WHERE id = 2",
+                java.sql.Timestamp.valueOf("2026-10-24 09:30:00"));
+        jdbcTemplate.update("UPDATE organization_member SET last_submitted_at = ? WHERE id = 3",
+                java.sql.Timestamp.valueOf("2026-09-01 08:00:00"));
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '当前组织企划', 2)");
+        String token = loginAs("viewer", "123456");
+
+        Response response = authRequest(token).get("/app/projects");
+
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(response.path("data.list[0].creatorNickname").toString()).isEqualTo("展示昵称");
+        assertThat(response.path("data.list[0].creatorLastSubmittedAt").toString()).isEqualTo("2026-10-24 09:30:00");
+        assertThat(response.asString()).doesNotContain("owner-account");
+    }
+
+    @Test
+    void shouldLeaveOwnerSubmissionBlankWhenMemberOrUserIsUnavailable() {
+        createUserWithOrganization(1L, "viewer", "123456", "viewer@example.com", 1L, 1L, "ORG_USER");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '无负责人资料企划', 9)");
+        String token = loginAs("viewer", "123456");
+
+        Response response = authRequest(token).get("/app/projects");
+
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat((Object) response.path("data.list[0].creatorNickname")).isNull();
+        assertThat((Object) response.path("data.list[0].creatorLastSubmittedAt")).isNull();
+    }
+
+    @Test
+    void shouldResizeOnlyListCoversAndKeepDetailAndAvatarsOriginal() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        createResource(2L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1 WHERE id = 1");
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 2 WHERE id = 1");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, cover_file_id, creator_id) " +
+                "VALUES (1, 1, 1, '有封面企划', 1, 1), (2, 1, 1, '无封面企划', 0, 1)");
+        String token = loginAs("orgadmin", "123456");
+
+        Response list = authRequest(token).get("/app/projects");
+        list.then().statusCode(200).body("code", equalTo(0));
+        String coverUrl = list.path("data.list.find { it.id == '1' }.coverUrl");
+        assertThat(coverUrl).contains("&eo-img.resize=w/400/h/600");
+        String avatarUrl = list.path("data.list.find { it.id == '1' }.creatorAvatarUrl");
+        assertThat(avatarUrl).doesNotContain("eo-img.resize");
+        Object absentCover = list.path("data.list.find { it.id == '2' }.coverUrl");
+        assertThat(absentCover).isNull();
+
+        Response detail = authRequest(token).get("/app/projects/1");
+        detail.then().statusCode(200).body("code", equalTo(0));
+        String originalCoverUrl = detail.path("data.coverUrl");
+        assertThat(originalCoverUrl).contains("key=cover/1.png").doesNotContain("eo-img.resize");
     }
 
     /**
@@ -107,6 +174,96 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 显式 offset 窗口应按绝对偏移取数，窗口间无缝衔接（首页少取后跨页不漏数据）
+     */
+    @Test
+    void shouldListProjectsWithExplicitOffsetWindow() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                1L, 1L, 1L, "窗口企划甲", "offset-a", "{}", 0L, "偏移测试", 1, 1L,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(30))
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                2L, 1L, 1L, "窗口企划乙", "offset-b", "{}", 0L, "偏移测试", 1, 1L,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(20))
+        );
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                3L, 1L, 1L, "窗口企划丙", "offset-c", "{}", 0L, "偏移测试", 1, 1L,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(10))
+        );
+
+        // 常规首页：第一条为最新创建的丙
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划丙"));
+
+        // 显式 offset=1：应取到乙，与首页无缝衔接
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .queryParam("offset", 1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划乙"))
+                .body("data.total", equalTo(3));
+
+        // 显式 offset=2：应取到甲
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .queryParam("offset", 2)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划甲"));
+
+        // 变长首页场景（首页少取、次页自接续位置连取）：offset=1&pageSize=2 应连取乙、甲
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 2)
+                .queryParam("offset", 1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.list[0].title", equalTo("窗口企划乙"))
+                .body("data.list[1].title", equalTo("窗口企划甲"));
+    }
+
+    /**
+     * offset 为负数时应返回参数错误
+     */
+    @Test
+    void shouldFailListProjectsWithNegativeOffset() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 8)
+                .queryParam("offset", -1)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /**
      * 使用不存在的企划类型名称筛选时应返回参数错误
      */
     @Test
@@ -138,8 +295,9 @@ public class ProjectApiTest extends BaseApiTest {
 
         jdbcTemplate.update(
                 "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L,
+                "2026-03-01 08:30:00"
         );
 
         Response response = authRequest(token)
@@ -150,7 +308,9 @@ public class ProjectApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.id", notNullValue())
-                .body("data.title", notNullValue());
+                .body("data.title", notNullValue())
+                .body("data.createdAt", equalTo("2026-03-01 08:30:00"))
+                .body("data.hasItems", equalTo(false));
     }
 
     /**
@@ -241,6 +401,104 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     /**
+     * 创建时写入缩略图，编辑省略缩略图时保留，再次提交则替换。
+     */
+    @Test
+    void shouldSaveAndReplaceProjectThumbnail() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        createResource(2L, 1L, 1L);
+        createResource(3L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'thumbnail', storage_key = 'thumbnail/2.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 2L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'thumbnail', storage_key = 'thumbnail/3.png', process_status = ? WHERE id = ?",
+                FileProcessStatus.Uploaded.getCode(), 3L);
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "带缩略图企划",
+                        "alias", "alias",
+                        "typeId", "1",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "coverFileId", "1",
+                        "thumbnailFileId", "2"))
+                .post("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM `project` WHERE title = ?", Long.class, "带缩略图企划");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT thumbnail_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(2L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 2", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+
+        authRequest(token)
+                .get("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("data.thumbnailUrl", allOf(
+                        containsString("key=thumbnail/2.png"),
+                        not(containsString("eo-img.resize"))));
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/app/workshop/list")
+                .then()
+                .statusCode(200)
+                .body("data.list[0].thumbnailUrl", allOf(
+                        containsString("key=thumbnail/2.png"),
+                        containsString("&eo-img.resize=w/144/h/144")))
+                .body("data.list[0].coverUrl", allOf(
+                        containsString("key=cover/1.png"),
+                        not(containsString("eo-img.resize"))));
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "带缩略图企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "只改文字"))
+                .put("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT thumbnail_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(2L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "带缩略图企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "换缩略图",
+                        "thumbnailFileId", "3"))
+                .put("/app/projects/" + projectId)
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT thumbnail_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(3L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT cover_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 2", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = 3", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
      * 更新企划成功
      */
     @Test
@@ -288,6 +546,83 @@ public class ProjectApiTest extends BaseApiTest {
                 .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
+    @Test
+    void shouldUpdateProjectType() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "漫画", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                2L, 1L, "小说", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 0L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "测试企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "typeId", "2"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT type_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(2L);
+        authRequest(token).get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.typeName", equalTo("小说"));
+    }
+
+    @Test
+    void shouldRejectDisabledOrForeignProjectTypeOnUpdate() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "其他组织");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "漫画", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                2L, 1L, "停用小说", 0, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                3L, 2L, "他组类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, description, status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", "测试描述", 1, 1L);
+
+        for (String typeId : List.of("2", "3", "99")) {
+            authRequest(token)
+                    .body(Map.of(
+                            "title", "改名不应落库",
+                            "alias", "alias",
+                            "metadata", "{\"tags\":[]}",
+                            "description", "测试描述",
+                            "typeId", typeId))
+                    .put("/app/projects/1")
+                    .then()
+                    .statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        }
+
+        assertThat(jdbcTemplate.queryForObject("SELECT type_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("测试企划");
+    }
+
     /**
      * 编辑时未提交封面 ID，应更新文字字段并保留原封面资源。
      */
@@ -325,6 +660,79 @@ public class ProjectApiTest extends BaseApiTest {
                 .isEqualTo(1L);
         assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 1", Integer.class))
                 .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    /**
+     * 更新企划状态成功（进行中 → 已完成）
+     */
+    @Test
+    void shouldUpdateProjectStatusSuccessfully() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET biz_type = 'cover', storage_key = 'cover/1.png', biz_id = 1, process_status = ? WHERE id = 1",
+                FileProcessStatus.Activated.getCode());
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "测试企划",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "status", "已完成"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM project WHERE id = 1", Integer.class))
+                .isEqualTo(ProjectStatus.COMPLETED.getCode());
+        assertThat(jdbcTemplate.queryForObject("SELECT cover_file_id FROM project WHERE id = 1", Long.class))
+                .isEqualTo(1L);
+    }
+
+    /**
+     * 更新企划为已归档状态应失败，且其他字段不落库
+     */
+    @Test
+    void shouldFailUpdateProjectStatusToArchived() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, "测试类型", 1, 1L);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                1L, 1L, 1L, "测试企划", "alias", "{\"tags\":[]}", 1L, "测试描述", 1, 1L);
+
+        authRequest(token)
+                .body(Map.of(
+                        "title", "改名尝试",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "测试描述",
+                        "status", "已归档"))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM project WHERE id = 1", Integer.class))
+                .isEqualTo(ProjectStatus.IN_PROGRESS.getCode());
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("测试企划");
     }
 
     /**
@@ -786,6 +1194,124 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("data.total", equalTo(0));
     }
 
+    @Test
+    void shouldDeleteProjectWithoutItems() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertProject(1L, 1L, "可删除企划");
+
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("msg", equalTo("删除成功"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isZero();
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        authRequest(token)
+                .get("/app/projects")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(0));
+    }
+
+    @Test
+    void shouldRejectDeleteProjectWhenItemsExist() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertProject(1L, 1L, "有项目企划");
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "第一章", 1L, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.hasItems", equalTo(true));
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", equalTo("参数错误,企划已存在项目，请提交删除申请"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldDeleteProjectWhenOnlyDeletedItemsRemain() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        insertProject(1L, 1L, "只剩已删项目");
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, deleted_at) " +
+                        "VALUES (?, ?, ?, ?, ?, NOW())",
+                1L, 1L, "已删除项目", 1L, 1L);
+
+        authRequest(token)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("data.hasItems", equalTo(false));
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isZero();
+    }
+
+    @Test
+    void shouldRejectDeleteProjectByNonCreator() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("member", "123456");
+        insertProject(1L, 1L, "别人的企划");
+
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作,仅企划负责人可删除企划"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldFailDeleteProjectWithoutAuth() {
+        request()
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void shouldFailDeleteDisabledProject() {
+        String token = createDisabledProjectAndLogin();
+
+        authRequest(token)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+    }
+
     private String createDisabledProjectAndLogin() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         jdbcTemplate.update(
@@ -793,6 +1319,16 @@ public class ProjectApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 1L, 1L, 1L, "禁用企划", 1, 0, 1L);
         return loginAs("orgadmin", "123456");
+    }
+
+    private void insertProject(Long projectId, Long creatorId, String title) {
+        jdbcTemplate.update(
+                "INSERT INTO `project_type` (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "漫画", 1, creatorId);
+        jdbcTemplate.update(
+                "INSERT INTO `project` (id, org_id, type_id, title, status, resource_status, creator_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                projectId, 1L, 1L, title, 1, 1, creatorId);
     }
 
 }

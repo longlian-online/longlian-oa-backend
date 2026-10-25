@@ -139,33 +139,6 @@ class ScheduledTaskEngineTest {
     }
 
     @Test
-    void shouldWriteDetailedChineseExecutionLog(CapturedOutput output) {
-        ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
-                "resource-cleanup", "清理已废弃资源的实际存储文件", null, false);
-        DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
-        LocalDateTime executeTime = LocalDateTime.now(CLOCK);
-        when(task.getDefinition()).thenReturn(definition);
-        when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("resourceCleanupTask", task));
-        when(currentUserContext.requireUserId()).thenReturn(1L);
-        when(lockService.tryAcquire("scheduled-task:resource-cleanup", 0, TimeUnit.SECONDS)).thenReturn(lock);
-        when(taskLogService.insertRunningLog(eq("resource-cleanup"), eq(executeTime),
-                eq(TriggerSource.MANUAL), any(), eq(1L), any())).thenReturn(1L);
-        ScheduledTaskEngine engine = new ScheduledTaskEngine(
-                taskScheduler, applicationContext, currentUserContext, taskLogService, lockService, CLOCK);
-
-        engine.start();
-        engine.trigger("resource-cleanup", executeTime);
-
-        assertThat(output)
-                .contains("清理已废弃资源的实际存储文件（resource-cleanup）")
-                .contains("触发方式=手动触发")
-                .contains("业务执行时间=2026-09-29T02:00")
-                .contains("定时任务执行成功")
-                .contains("耗时=0毫秒");
-    }
-
-    @Test
     void shouldRegisterAndExecuteEnabledCronTask() {
         ScheduledTask task = mock(ScheduledTask.class);
         ScheduledTaskDefinition definition = new ScheduledTaskDefinition(

@@ -26,6 +26,9 @@ public class LoginVO {
     @Schema(description = "用户认证token")
     private String token;
 
+    @Schema(description = "刷新凭证。只用于换发访问凭证，不能当作访问凭证")
+    private String refreshToken;
+
     @Schema(description = "默认组织内的角色，仅供展示。没有可用默认组织时为空")
     private String role;
 }

@@ -10,6 +10,7 @@
 longlian:
   display-name: "longlian-oa"
   server-url: https://api.test.longlian.online
+  web-url: https://oa.test.longlian.online
   datasource:
     type: mariadb
   cache:
@@ -103,8 +104,15 @@ notify:
     template:
       path: classpath:templates/verify-code.html
 
+outbox:
+  # API 测试不连接 SMTP，已入队的邮件保持 PENDING
+  dispatch-enabled: false
+
 jwt:
   secret: test-jwt-secret-key-must-be-at-least-32-bytes-long
   expiration: 86400
+  user-access-expiration: 21600
+  refresh-expiration: 1209600
+  refresh-grace-seconds: 1
   header: Authorization
   prefix: Bearer

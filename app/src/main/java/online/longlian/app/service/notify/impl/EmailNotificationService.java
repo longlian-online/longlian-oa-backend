@@ -1,6 +1,5 @@
 package online.longlian.app.service.notify.impl;
 
-import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.enumeration.NotificationType;
 import online.longlian.app.common.util.MailUtil;
 import online.longlian.app.service.notify.NotificationService;
@@ -23,6 +22,8 @@ public class EmailNotificationService implements NotificationService {
     private final String templatePath;
     private final String htmlTemplate;
     private final String appDisplayName;
+    private final String htmlDisplayName;
+    private final String mailSubject;
 
     public EmailNotificationService(
             MailUtil mailUtil,
@@ -36,6 +37,8 @@ public class EmailNotificationService implements NotificationService {
         this.templatePath = templatePath;
         this.htmlTemplate = loadHtmlTemplate();
         this.appDisplayName = appDisplayName;
+        this.htmlDisplayName = HtmlUtils.htmlEscape(appDisplayName);
+        this.mailSubject = appDisplayName + " 邮箱验证码";
     }
 
     @Override
@@ -47,8 +50,9 @@ public class EmailNotificationService implements NotificationService {
     public void send(String receiver, String code) {
         String htmlContent = htmlTemplate
                 .replace("${code}", HtmlUtils.htmlEscape(code))
-                .replace("${receiver}", HtmlUtils.htmlEscape(receiver));
-        mailUtil.send(new MailUtil.SendParam(fromEmail, receiver, this.appDisplayName, CommonConstants.NOTIFY_TITLE, htmlContent));
+                .replace("${receiver}", HtmlUtils.htmlEscape(receiver))
+                .replace("${displayName}", htmlDisplayName);
+        mailUtil.send(new MailUtil.SendParam(fromEmail, receiver, this.appDisplayName, mailSubject, htmlContent));
     }
 
     private String loadHtmlTemplate() {
