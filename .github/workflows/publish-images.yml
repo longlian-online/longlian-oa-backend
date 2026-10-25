@@ -1,5 +1,7 @@
-# 构建并推送应用镜像与迁移镜像（linux/amd64）。
-# 调用方决定标签。本工作流不部署。
+# 构建并推送应用镜像与迁移镜像（linux/amd64）。不部署。
+#
+# 推送 v*.*.* 时直接触发，标签为 :<version> 与 :<version>-migration。
+# sit 由 deploy-sit.yml 调用，标签由调用方传入。
 #
 # 镜像:
 #   ghcr.io/<owner>/<repo>
@@ -13,6 +15,9 @@
 name: Publish images
 
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_call:
     inputs:
       app-tags:
@@ -35,6 +40,10 @@ on:
     secrets:
       GIT_PASSWORD:
         required: true
+
+concurrency:
+  group: publish-images-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -157,6 +166,27 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Resolve image tags
+        id: image-tags
+        if: success() && steps.recheck.outputs.proceed == 'true'
+        run: |
+          set -Eeuo pipefail
+          write_tags() {
+            {
+              echo "app<<EOF"
+              printf '%s\n' "$1"
+              echo "EOF"
+              echo "migration<<EOF"
+              printf '%s\n' "$2"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          }
+          if [ "${{ github.event_name }}" = "workflow_call" ]; then
+            write_tags "${{ inputs.app-tags }}" "${{ inputs.migration-tags }}"
+          else
+            write_tags "type=semver,pattern={{version}}" "type=semver,pattern={{version}}-migration"
+          fi
+
       - name: Extract Docker metadata (app)
         id: meta
         if: success() && steps.recheck.outputs.proceed == 'true'
@@ -169,7 +199,7 @@ jobs:
             latest=false
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
-          tags: ${{ inputs.app-tags }}
+          tags: ${{ steps.image-tags.outputs.app }}
 
       - name: Build and push app image
         id: app
@@ -200,7 +230,7 @@ jobs:
             latest=false
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
-          tags: ${{ inputs.migration-tags }}
+          tags: ${{ steps.image-tags.outputs.migration }}
 
       - name: Build and push migration image
         id: migration
