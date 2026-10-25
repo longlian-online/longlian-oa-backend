@@ -174,40 +174,6 @@ public class ItemApiTest extends BaseApiTest {
                 .doesNotContain("组织B机密任务");
     }
 
-    /**
-     * 删除项目成功
-     */
-    @Test
-    void shouldDeleteItemSuccessfully() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
-
-        jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试类型", 1, 1L
-        );
-
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
-        );
-
-        jdbcTemplate.update(
-                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试项目", 0L, 1L
-        );
-
-        Response response = authRequest(token)
-                .delete("/app/projects/1/items/1");
-
-        response
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(0));
-    }
 
 
     /**
@@ -321,19 +287,6 @@ public class ItemApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
-    /**
-     * 未认证删除项目失败
-     */
-    @Test
-    void shouldFailDeleteItemWithoutAuth() {
-        Response response = request()
-                .delete("/app/projects/1/items/1");
-
-        response
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
-    }
 
 
     /**
@@ -436,34 +389,6 @@ public class ItemApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
-    /**
-     * 删除不存在的项目应失败
-     */
-    @Test
-    void shouldFailDeleteNonExistentItem() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
-        String token = loginAs("orgadmin", "123456");
-
-        jdbcTemplate.update(
-                "INSERT INTO `project_type` (id, org_id, name, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, "测试类型", 1, 1L
-        );
-
-        jdbcTemplate.update(
-                "INSERT INTO `project` (id, org_id, type_id, title, alias, metadata, cover_file_id, description, status, creator_id, created_at, updated_at) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                1L, 1L, 1L, "测试企划", "alias", "{}", 0L, "描述", 1, 1L
-        );
-
-        Response response = authRequest(token)
-                .delete("/app/projects/1/items/99999");
-
-        response
-                .then()
-                .statusCode(200)
-                .body("code", not(equalTo(0)));
-    }
 
     // ========== 业务规则：完成情况筛选与模板 ==========
 
@@ -685,7 +610,6 @@ public class ItemApiTest extends BaseApiTest {
         assertProjectNotFound(authRequest(token)
                 .body(Map.of("title", "新项目", "taskTemplateId", "1"))
                 .post("/app/projects/1/items"));
-        assertProjectNotFound(authRequest(token).delete("/app/projects/1/items/1"));
         assertProjectNotFound(authRequest(token).get("/app/item/1/flow"));
     }
 

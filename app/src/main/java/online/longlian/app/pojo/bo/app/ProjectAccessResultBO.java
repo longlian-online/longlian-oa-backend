@@ -9,9 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ItemOperationParamsBO {
-    private Long projectId;
-    private Long itemId;
-    private Long orgId;
-    private Long operatorId;
+public class ProjectAccessResultBO {
+    private Long creatorId;
 }

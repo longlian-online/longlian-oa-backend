@@ -97,13 +97,6 @@ public class DeletionRequestApiTest extends BaseApiTest {
                 1L, 1L, 1L, 1L, 1L, 1L, 1, 1);
 
         authRequest(token)
-                .delete("/app/projects/1/items/1")
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,项目存在已提交任务，请提交删除申请"));
-
-        authRequest(token)
                 .body(Map.of("reason", "提交作废"))
                 .post("/app/projects/1/items/1/deletion-requests")
                 .then()
