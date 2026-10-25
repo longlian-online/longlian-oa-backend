@@ -539,7 +539,7 @@ class ProjectServiceImplTest {
         Page<ProjectSearchResultBO> page = new Page<>(2, 10, 12);
         page.setRecords(List.of(row));
         when(projectMapper.selectSearchPage(any(), any())).thenReturn(page);
-        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+        when(projectAssembler.assembleList(List.of(project), 7L)).thenReturn(List.of(
                 ProjectListResultBO.builder().id(1L).metadata(original).build()));
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(ProjectListParamsBO.builder()
@@ -566,7 +566,7 @@ class ProjectServiceImplTest {
 
         assertThat(result.getList()).isEmpty();
         assertThat(result.getTotal()).isEqualTo(12);
-        verify(projectAssembler, never()).assembleList(any());
+        verify(projectAssembler, never()).assembleList(any(), any());
     }
 
     @Test
@@ -579,7 +579,7 @@ class ProjectServiceImplTest {
         page.setRecords(List.of(project));
         when(projectQueryBuilder.buildListQuery(params, null)).thenReturn(wrapper);
         when(projectMapper.selectPage(any(), any())).thenReturn(page);
-        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+        when(projectAssembler.assembleList(List.of(project), params.getOrgId())).thenReturn(List.of(
                 ProjectListResultBO.builder().metadata(project.getMetadata()).build()));
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(params);
