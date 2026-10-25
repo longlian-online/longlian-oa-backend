@@ -1,13 +1,29 @@
+# 部署只做一件事：SSH 到目标机器，执行密钥里的 DEPLOY_SCRIPT_PATH。
+# 怎么拉镜像、怎么重启，由那台机器上的脚本决定。
+# 传给脚本的环境变量：APP_TAG、MIGRATION_TAG。
+#
+# 密钥仓库 https://cnb.cool/longlian.online/oa-deploy-secrets
+#   sit.yml   sit 分支推送后自动执行
+#   prod.yml  标签页手动执行
+# 字段见 devops/cnb/sit-deploy.yml.example 和 prod-deploy.yml.example。
+
+.remote: &remote
+  runner:
+    cpus: 1
+  docker:
+    image: alpine:3.20
+  stages:
+    - name: run remote script
+      timeout: 20m
+      script: |
+        set -eu
+        apk add --no-cache openssh-client bash
+        bash devops/cnb/run-remote.sh
+
 sit:
   push:
     - name: deploy-sit
-      runner:
-        cpus: 1
-      docker:
-        build:
-          dockerfile: devops/cnb/Dockerfile
-          by:
-            - devops/cnb/Dockerfile
+      <<: *remote
       env:
         APP_TAG: sit
         MIGRATION_TAG: sit-migration
@@ -17,31 +33,14 @@ sit:
         cancel-in-wait: true
       imports:
         - https://cnb.cool/longlian.online/oa-deploy-secrets/-/blob/main/sit.yml
-      stages:
-        - name: wait for images
-          timeout: 100m
-          script: bash devops/cnb/wait-sit-images.sh
-        - name: deploy
-          timeout: 20m
-          script: bash devops/cnb/deploy-production.sh
 
 $:
   tag_deploy.production:
     - name: deploy-production
-      runner:
-        cpus: 1
-      docker:
-        build:
-          dockerfile: devops/cnb/Dockerfile
-          by:
-            - devops/cnb/Dockerfile
+      <<: *remote
       lock:
         key: deploy-production
         wait: true
         cancel-in-wait: true
       imports:
         - https://cnb.cool/longlian.online/oa-deploy-secrets/-/blob/main/prod.yml
-      stages:
-        - name: deploy
-          script: |
-            bash devops/cnb/deploy-production.sh

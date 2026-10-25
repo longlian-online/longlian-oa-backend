@@ -12,7 +12,7 @@ allow_events:
 DEPLOY_SSH_HOST: "203.0.113.10"
 DEPLOY_SSH_PORT: "22"
 DEPLOY_SSH_USER: "root"
-DEPLOY_DIR: "/root/longlian-oa-deploy"
+DEPLOY_SCRIPT_PATH: "/root/longlian-oa-deploy/deploy.sh"
 # ssh-keyscan -p 22 <host> 的输出。必须包含主机名或 IP，与 DEPLOY_SSH_HOST 一致。
 DEPLOY_SSH_KNOWN_HOSTS: |
   203.0.113.10 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleOnlyReplaceThisKey

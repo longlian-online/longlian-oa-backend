@@ -1,41 +1,20 @@
-# 构建并推送应用镜像与迁移镜像（linux/amd64）。不部署。
+# 构建并推送镜像，不部署。
 #
-# 推送 v*.*.* 时直接触发，标签为 :<version> 与 :<version>-migration。
-# sit 由 deploy-sit.yml 调用，标签由调用方传入。
+# sit 分支 → :sit 与 :sit-migration
+# vX.Y.Z 标签 → :X.Y.Z 与 :X.Y.Z-migration
 #
-# 镜像:
-#   ghcr.io/<owner>/<repo>
-#   docker.cnb.cool/longlian.online/longlian-oa-backend
+# 镜像同时推到 ghcr.io/<owner>/<repo> 和 docker.cnb.cool/longlian.online/longlian-oa-backend。
+# CNB 推送使用仓库 Secret GIT_PASSWORD，用户名固定为 cnb。
 #
-# CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
-#
-# 依赖来自 main 上 All Tests 写入的 Actions cache（tag 与 sit 工作流读得到 main 的 cache，
-# 写出去的缓存下一发构建读不到）。
-# 不再用 type=gha,mode=max：层缓存会被 pom 版本打穿，导出本身要数分钟，而且仓库 cache 配额只有 10GB。
+# Maven 缓存来自 main 上的测试。sit 若已有更新的提交，旧的一轮不推送，避免覆盖新镜像。
 name: Publish images
 
 on:
   push:
+    branches:
+      - sit
     tags:
       - "v*.*.*"
-  workflow_call:
-    inputs:
-      app-tags:
-        description: docker/metadata-action tags for the app image
-        required: true
-        type: string
-      migration-tags:
-        description: docker/metadata-action tags for the migration image
-        required: true
-        type: string
-      tip-branch:
-        description: If set, push only while this branch still points at the current commit
-        required: false
-        type: string
-        default: ""
-    secrets:
-      GIT_PASSWORD:
-        required: true
 
 concurrency:
   group: publish-images-${{ github.ref }}
@@ -63,27 +42,20 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Skip if the branch tip has moved
+      - name: Skip superseded sit builds
         id: gate
         run: |
           set -Eeuo pipefail
-          tip_branch="${{ inputs.tip-branch }}"
-          if [ -z "$tip_branch" ]; then
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          case "$tip_branch" in
-            *[!A-Za-z0-9._/-]*)
-              echo "invalid tip-branch" >&2
-              exit 1
-              ;;
-          esac
-          git fetch --no-tags origin "refs/heads/${tip_branch}"
+          git fetch --no-tags origin refs/heads/sit
           tip="$(git rev-parse FETCH_HEAD)"
           if [ "$tip" = "$GITHUB_SHA" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip: origin/${tip_branch} is ${tip}, this run is ${GITHUB_SHA}"
+            echo "skip: origin/sit is ${tip}, this run is ${GITHUB_SHA}"
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -141,22 +113,21 @@ jobs:
           username: cnb
           password: ${{ secrets.GIT_PASSWORD }}
 
-      - name: Recheck the branch tip before pushing
+      - name: Recheck sit before pushing
         id: recheck
         if: success() && steps.gate.outputs.proceed == 'true'
         run: |
           set -Eeuo pipefail
-          tip_branch="${{ inputs.tip-branch }}"
-          if [ -z "$tip_branch" ]; then
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git fetch --no-tags origin "refs/heads/${tip_branch}"
+          git fetch --no-tags origin refs/heads/sit
           tip="$(git rev-parse FETCH_HEAD)"
           if [ "$tip" = "$GITHUB_SHA" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip push: origin/${tip_branch} is ${tip}, this run is ${GITHUB_SHA}"
+            echo "skip push: origin/sit is ${tip}, this run is ${GITHUB_SHA}"
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -175,10 +146,10 @@ jobs:
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           }
-          if [ "${{ github.event_name }}" = "workflow_call" ]; then
-            write_tags "${{ inputs.app-tags }}" "${{ inputs.migration-tags }}"
-          else
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             write_tags "type=semver,pattern={{version}}" "type=semver,pattern={{version}}-migration"
+          else
+            write_tags "type=raw,value=sit" "type=raw,value=sit-migration"
           fi
 
       - name: Extract Docker metadata (app)
