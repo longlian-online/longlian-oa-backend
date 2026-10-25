@@ -71,6 +71,66 @@ public class ItemOrderApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldSearchTitlesBeforeManualOrderPagination() {
+        String token = seed();
+        jdbcTemplate.update("UPDATE item SET title=CONCAT('MATCH-',title) WHERE id IN (1,3,5)");
+        save(token, INITIAL, REORDERED).then().body("code", equalTo(0));
+
+        authRequest(token).queryParam("keyword", " MATCH ").queryParam("status", "")
+                .queryParam("pageSize", 2).queryParam("pageNum", 1)
+                .get("/app/projects/1/items").then()
+                .body("code", equalTo(0)).body("data.total", equalTo(3))
+                .body("data.list.id", equalTo(List.of("1", "5")));
+        authRequest(token).queryParam("keyword", " MATCH ").queryParam("status", "")
+                .queryParam("pageSize", 2).queryParam("pageNum", 2)
+                .get("/app/projects/1/items").then()
+                .body("code", equalTo(0)).body("data.total", equalTo(3))
+                .body("data.list.id", equalTo(List.of("3")));
+    }
+
+    @Test
+    void shouldExposeDeletionRequestEligibilityOnlyForCurrentSubmissions() {
+        String token = seed();
+        jdbcTemplate.update("""
+                INSERT INTO task_submission
+                    (id, project_id, item_id, task_instance_id, item_task_node_id,
+                     submitter_id, version_no, status, deleted_at)
+                VALUES (102,1,2,102,102,1,1,1,NULL),
+                       (103,1,3,103,103,1,1,2,NULL),
+                       (104,1,4,104,104,1,1,1,NOW()),
+                       (105,1,5,105,105,1,1,3,NULL)
+                """);
+        authRequest(token).queryParam("status", "").queryParam("pageSize", 100)
+                .get("/app/projects/1/items").then()
+                .body("code", equalTo(0)).body("data.list.id", equalTo(INITIAL))
+                .body("data.list.hasSubmittedTask", equalTo(List.of(false, true, false, false, false, false)));
+
+        save(token, INITIAL, REORDERED).then().body("code", equalTo(0));
+        authRequest(token).queryParam("status", "").queryParam("pageSize", 100)
+                .get("/app/projects/1/items").then()
+                .body("code", equalTo(0)).body("data.list.id", equalTo(REORDERED))
+                .body("data.list.hasSubmittedTask", equalTo(List.of(false, false, true, false, false, false)));
+    }
+
+    @Test
+    void shouldRejectDeletionRequestsForInvalidItemsOrMissingSubmissions() {
+        String token = seed();
+        jdbcTemplate.update("INSERT INTO project (id,org_id,type_id,title,creator_id) VALUES (2,1,1,'其他企划',1)");
+        jdbcTemplate.update("INSERT INTO item (id,project_id,title,sort,task_template_id,creator_id) VALUES (7,2,'其他企划项目',1,1,1)");
+        jdbcTemplate.update("INSERT INTO item (id,project_id,title,sort,task_template_id,creator_id,deleted_at) VALUES (8,1,'已删除项目',7,1,1,NOW())");
+        for (long id : List.of(99L, 7L, 8L)) {
+            authRequest(token).body(Map.of("reason", "申请删除"))
+                    .post("/app/projects/1/items/" + id + "/deletion-requests").then()
+                    .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        }
+        authRequest(token).body(Map.of("reason", "尚无提交"))
+                .post("/app/projects/1/items/1/deletion-requests").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM deletion_request", Long.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT deleted_at FROM item WHERE id=1", LocalDateTime.class)).isNull();
+    }
+
+    @Test
     void shouldKeepTimeSortsIndependentWithStableTimestampTies() {
         String token = seed();
         jdbcTemplate.update("UPDATE item SET created_at='2026-01-01', updated_at='2026-02-01' WHERE id=2");
