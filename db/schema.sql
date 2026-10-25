@@ -181,6 +181,20 @@ CREATE TABLE `organization_member` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
+-- Create "organization_preset_tag" table
+CREATE TABLE `organization_preset_tag` (
+  `id` bigint NOT NULL COMMENT "组织预制标签ID",
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `name` varchar(50) NOT NULL COMMENT "标签名",
+  `color` varchar(16) NULL COMMENT "颜色，空为默认。blue/green/amber/rose/violet",
+  `priority` int NOT NULL DEFAULT 0 COMMENT "优先级，仅用户端下拉按值降序",
+  `creator_id` bigint NOT NULL COMMENT "创建人ID",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_org_preset_tag_org` (`org_id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织预制标签表";
 -- Create "outbox_message" table
 CREATE TABLE `outbox_message` (
   `id` bigint NOT NULL COMMENT "消息ID",
