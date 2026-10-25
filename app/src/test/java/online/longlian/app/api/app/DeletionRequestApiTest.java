@@ -2,6 +2,7 @@ package online.longlian.app.api.app;
 
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.DeletionRequestStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -139,6 +140,69 @@ public class DeletionRequestApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM deletion_request", Integer.class)).isZero();
+    }
+
+    @Test
+    void shouldRejectDeletionRequestForAProjectWithoutItems() {
+        String token = creator();
+        insertProject("空企划");
+        authRequest(token).body(Map.of("reason", "没有项目"))
+                .post("/app/projects/1/deletion-requests").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM deletion_request", Integer.class)).isZero();
+        assertThat(activeCount("project", 1L)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReturnAnEmptyPendingRequestPage() {
+        String token = creator();
+        authRequest(token).queryParam("pageNum", 1).queryParam("pageSize", 10)
+                .get("/orgadmin/deletion-requests").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list", hasSize(0)).body("data.total", equalTo(0));
+    }
+
+    @Test
+    void shouldHideMissingAndOtherOrganizationRequestsFromReviewers() {
+        String token = creator();
+        Long requestId = pendingProjectRequest(token);
+        authRequest(token).body(Map.of("status", "REJECTED"))
+                .patch("/orgadmin/deletion-requests/99999").then()
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        createUserWithOrganization(2L, "other-admin", "123456", "other-admin@example.com", 2L, 2L, "ORG_ADMIN");
+        authRequest(loginAs("other-admin", "123456")).body(Map.of("status", "APPROVED"))
+                .patch("/orgadmin/deletion-requests/" + requestId).then()
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM deletion_request WHERE id=?", Integer.class, requestId))
+                .isEqualTo(DeletionRequestStatus.PENDING.getCode());
+        assertThat(activeCount("project", 1L)).isEqualTo(1);
+        assertThat(activeCount("item", 1L)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectAnotherReviewWithoutChangingTheFirstDecision() {
+        String token = creator();
+        Long requestId = pendingProjectRequest(token);
+        authRequest(token).body(Map.of("status", "REJECTED"))
+                .patch("/orgadmin/deletion-requests/" + requestId).then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).body(Map.of("status", "APPROVED"))
+                .patch("/orgadmin/deletion-requests/" + requestId).then()
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM deletion_request WHERE id=?", Integer.class, requestId))
+                .isEqualTo(DeletionRequestStatus.REJECTED.getCode());
+        assertThat(activeCount("project", 1L)).isEqualTo(1);
+        assertThat(activeCount("item", 1L)).isEqualTo(1);
+    }
+
+    private Long pendingProjectRequest(String token) {
+        insertProject("待审核企划");
+        insertItem(1L);
+        authRequest(token).body(Map.of("reason", "申请删除"))
+                .post("/app/projects/1/deletion-requests").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        return jdbcTemplate.queryForObject("SELECT id FROM deletion_request", Long.class);
     }
 
     private String creator() {
