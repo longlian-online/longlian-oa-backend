@@ -46,7 +46,7 @@ image_revision() {
 }
 
 revision_of() {
-  local tag=$1 manifest digest blob revision
+  local tag="$1" manifest digest blob revision
   ensure_token || return 1
   manifest=$(wget -qO- \
     --header="Authorization: Bearer ${token}" \
