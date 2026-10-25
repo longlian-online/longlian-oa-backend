@@ -2,8 +2,6 @@ package online.longlian.app.service.app.impl.item;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.enumeration.SortByTime;
-import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.common.enumeration.ItemStatus;
@@ -39,10 +37,12 @@ public class ItemQueryBuilder {
             queryWrapper.like(Item::getTitle, params.getKeyword().trim());
         }
 
-        if (params.getSortByTime() == SortByTime.UPDATE) {
-            queryWrapper.orderBy(true, params.getOrderDir() == SortDirection.ASC, Item::getUpdatedAt);
-        } else {
-            queryWrapper.orderBy(true, params.getOrderDir() == SortDirection.ASC, Item::getCreatedAt);
+        switch (params.getSortBy()) {
+            case MANUAL -> queryWrapper.orderByAsc(Item::getSort, Item::getId);
+            case CREATED_ASC -> queryWrapper.orderByAsc(Item::getCreatedAt, Item::getId);
+            case CREATED_DESC -> queryWrapper.orderByDesc(Item::getCreatedAt, Item::getId);
+            case UPDATED_ASC -> queryWrapper.orderByAsc(Item::getUpdatedAt, Item::getId);
+            case UPDATED_DESC -> queryWrapper.orderByDesc(Item::getUpdatedAt, Item::getId);
         }
 
         return queryWrapper;

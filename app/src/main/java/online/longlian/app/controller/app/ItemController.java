@@ -14,7 +14,10 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
+import online.longlian.app.pojo.dto.app.ProjectItemReorderDTO;
+import online.longlian.app.pojo.vo.app.ProjectItemOrderEntryVO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
@@ -24,8 +27,10 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.ItemService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
-@Tag(name = "项目相关接口", description = "项目列表、创建和删除")
+@Tag(name = "项目相关接口", description = "项目列表、创建、排序和删除申请")
 @RequestMapping("/app/projects/{projectId}/items")
 @RestController
 @RequiredArgsConstructor
@@ -36,7 +41,7 @@ public class ItemController {
 
     @Operation(
         summary = "分页查询项目列表",
-        description = "支持标题模糊搜索、完成情况筛选与时间排序。进行中包含没有任务或仍有未完成任务的项目；已完成指至少有一个任务且全部任务已完成。默认展示进行中并按更新时间倒序"
+        description = "支持标题模糊搜索、完成情况筛选与自定义或时间排序。默认展示进行中并按负责人维护的自定义顺序展示。进行中包含没有任务或仍有未完成任务的项目；已完成指至少有一个任务且全部任务已完成。"
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("")
@@ -51,8 +56,7 @@ public class ItemController {
                         .orgId(sessionContext.orgId())
                         .keyword(projectItemListDTO.getKeyword())
                         .status(projectItemListDTO.getStatus())
-                        .sortByTime(projectItemListDTO.getSortByTime())
-                        .orderDir(projectItemListDTO.getOrderDir())
+                        .sortBy(projectItemListDTO.getSortBy())
                         .page(new PageParamsBO(projectItemListDTO.getPageNum(), projectItemListDTO.getPageSize()))
                         .build());
 
@@ -76,21 +80,35 @@ public class ItemController {
                         .build());
     }
 
-    @Operation(summary = "删除项目")
-    @Parameter(name = "projectId", description = "企划ID")
-    @Parameter(name = "itemId", description = "项目ID")
-    @DeleteMapping("/{itemId}")
-    @ResponseMessage("删除成功")
-    public void deleteProjectItem(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-                                   @PathVariable Long projectId,
-                                   @PathVariable Long itemId) {
-        itemService.deleteProjectItem(
-                ItemOperationParamsBO.builder()
+    @Operation(summary = "获取全部项目排序标题", description = "仅企划负责人可读，不分页且不受完成情况筛选影响")
+    @GetMapping("/order")
+    @ResponseMessage("查询成功")
+    public List<ProjectItemOrderEntryVO> getProjectItemOrder(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId) {
+        return itemService.getProjectItemOrder(ItemOrderQueryParamsBO.builder()
                         .projectId(projectId)
-                        .itemId(itemId)
                         .orgId(sessionContext.orgId())
                         .operatorId(sessionContext.userId())
-                        .build());
+                        .build()).stream()
+                .map(item -> new ProjectItemOrderEntryVO(item.getId(), item.getTitle()))
+                .toList();
+    }
+
+    @Operation(summary = "保存全部项目顺序", description = "仅企划负责人可操作；原顺序过期时拒绝覆盖")
+    @PutMapping("/order")
+    @ResponseMessage("顺序已保存")
+    public void reorderProjectItems(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @RequestBody @Valid ProjectItemReorderDTO dto) {
+        itemService.reorderProjectItems(ItemReorderParamsBO.builder()
+                .projectId(projectId)
+                .orgId(sessionContext.orgId())
+                .operatorId(sessionContext.userId())
+                .expectedItemIds(dto.getExpectedItemIds())
+                .itemIds(dto.getItemIds())
+                .build());
     }
 
     @Operation(summary = "提交项目删除申请", description = "项目存在已提交任务时，由企划负责人填写原因后提交，组织管理员审核通过后软删除")

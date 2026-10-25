@@ -12,6 +12,7 @@ import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
@@ -655,6 +656,22 @@ class ProjectServiceImplTest {
         ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
 
         assertThat(result.getHasItems()).isTrue();
+    }
+
+    @Test
+    void lockEnabledProject_rejectsForeignOrganization() {
+        when(projectMapper.selectOne(any())).thenReturn(enabledProject(2L));
+        assertThatThrownBy(() -> service.lockEnabledProject(new ProjectAccessParamsBO(100L, 99L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void lockEnabledProject_rejectsDisabledProject() {
+        when(projectMapper.selectOne(any())).thenReturn(disabledProject());
+        assertThatThrownBy(() -> service.lockEnabledProject(new ProjectAccessParamsBO(100L, 1L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     private Project enabledProject(Long creatorId) {

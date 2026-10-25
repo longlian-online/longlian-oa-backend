@@ -17,7 +17,10 @@ import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
+import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -64,17 +67,20 @@ class ItemServiceImplTest {
     @Mock private TaskSubmissionMapper taskSubmissionMapper;
     @Mock private ItemQueryBuilder itemQueryBuilder;
     @Mock private ItemAssembler itemAssembler;
+    @Mock private ProjectService projectService;
 
     private ItemServiceImpl service;
 
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskSubmission.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new ItemServiceImpl(projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
-                taskSubmissionMapper, Clock.systemUTC(), itemQueryBuilder, itemAssembler);
+                taskSubmissionMapper, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService);
         lenient().when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
         lenient().when(taskSubmissionMapper.selectObjs(any())).thenReturn(List.of());
+        lenient().when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(1L));
     }
 
     @Test
@@ -88,7 +94,7 @@ class ItemServiceImplTest {
 
     @Test
     void createProjectItem_disabledProject_throwsNotFound() {
-        when(projectMapper.selectById(1L)).thenReturn(disabledProject());
+        when(projectService.lockEnabledProject(any())).thenThrow(new AppException(ResultCode.DATA_NOT_EXIT));
         ItemCreateParamsBO params = ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build();
 
@@ -99,7 +105,6 @@ class ItemServiceImplTest {
     @Test
     void createProjectItem_createsEveryInstancePending() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
@@ -128,7 +133,6 @@ class ItemServiceImplTest {
 
     @Test
     void createProjectItem_lockedBaseTaskDisappears_rejectsWithoutPersisting() {
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
@@ -152,7 +156,6 @@ class ItemServiceImplTest {
     @Test
     void createProjectItem_disabledBaseTask_copiesCurrentDefinitionAndCreatesPendingInstance() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
@@ -182,7 +185,6 @@ class ItemServiceImplTest {
 
     @Test
     void createProjectItem_orgTemplateFromOtherOrg_rejects() {
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("外组织模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.ORGANIZATION).orgId(99L).build());
@@ -200,7 +202,6 @@ class ItemServiceImplTest {
 
     @Test
     void createProjectItem_othersPersonalTemplate_rejects() {
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("他人个人模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.PERSONAL).orgId(1L).creatorId(99L).build());
@@ -218,7 +219,6 @@ class ItemServiceImplTest {
 
     @Test
     void createProjectItem_unknownTemplateScope_rejects() {
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("无作用域").status(Status.ENABLED).scope(null).build());
 
@@ -234,7 +234,6 @@ class ItemServiceImplTest {
     @Test
     void createProjectItem_ownPersonalTemplate_succeeds() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("我的个人模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.PERSONAL).orgId(1L).creatorId(1L).build());
@@ -242,17 +241,19 @@ class ItemServiceImplTest {
                 TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build()));
         when(baseTaskMapper.selectList(any())).thenReturn(List.of(
                 BaseTask.builder().id(22L).orgId(1L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
+        when(itemMapper.selectOne(any())).thenReturn(Item.builder().sort(40L).build());
 
         service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
 
-        verify(itemMapper).insert(any(Item.class));
+        ArgumentCaptor<Item> created = ArgumentCaptor.forClass(Item.class);
+        verify(itemMapper).insert(created.capture());
+        assertThat(created.getValue().getSort()).isEqualTo(41L);
         verify(taskTemplateMapper).update(isNull(), any());
     }
 
     @Test
     void createProjectItem_baseTaskFromAnotherOrganization_rejectsWithoutCopyingName() {
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(taskTemplateMapper.selectById(1L)).thenReturn(
                 TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
                         .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
@@ -276,13 +277,12 @@ class ItemServiceImplTest {
 
 
     @Test
-    void deleteProjectItem_alreadyDeleted_rejectsRepeatOperation() {
+    void deleteProjectItemForReview_alreadyDeleted_rejectsRepeatOperation() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).build());
         when(itemMapper.update(isNull(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> service.deleteProjectItem(publishParams()))
+        assertThatThrownBy(() -> service.deleteProjectItemForReview(1L, 2L, 1L))
                 .isInstanceOf(AppException.class)
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
@@ -293,13 +293,12 @@ class ItemServiceImplTest {
     }
 
     @Test
-    void deleteProjectItem_cascadesSoftDeleteToFlowNodeAndInstance() {
+    void deleteProjectItemForReview_cascadesSoftDeleteToFlowNodeAndInstance() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskFlow.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
-        when(projectMapper.selectById(1L)).thenReturn(enabledProject());
         when(itemMapper.selectById(2L)).thenReturn(
                 Item.builder().id(2L).projectId(1L).taskTemplateId(9L).build());
         when(itemMapper.update(isNull(), any())).thenReturn(1);
@@ -308,7 +307,7 @@ class ItemServiceImplTest {
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(2);
         when(taskTemplateMapper.update(isNull(), any())).thenReturn(1);
 
-        service.deleteProjectItem(publishParams());
+        service.deleteProjectItemForReview(1L, 2L, 1L);
 
         verify(itemMapper).update(isNull(), any());
         verify(itemTaskFlowMapper).update(isNull(), any());
@@ -318,12 +317,68 @@ class ItemServiceImplTest {
     }
 
 
-    private ItemOperationParamsBO publishParams() {
-        return ItemOperationParamsBO.builder().projectId(1L).itemId(2L).orgId(1L).operatorId(1L).build();
+
+    @Test
+    void reorderProjectItems_updatesOnlyChangedPositions() {
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                orderedItem(1L, 1L), orderedItem(2L, 2L), orderedItem(3L, 3L),
+                orderedItem(4L, 4L), orderedItem(5L, 5L)));
+
+        service.reorderProjectItems(reorderParams(List.of(1L, 2L, 3L, 4L, 5L), List.of(1L, 5L, 2L, 3L, 4L)));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ItemSortUpdateBO>> updates = ArgumentCaptor.forClass(List.class);
+        verify(itemMapper).updateSorts(org.mockito.ArgumentMatchers.eq(1L), updates.capture());
+        assertThat(updates.getValue()).extracting(ItemSortUpdateBO::getId).containsExactly(5L, 2L, 3L, 4L);
+        assertThat(updates.getValue()).extracting(ItemSortUpdateBO::getSort).containsExactly(2L, 3L, 4L, 5L);
     }
 
-    private Project enabledProject() {
-        return Project.builder().id(1L).orgId(1L).creatorId(1L).resourceStatus(Status.ENABLED).build();
+    @Test
+    void reorderProjectItems_rejectsStaleOrderWithoutWriting() {
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                orderedItem(1L, 2L), orderedItem(2L, 1L), orderedItem(3L, 3L)));
+
+        assertThatThrownBy(() -> service.reorderProjectItems(
+                reorderParams(List.of(1L, 2L, 3L), List.of(1L, 3L, 2L))))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(itemMapper, never()).updateSorts(any(), any());
+    }
+
+    @Test
+    void reorderProjectItems_rejectsMembershipChangesWithoutWriting() {
+        when(itemMapper.selectList(any())).thenReturn(List.of(orderedItem(1L, 1L)));
+        assertThatThrownBy(() -> service.reorderProjectItems(reorderParams(List.of(1L, 2L), List.of(2L, 1L))))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+        verify(itemMapper, never()).updateSorts(any(), any());
+    }
+
+    @Test
+    void reorderProjectItems_acceptsAlreadySavedOrderWithoutRewriting() {
+        when(itemMapper.selectList(any())).thenReturn(List.of(orderedItem(1L, 2L), orderedItem(2L, 1L)));
+        service.reorderProjectItems(reorderParams(List.of(1L, 2L), List.of(2L, 1L)));
+        verify(itemMapper, never()).updateSorts(any(), any());
+    }
+
+    @Test
+    void reorderProjectItems_rejectsDuplicateIds() {
+        assertThatThrownBy(() -> service.reorderProjectItems(reorderParams(List.of(1L, 2L), List.of(1L, 1L))))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getCode())
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
+        verifyNoInteractions(itemMapper);
+    }
+
+    private Item orderedItem(Long id, Long sort) {
+        return Item.builder().id(id).projectId(1L).sort(sort).build();
+    }
+
+    private ItemReorderParamsBO reorderParams(List<Long> expected, List<Long> requested) {
+        return ItemReorderParamsBO.builder().projectId(1L).orgId(1L).operatorId(1L)
+                .expectedItemIds(expected).itemIds(requested).build();
     }
 
     private Project disabledProject() {

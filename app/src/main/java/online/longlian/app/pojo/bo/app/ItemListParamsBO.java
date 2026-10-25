@@ -5,8 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.ItemStatus;
-import online.longlian.app.common.enumeration.SortByTime;
-import online.longlian.app.common.enumeration.SortDirection;
+import online.longlian.app.common.enumeration.ItemSortBy;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 
 @Data
@@ -18,7 +17,6 @@ public class ItemListParamsBO {
     private Long orgId;
     private String keyword;
     private ItemStatus status;
-    private SortByTime sortByTime;
-    private SortDirection orderDir;
+    private ItemSortBy sortBy;
     private PageParamsBO page;
 }

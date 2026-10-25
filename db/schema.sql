@@ -75,12 +75,14 @@ CREATE TABLE `item` (
   `id` bigint NOT NULL,
   `project_id` bigint NOT NULL COMMENT "所属企划ID",
   `title` varchar(100) NOT NULL COMMENT "项目名称",
+  `sort` bigint NOT NULL DEFAULT 0 COMMENT "企划内项目展示顺序",
   `task_template_id` bigint NOT NULL COMMENT "创建时关联的任务模板ID（仅记录溯源）",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_item_project_order` (`project_id`, `deleted_at`, `sort`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "项目表";
 -- Create "item_task_flow" table
 CREATE TABLE `item_task_flow` (
