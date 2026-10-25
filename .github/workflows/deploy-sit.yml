@@ -1,11 +1,11 @@
-# 推送 sit 时构建固定标签并部署测试服。
+# 推送 sit 时只构建并推送固定标签，不部署。
 # 应用镜像: :sit
 # 迁移镜像: :sit-migration
-# 不带版本号。服务器 compose 用 APP_TAG / MIGRATION_TAG 选择标签。
+# 不带版本号。
 #
-# 同一时刻只跑一轮。正在执行的迁移不会被取消。
-# 排队期间 sit 又有新提交时，旧提交跳过推送和部署。
-name: Deploy sit
+# 测试服部署在 CNB 的 sit 推送流水线里。GitHub Actions 不 SSH。
+# 同一时刻只构建一轮。排队期间 sit 又有新提交时，旧提交跳过推送，避免覆盖新镜像。
+name: Publish sit images
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
       - sit
 
 concurrency:
-  group: sit-deploy
+  group: sit-publish
   cancel-in-progress: false
 
 jobs:
@@ -32,33 +32,3 @@ jobs:
         type=raw,value=sit
       migration-tags: |
         type=raw,value=sit-migration
-
-  deploy:
-    name: Deploy sit
-    needs: build-and-push
-    if: needs.build-and-push.outputs.pushed == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: none
-    steps:
-      - name: Run sit deployment script
-        env:
-          APP_TAG: sit
-          MIGRATION_TAG: sit-migration
-          DEPLOY_SCRIPT_PATH: ${{ secrets.DEPLOY_SCRIPT_PATH }}
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
-        with:
-          host: ${{ secrets.DEPLOY_SSH_HOST }}
-          port: ${{ secrets.DEPLOY_SSH_PORT }}
-          username: ${{ secrets.DEPLOY_SSH_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
-          command_timeout: 15m
-          envs: APP_TAG,MIGRATION_TAG,DEPLOY_SCRIPT_PATH
-          script: |
-            set -Eeuo pipefail
-            : "${DEPLOY_SCRIPT_PATH:?DEPLOY_SCRIPT_PATH is required}"
-            : "${APP_TAG:?APP_TAG is required}"
-            : "${MIGRATION_TAG:?MIGRATION_TAG is required}"
-            "${DEPLOY_SCRIPT_PATH}"

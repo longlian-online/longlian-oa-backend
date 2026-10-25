@@ -1,3 +1,30 @@
+sit:
+  push:
+    - name: deploy-sit
+      runner:
+        cpus: 1
+      docker:
+        build:
+          dockerfile: devops/cnb/Dockerfile
+          by:
+            - devops/cnb/Dockerfile
+      env:
+        APP_TAG: sit
+        MIGRATION_TAG: sit-migration
+      lock:
+        key: deploy-sit
+        wait: true
+        cancel-in-wait: true
+      imports:
+        - https://cnb.cool/longlian.online/oa-deploy-secrets/-/blob/main/sit.yml
+      stages:
+        - name: wait for images
+          timeout: 100m
+          script: bash devops/cnb/wait-sit-images.sh
+        - name: deploy
+          timeout: 20m
+          script: bash devops/cnb/deploy-production.sh
+
 $:
   tag_deploy.production:
     - name: deploy-production

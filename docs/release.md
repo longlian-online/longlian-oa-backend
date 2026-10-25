@@ -141,7 +141,7 @@ git ls-remote --tags origin "refs/tags/v1.0.3^{}"
 git merge-base --is-ancestor "v1.0.3^{commit}" origin/main
 ```
 
-如果最后一条命令返回非 0，说明标签已经推送但代码尚未合并到远程 `main`；发版分支模式下应回到上一节完成合并。最后确认 GitHub Actions 的镜像构建成功。推送 `v*.*.*` 只发布 `:<version>` 和 `:<version>-migration`，不部署。测试服由 `sit` 分支触发；正式服在 CNB 该标签页手动部署。
+如果最后一条命令返回非 0，说明标签已经推送但代码尚未合并到远程 `main`；发版分支模式下应回到上一节完成合并。最后确认 GitHub Actions 的镜像构建成功。GitHub Actions 只构建并推送镜像，不部署。推送 `v*.*.*` 只发布 `:<version>` 和 `:<version>-migration`。测试服镜像由 `sit` 分支构建，部署在 CNB 的 `sit` 推送流水线。正式服在 CNB 该标签页手动部署。
 
 ### 6. 发布构件（可选）
 
