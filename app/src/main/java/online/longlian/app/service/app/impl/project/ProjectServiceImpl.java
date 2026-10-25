@@ -101,7 +101,7 @@ public class ProjectServiceImpl implements ProjectService {
         if (projects.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());
         }
-        return new PageResultBO<>(projectAssembler.assembleList(projects), projectPage.getTotal());
+        return new PageResultBO<>(projectAssembler.assembleList(projects, params.getOrgId()), projectPage.getTotal());
     }
 
     private PageResultBO<ProjectListResultBO> searchProjects(ProjectListParamsBO params, Long typeId) {
@@ -113,7 +113,7 @@ public class ProjectServiceImpl implements ProjectService {
             return new PageResultBO<>(Collections.emptyList(), searchPage.getTotal());
         }
         List<ProjectListResultBO> results = projectAssembler.assembleList(
-                records.stream().map(ProjectSearchResultBO::getProject).toList());
+                records.stream().map(ProjectSearchResultBO::getProject).toList(), params.getOrgId());
         for (int i = 0; i < results.size(); i++) {
             ProjectListResultBO result = results.get(i);
             result.setMetadata(ProjectSearchSupport.prioritizeMetadata(

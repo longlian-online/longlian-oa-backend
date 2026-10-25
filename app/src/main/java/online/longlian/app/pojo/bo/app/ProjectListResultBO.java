@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.ProjectStatus;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -20,4 +22,6 @@ public class ProjectListResultBO {
     private ProjectStatus projectStatus;
     private String metadata;
     private String creatorAvatarUrl;
+    private String creatorUsername;
+    private LocalDateTime creatorLastSubmittedAt;
 }

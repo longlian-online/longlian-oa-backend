@@ -41,6 +41,22 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("data.list[2].alias", equalTo("星海之旅"));
     }
 
+    @Test
+    void shouldReturnCurrentOrganizationOwnerSubmissionWhenSearching() {
+        jdbcTemplate.update("UPDATE `user` SET nickname = ? WHERE id = 1", "搜索昵称");
+        jdbcTemplate.update("UPDATE organization_member SET last_submitted_at = ? WHERE id = 1",
+                java.sql.Timestamp.valueOf("2026-10-24 09:30:00"));
+        createProject(1, "星海远征", "Voyage", metadata());
+
+        Response response = search("星海");
+
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat((String) response.path("data.list[0].creatorUsername")).isEqualTo("searchuser");
+        assertThat((String) response.path("data.list[0].creatorLastSubmittedAt"))
+                .isEqualTo("2026-10-24 09:30:00");
+        assertThat(response.asString()).doesNotContain("搜索昵称");
+    }
+
     /** 英文完整关键词命中按 5/3/1 字段权重排序。 */
     @Test
     void shouldRankEnglishMatchesByFieldWeights() {

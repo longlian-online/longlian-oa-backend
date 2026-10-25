@@ -1,9 +1,12 @@
 package online.longlian.app.service.app.impl.project;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
+import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;
@@ -25,9 +28,10 @@ public class ProjectAssembler {
 
     private final ProjectTypeMapper projectTypeMapper;
     private final UserMapper userMapper;
+    private final OrganizationMemberMapper organizationMemberMapper;
     private final ResourceService resourceService;
 
-    public List<ProjectListResultBO> assembleList(List<Project> projects) {
+    public List<ProjectListResultBO> assembleList(List<Project> projects, Long orgId) {
         if (projects.isEmpty()) {
             return Collections.emptyList();
         }
@@ -39,6 +43,13 @@ public class ProjectAssembler {
         List<Long> creatorIds = projects.stream().map(Project::getCreatorId).distinct().toList();
         Map<Long, User> userMap = userMapper.selectBatchIds(creatorIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        Map<Long, OrganizationMember> memberMap = organizationMemberMapper.selectList(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .select(OrganizationMember::getUserId, OrganizationMember::getLastSubmittedAt)
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .in(OrganizationMember::getUserId, creatorIds)
+        ).stream().collect(Collectors.toMap(OrganizationMember::getUserId, Function.identity()));
 
         List<Long> coverFileIds = projects.stream()
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
@@ -57,6 +68,7 @@ public class ProjectAssembler {
         return projects.stream()
                 .map(project -> {
                     User creator = userMap.get(project.getCreatorId());
+                    OrganizationMember member = memberMap.get(project.getCreatorId());
                     String avatarUrl = null;
                     if (creator != null && creator.getAvatarFileId() != null) {
                         avatarUrl = avatarUrlMap.get(creator.getAvatarFileId());
@@ -71,6 +83,8 @@ public class ProjectAssembler {
                             .projectStatus(project.getStatus())
                             .metadata(project.getMetadata())
                             .creatorAvatarUrl(avatarUrl)
+                            .creatorUsername(creator != null ? creator.getUsername() : null)
+                            .creatorLastSubmittedAt(member != null ? member.getLastSubmittedAt() : null)
                             .build();
                 })
                 .toList();

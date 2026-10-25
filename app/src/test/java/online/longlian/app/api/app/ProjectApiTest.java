@@ -39,6 +39,44 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldExposeCurrentOrganizationOwnerSubmissionAndKeepOtherOrganizationsSeparate() {
+        createUserWithOrganization(1L, "viewer", "123456", "viewer@example.com", 1L, 1L, "ORG_USER");
+        createOrganization(2L, "组织2");
+        createTestUser(2L, "owner-account", "123456", "owner@example.com");
+        jdbcTemplate.update("UPDATE `user` SET nickname = ? WHERE id = ?", "展示昵称", 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        createOrganizationMember(3L, 2L, 2L, "ORG_USER");
+        jdbcTemplate.update("UPDATE organization_member SET last_submitted_at = ?, status = 0 WHERE id = 2",
+                java.sql.Timestamp.valueOf("2026-10-24 09:30:00"));
+        jdbcTemplate.update("UPDATE organization_member SET last_submitted_at = ? WHERE id = 3",
+                java.sql.Timestamp.valueOf("2026-09-01 08:00:00"));
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '当前组织企划', 2)");
+        String token = loginAs("viewer", "123456");
+
+        Response response = authRequest(token).get("/app/projects");
+
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(response.path("data.list[0].creatorUsername").toString()).isEqualTo("owner-account");
+        assertThat(response.path("data.list[0].creatorLastSubmittedAt").toString()).isEqualTo("2026-10-24 09:30:00");
+        assertThat(response.asString()).doesNotContain("展示昵称");
+    }
+
+    @Test
+    void shouldLeaveOwnerSubmissionBlankWhenMemberOrUserIsUnavailable() {
+        createUserWithOrganization(1L, "viewer", "123456", "viewer@example.com", 1L, 1L, "ORG_USER");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '无负责人资料企划', 9)");
+        String token = loginAs("viewer", "123456");
+
+        Response response = authRequest(token).get("/app/projects");
+
+        response.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat((Object) response.path("data.list[0].creatorUsername")).isNull();
+        assertThat((Object) response.path("data.list[0].creatorLastSubmittedAt")).isNull();
+    }
+
+    @Test
     void shouldResizeOnlyListCoversAndKeepDetailAndAvatarsOriginal() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
