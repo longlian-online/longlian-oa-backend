@@ -162,4 +162,102 @@ class OrganizationInviteCodeServiceImplTest {
         service.bindInvitee(null, 1L, 2L);
         verify(organizationInviteCodeMapper, never()).update(any(), any());
     }
+
+    @Test
+    void shouldStoreTargetOrganizationWhenGeneratingJoinInvite() {
+        when(organizationMapper.selectById(2L)).thenReturn(Organization.builder().id(2L).status(Status.ENABLED).build());
+        when(organizationInviteCodeMapper.selectCount(any())).thenReturn(1L, 0L);
+        when(organizationInviteCodeMapper.insert(any(OrganizationInviteCode.class))).thenReturn(1);
+
+        OrganizationInviteCodeGenerateResultBO result = service.generate(OrganizationInviteCodeGenerateParamsBO.builder()
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .orgId(2L)
+                .expiredAt(LocalDateTime.now(CLOCK).plusHours(3))
+                .build());
+
+        ArgumentCaptor<OrganizationInviteCode> captor = ArgumentCaptor.forClass(OrganizationInviteCode.class);
+        verify(organizationInviteCodeMapper).insert(captor.capture());
+        assertThat(captor.getValue().getOrgId()).isEqualTo(2L);
+        assertThat(captor.getValue().getBizType()).isEqualTo(OTPType.OrganizationUserInvite);
+        assertThat(result.getInviteCode()).isEqualTo(captor.getValue().getCode());
+    }
+
+    @Test
+    void shouldRejectInvalidInviteTypeMissingOrganizationAndRepeatedCodeCollisions() {
+        assertThatThrownBy(() -> service.generate(OrganizationInviteCodeGenerateParamsBO.builder()
+                .bizType(OTPType.EmailVerify)
+                .creatorId(1L)
+                .expiredAt(LocalDateTime.now(CLOCK).plusHours(1))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码类型无效");
+
+        assertThatThrownBy(() -> service.generate(OrganizationInviteCodeGenerateParamsBO.builder()
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .expiredAt(LocalDateTime.now(CLOCK).plusHours(1))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("目标组织不能为空");
+
+        when(organizationMapper.selectById(2L)).thenReturn(null);
+        assertThatThrownBy(() -> service.generate(OrganizationInviteCodeGenerateParamsBO.builder()
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .orgId(2L)
+                .expiredAt(LocalDateTime.now(CLOCK).plusHours(1))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组织不存在或已禁用");
+
+        when(organizationInviteCodeMapper.selectCount(any())).thenReturn(1L);
+        assertThatThrownBy(() -> service.generate(OrganizationInviteCodeGenerateParamsBO.builder()
+                .bizType(OTPType.OrganizationInvite)
+                .creatorId(1L)
+                .expiredAt(LocalDateTime.now(CLOCK).plusHours(1))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码生成失败");
+        verify(organizationInviteCodeMapper, never()).insert(any(OrganizationInviteCode.class));
+    }
+
+    @Test
+    void shouldRejectAcceptWhenRecordIsMissingOrExpired() {
+        when(organizationInviteCodeMapper.update(isNull(), any())).thenReturn(0);
+        when(organizationInviteCodeMapper.selectById(8L)).thenReturn(null);
+        assertThatThrownBy(() -> service.accept(OrganizationInviteCodeAcceptParamsBO.builder().id(8L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码无效");
+
+        when(organizationInviteCodeMapper.selectById(8L)).thenReturn(OrganizationInviteCode.builder()
+                .id(8L)
+                .accepted(0)
+                .expiredAt(LocalDateTime.now(CLOCK).minusMinutes(1))
+                .build());
+        assertThatThrownBy(() -> service.accept(OrganizationInviteCodeAcceptParamsBO.builder()
+                .id(8L)
+                .orgMemberId(9L)
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码已过期");
+    }
+
+    @Test
+    void shouldBackfillInviteeAndMemberAfterApproval() {
+        service.bindInvitee(8L, 4L, 9L);
+        service.bindInvitee(8L, null, 9L);
+
+        verify(organizationInviteCodeMapper, org.mockito.Mockito.times(2)).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectNullExpiry() {
+        assertThatThrownBy(() -> service.generate(OrganizationInviteCodeGenerateParamsBO.builder()
+                .bizType(OTPType.OrganizationInvite)
+                .creatorId(1L)
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("到期时间必须晚于当前时间");
+    }
 }
