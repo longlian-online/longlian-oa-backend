@@ -13,6 +13,7 @@ import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.dto.admin.OrgListDTO;
+import online.longlian.app.pojo.dto.common.GenerateInviteCodeDTO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
@@ -62,14 +63,14 @@ public class AdminOrganizationController {
 
     @Operation(
             summary = "生成邀请码（超管）",
-            description = "生成一次性邀请码，有效期30分钟；供超管邀请新用户注册并创建组织使用"
+            description = "生成一次性邀请码，到期时间由邀请人指定；供超管邀请新用户注册并创建组织使用"
     )
     @PreAuthorize("hasRole('root')")
     @PostMapping("/invite-codes/create-org")
     @ResponseMessage("生成成功")
-    public InviteCodeVO generateCreateOrgInviteCode() {
+    public InviteCodeVO generateCreateOrgInviteCode(@RequestBody @Valid GenerateInviteCodeDTO dto) {
         AdminGenerateInviteCodeResultBO resultBO = organizationService.generateCreateOrgInviteCode(
-                new AdminGenerateCreateOrgInviteCodeParamsBO(currentUserContext.getAdminId())
+                new AdminGenerateCreateOrgInviteCodeParamsBO(currentUserContext.getAdminId(), dto.getExpiredAt())
         );
         return InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())

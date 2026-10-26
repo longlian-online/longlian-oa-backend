@@ -18,6 +18,9 @@ import org.apache.ibatis.annotations.Param;
  */
 @Mapper
 public interface ProjectMapper extends BaseMapper<Project> {
+    /**
+     * 标题、别名和 JSON 字段的权重搜索无法用 LambdaQueryWrapper 表达。
+     */
     Page<ProjectSearchResultBO> selectSearchPage(Page<ProjectSearchResultBO> page,
                                                @Param("params") ProjectSearchParamsBO params);
 }

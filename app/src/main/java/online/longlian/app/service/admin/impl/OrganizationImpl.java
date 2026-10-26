@@ -18,9 +18,9 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.admin.*;
-import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.admin.OrganizationService;
@@ -103,6 +103,7 @@ public class OrganizationImpl implements OrganizationService {
         OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationInvite).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
+                        .expiredAt(params.getExpiredAt())
                         .build()
         );
         return AdminGenerateInviteCodeResultBO.builder()

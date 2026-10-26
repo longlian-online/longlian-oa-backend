@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Schema(description = "邀请码（可用于创建组织、注册入组或已注册用户申请入组）")
 public class InviteCodeVO {
 
-    @Schema(description = "邀请码（6位字母数字，一次性使用，有效期30分钟）")
+    @Schema(description = "邀请码（6位字母数字，一次性使用，到期时间由邀请人指定）")
     private String inviteCode;
 
     @Schema(description = "邀请码过期时间")

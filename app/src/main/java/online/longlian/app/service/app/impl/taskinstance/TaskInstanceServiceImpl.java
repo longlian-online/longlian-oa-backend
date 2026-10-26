@@ -6,8 +6,6 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
-import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ProjectMapper;
@@ -29,17 +27,15 @@ import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
-import online.longlian.app.pojo.vo.app.AssignableMemberVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
@@ -59,6 +55,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -72,9 +69,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskInstanceServiceImpl implements TaskInstanceService {
 
+    private static final DateTimeFormatter SUBMITTED_AT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final TaskInstanceMapper taskInstanceMapper;
-    private final OrganizationMemberMapper organizationMemberMapper;
-    private final UserMapper userMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemMapper itemMapper;
     private final ProjectMapper projectMapper;
@@ -141,7 +137,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             if (!params.getUserId().equals(project.getCreatorId())) {
                 throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可分配任务");
             }
-            organizationMembershipService.requireEnabledMember(params.getAssigneeId(), params.getOrgId());
+            organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
             taskInstanceCommandHandler.assign(instance, params.getAssigneeId(), params.getExpectedRevision());
             ProjectWorkshopAddResultBO membership = projectService.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
                     .projectId(instance.getProjectId())
@@ -157,26 +153,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             return new TaskClaimResultBO(membership.isAdded());
         });
     }
-
-    @Override
-    public List<AssignableMemberVO> listAssignableMembers(Long orgId) {
-        List<OrganizationMember> members = organizationMemberMapper.selectList(
-                new LambdaQueryWrapper<OrganizationMember>()
-                        .eq(OrganizationMember::getOrgId, orgId)
-                        .eq(OrganizationMember::getStatus, Status.ENABLED)
-                        .orderByAsc(OrganizationMember::getId));
-        if (members.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, User> users = userMapper.selectBatchIds(members.stream().map(OrganizationMember::getUserId).toList())
-                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
-        return members.stream().map(member -> {
-            User user = users.get(member.getUserId());
-            return new AssignableMemberVO(member.getUserId(),
-                    user == null ? null : user.getNickname(), user == null ? null : user.getUsername());
-        }).toList();
-    }
-
 
     @Override
     public void abandonTask(TaskInstanceAbandonParamsBO params) {
@@ -200,11 +176,40 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
-            recordProgressNotifications(instance, project, result, params.getUserId());
+            finishSubmission(instance, project, result, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
             return null;
         });
+    }
+
+    @Override
+    public void proxySubmitTask(TaskInstanceProxySubmitParamsBO params) {
+        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            if (!params.getUserId().equals(project.getCreatorId())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可代提交");
+            }
+            organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
+            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.proxySubmit(
+                    instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
+                    params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
+            finishSubmission(instance, project, result, params.getAssigneeId());
+            Map<String, Object> audit = new LinkedHashMap<>();
+            audit.put("action", "PROXY_SUBMIT");
+            audit.put("instanceId", instance.getId());
+            audit.put("assigneeId", params.getAssigneeId());
+            audit.put("submittedAt", params.getSubmittedAt().format(SUBMITTED_AT_FORMAT));
+            audit.put("expectedRevision", params.getExpectedRevision());
+            audit.put("revision", Long.toString(instance.getRevision() + 1));
+            operationLogService.logSynchronously(params.getUserId(), instance.getProjectId(),
+                    instance.getItemId(), UserOperationType.TASK_SUBMIT, audit);
+            return null;
+        });
+    }
+
+    private void finishSubmission(TaskInstance instance, Project project,
+                                  TaskInstanceSubmitResultBO result, Long submitterId) {
+        recordProgressNotifications(instance, project, result, submitterId);
     }
 
     private void recordProgressNotifications(TaskInstance instance, Project project,

@@ -36,6 +36,35 @@ final class ProjectMetadataValidator {
             }
             validateTag(tag, path);
         }
+        validateFields(object);
+    }
+
+    private static void validateFields(JSONObject object) {
+        if (!object.containsKey("fields")) {
+            return;
+        }
+        if (!(object.get("fields") instanceof JSONArray fields)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "metadata.fields 必须是数组");
+        }
+        for (int i = 0; i < fields.size(); i++) {
+            String path = "metadata.fields[" + i + "]";
+            if (!(fields.get(i) instanceof JSONObject field)) {
+                throw new AppException(ResultCode.PARAM_ERROR, path + " 必须是对象");
+            }
+            validateField(field, path);
+        }
+    }
+
+    private static void validateField(JSONObject field, String path) {
+        if (!(field.get("name") instanceof String name) || name.isBlank()) {
+            throw new AppException(ResultCode.PARAM_ERROR, path + ".name 必须是非空白字符串");
+        }
+        if (!(field.get("value") instanceof String)) {
+            throw new AppException(ResultCode.PARAM_ERROR, path + ".value 必须是字符串");
+        }
+        if (field.size() != 2) {
+            throw new AppException(ResultCode.PARAM_ERROR, path + " 只能包含 name 和 value");
+        }
     }
 
     private static void validateTag(JSONObject tag, String path) {

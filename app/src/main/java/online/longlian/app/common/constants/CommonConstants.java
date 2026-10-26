@@ -1,8 +1,6 @@
 package online.longlian.app.common.constants;
 
 public class CommonConstants {
-    public static final String WEAK_PASSWORD_DICTIONARY_PATH = "weak-password/10k-most-common.txt";
-
     public static final String RESPONSE_HEADER_TRACE_ID = "X-Trace-Id";
     public static final String CONTENT_TYPE = "application/json;charset=UTF-8";
 

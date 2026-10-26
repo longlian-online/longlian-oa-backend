@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.Instant;
 import java.time.ZoneId;
 
@@ -77,6 +78,40 @@ class MemberSubmitCountHandlerTest {
         assertThat(sqlSet)
                 .contains("submit_count = submit_count - 1", "updated_at")
                 .doesNotContain("last_submitted_at");
+    }
+
+    @Test
+    void incrementSubmitCount_usesSpecifiedTimeWithoutMovingLastSubmittedAtBackward() {
+        LocalDateTime recorded = LocalDateTime.of(2026, 6, 1, 8, 0);
+        LocalDateTime older = LocalDateTime.of(2020, 1, 1, 8, 0);
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(1L).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(
+                OrganizationMember.builder().id(10L).userId(100L).orgId(1L)
+                        .status(Status.ENABLED).lastSubmittedAt(recorded).build());
+        when(organizationMemberMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.incrementSubmitCount(100L, 2L, older);
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(organizationMemberMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getParamNameValuePairs().values()).contains(recorded).doesNotContain(older);
+    }
+
+    @Test
+    void incrementSubmitCount_recordsSpecifiedTimeWhenItIsTheLatest() {
+        LocalDateTime submittedAt = LocalDateTime.of(2025, 5, 1, 8, 0);
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(1L).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(
+                OrganizationMember.builder().id(10L).userId(100L).orgId(1L).status(Status.ENABLED).build());
+        when(organizationMemberMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.incrementSubmitCount(100L, 2L, submittedAt);
+
+        @SuppressWarnings("rawtypes")
+        ArgumentCaptor<LambdaUpdateWrapper> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(organizationMemberMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getParamNameValuePairs().values()).contains(submittedAt);
     }
 
     @Test

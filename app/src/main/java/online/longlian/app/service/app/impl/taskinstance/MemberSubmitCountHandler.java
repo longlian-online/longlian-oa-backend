@@ -22,6 +22,13 @@ public class MemberSubmitCountHandler {
     private final Clock clock;
 
     public void incrementSubmitCount(Long userId, Long projectId) {
+        incrementSubmitCount(userId, projectId, LocalDateTime.now(clock));
+    }
+
+    /**
+     * @param submittedAt 这次提交记入的时间。补记更早的成果时不能把最近提交时间改回去。
+     */
+    public void incrementSubmitCount(Long userId, Long projectId, LocalDateTime submittedAt) {
         Project project = projectMapper.selectById(projectId);
         if (project == null) {
             return;
@@ -31,11 +38,14 @@ public class MemberSubmitCountHandler {
             return;
         }
         LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime recorded = member.getLastSubmittedAt();
+        LocalDateTime lastSubmittedAt = recorded == null || !submittedAt.isBefore(recorded)
+                ? submittedAt : recorded;
         organizationMemberMapper.update(null,
                 new LambdaUpdateWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getId, member.getId())
                         .setSql("submit_count = submit_count + 1")
-                        .set(OrganizationMember::getLastSubmittedAt, now)
+                        .set(OrganizationMember::getLastSubmittedAt, lastSubmittedAt)
                         .set(OrganizationMember::getUpdatedAt, now));
     }
 

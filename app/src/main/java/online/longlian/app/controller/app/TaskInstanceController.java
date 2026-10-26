@@ -18,6 +18,8 @@ import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.dto.app.TaskProxySubmitDTO;
 import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
 import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
@@ -30,7 +32,6 @@ import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
-import online.longlian.app.pojo.vo.app.AssignableMemberVO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskClaimResultVO;
@@ -47,7 +48,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
-@Tag(name = "任务实例接口", description = "任务接取、分配、放弃、提交、重置、打回、查看详情、按项目查询实例列表")
+@Tag(name = "任务实例接口", description = "任务接取、分配、放弃、提交、代提交、重置、打回、查看详情、按项目查询实例列表")
 @RequestMapping("/app/task/instance")
 @RestController
 @RequiredArgsConstructor
@@ -78,13 +79,6 @@ public class TaskInstanceController {
                         .build());
     }
 
-    @Operation(summary = "可分配组员", description = "返回当前组织内启用组员，供企划负责人分配未接取任务")
-    @GetMapping("/assignees")
-    @ResponseMessage("查询成功")
-    public List<AssignableMemberVO> listAssignableMembers(
-            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
-        return taskInstanceService.listAssignableMembers(sessionContext.orgId());
-    }
 
     @Operation(
             summary = "任务广场（缺人任务）",
@@ -243,6 +237,28 @@ public class TaskInstanceController {
                         .orgId(sessionContext.orgId())
                         .values(taskSubmitDTO.getValues())
                         .build());
+    }
+
+    @Operation(
+            summary = "代提交任务",
+            description = "仅企划负责人可将尚未接取的任务直接记为指定组员已提交。"
+                    + "组员必须是当前组织的启用成员。提交时间使用请求中的设定值，不使用当前时间。已接取或已提交的任务不可调用"
+    )
+    @Parameter(name = "instanceId", description = "任务实例ID")
+    @PostMapping("/{instanceId}/proxy-submit")
+    @ResponseMessage("代提交成功")
+    public void proxySubmitTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                 @PathVariable Long instanceId,
+                                 @RequestBody @Valid TaskProxySubmitDTO request) {
+        taskInstanceService.proxySubmitTask(TaskInstanceProxySubmitParamsBO.builder()
+                .instanceId(instanceId)
+                .userId(sessionContext.userId())
+                .orgId(sessionContext.orgId())
+                .assigneeId(request.getAssigneeId())
+                .submittedAt(request.getSubmittedAt())
+                .expectedRevision(request.getExpectedRevision())
+                .values(request.getValues())
+                .build());
     }
 
     @Operation(

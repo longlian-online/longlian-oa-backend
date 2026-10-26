@@ -31,7 +31,7 @@ public class ProjectDetailInfoVO {
     @Schema(description = "企划类型名称")
     private String typeName;
 
-    @Schema(description = "扩展信息(JSON对象字符串，包含 tags 数组，每项含 key 及可选的 value、color；value 缺失或为空串表示单键标签，color 为 blue、green、amber、rose、violet 之一；按保存顺序原样返回)")
+    @Schema(description = "扩展信息(JSON对象字符串，包含 tags 数组，每项含 key 及可选的 value、color；value 缺失或为空串表示单键标签，color 为 blue、green、amber、rose、violet 之一。可选 fields 数组，每项含 name 与 value；按保存顺序原样返回)")
     private String metadata;
 
     @Schema(description = "企划简介")

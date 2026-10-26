@@ -2,20 +2,22 @@ package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import online.longlian.app.common.annotation.JsonLongIdString;
 
 @Data
+@Builder
+@NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "可分配任务的启用组员")
-public class AssignableMemberVO {
+@Schema(description = "当前组织可选组员")
+public class MemberOptionVO {
+
     @JsonLongIdString
-    @Schema(type = "string", description = "用户ID")
+    @Schema(type = "string", description = "组员用户ID")
     private Long userId;
 
-    @Schema(description = "昵称")
+    @Schema(description = "组员昵称")
     private String nickname;
-
-    @Schema(description = "用户名")
-    private String username;
 }

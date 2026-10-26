@@ -8,9 +8,9 @@ import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
-import online.longlian.app.pojo.vo.app.AssignableMemberVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
@@ -22,6 +22,8 @@ import java.util.List;
  * 负责任务实例的全生命周期管理，状态流转如下：
  * <pre>
  *   PENDING  ──claimTask / assignTask──▶  CLAIMED  ──submitTask──▶  COMPLETED
+ *      │
+ *      └──proxySubmitTask──▶ COMPLETED
  *                  ▲              │                          │
  *                  │  abandonTask │                          │
  *                  └──────────────┘                          │
@@ -35,6 +37,7 @@ import java.util.List;
  *   <li>提交（submit）：接取人提交任务成果并生成
  *       {@link online.longlian.app.pojo.entity.TaskSubmission TaskSubmission} 记录，
  *       同时累加提交统计</li>
+ *   <li>代提交（proxySubmit）：仅企划负责人把未接取任务记到指定组员名下，提交时间使用设定值</li>
  *   <li>重置（reset）：接取人可在下一个任务被接取前可重置任务并重新提交</li>
  *   <li>打回（reject）：后一节点接取人可将已提交任务打回至已接取状态，
  *       附打回意见（视为审核），同时扣减提交统计</li>
@@ -85,10 +88,6 @@ public interface TaskInstanceService {
      */
     TaskClaimResultBO assignTask(TaskInstanceAssignParamsBO params);
 
-    /**
-     * 当前组织内可被分配任务的启用组员。普通成员可读，不暴露管理端成员信息。
-     */
-    List<AssignableMemberVO> listAssignableMembers(Long orgId);
 
     /**
      * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，接取人或企划创建人可操作。
@@ -105,6 +104,12 @@ public interface TaskInstanceService {
      * @param params 包含任务实例 ID、提交内容及其他元数据的提交参数
      */
     void submitTask(TaskInstanceSubmitParamsBO params);
+
+    /**
+     * 代提交：{@code PENDING → COMPLETED}。仅企划负责人可把未接取任务记到指定组员名下，
+     * 提交时间使用设定值。组员必须是当前组织的启用成员，不要求已加入该企划，也不会自动加入。
+     */
+    void proxySubmitTask(TaskInstanceProxySubmitParamsBO params);
 
     /**
      * 重置任务：{@code COMPLETED → CLAIMED}，将提交记录标记为 {@code RESET} 并扣减提交统计。

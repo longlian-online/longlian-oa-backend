@@ -93,4 +93,31 @@ class ProjectSearchSupportTest {
                 .map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("value")))
                 .containsExactly("10", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
     }
+
+    /** 只命中自定义字段时不改 tags 或 fields 的保存顺序。 */
+    @Test
+    void shouldKeepCustomFieldsAndTagOrderWhenOnlyFieldsMatch() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "{\"fields\":[{\"name\":\"作者\",\"value\":\"星海\"},{\"name\":\"语言\",\"value\":\"中文\"}],\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"系列\",\"value\":\"星海\"}]}",
+                "[\"$.fields[0].value\"]");
+        var object = JSON.parseObject(result);
+        assertThat(object.getJSONArray("tags").stream()
+                .map(tag -> ((com.alibaba.fastjson2.JSONObject) tag).getString("key")))
+                .containsExactly("作者", "系列");
+        assertThat(object.getJSONArray("fields").stream()
+                .map(field -> ((com.alibaba.fastjson2.JSONObject) field).getString("name")))
+                .containsExactly("作者", "语言");
+    }
+
+    /** tag 前置时自定义字段仍保持原顺序。 */
+    @Test
+    void shouldReorderTagsWithoutMovingCustomFields() {
+        String result = ProjectSearchSupport.prioritizeMetadata(
+                "{\"tags\":[{\"key\":\"作者\",\"value\":\"山田\"},{\"key\":\"系列\",\"value\":\"星海\"}],\"fields\":[{\"name\":\"作者\",\"value\":\"星海\"},{\"name\":\"语言\",\"value\":\"中文\"}]}",
+                "[\"$.tags[1].value\",\"$.fields[0].value\"]");
+        var object = JSON.parseObject(result);
+        assertThat(object.getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("系列");
+        assertThat(object.getJSONArray("fields").getJSONObject(0).getString("name")).isEqualTo("作者");
+        assertThat(object.getJSONArray("fields").getJSONObject(1).getString("value")).isEqualTo("中文");
+    }
 }

@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -531,5 +532,93 @@ class TaskInstanceCommandHandlerTest {
         handler.reset(instance, 10L);
 
         assertThat(capturedSqlSet()).doesNotContain("claimed_at");
+    }
+
+    @Test
+    void proxySubmit_pendingTask_recordsAssigneeAndSpecifiedTime() {
+        LocalDateTime submittedAt = LocalDateTime.of(2025, 10, 1, 9, 30, 0);
+        TaskInstance instance = pendingProxyInstance();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+        when(taskSubmissionMapper.insert(any(TaskSubmission.class))).thenAnswer(invocation -> {
+            invocation.<TaskSubmission>getArgument(0).setId(901L);
+            return 1;
+        });
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).sort(1).metaSchema("[]").build());
+
+        var result = handler.proxySubmit(instance, 20L, 5L, 10L, Map.of(), submittedAt, "0");
+
+        assertThat(result.getSubmissionId()).isEqualTo(901L);
+        assertThat(result.getTriggeredAt()).isEqualTo(LocalDateTime.now(clock));
+        verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(submission ->
+                submission.getSubmitterId().equals(20L)
+                        && submission.getCreatedAt().equals(submittedAt)
+                        && submission.getVersionNo() == 1));
+        verify(memberSubmitCountHandler).incrementSubmitCount(20L, 2L, submittedAt);
+        verify(resourceService).bindBizResources(org.mockito.ArgumentMatchers.<ResourceBindBatchParamsBO>argThat(bind ->
+                bind.getCreatorId().equals(10L)));
+        assertThat(capturedSqlSet()).contains("submitted_at", "claimed_at", "completed_at", "assignee_id");
+        assertRevisionIncrement(TaskInstanceStatus.PENDING);
+    }
+
+    @Test
+    void proxySubmit_claimedTask_throws() {
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).build();
+
+        assertThatThrownBy(() -> handler.proxySubmit(instance, 20L, 5L, 10L, Map.of(),
+                LocalDateTime.of(2025, 10, 1, 9, 30), "0"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("该任务已接取，不能代提交");
+    }
+
+    @Test
+    void proxySubmit_completedTask_throws() {
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.COMPLETED).build();
+
+        assertThatThrownBy(() -> handler.proxySubmit(instance, 20L, 5L, 10L, Map.of(),
+                LocalDateTime.of(2025, 10, 1, 9, 30), "0"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("该任务已提交，不能代提交");
+    }
+
+    @Test
+    void proxySubmit_futureTime_throws() {
+        TaskInstance instance = pendingProxyInstance();
+
+        assertThatThrownBy(() -> handler.proxySubmit(instance, 20L, 5L, 10L, Map.of(),
+                LocalDateTime.now(clock).plusSeconds(1), "0"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("提交时间不能晚于当前时间");
+    }
+
+    @Test
+    void proxySubmit_revisionMismatch_throws() {
+        TaskInstance instance = pendingProxyInstance();
+
+        assertThatThrownBy(() -> handler.proxySubmit(instance, 20L, 5L, 10L, Map.of(),
+                LocalDateTime.of(2025, 10, 1, 9, 30), "1"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("该任务状态已变更");
+    }
+
+    @Test
+    void proxySubmit_previousStageIncomplete_throws() {
+        TaskInstance instance = pendingProxyInstance();
+        when(itemTaskNodeMapper.selectById(4L)).thenReturn(
+                ItemTaskNode.builder().id(4L).sort(2).metaSchema("[]").build());
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(3L))).thenReturn(List.of(
+                new ItemStageNodeStatusBO(3L, 1L, "翻译", 1, 1, false),
+                new ItemStageNodeStatusBO(3L, 4L, "嵌字", 2, 1, false)));
+
+        assertThatThrownBy(() -> handler.proxySubmit(instance, 20L, 5L, 10L, Map.of(),
+                LocalDateTime.of(2025, 10, 1, 9, 30), "0"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("请先完成前置阶段");
+    }
+
+    private TaskInstance pendingProxyInstance() {
+        return TaskInstance.builder().revision(0L)
+                .id(1L).status(TaskInstanceStatus.PENDING)
+                .projectId(2L).itemId(3L).itemTaskNodeId(4L)
+                .build();
     }
 }

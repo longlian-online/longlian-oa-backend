@@ -2,8 +2,6 @@ package online.longlian.app.api.notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import online.longlian.app.common.util.MailUtil;
-import online.longlian.app.mapper.OrganizationMemberMapper;
-import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.NotificationResolvedSourceBO;
 import online.longlian.app.pojo.bo.app.NotificationSourceResultBO;
 import online.longlian.app.pojo.bo.app.NotificationTaskSlotBO;
@@ -13,7 +11,6 @@ import online.longlian.app.service.app.UserService;
 import online.longlian.app.service.app.impl.notification.InboxEmailOutboxHandler;
 import online.longlian.app.service.app.impl.notification.InboxEmailPayload;
 import online.longlian.app.service.app.impl.notification.NotificationSourceResolver;
-import online.longlian.app.service.app.impl.taskinstance.TaskInstanceServiceImpl;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.OutboxMessageType;
 import org.junit.jupiter.api.Test;
@@ -23,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.core.io.DefaultResourceLoader;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +27,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -82,18 +76,6 @@ class AssignNotificationCoverageTest {
                 .isInstanceOf(IllegalStateException.class).hasMessage("来源不可用");
     }
 
-    @Test
-    void shouldReturnNoAssignableMembersWhenNoneAreEnabled() {
-        OrganizationMemberMapper members = mock(OrganizationMemberMapper.class);
-        UserMapper users = mock(UserMapper.class);
-        when(members.selectList(any())).thenReturn(List.of());
-        TaskInstanceServiceImpl service = new TaskInstanceServiceImpl(
-                null, members, users, null, null, null, null, null, null, null, null, null, null, null, null,
-                Clock.systemUTC());
-
-        assertThat(service.listAssignableMembers(1L)).isEmpty();
-        verifyNoInteractions(users);
-    }
 
     private static org.springframework.core.io.ResourceLoader template(String html) {
         return new DefaultResourceLoader() {
