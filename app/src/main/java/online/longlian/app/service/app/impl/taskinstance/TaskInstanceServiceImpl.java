@@ -24,6 +24,10 @@ import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 
+import online.longlian.app.pojo.bo.app.TaskInstanceProxyCandidatesParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.vo.app.ProxySubmitCandidateVO;
+import online.longlian.app.service.common.OrganizationMemberProfile;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 
 import online.longlian.app.pojo.entity.Item;
@@ -50,6 +54,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +68,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskInstanceServiceImpl implements TaskInstanceService {
 
+    private static final DateTimeFormatter SUBMITTED_AT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemMapper itemMapper;
@@ -150,6 +156,62 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
             return null;
         });
+    }
+
+    @Override
+    public void proxySubmitTask(TaskInstanceProxySubmitParamsBO params) {
+        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            if (!params.getUserId().equals(project.getCreatorId())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可代提交");
+            }
+            organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
+            if (!projectService.listActiveWorkshopUserIds(instance.getProjectId()).contains(params.getAssigneeId())) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "该组员不属于企划");
+            }
+            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.proxySubmit(
+                    instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
+                    params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
+            recordProgressNotifications(instance, project, result, params.getUserId());
+            Map<String, Object> audit = new LinkedHashMap<>();
+            audit.put("action", "PROXY_SUBMIT");
+            audit.put("instanceId", instance.getId());
+            audit.put("assigneeId", params.getAssigneeId());
+            audit.put("submittedAt", params.getSubmittedAt().format(SUBMITTED_AT_FORMAT));
+            audit.put("expectedRevision", params.getExpectedRevision());
+            audit.put("revision", Long.toString(instance.getRevision() + 1));
+            operationLogService.logSynchronously(params.getUserId(), instance.getProjectId(),
+                    instance.getItemId(), UserOperationType.TASK_SUBMIT, audit);
+            return null;
+        });
+    }
+
+    @Override
+    public List<ProxySubmitCandidateVO> listProxySubmitCandidates(TaskInstanceProxyCandidatesParamsBO params) {
+        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
+        if (instance == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+        Project project = projectMapper.selectById(instance.getProjectId());
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+        organizationMembershipService.requireEnabledMember(params.getUserId(), params.getOrgId());
+        if (!params.getUserId().equals(project.getCreatorId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可代提交");
+        }
+        List<Long> projectMemberIds = projectService.listActiveWorkshopUserIds(instance.getProjectId());
+        return organizationMembershipService.listEnabledMembers(params.getOrgId()).stream()
+                .filter(member -> projectMemberIds.contains(member.userId()))
+                .map(TaskInstanceServiceImpl::toCandidate)
+                .toList();
+    }
+
+    private static ProxySubmitCandidateVO toCandidate(OrganizationMemberProfile member) {
+        return ProxySubmitCandidateVO.builder()
+                .userId(member.userId())
+                .nickname(member.nickname())
+                .build();
     }
 
     private void recordProgressNotifications(TaskInstance instance, Project project,

@@ -302,6 +302,16 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    public List<Long> listActiveWorkshopUserIds(Long projectId) {
+        return projectWorkshopMapper.selectList(new LambdaQueryWrapper<ProjectWorkshop>()
+                        .select(ProjectWorkshop::getUserId)
+                        .eq(ProjectWorkshop::getProjectId, projectId))
+                .stream()
+                .map(ProjectWorkshop::getUserId)
+                .toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProject(ProjectDeleteParamsBO params) {
         Project project = getVisibleProject(params.getProjectId(), params.getOrgId());

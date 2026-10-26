@@ -11,6 +11,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.common.enumeration.Status;
+import online.longlian.app.service.common.OrganizationMemberProfile;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -142,6 +144,37 @@ class OrganizationMembershipServiceImplTest {
                 .extracting(Field::getType)
                 .extracting(Class::getName)
                 .noneMatch(name -> name.contains("Redis"));
+    }
+
+    @Test
+    void shouldRejectUnassignableMember() {
+        assertThatThrownBy(() -> service.requireAssignableMember(null, 10L))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("组员不能为空");
+        when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
+        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
+        assertThatThrownBy(() -> service.requireAssignableMember(2L, 10L))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("所选组员不是当前组织成员");
+        when(organizationMemberMapper.selectOne(any())).thenReturn(member(100L, 10L, Status.DISABLED, "ORG_USER"));
+        assertThatThrownBy(() -> service.requireAssignableMember(2L, 10L))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("所选组员已被禁用");
+    }
+
+    @Test
+    void shouldListEnabledMembersByDisplayNameAndSkipMissingUsers() {
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().id(1L).orgId(10L).userId(2L).status(Status.ENABLED).build(),
+                OrganizationMember.builder().id(2L).orgId(10L).userId(9L).status(Status.ENABLED).build(),
+                OrganizationMember.builder().id(3L).orgId(10L).userId(1L).status(Status.ENABLED).build()));
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(
+                User.builder().id(2L).username("ming").nickname(" 小明 ").build(),
+                User.builder().id(1L).username("owner").nickname("").build()));
+
+        assertThat(service.listEnabledMembers(10L)).containsExactly(
+                new OrganizationMemberProfile(1L, "owner"),
+                new OrganizationMemberProfile(2L, "小明"));
     }
 
     private Organization enabledOrg(long orgId) {

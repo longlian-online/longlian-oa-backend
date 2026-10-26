@@ -138,6 +138,72 @@ public class TaskInstanceCommandHandler {
     }
 
     /**
+     * 代提交：PENDING → COMPLETED，不经过接取。
+     * 提交记录和任务时间归指定组员，且使用调用方设定的提交时间；附件仍由实际操作人绑定。
+     */
+    public TaskInstanceSubmitResultBO proxySubmit(TaskInstance instance, Long assigneeId, Long orgId,
+                                                  Long operatorId, Map<String, Object> values,
+                                                  LocalDateTime submittedAt, String expectedRevision) {
+        if (instance.getStatus() == TaskInstanceStatus.CLAIMED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务已接取，不能代提交");
+        }
+        if (instance.getStatus() != TaskInstanceStatus.PENDING) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务已提交，不能代提交");
+        }
+        requireRevision(instance, expectedRevision);
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (submittedAt.isAfter(now)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "提交时间不能晚于当前时间");
+        }
+
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
+        }
+        List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
+        TaskFormService.ValidatedValues validated = taskFormService.validateValues(
+                taskFormService.parseFields(node.getMetaSchema()), values);
+        resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
+                .resourceIds(validated.resourceIds())
+                .bizType("task_submit")
+                .bizId(instance.getId())
+                .orgId(orgId)
+                .creatorId(operatorId)
+                .build());
+
+        int updated = taskInstanceMapper.update(null,
+                new LambdaUpdateWrapper<TaskInstance>()
+                        .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
+                        .setSql("revision = revision + 1")
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
+                        .set(TaskInstance::getAssigneeId, assigneeId)
+                        .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
+                        .set(TaskInstance::getClaimedAt, submittedAt)
+                        .set(TaskInstance::getSubmittedAt, submittedAt)
+                        .set(TaskInstance::getCompletedAt, submittedAt)
+                        .set(TaskInstance::getUpdatedAt, now));
+        requireUpdated(updated);
+
+        TaskSubmission submission = TaskSubmission.builder()
+                .projectId(instance.getProjectId())
+                .itemId(instance.getItemId())
+                .taskInstanceId(instance.getId())
+                .itemTaskNodeId(instance.getItemTaskNodeId())
+                .submitterId(assigneeId)
+                .versionNo(nextVersionNo(instance.getId()))
+                .metadata(validated.serialize())
+                .status(TaskSubmissionStatus.SUBMITTED)
+                .createdAt(submittedAt)
+                .updatedAt(now)
+                .build();
+        taskSubmissionMapper.insert(submission);
+
+        memberSubmitCountHandler.incrementSubmitCount(assigneeId, instance.getProjectId(), submittedAt);
+        return new TaskInstanceSubmitResultBO(submission.getId(), now, beforeNodes);
+    }
+
+    /**
      * 重置任务：COMPLETED -> CLAIMED，提交记录标记 RESET 并回退成员提交计数。
      */
     public void reset(TaskInstance instance, Long userId) {

@@ -7,6 +7,9 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxyCandidatesParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.vo.app.ProxySubmitCandidateVO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
@@ -20,6 +23,8 @@ import java.util.List;
  * 负责任务实例的全生命周期管理，状态流转如下：
  * <pre>
  *   PENDING  ──claimTask──▶  CLAIMED  ──submitTask──▶  COMPLETED
+ *      │
+ *      └──proxySubmitTask──▶ COMPLETED
  *                  ▲              │                          │
  *                  │  abandonTask │                          │
  *                  └──────────────┘                          │
@@ -32,6 +37,7 @@ import java.util.List;
  *   <li>提交（submit）：接取人提交任务成果并生成
  *       {@link online.longlian.app.pojo.entity.TaskSubmission TaskSubmission} 记录，
  *       同时累加提交统计</li>
+ *   <li>代提交（proxySubmit）：仅企划负责人把未接取任务记到指定组员名下，提交时间使用设定值</li>
  *   <li>重置（reset）：接取人可在下一个任务被接取前可重置任务并重新提交</li>
  *   <li>打回（reject）：后一节点接取人可将已提交任务打回至已接取状态，
  *       附打回意见（视为审核），同时扣减提交统计</li>
@@ -89,6 +95,17 @@ public interface TaskInstanceService {
      * @param params 包含任务实例 ID、提交内容及其他元数据的提交参数
      */
     void submitTask(TaskInstanceSubmitParamsBO params);
+
+    /**
+     * 代提交：{@code PENDING → COMPLETED}。仅企划负责人可把未接取任务记到指定组员名下，
+     * 提交时间使用设定值。组员必须已经属于该企划，不会自动加入。
+     */
+    void proxySubmitTask(TaskInstanceProxySubmitParamsBO params);
+
+    /**
+     * 列出代提交可选组员：当前组织的启用成员，且仍在该企划中。仅企划负责人可查询。
+     */
+    List<ProxySubmitCandidateVO> listProxySubmitCandidates(TaskInstanceProxyCandidatesParamsBO params);
 
     /**
      * 重置任务：{@code COMPLETED → CLAIMED}，将提交记录标记为 {@code RESET} 并扣减提交统计。
