@@ -3,8 +3,10 @@ package online.longlian.app.service.app.impl.taskinstance;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
-import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
+import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
@@ -67,6 +69,10 @@ class TaskInstanceServiceImplTest {
     @Mock
     private TaskInstanceMapper taskInstanceMapper;
     @Mock
+    private OrganizationMemberMapper organizationMemberMapper;
+    @Mock
+    private UserMapper userMapper;
+    @Mock
     private TaskSubmissionMapper taskSubmissionMapper;
     @Mock
     private ItemMapper itemMapper;
@@ -95,7 +101,8 @@ class TaskInstanceServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new TaskInstanceServiceImpl(taskInstanceMapper, taskSubmissionMapper,
+        service = new TaskInstanceServiceImpl(taskInstanceMapper, organizationMemberMapper, userMapper,
+                taskSubmissionMapper,
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,

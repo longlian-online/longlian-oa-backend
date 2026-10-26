@@ -10,6 +10,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.vo.app.AssignableMemberVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
@@ -83,6 +84,11 @@ public interface TaskInstanceService {
      * @param params 包含操作人、被分配组员和当前修订号
      */
     TaskClaimResultBO assignTask(TaskInstanceAssignParamsBO params);
+
+    /**
+     * 当前组织内可被分配任务的启用组员。普通成员可读，不暴露管理端成员信息。
+     */
+    List<AssignableMemberVO> listAssignableMembers(Long orgId);
 
     /**
      * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，接取人或企划创建人可操作。

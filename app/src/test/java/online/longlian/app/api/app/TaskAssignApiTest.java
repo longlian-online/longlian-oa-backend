@@ -94,6 +94,22 @@ public class TaskAssignApiTest extends BaseApiTest {
                 && mail.content().contains("taskInstanceId=1")));
     }
 
+    @Test
+    void shouldListOnlyEnabledMembersInCurrentOrganization() {
+        createTestUser(3L, "disabledmember", "123456", "disabled@example.com");
+        createOrganizationMember(3L, 1L, 3L, "ORG_USER");
+        jdbcTemplate.update("UPDATE organization_member SET status=0 WHERE id=3");
+        createOrganization(2L, "其他组织");
+        createTestUser(4L, "othermember", "123456", "other@example.com");
+        createOrganizationMember(4L, 2L, 4L, "ORG_USER");
+
+        authRequest(member).get("/app/task/instance/assignees").then()
+                .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.userId", equalTo(List.of("1", "2")))
+                .body("data.username", equalTo(List.of("assignowner", "assignmember")));
+    }
+
+
     /** 关闭邮件通知只跳过投递，站内信和任务归属仍保留。 */
     @Test
     void shouldKeepInboxAndSkipEmailWhenNotificationsDisabled() {

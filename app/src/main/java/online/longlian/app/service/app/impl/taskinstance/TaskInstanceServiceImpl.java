@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
+import online.longlian.app.mapper.OrganizationMemberMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ProjectMapper;
@@ -33,8 +35,11 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
+import online.longlian.app.pojo.entity.OrganizationMember;
+import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.vo.app.AssignableMemberVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
@@ -68,6 +73,8 @@ import java.util.stream.Collectors;
 public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     private final TaskInstanceMapper taskInstanceMapper;
+    private final OrganizationMemberMapper organizationMemberMapper;
+    private final UserMapper userMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemMapper itemMapper;
     private final ProjectMapper projectMapper;
@@ -150,6 +157,26 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             return new TaskClaimResultBO(membership.isAdded());
         });
     }
+
+    @Override
+    public List<AssignableMemberVO> listAssignableMembers(Long orgId) {
+        List<OrganizationMember> members = organizationMemberMapper.selectList(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .eq(OrganizationMember::getStatus, Status.ENABLED)
+                        .orderByAsc(OrganizationMember::getId));
+        if (members.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, User> users = userMapper.selectBatchIds(members.stream().map(OrganizationMember::getUserId).toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        return members.stream().map(member -> {
+            User user = users.get(member.getUserId());
+            return new AssignableMemberVO(member.getUserId(),
+                    user == null ? null : user.getNickname(), user == null ? null : user.getUsername());
+        }).toList();
+    }
+
 
     @Override
     public void abandonTask(TaskInstanceAbandonParamsBO params) {

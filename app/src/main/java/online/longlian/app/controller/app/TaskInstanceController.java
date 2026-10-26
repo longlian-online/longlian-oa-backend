@@ -30,6 +30,7 @@ import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.vo.app.AssignableMemberVO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskClaimResultVO;
@@ -75,6 +76,14 @@ public class TaskInstanceController {
                         .sortDirection(listDTO.getSortDirection())
                         .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
                         .build());
+    }
+
+    @Operation(summary = "可分配组员", description = "返回当前组织内启用组员，供企划负责人分配未接取任务")
+    @GetMapping("/assignees")
+    @ResponseMessage("查询成功")
+    public List<AssignableMemberVO> listAssignableMembers(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
+        return taskInstanceService.listAssignableMembers(sessionContext.orgId());
     }
 
     @Operation(
