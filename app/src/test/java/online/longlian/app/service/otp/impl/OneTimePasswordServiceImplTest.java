@@ -59,6 +59,29 @@ class OneTimePasswordServiceImplTest {
     }
 
     @Test
+    void generateOTP_rejectsExpiryThatIsNotInTheFuture() {
+        OneTimePasswordCreateParamsBO missing = OneTimePasswordCreateParamsBO.builder()
+                .code("123456")
+                .bizType(OTPType.OrganizationInvite)
+                .creatorId(1L)
+                .build();
+        OneTimePasswordCreateParamsBO past = OneTimePasswordCreateParamsBO.builder()
+                .code("123456")
+                .expiredAt(LocalDateTime.now(clock))
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .build();
+
+        assertThatThrownBy(() -> service.generateOTP(missing))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("到期时间必须晚于当前时间");
+        assertThatThrownBy(() -> service.generateOTP(past))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("到期时间必须晚于当前时间");
+        verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
+    }
+
+    @Test
     void getValidOTP_notFound_throws() {
         when(oneTimePasswordMapper.selectOne(any())).thenReturn(null);
 

@@ -22,9 +22,6 @@ import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 public class OrganizationJoinInviteService implements OTPStrategyService {
@@ -32,7 +29,6 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
     private final OneTimePasswordService oneTimePasswordService;
     private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
     private final OrganizationMapper organizationMapper;
-    private final Clock clock;
 
     @Override
     public OTPType getOtpType() {
@@ -43,13 +39,12 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
     @Transactional(rollbackFor = Exception.class)
     public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
         Organization organization = getEnabledOrganization(otpGenerateContextBO.getOrgId());
-        LocalDateTime expiredAt = requireFutureExpiry(otpGenerateContextBO.getExpiredAt());
         String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
 
         OneTimePassword otp = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
                         .code(inviteCode)
-                        .expiredAt(expiredAt)
+                        .expiredAt(otpGenerateContextBO.getExpiredAt())
                         .bizType(OTPType.OrganizationUserInvite)
                         .creatorId(otpGenerateContextBO.getCreatorId())
                         .build()
@@ -81,13 +76,6 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
                             .set(OrganizationJoinOtp::getInvitedUserId, otpUseContextBO.getUserId())
             );
         }
-    }
-
-    private LocalDateTime requireFutureExpiry(LocalDateTime expiredAt) {
-        if (expiredAt == null || !expiredAt.isAfter(LocalDateTime.now(clock))) {
-            throw new AppException(ResultCode.PARAM_ERROR, "到期时间必须晚于当前时间");
-        }
-        return expiredAt;
     }
 
     private Organization getEnabledOrganization(Long orgId) {

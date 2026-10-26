@@ -3,8 +3,6 @@ package online.longlian.app.service.otp.impl;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
-import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.OrganizationCreateOtpMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
@@ -19,16 +17,12 @@ import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 public class OrganizationCreateInviteService implements OTPStrategyService {
 
     private final OneTimePasswordService oneTimePasswordService;
     private final OrganizationCreateOtpMapper organizationCreateOtpMapper;
-    private final Clock clock;
 
     @Override
     public OTPType getOtpType() {
@@ -38,13 +32,12 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
-        LocalDateTime expiredAt = requireFutureExpiry(otpGenerateContextBO.getExpiredAt());
         String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
 
         OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
                         .code(inviteCode)
-                        .expiredAt(expiredAt)
+                        .expiredAt(otpGenerateContextBO.getExpiredAt())
                         .bizType(OTPType.OrganizationInvite)
                         .creatorId(otpGenerateContextBO.getCreatorId())
                         .build()
@@ -77,10 +70,4 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
         );
     }
 
-    private LocalDateTime requireFutureExpiry(LocalDateTime expiredAt) {
-        if (expiredAt == null || !expiredAt.isAfter(LocalDateTime.now(clock))) {
-            throw new AppException(ResultCode.PARAM_ERROR, "到期时间必须晚于当前时间");
-        }
-        return expiredAt;
-    }
 }
