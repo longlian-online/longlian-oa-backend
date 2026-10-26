@@ -41,6 +41,9 @@
           AND ti.status = 1
           AND ti.assignee_id IS NULL
           AND p.org_id = #{params.orgId}
+        <if test="params.baseTaskId != null">
+            AND n.base_task_id = #{params.baseTaskId}
+        </if>
         <if test="params.typeId != null">
             AND p.type_id = #{params.typeId}
         </if>
@@ -76,6 +79,9 @@
           AND ti.status = 1
           AND ti.assignee_id IS NULL
           AND p.org_id = #{params.orgId}
+        <if test="params.baseTaskId != null">
+            AND n.base_task_id = #{params.baseTaskId}
+        </if>
         <if test="params.typeId != null">
             AND p.type_id = #{params.typeId}
         </if>
@@ -86,6 +92,7 @@
         </if>
     </select>
 
+    <!-- Keep sibling slots here: task-type filtering happens after slot labels and counts are computed. -->
     <select id="selectPlazaTaskRows" resultType="online.longlian.app.pojo.bo.app.PlazaTaskRowBO">
         SELECT ti.id AS instanceId,
                ti.project_id AS projectId,
@@ -94,6 +101,7 @@
                ti.created_at AS createdAt,
                n.name AS nodeName,
                n.id AS nodeId,
+               n.base_task_id AS baseTaskId,
                n.sort AS sort,
                n.parallel_sort AS parallelSort,
                (n.sort = cur.current_sort) AS isCurrentStage,

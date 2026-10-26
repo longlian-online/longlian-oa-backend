@@ -37,6 +37,8 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.MyTaskService;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.TaskPlazaService;
+import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.pojo.vo.app.PlazaTaskTypeOptionVO;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -50,6 +52,7 @@ public class TaskInstanceController {
 
     private final TaskInstanceService taskInstanceService;
     private final TaskPlazaService taskPlazaService;
+    private final BaseTaskService baseTaskService;
     private final MyTaskService myTaskService;
 
     @Operation(
@@ -87,10 +90,20 @@ public class TaskInstanceController {
                         .orgId(sessionContext.orgId())
                         .keyword(listDTO.getKeyword())
                         .projectType(listDTO.getProjectType())
+                        .baseTaskId(listDTO.getBaseTaskId())
                         .sortBy(listDTO.getSortBy())
                         .stageScope(listDTO.getStageScope())
                         .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
                         .build());
+    }
+
+    @Operation(summary = "任务大厅任务类型选项", description = "当前组织启用的原子任务及已有流程仍引用的停用原子任务")
+    @GetMapping("/plaza/task-types")
+    public List<PlazaTaskTypeOptionVO> listPlazaTaskTypes(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
+        return baseTaskService.listPlazaTaskTypes(sessionContext.orgId()).stream()
+                .map(option -> new PlazaTaskTypeOptionVO(option.id(), option.name()))
+                .toList();
     }
 
     @Operation(

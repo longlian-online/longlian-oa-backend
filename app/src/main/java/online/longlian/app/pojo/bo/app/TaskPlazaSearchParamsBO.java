@@ -18,6 +18,8 @@ public class TaskPlazaSearchParamsBO {
 
     private Long orgId;
 
+    private Long baseTaskId;
+
     /** 企划类型ID，空表示不过滤 */
     private Long typeId;
 
