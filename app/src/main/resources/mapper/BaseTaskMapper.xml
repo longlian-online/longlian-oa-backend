@@ -2,6 +2,12 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="online.longlian.app.mapper.BaseTaskMapper">
 
+    <!--
+      相关 EXISTS 跨 base_task / item_task_node / project / item，LambdaQueryWrapper 表达不清，
+      也不能先载入全部流程节点再按类型过滤。
+      status：1-启用 0-禁用。启用类型都返回；停用类型仅当本组织未删除的项目流程仍引用时保留。
+      不看任务实例状态，接取后选项仍在；已删除类型排除。
+    -->
     <select id="selectPlazaTaskTypes" resultType="online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO">
         SELECT b.id, b.name
         FROM base_task b
