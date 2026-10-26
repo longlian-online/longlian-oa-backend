@@ -16,6 +16,7 @@ import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
 import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
@@ -259,6 +260,17 @@ public class ItemServiceImpl implements ItemService {
                     .build();
             taskInstanceMapper.insert(instance);
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProjectItem(ItemDeleteParamsBO params) {
+        lockProjectCreator(params.getProjectId(), params.getUserId(), params.getOrgId());
+        Item item = requireItem(params.getProjectId(), params.getItemId());
+        if (hasSubmittedTask(item.getId())) {
+            throw new AppException(ResultCode.PARAM_ERROR, "项目存在已提交任务，请提交删除申请");
+        }
+        softDeleteItem(item, params.getOrgId());
     }
 
     @Override

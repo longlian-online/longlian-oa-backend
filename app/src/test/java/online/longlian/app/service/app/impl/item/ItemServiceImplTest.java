@@ -16,6 +16,7 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
@@ -383,6 +384,56 @@ class ItemServiceImplTest {
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.PARAM_ERROR.getCode());
         verifyNoInteractions(itemMapper);
+    }
+
+    @Test
+    void deleteProjectItem_withoutSubmittedTask_reusesSoftDeleteCascade() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskFlow.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).taskTemplateId(9L).build());
+        when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(TaskInstance.builder().id(8L).itemId(2L).build()));
+        when(itemMapper.update(isNull(), any())).thenReturn(1);
+
+        service.deleteProjectItem(deleteParams(1L));
+
+        verify(itemMapper).update(isNull(), any());
+        verify(itemTaskFlowMapper).update(isNull(), any());
+        verify(itemTaskNodeMapper).update(isNull(), any());
+        verify(taskInstanceMapper).update(isNull(), any());
+        verify(taskTemplateMapper).update(isNull(), any());
+        verify(resourceService).abandonBound(any());
+    }
+
+    @Test
+    void deleteProjectItem_withSubmittedTask_rejectsWithoutDeleting() {
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).build());
+        when(taskSubmissionMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteProjectItem(deleteParams(1L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                    assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在已提交任务，请提交删除申请");
+                });
+        verify(itemMapper, never()).update(isNull(), any());
+        verifyNoInteractions(resourceService);
+    }
+
+    @Test
+    void deleteProjectItem_nonCreator_rejects() {
+        when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(9L));
+
+        assertThatThrownBy(() -> service.deleteProjectItem(deleteParams(1L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        verify(itemMapper, never()).selectById(any());
+        verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    private ItemDeleteParamsBO deleteParams(Long userId) {
+        return ItemDeleteParamsBO.builder().projectId(1L).itemId(2L).orgId(1L).userId(userId).build();
     }
 
     private Item orderedItem(Long id, Long sort) {
