@@ -7,6 +7,7 @@ import online.longlian.common.enumeration.StorageType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 /**
  * 文件存储策略接口。
@@ -71,5 +72,10 @@ public interface StorageService {
      * @param key 文件存储 key
      */
     void delete(String key);
+
+    /**
+     * 读取对象的实际字节数。对象不存在时返回 empty，不把缺失当成零字节。
+     */
+    OptionalLong findContentLength(String key);
 
 }

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 @Service
 public class NullStorageService implements StorageService {
@@ -49,5 +50,10 @@ public class NullStorageService implements StorageService {
     @Override
     public void delete(String key) {
         // NONE 不持久化实际文件，清理视为完成。
+    }
+
+    @Override
+    public OptionalLong findContentLength(String key) {
+        return OptionalLong.empty();
     }
 }

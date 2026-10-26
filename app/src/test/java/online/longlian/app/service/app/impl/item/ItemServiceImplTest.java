@@ -20,7 +20,9 @@ import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -65,6 +67,7 @@ class ItemServiceImplTest {
     @Mock private BaseTaskMapper baseTaskMapper;
     @Mock private TaskInstanceMapper taskInstanceMapper;
     @Mock private TaskSubmissionMapper taskSubmissionMapper;
+    @Mock private ResourceService resourceService;
     @Mock private ItemQueryBuilder itemQueryBuilder;
     @Mock private ItemAssembler itemAssembler;
     @Mock private ProjectService projectService;
@@ -77,7 +80,7 @@ class ItemServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new ItemServiceImpl(projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
-                taskSubmissionMapper, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService);
+                taskSubmissionMapper, resourceService, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService);
         lenient().when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
         lenient().when(taskSubmissionMapper.selectObjs(any())).thenReturn(List.of());
         lenient().when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(1L));
@@ -280,6 +283,7 @@ class ItemServiceImplTest {
     void deleteProjectItemForReview_alreadyDeleted_rejectsRepeatOperation() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).build());
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(TaskInstance.builder().id(8L).build()));
         when(itemMapper.update(isNull(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> service.deleteProjectItemForReview(1L, 2L, 1L))
@@ -290,6 +294,7 @@ class ItemServiceImplTest {
         verify(itemTaskNodeMapper, never()).update(isNull(), any());
         verify(taskInstanceMapper, never()).update(isNull(), any());
         verify(taskTemplateMapper, never()).update(isNull(), any());
+        verify(resourceService, never()).abandonBound(any());
     }
 
     @Test
@@ -301,6 +306,9 @@ class ItemServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
         when(itemMapper.selectById(2L)).thenReturn(
                 Item.builder().id(2L).projectId(1L).taskTemplateId(9L).build());
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(8L).itemId(2L).build(),
+                TaskInstance.builder().id(9L).itemId(2L).build()));
         when(itemMapper.update(isNull(), any())).thenReturn(1);
         when(itemTaskFlowMapper.update(isNull(), any())).thenReturn(1);
         when(itemTaskNodeMapper.update(isNull(), any())).thenReturn(2);
@@ -314,6 +322,11 @@ class ItemServiceImplTest {
         verify(itemTaskNodeMapper).update(isNull(), any());
         verify(taskInstanceMapper).update(isNull(), any());
         verify(taskTemplateMapper).update(isNull(), any());
+        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
+        verify(resourceService).abandonBound(abandoned.capture());
+        assertThat(abandoned.getValue().getOrgId()).isEqualTo(1L);
+        assertThat(abandoned.getValue().getBizType()).isEqualTo("task_submit");
+        assertThat(abandoned.getValue().getBizIds()).containsExactly(8L, 9L);
     }
 
 
