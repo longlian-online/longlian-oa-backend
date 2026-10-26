@@ -92,20 +92,6 @@ class AssignNotificationCoverageTest {
         };
     }
 
-    private static org.springframework.core.io.ResourceLoader template(String html) {
-        return new DefaultResourceLoader() {
-            @Override
-            public org.springframework.core.io.Resource getResource(String location) {
-                return new org.springframework.core.io.ByteArrayResource(
-                        html.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
-                    @Override
-                    public boolean exists() {
-                        return true;
-                    }
-                };
-            }
-        };
-    }
 
     private InboxEmailOutboxHandler handler(String webUrl) {
         return new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper, new DefaultResourceLoader(),
