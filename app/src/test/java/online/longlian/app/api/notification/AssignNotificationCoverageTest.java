@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.ClassPathResource;
+
 import org.springframework.core.io.DefaultResourceLoader;
 
 import java.time.Clock;
@@ -62,12 +62,10 @@ class AssignNotificationCoverageTest {
     @Test
     void shouldRejectMissingTemplateAndUnavailableTaskSource() throws Exception {
         assertThatThrownBy(() -> new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper,
-                new DefaultResourceLoader() {
-                    @Override
-                    public org.springframework.core.io.Resource getResource(String location) {
-                        return new ClassPathResource("templates/missing-inbox-notification.html");
-                    }
-                }, "mailer@example.com", "龙联", "https://oa.example/"))
+                template("<html>${displayName}</html>"), "mailer@example.com", "龙联", "https://oa.example/"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("站内通知邮件模板缺失");
+        assertThatThrownBy(() -> new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper,
+                template("<html>${link}</html>${link}"), "mailer@example.com", "龙联", "https://oa.example/"))
                 .isInstanceOf(IllegalStateException.class).hasMessage("站内通知邮件模板缺失");
 
         InboxEmailOutboxHandler ready = handler("https://oa.example/");
@@ -95,6 +93,21 @@ class AssignNotificationCoverageTest {
 
         assertThat(service.listAssignableMembers(1L)).isEmpty();
         verifyNoInteractions(users);
+    }
+
+    private static org.springframework.core.io.ResourceLoader template(String html) {
+        return new DefaultResourceLoader() {
+            @Override
+            public org.springframework.core.io.Resource getResource(String location) {
+                return new org.springframework.core.io.ByteArrayResource(
+                        html.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+                    @Override
+                    public boolean exists() {
+                        return true;
+                    }
+                };
+            }
+        };
     }
 
     private InboxEmailOutboxHandler handler(String webUrl) {
