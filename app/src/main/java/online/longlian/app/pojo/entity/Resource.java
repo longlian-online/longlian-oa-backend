@@ -111,6 +111,20 @@ public class Resource implements Serializable {
     private FileProcessStatus processStatus;
 
     /**
+     * 进入保留期的时间；从未绑定的清理不写
+     */
+    @TableField("deprecated_at")
+    @ApiModelProperty("进入保留期的时间；从未绑定的清理不写")
+    private LocalDateTime deprecatedAt;
+
+    /**
+     * 最近一次与对象实际大小核对的时间
+     */
+    @TableField("size_checked_at")
+    @ApiModelProperty("最近一次与对象实际大小核对的时间")
+    private LocalDateTime sizeCheckedAt;
+
+    /**
      * 存储实际文件清理完成时间
      */
     @ApiModelProperty("存储实际文件清理完成时间")

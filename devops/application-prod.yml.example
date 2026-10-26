@@ -91,8 +91,12 @@ storage:
   type: LOCAL
   # 存储服务生成的预签名 URL 有效期（秒）
   presigned-url-ttl-seconds: 300
-  # 从未绑定业务对象的上传保留期，实际回收至少等待上传签名过期；曾绑定的文件永久保留
+  # 从未绑定业务对象的上传保留期，实际回收至少等待上传签名过期
   unbound-resource-retention: 24h
+  # 曾绑定后废弃的文件从 deprecated_at 起保留，期满物理删除
+  abandoned-resource-retention: 30d
+  # 与对象实际大小核对的间隔，不在统计请求里发起 HEAD
+  size-reconcile-interval: 24h
   # 关闭时读取走存储后端原生链接；开启后统一签发 CDN 路径令牌。
   cdn:
     enabled: false

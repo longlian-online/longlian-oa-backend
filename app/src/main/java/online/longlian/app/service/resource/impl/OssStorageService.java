@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import com.qcloud.cos.COSClient;
+import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.ClientConfig;
 import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
@@ -110,6 +111,18 @@ public class OssStorageService implements StorageService, DisposableBean {
     @Override
     public void delete(String key) {
         cosClient.deleteObject(ossConfig.getBucket(), key);
+    }
+
+    @Override
+    public OptionalLong findContentLength(String key) {
+        try {
+            return OptionalLong.of(cosClient.getObjectMetadata(ossConfig.getBucket(), key).getContentLength());
+        } catch (CosServiceException exception) {
+            if (exception.getStatusCode() == 404) {
+                return OptionalLong.empty();
+            }
+            throw exception;
+        }
     }
 
     private AppException incompleteFile() {

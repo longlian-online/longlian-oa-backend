@@ -5,6 +5,7 @@ import online.longlian.app.pojo.bo.admin.AdminGenerateCreateOrgInviteCodeParamsB
 import online.longlian.app.pojo.bo.admin.AdminGenerateInviteCodeResultBO;
 import online.longlian.app.pojo.bo.admin.AdminOrganizationListParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminOrganizationListResultBO;
+import online.longlian.app.pojo.bo.admin.AdminOrganizationIdentityBO;
 import online.longlian.app.pojo.bo.admin.AdminOrganizationUpdateStatusParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 
@@ -28,6 +29,11 @@ public interface OrganizationService {
      * @return 分页的组织列表
      */
     PageResultBO<AdminOrganizationListResultBO> getOrgListInfo(@NonNull AdminOrganizationListParamsBO params);
+
+    /**
+     * 分页查询组织标识。不签发头像读取链接。
+     */
+    PageResultBO<AdminOrganizationIdentityBO> pageIdentities(@NonNull AdminOrganizationListParamsBO params);
 
     /**
      * 生成创建组织的邀请码。
