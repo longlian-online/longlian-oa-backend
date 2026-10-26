@@ -633,6 +633,49 @@ class TaskInstanceServiceImplTest {
         verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), eq(UserOperationType.TASK_SUBMIT), any());
     }
 
+    @Test
+    void proxySubmitTask_notifiesAsAssigneeRatherThanOperator() {
+        TaskInstance instance = proxyInstance(1L);
+        LocalDateTime triggeredAt = LocalDateTime.of(2026, 10, 22, 12, 0);
+        when(taskInstanceCommandHandler.proxySubmit(eq(instance), eq(20L), eq(10L), eq(1L), any(), any(), eq("0")))
+                .thenReturn(new TaskInstanceSubmitResultBO(901L, triggeredAt, List.of(
+                        progressNode(11L, 1, false), progressNode(21L, 2, false))));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(1L))).thenReturn(List.of(
+                progressNode(11L, 1, true), progressNode(21L, 2, false)));
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(201L).assigneeId(20L).build(),
+                TaskInstance.builder().id(202L).assigneeId(1L).build()));
+
+        service.proxySubmitTask(proxyParams(1L, 20L));
+
+        assertThat(capturedNotifications().getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(1L);
+            assertThat(notification.getSourceId()).isEqualTo(202L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.TASK_READY);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+            assertThat(notification.getCreatedAt()).isEqualTo(triggeredAt);
+        });
+    }
+
+    @Test
+    void proxySubmitTask_notifiesCreatorWhenAssigneeFinishesItem() {
+        TaskInstance instance = proxyInstance(1L);
+        when(taskInstanceCommandHandler.proxySubmit(eq(instance), eq(20L), eq(10L), eq(1L), any(), any(), eq("0")))
+                .thenReturn(new TaskInstanceSubmitResultBO(901L, LocalDateTime.of(2026, 10, 22, 12, 0),
+                        List.of(progressNode(11L, 1, false))));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(1L))).thenReturn(List.of(
+                progressNode(11L, 1, true)));
+
+        service.proxySubmitTask(proxyParams(1L, 20L));
+
+        assertThat(capturedNotifications().getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(1L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.ITEM_COMPLETED);
+            assertThat(notification.getSourceId()).isEqualTo(1L);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+        });
+    }
+
 
     private TaskInstance proxyInstance(long creatorId) {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L)

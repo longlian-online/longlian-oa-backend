@@ -148,7 +148,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
-            recordProgressNotifications(instance, project, result, params.getUserId());
+            finishSubmission(instance, project, result, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
             return null;
@@ -165,7 +165,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.proxySubmit(
                     instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
                     params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
-            recordProgressNotifications(instance, project, result, params.getUserId());
+            finishSubmission(instance, project, result, params.getAssigneeId());
             Map<String, Object> audit = new LinkedHashMap<>();
             audit.put("action", "PROXY_SUBMIT");
             audit.put("instanceId", instance.getId());
@@ -177,6 +177,11 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, audit);
             return null;
         });
+    }
+
+    private void finishSubmission(TaskInstance instance, Project project,
+                                  TaskInstanceSubmitResultBO result, Long submitterId) {
+        recordProgressNotifications(instance, project, result, submitterId);
     }
 
     private void recordProgressNotifications(TaskInstance instance, Project project,
