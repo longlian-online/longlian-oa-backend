@@ -19,6 +19,8 @@ public class TaskPlazaParamsBO {
 
     private Long orgId;
 
+    private Long baseTaskId;
+
     private String keyword;
 
     /** 企划类型名称，空表示不过滤 */

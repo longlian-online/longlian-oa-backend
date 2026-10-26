@@ -91,6 +91,174 @@ public class TaskPlazaApiTest extends BaseApiTest {
                 id, projectId, itemId, nodeId, assigneeId, status, Timestamp.valueOf(testNow().minusDays(daysAgo)));
     }
 
+    private void seedTaskTypes() {
+        seedPlazaFixture();
+        insertBaseTask(4101L, 4000L, "translate", 1);
+        insertBaseTask(4102L, 4000L, "review", 0);
+        insertBaseTask(4103L, 4000L, "unused-disabled", 0);
+        insertBaseTask(4104L, 4000L, "deleted", 1);
+        insertBaseTask(4105L, 4999L, "foreign", 1);
+        jdbcTemplate.update("UPDATE base_task SET deleted_at = NOW() WHERE id = 4104");
+        jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4101 WHERE id IN (4001,4004,4005)");
+        jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4102, name = 'custom-review' WHERE id IN (4002,4003)");
+    }
+
+    private void insertBaseTask(long id, long orgId, String name, int status) {
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, 4001)",
+                id, orgId, name, status);
+    }
+
+    @Test
+    void shouldListTaskTypesForOrdinaryMemberIncludingReferencedDisabledTypes() {
+        seedTaskTypes();
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).get("/app/task/instance/plaza/task-types").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.size()", equalTo(2))
+                .body("data[0].id", equalTo("4102"))
+                .body("data[0].name", equalTo("review"))
+                .body("data[1].id", equalTo("4101"));
+        jdbcTemplate.update("UPDATE task_instance SET status = 2, assignee_id = 4001 WHERE status = 1");
+        authRequest(token).get("/app/task/instance/plaza/task-types").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.size()", equalTo(2));
+        jdbcTemplate.update("UPDATE item_task_node SET deleted_at = NOW() WHERE base_task_id = 4102");
+        authRequest(token).get("/app/task/instance/plaza/task-types").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.size()", equalTo(1))
+                .body("data[0].id", equalTo("4101"));
+    }
+
+    @Test
+    void shouldFilterByTaskIdentityWithoutChangingCurrentStageOrSlots() {
+        seedTaskTypes();
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).queryParam("baseTaskId", 4102).queryParam("stageScope", "CURRENT")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list[0].pendingCount", equalTo(1))
+                .body("data.list[0].itemCount", equalTo(1))
+                .body("data.list[0].tasks.size()", equalTo(1))
+                .body("data.list[0].tasks[0].instanceId", equalTo("4002"))
+                .body("data.list[0].tasks[0].nodeName", equalTo("custom-review"))
+                .body("data.list[0].tasks[0].slotIndex", equalTo(2))
+                .body("data.list[0].tasks[0].slotTotal", equalTo(2))
+                .body("data.list[0].tasks[0].parallelTotal", equalTo(2))
+                .body("data.list[0].tasks[0].filledSlots", equalTo(1));
+        authRequest(token).queryParam("baseTaskId", 4102).queryParam("stageScope", "ALL")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[0].pendingCount", equalTo(2))
+                .body("data.list[0].tasks.size()", equalTo(2))
+                .body("data.list[0].tasks[1].instanceId", equalTo("4003"))
+                .body("data.list[0].tasks[1].isCurrentStage", equalTo(false))
+                .body("data.list[0].tasks[1].stageIndex", equalTo(2))
+                .body("data.list[0].tasks[1].stageTotal", equalTo(2));
+        authRequest(token).queryParam("baseTaskId", 4102).queryParam("pageNum", 2)
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list.size()", equalTo(0));
+    }
+
+    @Test
+    void shouldApplyTaskTypeBeforePaginationAndMostPendingSort() {
+        seedTaskTypes();
+        insertNode(4010L, 4002L, 4002L, 4001L, "other", 1, 2);
+        insertInstance(4010L, 4001L, 4002L, 4010L, 1, null, 0);
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).queryParam("baseTaskId", 4101).queryParam("sortBy", "MOST")
+                .queryParam("pageSize", 1).queryParam("pageNum", 1)
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2))
+                .body("data.list[0].projectId", equalTo("4002"))
+                .body("data.list[0].pendingCount", equalTo(1));
+        authRequest(token).queryParam("baseTaskId", 4101).queryParam("sortBy", "MOST")
+                .queryParam("pageSize", 1).queryParam("pageNum", 2)
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2))
+                .body("data.list[0].projectId", equalTo("4001"))
+                .body("data.list[0].pendingCount", equalTo(1))
+                .body("data.list[0].tasks.size()", equalTo(1));
+    }
+
+    @Test
+    void shouldCombineTaskTypeWithKeywordAndProjectType() {
+        seedTaskTypes();
+        insertProject(4990L, 4999L, 4000L, "foreign-project", 0);
+        insertItemWithFlow(4990L, 4990L, "foreign-item", 4990L);
+        insertNode(4990L, 4990L, 4990L, 4990L, "foreign", 1, 1);
+        insertInstance(4990L, 4990L, 4990L, 4990L, 1, null, 0);
+        jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4105 WHERE id = 4990");
+        String token = loginAs("plazauser", "123456");
+        String projectType = jdbcTemplate.queryForObject("SELECT name FROM project_type WHERE id = 4000", String.class);
+        authRequest(token).queryParam("baseTaskId", 4102).queryParam("keyword", "custom-review")
+                .queryParam("projectType", projectType).queryParam("stageScope", "ALL")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.list[0].pendingCount", equalTo(2))
+                .body("data.list[0].tasks.size()", equalTo(2));
+        for (long id : new long[]{4105, 999999}) {
+            authRequest(token).queryParam("baseTaskId", id).get("/app/task/instance/plaza").then()
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.total", equalTo(0))
+                    .body("data.list.size()", equalTo(0));
+        }
+    }
+
+    @Test
+    void shouldSortOnlyByMatchingTaskCreationTimes() {
+        seedTaskTypes();
+        insertNode(4010L, 4002L, 4002L, 4001L, "other-oldest", 1, 2);
+        insertInstance(4010L, 4001L, 4002L, 4010L, 1, null, 10);
+        insertNode(4011L, 4003L, 4003L, 4002L, "other-latest", 1, 2);
+        insertInstance(4011L, 4002L, 4003L, 4011L, 1, null, -1);
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).queryParam("baseTaskId", 4101).queryParam("sortBy", "WAIT")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[0].projectId", equalTo("4002"));
+        authRequest(token).queryParam("baseTaskId", 4101).queryParam("sortBy", "LATEST")
+                .get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list[0].projectId", equalTo("4001"));
+    }
+
+    @Test
+    void shouldKeepTaskTypeFilterAfterClaimingAndReturnEmptyOptionsForNewOrganization() {
+        seedPlazaFixture();
+        String token = loginAs("plazauser", "123456");
+        authRequest(token).get("/app/task/instance/plaza/task-types").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.size()", equalTo(0));
+        insertBaseTask(4102L, 4000L, "review", 0);
+        jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4102 WHERE id = 4002");
+        authRequest(token).post("/app/task/instance/4002/claim").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).queryParam("baseTaskId", 4102).get("/app/task/instance/plaza").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(0));
+        authRequest(token).get("/app/task/instance/plaza/task-types").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data[0].id", equalTo("4102"));
+    }
+
+    @Test
+    void shouldRejectInvalidTaskTypeIdsAndUnauthenticatedOptions() {
+        seedTaskTypes();
+        String token = loginAs("plazauser", "123456");
+        for (String id : new String[]{"0", "-1", "invalid", "9223372036854775808"}) {
+            authRequest(token).queryParam("baseTaskId", id).get("/app/task/instance/plaza").then()
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        }
+        request().get("/app/task/instance/plaza/task-types").then()
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
     @Test
     void shouldListAllStagesWithAccurateStageMarkers() {
         seedPlazaFixture();

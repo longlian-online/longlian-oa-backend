@@ -20,7 +20,7 @@ class TaskPlazaAssemblerTest {
     @Test
     void assembleGroups_emptySummaries_returnsEmpty() {
         List<PlazaProjectGroupVO> result = assembler.assembleGroups(
-                List.of(), List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+                List.of(), List.of(), Map.of(), Map.of(), Map.of(), Map.of(), null);
 
         assertThat(result).isEmpty();
     }
@@ -35,7 +35,7 @@ class TaskPlazaAssemblerTest {
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
                 List.of(summary), List.of(completed, pending), itemSorts,
-                Map.of(100L, "http://cover/100"), Map.of(100L, "http://thumb/100"), Map.of());
+                Map.of(100L, "http://cover/100"), Map.of(100L, "http://thumb/100"), Map.of(), null);
 
         assertThat(groups).hasSize(1);
         PlazaProjectGroupVO group = groups.getFirst();
@@ -71,7 +71,7 @@ class TaskPlazaAssemblerTest {
                 201L, List.of(1));
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
-                List.of(summary), List.of(itemAStage1, itemAStage2, itemBStage1), itemSorts, Map.of(), Map.of(), Map.of());
+                List.of(summary), List.of(itemAStage1, itemAStage2, itemBStage1), itemSorts, Map.of(), Map.of(), Map.of(), null);
 
         assertThat(groups).hasSize(1);
         assertThat(groups.getFirst().getTasks()).hasSize(3);
@@ -92,7 +92,7 @@ class TaskPlazaAssemblerTest {
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
                 List.of(summary(100L, "企划A", 1L, 1L), summary(101L, "企划B", 1L, 1L)),
-                List.of(projectATask, projectBTask), itemSorts, Map.of(), Map.of(), Map.of());
+                List.of(projectATask, projectBTask), itemSorts, Map.of(), Map.of(), Map.of(), null);
 
         assertThat(groups).hasSize(2);
         assertThat(groups.get(0).getProjectId()).isEqualTo(100L);
@@ -114,12 +114,35 @@ class TaskPlazaAssemblerTest {
 
         List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
                 List.of(summary), List.of(pending), Map.of(200L, List.of(1, 2, 3)),
-                Map.of(), Map.of(), Map.of(200L, nodes));
+                Map.of(), Map.of(), Map.of(200L, nodes), null);
 
         var task = groups.getFirst().getTasks().getFirst();
         assertThat(task.getSlotIndex()).isEqualTo(2);
         assertThat(task.getSlotTotal()).isEqualTo(2);
         assertThat(task.getSerialStep()).isEqualTo(3);
+    }
+
+    @Test
+    void assembleGroups_taskType_keepsSiblingSlotsAndOriginalPositions() {
+        PlazaTaskRowBO completed = row(11L, 100L, 200L, "translate", 1, 1, TaskInstanceStatus.COMPLETED);
+        completed.setBaseTaskId(7L);
+        PlazaTaskRowBO selected = row(12L, 100L, 200L, "custom-review", 1, 2, TaskInstanceStatus.PENDING);
+        selected.setBaseTaskId(8L);
+        PlazaTaskRowBO sibling = row(13L, 100L, 200L, "translate", 1, 3, TaskInstanceStatus.PENDING);
+        sibling.setBaseTaskId(7L);
+        var groups = assembler.assembleGroups(List.of(summary(100L, "A", 1L, 1L)),
+                List.of(completed, selected, sibling), Map.of(200L, List.of(1, 2)),
+                Map.of(), Map.of(), Map.of(), 8L);
+
+        assertThat(groups.getFirst().getTasks()).hasSize(1);
+        var task = groups.getFirst().getTasks().getFirst();
+        assertThat(task.getInstanceId()).isEqualTo(12L);
+        assertThat(task.getParallelTotal()).isEqualTo(3);
+        assertThat(task.getFilledSlots()).isEqualTo(1);
+        assertThat(task.getPendingSlots()).isEqualTo(2);
+        assertThat(task.getSlotIndex()).isEqualTo(2);
+        assertThat(task.getSlotTotal()).isEqualTo(3);
+        assertThat(task.getStageTotal()).isEqualTo(2);
     }
 
     private PlazaProjectSummaryBO summary(Long projectId, String title, Long pendingCount, Long itemCount) {

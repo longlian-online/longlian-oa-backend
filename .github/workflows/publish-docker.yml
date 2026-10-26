@@ -1,16 +1,20 @@
-# 推送 semver tag 时构建、发布并部署应用与 migration 镜像。
-# 镜像:
+# 两种发布，互不覆盖对方的标签，也不互相部署：
+# 1. 推送 semver tag（v*.*.*）：只构建版本镜像，不部署。
+#    应用：:<version> :<major>.<minor> :latest
+#    迁移：:<version>-migration :<major>.<minor>-migration :migration-latest
+# 2. 推送到 sit（含合并）：只构建固定 tag，并部署测试服。不打版本号或 :latest。
+#    应用：:sit
+#    迁移：:sit-migration
+# 镜像（linux/amd64）:
 #   ghcr.io/<owner>/<repo>
 #   docker.cnb.cool/longlian.online/longlian-oa-backend
-# （linux/amd64）
-# 应用镜像:
-#   任意 semver tag → :<version> :<major>.<minor> :latest
-# 迁移镜像:
-#   任意 semver tag → :<version>-migration :<major>.<minor>-migration :migration-latest
 #
 # CNB 推送需仓库 Secrets: GIT_PASSWORD（CNB 访问令牌，用户名固定 cnb；需制品库写权限）
+# 测试服部署读 GitHub Environment `sit` 的 Secrets（名称与 production 相同，值必须是测试服）：
+#   DEPLOY_SCRIPT_PATH、DEPLOY_SSH_HOST、DEPLOY_SSH_PORT、DEPLOY_SSH_USER、DEPLOY_SSH_KEY
+# 测试服脚本应拉取 :sit 与 :sit-migration。这些 Secret 不要只放在仓库级，否则 sit 作业会回落到生产配置。
 #
-# 依赖来自 main 上 All Tests 写入的 Actions cache（tag 工作流读得到 main 的 cache，写出去的下一发 tag 读不到）。
+# 依赖来自 main 上 All Tests 写入的 Actions cache（本工作流只 restore，写出去的下一发读不到）。
 # 不再用 type=gha,mode=max：层缓存会被 pom 版本打穿，导出本身要数分钟，而且仓库 cache 配额只有 10GB。
 name: Publish and deploy Docker images
 
@@ -18,6 +22,8 @@ on:
   push:
     tags:
       - "v*.*.*"
+    branches:
+      - sit
 
 env:
   GHCR_REGISTRY: ghcr.io
@@ -99,11 +105,13 @@ jobs:
           images: |
             ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
             ${{ env.CNB_REGISTRY }}/${{ env.CNB_IMAGE }}
+          # sit 不能带上 latest，否则测试分支会覆盖生产浮动标签。
           flavor: |
-            latest=true
+            latest=${{ github.ref_type == 'tag' }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},enable=${{ github.ref_type == 'tag' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=sit,enable=${{ github.ref == 'refs/heads/sit' }}
 
       - name: Build and push app image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -130,9 +138,10 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=semver,pattern={{version}}-migration
-            type=semver,pattern={{major}}.{{minor}}-migration
-            type=raw,value=migration-latest
+            type=semver,pattern={{version}}-migration,enable=${{ github.ref_type == 'tag' }}
+            type=semver,pattern={{major}}.{{minor}}-migration,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=migration-latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=sit-migration,enable=${{ github.ref == 'refs/heads/sit' }}
 
       - name: Build and push migration image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -147,19 +156,20 @@ jobs:
           labels: ${{ steps.meta-migration.outputs.labels }}
           annotations: ${{ steps.meta-migration.outputs.annotations }}
 
-  deploy-production:
-    name: Deploy production
+  deploy-sit:
+    name: Deploy sit
     needs: build-and-push
+    if: github.ref == 'refs/heads/sit'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: production
+    environment: sit
     permissions:
       contents: none
     concurrency:
-      group: production-deploy
+      group: sit-deploy
       cancel-in-progress: false
     steps:
-      - name: Run production deployment script
+      - name: Run sit deployment script
         env:
           DEPLOY_SCRIPT_PATH: ${{ secrets.DEPLOY_SCRIPT_PATH }}
         uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
