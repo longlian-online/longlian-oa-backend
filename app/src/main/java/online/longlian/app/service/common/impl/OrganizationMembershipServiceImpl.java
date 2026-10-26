@@ -11,10 +11,18 @@ import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.DefaultOrganization;
+import online.longlian.app.service.common.OrganizationMemberProfile;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -55,6 +63,57 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
             throw new AppException(ResultCode.OPERATION_FAIL, "您在该组织中的成员状态已被禁用");
         }
         return organizationMember;
+    }
+
+    @Override
+    public OrganizationMember requireAssignableMember(Long userId, Long orgId) {
+        if (userId == null || userId <= 0) {
+            throw new AppException(ResultCode.PARAM_ERROR, "组员不能为空");
+        }
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "组织不可用");
+        }
+        OrganizationMember member = organizationMemberMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getUserId, userId)
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .last("LIMIT 1"));
+        if (member == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "所选组员不是当前组织成员");
+        }
+        if (member.getStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "所选组员已被禁用");
+        }
+        return member;
+    }
+
+    @Override
+    public List<OrganizationMemberProfile> listEnabledMembers(Long orgId) {
+        List<OrganizationMember> members = organizationMemberMapper.selectList(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .eq(OrganizationMember::getStatus, Status.ENABLED));
+        if (members.isEmpty()) {
+            return List.of();
+        }
+        List<Long> userIds = members.stream().map(OrganizationMember::getUserId).distinct().toList();
+        Map<Long, User> users = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+        return members.stream()
+                .map(member -> users.get(member.getUserId()))
+                .filter(Objects::nonNull)
+                .map(user -> new OrganizationMemberProfile(user.getId(), displayName(user)))
+                .sorted(Comparator.comparing(OrganizationMemberProfile::nickname, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(OrganizationMemberProfile::userId))
+                .toList();
+    }
+
+    private String displayName(User user) {
+        if (StringUtils.hasText(user.getNickname())) {
+            return user.getNickname().trim();
+        }
+        return user.getUsername();
     }
 
     @Override
