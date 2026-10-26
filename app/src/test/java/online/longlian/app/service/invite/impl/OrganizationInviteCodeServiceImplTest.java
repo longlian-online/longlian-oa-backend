@@ -260,4 +260,17 @@ class OrganizationInviteCodeServiceImplTest {
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("到期时间必须晚于当前时间");
     }
+
+    @Test
+    void shouldRejectPendingCodeThatCannotBeSelectedAsActive() {
+        when(organizationInviteCodeMapper.selectOne(any())).thenReturn(null, OrganizationInviteCode.builder()
+                .id(4L)
+                .accepted(null)
+                .expiredAt(LocalDateTime.now(CLOCK).plusMinutes(5))
+                .build());
+
+        assertThatThrownBy(() -> service.getValid("ODD001", OTPType.OrganizationInvite))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码无效");
+    }
 }

@@ -144,6 +144,42 @@ class UserServiceImplTest {
     }
 
     @Test
+    void shouldRejectBindEmailAndSkipNotificationWhenUserIsMissing() {
+        assertThatThrownBy(() -> service.bindEmail(bindEmailParams()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
+        assertThat(service.getEmailNotificationRecipient(1L)).isNull();
+    }
+
+    @Test
+    void shouldUseUsernameOrIdWhenDisplayNameIsMissing() {
+        assertThat(service.displayNames(null)).isEmpty();
+        assertThat(service.displayNames(List.of())).isEmpty();
+        assertThat(service.displayNames(java.util.Collections.singletonList(null))).isEmpty();
+        when(userMapper.selectList(any())).thenReturn(List.of(
+                User.builder().id(2L).username("only-name").build(),
+                User.builder().id(3L).nickname(" ").username(" ").build()));
+
+        assertThat(service.displayNames(List.of(2L, 3L, 4L)))
+                .containsEntry(2L, "only-name")
+                .containsEntry(3L, "3")
+                .containsEntry(4L, "4");
+    }
+
+    @Test
+    void shouldRejectJoinInviteThatHasNoOrganization() {
+        stubRegisterValidation();
+        when(organizationInviteCodeService.getValid(any(), any()))
+                .thenReturn(OrganizationInviteCode.builder().id(20L).build());
+
+        assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码无效");
+        verify(organizationInviteCodeService, never()).accept(any());
+    }
+
+    @Test
     void shouldResetPasswordAndConsumeEmailCode() {
         UserResetPasswordParamsBO params = resetPasswordParams();
         OneTimePassword otp = OneTimePassword.builder().id(10L).build();

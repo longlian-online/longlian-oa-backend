@@ -78,8 +78,7 @@ public class OrganizationInviteCodeServiceImpl implements OrganizationInviteCode
         if (active != null) {
             return active;
         }
-        rejectUnavailable(latest(code, bizType), now);
-        throw new AppException(ResultCode.OPERATION_FAIL, "邀请码无效");
+        throw unavailable(latest(code, bizType), now);
     }
 
     @Override
@@ -101,7 +100,7 @@ public class OrganizationInviteCodeServiceImpl implements OrganizationInviteCode
             update.set(OrganizationInviteCode::getOrgMemberId, params.getOrgMemberId());
         }
         if (organizationInviteCodeMapper.update(null, update) == 0) {
-            rejectUnavailable(organizationInviteCodeMapper.selectById(params.getId()), now);
+            throw unavailable(organizationInviteCodeMapper.selectById(params.getId()), now);
         }
     }
 
@@ -141,17 +140,17 @@ public class OrganizationInviteCodeServiceImpl implements OrganizationInviteCode
                 .last("LIMIT 1"));
     }
 
-    private void rejectUnavailable(OrganizationInviteCode inviteCode, LocalDateTime now) {
+    private AppException unavailable(OrganizationInviteCode inviteCode, LocalDateTime now) {
         if (inviteCode == null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码无效");
+            return new AppException(ResultCode.OPERATION_FAIL, "邀请码无效");
         }
         if (Integer.valueOf(ACCEPTED).equals(inviteCode.getAccepted()) || inviteCode.getAcceptedAt() != null) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已接受");
+            return new AppException(ResultCode.OPERATION_FAIL, "邀请码已接受");
         }
         if (inviteCode.getExpiredAt() == null || !inviteCode.getExpiredAt().isAfter(now)) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
+            return new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
         }
-        throw new AppException(ResultCode.OPERATION_FAIL, "邀请码无效");
+        return new AppException(ResultCode.OPERATION_FAIL, "邀请码无效");
     }
 
     // 发加入组织邀请前必须确认目标组织仍启用。组织模块没有不带管理员角色校验的查询方法，这里直接读组织表。
