@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import online.longlian.app.common.annotation.NotWeakPassword;
 import online.longlian.app.common.constants.PatternConstants;
 
 @Data
@@ -24,7 +23,7 @@ public class ResetPasswordDTO {
 
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 20, message = "密码长度必须在6-20位之间")
-    @NotWeakPassword
-    @Schema(description = "新密码，6-20位，禁止使用常见弱密码", example = "River!82Maple", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Pattern(regexp = PatternConstants.PASSWORD_COMPLEXITY_PATTERN, message = PatternConstants.PASSWORD_COMPLEXITY_MESSAGE)
+    @Schema(description = "新密码，6-20位，须同时包含大写字母、小写字母和数字", example = "River!82Maple", requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 }
