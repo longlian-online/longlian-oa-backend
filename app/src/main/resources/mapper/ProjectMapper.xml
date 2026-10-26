@@ -14,9 +14,12 @@
             SELECT p.*,
                 CASE WHEN p.title LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS title_hit,
                 CASE WHEN p.alias LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
+                <!-- tags 与自定义字段共用完整关键词；合并进同一路径数组，命中只计一次，且不改变 fields 顺序。 -->
                 JSON_MERGE_PRESERVE('[]',
                     COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
-                        'all', #{params.tagMatchPattern}, '!', '$.tags[*].key', '$.tags[*].value'), '[]')
+                        'all', #{params.tagMatchPattern}, '!', '$.tags[*].key', '$.tags[*].value'), '[]'),
+                    COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,
+                        'all', #{params.tagMatchPattern}, '!', '$.fields[*].name', '$.fields[*].value'), '[]')
                 ) AS matched_metadata_paths
             FROM project p
             WHERE p.org_id = #{params.orgId}

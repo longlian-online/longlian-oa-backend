@@ -50,4 +50,39 @@ class ProjectMetadataValidatorTest {
                 .isInstanceOfSatisfying(AppException.class,
                         exception -> assertThat(exception.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
     }
+
+    /** 空白名称、缺值和多余属性都不能写入自定义字段。 */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"tags\":[],\"fields\":null}",
+            "{\"tags\":[],\"fields\":{}}",
+            "{\"tags\":[],\"fields\":[null]}",
+            "{\"tags\":[],\"fields\":[\"作者\"]}",
+            "{\"tags\":[],\"fields\":[{}]}",
+            "{\"tags\":[],\"fields\":[{\"value\":\"xxxx\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\" \t\",\"value\":\"xxxx\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":1,\"value\":\"xxxx\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":null}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":1}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":[]}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"extra\":true}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\",\"extra\":true}]}"
+    })
+    void shouldRejectInvalidCustomFields(String metadata) {
+        assertThatThrownBy(() -> ProjectMetadataValidator.validate(metadata))
+                .isInstanceOfSatisfying(AppException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    /** 省略 fields、空数组和重复名称都合法，校验不改写 JSON。 */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"tags\":[]}",
+            "{\"tags\":[],\"fields\":[]}",
+            "{\"note\":\"保留\",\"tags\":[{\"key\":\"作者\"}],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"},{\"name\":\"作者\",\"value\":\"\"},{\"name\":\" 作者 \",\"value\":\" xxxx \"}]}"
+    })
+    void shouldAcceptOptionalCustomFields(String metadata) {
+        ProjectMetadataValidator.validate(metadata);
+    }
 }
