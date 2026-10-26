@@ -52,7 +52,7 @@ CREATE TABLE `email_verify_otp` (
 CREATE TABLE `group_application` (
   `id` bigint NOT NULL,
   `org_id` bigint NOT NULL COMMENT "目标组织ID",
-  `otp_id` bigint NULL COMMENT "提交申请时使用的邀请码ID",
+  `otp_id` bigint NULL COMMENT "提交申请时使用的邀请码记录ID",
   `user_id` bigint NULL COMMENT "申请人ID（注册待审时为空）",
   `password_hash` varchar(100) NULL COMMENT "注册待审密码哈希，审批后清空",
   `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态：0-待审核 1-通过 2-拒绝",
@@ -153,6 +153,24 @@ CREATE TABLE `organization_create_otp` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "邀请创建组织表";
+-- Create "organization_invite_code" table
+CREATE TABLE `organization_invite_code` (
+  `id` bigint NOT NULL COMMENT "邀请码记录ID",
+  `code` varchar(32) NOT NULL COMMENT "邀请码",
+  `biz_type` tinyint NOT NULL COMMENT "业务类型 1-邀请创建组织 2-邀请加入组织",
+  `org_id` bigint NULL COMMENT "目标组织ID，创建组织邀请在接受前为空",
+  `creator_id` bigint NOT NULL COMMENT "邀请人ID",
+  `invitee_user_id` bigint NULL COMMENT "被邀请人用户ID，接受后写入",
+  `expired_at` datetime NOT NULL COMMENT "到期时间",
+  `accepted` tinyint NOT NULL DEFAULT 0 COMMENT "是否接受 0-未接受 1-已接受",
+  `accepted_at` datetime NULL COMMENT "接受时间",
+  `org_member_id` bigint NULL COMMENT "加入成功后的组织成员ID",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_organization_invite_code_lookup` (`code`, `biz_type`, `accepted`, `expired_at`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "邀请码记录表";
 -- Create "organization_join_otp" table
 CREATE TABLE `organization_join_otp` (
   `id` bigint NOT NULL COMMENT "邀请ID",

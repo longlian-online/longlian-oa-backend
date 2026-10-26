@@ -7,7 +7,6 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
@@ -25,7 +24,7 @@ import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.pojo.entity.OrganizationJoinOtp;
+import online.longlian.app.pojo.entity.OrganizationInviteCode;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
@@ -33,6 +32,7 @@ import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.invite.OrganizationInviteCodeService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
@@ -72,7 +72,7 @@ class UserServiceImplTest {
     @Mock
     private OrganizationMemberMapper organizationMemberMapper;
     @Mock
-    private OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    private OrganizationInviteCodeService organizationInviteCodeService;
     @Mock
     private GroupApplicationMapper groupApplicationMapper;
     @Mock
@@ -85,8 +85,6 @@ class UserServiceImplTest {
     private OTPServiceFactory otpServiceFactory;
     @Mock
     private OTPStrategyService emailVerifyService;
-    @Mock
-    private OTPStrategyService joinInviteService;
     @Mock
     private SessionService sessionService;
     @Mock
@@ -103,7 +101,7 @@ class UserServiceImplTest {
                 passwordEncoder,
                 organizationMapper,
                 organizationMemberMapper,
-                organizationJoinOtpMapper,
+                organizationInviteCodeService,
                 groupApplicationMapper,
                 resourceService,
                 userMapper,
@@ -360,12 +358,12 @@ class UserServiceImplTest {
     @Test
     void shouldFailRegisterWhenJoinInviteDoesNotExist() {
         stubRegisterValidation();
-        stubJoinInvite();
-        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(null);
+        when(organizationInviteCodeService.getValid(any(), any()))
+                .thenThrow(new AppException(ResultCode.OPERATION_FAIL, "邀请码无效"));
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("邀请码不存在");
+                .hasMessageContaining("邀请码无效");
     }
 
     /** 目标组织不存在时不写入申请，也不消耗验证码。 */
@@ -373,15 +371,13 @@ class UserServiceImplTest {
     void shouldRejectRegistrationForMissingOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
-        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
-                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
 
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
         verifyNoInteractions(groupApplicationMapper);
         verify(emailVerifyService, never()).use(any());
-        verify(joinInviteService, never()).use(any());
+        verify(organizationInviteCodeService, never()).accept(any());
     }
 
     /** 禁用组织不得接受注册申请，也不能消耗验证码。 */
@@ -389,8 +385,6 @@ class UserServiceImplTest {
     void shouldRejectRegistrationForDisabledOrganization() {
         stubRegisterValidation();
         stubJoinInvite();
-        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
-                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.DISABLED).build());
 
@@ -399,7 +393,7 @@ class UserServiceImplTest {
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
         verifyNoInteractions(groupApplicationMapper);
         verify(emailVerifyService, never()).use(any());
-        verify(joinInviteService, never()).use(any());
+        verify(organizationInviteCodeService, never()).accept(any());
     }
 
 
@@ -436,15 +430,12 @@ class UserServiceImplTest {
                 .nickname("New User").email("new@example.com").code("EMAIL1")
                 .build();
         OneTimePassword emailOtp = OneTimePassword.builder().id(10L).build();
-        OneTimePassword inviteOtp = OneTimePassword.builder().id(20L).build();
         when(otpServiceFactory.get(OTPType.EmailVerify)).thenReturn(emailVerifyService);
-        when(otpServiceFactory.get(OTPType.OrganizationUserInvite)).thenReturn(joinInviteService);
         when(emailVerifyService.getValid(any(OTPValidateContextBO.class))).thenReturn(emailOtp);
-        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(inviteOtp);
+        when(organizationInviteCodeService.getValid(any(), any()))
+                .thenReturn(OrganizationInviteCode.builder().id(20L).orgId(30L).build());
         when(userMapper.selectOne(any())).thenReturn(null);
         when(groupApplicationMapper.selectOne(any())).thenReturn(null);
-        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
-                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(passwordEncoder.encode("password")).thenReturn("hashed-password");
@@ -461,8 +452,8 @@ class UserServiceImplTest {
         assertThat(applicationCaptor.getValue().getUserId()).isNull();
         assertThat(applicationCaptor.getValue().getPasswordHash()).isEqualTo("hashed-password");
         verify(userMapper, never()).insert(any(User.class));
-        verify(joinInviteService).use(argThat(context -> context.getOtpId().equals(20L)
-                && context.getUserId() == null));
+        verify(organizationInviteCodeService).accept(argThat(accepted ->
+                Long.valueOf(20L).equals(accepted.getId()) && accepted.getInviteeUserId() == null));
         verify(emailVerifyService).use(argThat(context -> context.getOtpId().equals(10L)));
     }
     @Test
@@ -570,8 +561,8 @@ class UserServiceImplTest {
     @Test
     void shouldRejectCreateOrganizationWhenNameIsBlank() {
         stubRegisterValidation();
-        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
-        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+        when(organizationInviteCodeService.getValid(any(), any()))
+                .thenReturn(OrganizationInviteCode.builder().id(20L).build());
 
         assertThatThrownBy(() -> service.registerAndCreateOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class)
@@ -581,8 +572,8 @@ class UserServiceImplTest {
     @Test
     void shouldAssignOwnerWhenRegisteringAndCreatingOrganization() {
         stubRegisterValidation();
-        when(otpServiceFactory.get(OTPType.OrganizationInvite)).thenReturn(joinInviteService);
-        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+        when(organizationInviteCodeService.getValid(any(), any()))
+                .thenReturn(OrganizationInviteCode.builder().id(20L).build());
         when(passwordEncoder.encode(any())).thenReturn("hash");
         UserRegisterByInviteParamsBO params = registerParams();
         params.setOrgName("测试组织");
@@ -598,8 +589,6 @@ class UserServiceImplTest {
     void shouldRejectJoinRegistrationWhenApplicationIsAlreadyPending() {
         stubRegisterValidation();
         stubJoinInvite();
-        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
-                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.selectOne(any())).thenReturn(GroupApplication.builder().id(1L).build());
@@ -639,8 +628,6 @@ class UserServiceImplTest {
     void shouldConvertDuplicateRegistrationInsertToBusinessFailureWithoutConsumingCodes() {
         stubRegisterValidation();
         stubJoinInvite();
-        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
-                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
         when(organizationMapper.selectOne(any())).thenReturn(
                 Organization.builder().id(30L).status(Status.ENABLED).build());
         when(groupApplicationMapper.insert(any(GroupApplication.class)))
@@ -648,7 +635,7 @@ class UserServiceImplTest {
         assertThatThrownBy(() -> service.registerAndJoinOrganizationByInvite(registerParams()))
                 .isInstanceOf(AppException.class).extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
         verify(emailVerifyService, never()).use(any());
-        verify(joinInviteService, never()).use(any());
+        verify(organizationInviteCodeService, never()).accept(any());
         verify(userMapper, never()).insert(any(User.class));
     }
 
@@ -659,8 +646,8 @@ class UserServiceImplTest {
     }
 
     private void stubJoinInvite() {
-        when(otpServiceFactory.get(OTPType.OrganizationUserInvite)).thenReturn(joinInviteService);
-        when(joinInviteService.getValid(any(OTPValidateContextBO.class))).thenReturn(OneTimePassword.builder().id(20L).build());
+        when(organizationInviteCodeService.getValid(any(), any()))
+                .thenReturn(OrganizationInviteCode.builder().id(20L).orgId(30L).build());
     }
 
     private UserRegisterByInviteParamsBO registerParams() {

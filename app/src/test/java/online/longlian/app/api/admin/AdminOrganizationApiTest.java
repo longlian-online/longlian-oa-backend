@@ -88,6 +88,7 @@ public class AdminOrganizationApiTest extends BaseApiTest {
         String token = adminLoginAs("superadmin3", "123456");
 
         Response response = authRequest(token)
+                .body(inviteExpiryBody())
                 .post("/admin/organizations/invite-codes/create-org");
 
         response

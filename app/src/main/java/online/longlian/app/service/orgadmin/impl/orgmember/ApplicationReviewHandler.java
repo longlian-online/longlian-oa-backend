@@ -1,19 +1,17 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
-import online.longlian.app.mapper.OrganizationJoinOtpMapper;
+import online.longlian.app.service.invite.OrganizationInviteCodeService;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.GroupApplication;
-import online.longlian.app.pojo.entity.OrganizationJoinOtp;
-import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
@@ -31,7 +29,7 @@ public class ApplicationReviewHandler {
     private final UserMapper userMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
     private final GroupApplicationMapper groupApplicationMapper;
-    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    private final OrganizationInviteCodeService organizationInviteCodeService;
 
     private void validatePendingApplication(GroupApplication application, Long orgId) {
         if (application == null || !orgId.equals(application.getOrgId())) {
@@ -125,30 +123,15 @@ public class ApplicationReviewHandler {
         if (applicationStatus == ApplicationStatus.APPROVED) {
             OrganizationMember newMember = approveApplication(application, now);
             approvedUserId = newMember.getUserId();
-            backfillOrganizationJoinOtp(application, approvedUserId, newMember.getId());
+            backfillInviteCode(application, approvedUserId, newMember.getId());
         }
 
         updateApplicationStatus(application, applicationStatus, reviewerId,
                 reviewRemark, approvedUserId, now);
     }
 
-    private void backfillOrganizationJoinOtp(GroupApplication application, Long userId, Long orgMemberId) {
-        LambdaQueryWrapper<OrganizationJoinOtp> queryWrapper = new LambdaQueryWrapper<OrganizationJoinOtp>()
-                .eq(OrganizationJoinOtp::getOtpId, application.getOtpId())
-                .orderByDesc(OrganizationJoinOtp::getId)
-                .last("LIMIT 1");
-
-        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(queryWrapper);
-        if (joinOtp == null) {
-            return;
-        }
-
-        LambdaUpdateWrapper<OrganizationJoinOtp> updateWrapper = new LambdaUpdateWrapper<OrganizationJoinOtp>()
-                .eq(OrganizationJoinOtp::getId, joinOtp.getId())
-                .set(OrganizationJoinOtp::getOrgMemberId, orgMemberId);
-        if (application.getApplicationType() == ApplicationType.REGISTER) {
-            updateWrapper.set(OrganizationJoinOtp::getInvitedUserId, userId);
-        }
-        organizationJoinOtpMapper.update(null, updateWrapper);
+    private void backfillInviteCode(GroupApplication application, Long userId, Long orgMemberId) {
+        Long inviteeUserId = application.getApplicationType() == ApplicationType.REGISTER ? userId : null;
+        organizationInviteCodeService.bindInvitee(application.getOtpId(), inviteeUserId, orgMemberId);
     }
 }

@@ -6,6 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.*;
 import online.longlian.app.pojo.entity.*;
+import online.longlian.app.service.invite.OrganizationInviteCodeService;
 import online.longlian.common.enumeration.*;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,16 +29,16 @@ class ApplicationReviewHandlerTest {
     @Mock private UserMapper users;
     @Mock private OrganizationMemberMapper members;
     @Mock private GroupApplicationMapper applications;
-    @Mock private OrganizationJoinOtpMapper otps;
+    @Mock private OrganizationInviteCodeService inviteCodes;
     private final LocalDateTime reviewedAt = LocalDateTime.of(2026, 1, 1, 0, 0);
     private ApplicationReviewHandler handler;
 
     @BeforeEach
     void setUp() {
-        for (Class<?> entity : List.of(User.class, OrganizationMember.class, GroupApplication.class, OrganizationJoinOtp.class)) {
+        for (Class<?> entity : List.of(User.class, OrganizationMember.class, GroupApplication.class)) {
             TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), entity);
         }
-        handler = new ApplicationReviewHandler(users, members, applications, otps);
+        handler = new ApplicationReviewHandler(users, members, applications, inviteCodes);
     }
 
     /** 注册审批创建正式账号和成员，并使用统一的审核时间。 */
@@ -77,7 +78,7 @@ class ApplicationReviewHandlerTest {
         when(users.insert(any(User.class))).thenThrow(new DuplicateKeyException("identity"));
 
         assertThatThrownBy(() -> approve(registration())).isInstanceOf(DuplicateKeyException.class);
-        verifyNoInteractions(members, applications, otps);
+        verifyNoInteractions(members, applications, inviteCodes);
     }
 
     /** 未转换的历史占位账号不能按新快照流程审批。 */
@@ -88,7 +89,7 @@ class ApplicationReviewHandlerTest {
 
         assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verifyNoInteractions(users, members, applications, otps);
+        verifyNoInteractions(users, members, applications, inviteCodes);
     }
 
     /** 缺少密码快照时不能创建正式账号。 */
@@ -99,7 +100,7 @@ class ApplicationReviewHandlerTest {
 
         assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verifyNoInteractions(users, members, applications, otps);
+        verifyNoInteractions(users, members, applications, inviteCodes);
     }
 
     /** 拒绝只终结申请，不创建或删除账号和成员。 */
@@ -109,7 +110,7 @@ class ApplicationReviewHandlerTest {
 
         handler.review(registration(), 10L, ApplicationStatus.REJECTED, 2L, "", reviewedAt);
 
-        verifyNoInteractions(users, members, otps);
+        verifyNoInteractions(users, members, inviteCodes);
     }
 
     /** 条件更新未命中时审核必须失败。 */
@@ -142,7 +143,7 @@ class ApplicationReviewHandlerTest {
 
         assertThatThrownBy(() -> approve(existingUserApplication())).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verifyNoInteractions(members, applications, otps);
+        verifyNoInteractions(members, applications, inviteCodes);
     }
 
     /** 申请人不存在时不能建立成员关系。 */
@@ -150,7 +151,7 @@ class ApplicationReviewHandlerTest {
     void shouldRejectMissingExistingAccount() {
         assertThatThrownBy(() -> approve(existingUserApplication())).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.USER_NOT_EXIT.getCode());
-        verifyNoInteractions(members, applications, otps);
+        verifyNoInteractions(members, applications, inviteCodes);
     }
 
     /** 非本组织或不存在的申请不得被审核，已处理的申请不得再次审核。 */
@@ -164,7 +165,7 @@ class ApplicationReviewHandlerTest {
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
         assertThatThrownBy(() -> approve(null)).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
-        verifyNoInteractions(users, members, applications, otps);
+        verifyNoInteractions(users, members, applications, inviteCodes);
     }
 
     private void approve(GroupApplication application) {
@@ -178,7 +179,7 @@ class ApplicationReviewHandlerTest {
         application.setUserId(null);
         assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verifyNoInteractions(users, members, applications, otps);
+        verifyNoInteractions(users, members, applications, inviteCodes);
     }
 
     /** 已有用户申请不能携带注册密码快照。 */
@@ -188,7 +189,7 @@ class ApplicationReviewHandlerTest {
         application.setPasswordHash("hash");
         assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verifyNoInteractions(users, members, applications, otps);
+        verifyNoInteractions(users, members, applications, inviteCodes);
     }
 
     /** 历史缺失或未知的申请类型不能进入审批写入流程。 */
@@ -198,7 +199,7 @@ class ApplicationReviewHandlerTest {
         application.setApplicationType(null);
         assertThatThrownBy(() -> approve(application)).isInstanceOf(AppException.class)
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-        verifyNoInteractions(users, members, applications, otps);
+        verifyNoInteractions(users, members, applications, inviteCodes);
     }
 
     private GroupApplication existingUserApplication() {

@@ -9,7 +9,7 @@ import online.longlian.app.pojo.bo.admin.AdminOrganizationUpdateStatusParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminGenerateCreateOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.entity.Admin;
 import online.longlian.app.pojo.entity.Organization;
-import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.invite.OrganizationInviteCodeService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -22,8 +22,8 @@ import static org.mockito.Mockito.*;
 class OrganizationImplTest {
     private final OrganizationMapper organizations = mock(OrganizationMapper.class);
     private final AdminMapper admins = mock(AdminMapper.class);
-    private final OTPServiceFactory otps = mock(OTPServiceFactory.class);
-    private final OrganizationImpl service = new OrganizationImpl(organizations, admins, mock(ResourceService.class), otps);
+    private final OrganizationInviteCodeService invites = mock(OrganizationInviteCodeService.class);
+    private final OrganizationImpl service = new OrganizationImpl(organizations, admins, mock(ResourceService.class), invites);
 
     @BeforeEach
     void setUp() {
@@ -33,9 +33,9 @@ class OrganizationImplTest {
     @Test
     void shouldRejectNormalAdminBeforeGeneratingInvite() {
         when(admins.selectById(2L)).thenReturn(Admin.builder().id(2L).role("normal").build());
-        assertThatThrownBy(() -> service.generateCreateOrgInviteCode(new AdminGenerateCreateOrgInviteCodeParamsBO(2L)))
+        assertThatThrownBy(() -> service.generateCreateOrgInviteCode(new AdminGenerateCreateOrgInviteCodeParamsBO(2L, null)))
                 .isInstanceOf(AppException.class);
-        verifyNoInteractions(otps, organizations);
+        verifyNoInteractions(invites, organizations);
     }
 
     @Test

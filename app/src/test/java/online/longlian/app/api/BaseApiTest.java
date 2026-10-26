@@ -268,33 +268,31 @@ public abstract class BaseApiTest {
     }
 
     /**
-     * 创建邀请加入组织 OTP（默认 30 分钟后过期）
+     * 创建加入组织邀请码，默认 30 分钟后到期。
      */
     protected void createOrganizationUserInviteOTP(String code, Long orgId) {
-        long otpId = System.nanoTime();
-        jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
-                otpId, code, testNow().plusMinutes(30), 2
-        );
-        jdbcTemplate.update(
-                "INSERT INTO `organization_join_otp` (id, otp_id, org_id) VALUES (?, ?, ?)",
-                otpId, otpId, orgId
-        );
+        createOrganizationInviteCode(code, 2, orgId, testNow().plusMinutes(30), 0, null);
     }
 
     /**
-     * 创建邀请创建组织 OTP（默认 30 分钟后过期）
+     * 创建创建组织邀请码，默认 30 分钟后到期。
      */
     protected void createOrganizationCreateInviteOTP(String code) {
-        long otpId = System.nanoTime();
+        createOrganizationInviteCode(code, 1, null, testNow().plusMinutes(30), 0, null);
+    }
+
+    protected long createOrganizationInviteCode(String code, int bizType, Long orgId, LocalDateTime expiredAt,
+                                                int accepted, LocalDateTime acceptedAt) {
+        long id = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, 0)",
-                otpId, code, testNow().plusMinutes(30), 1
+                "INSERT INTO organization_invite_code (id, code, biz_type, org_id, creator_id, expired_at, accepted, accepted_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+                id, code, bizType, orgId, expiredAt, accepted, acceptedAt
         );
-        jdbcTemplate.update(
-                "INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)",
-                otpId, otpId
-        );
+        return id;
+    }
+
+    protected Map<String, String> inviteExpiryBody() {
+        return Map.of("expiredAt", "2099-01-01 00:00:00");
     }
 
     protected void assertErrorCode(Response response, int expectedCode) {

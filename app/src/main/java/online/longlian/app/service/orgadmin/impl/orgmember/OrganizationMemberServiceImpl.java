@@ -10,7 +10,8 @@ import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.*;
-import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.invite.OrganizationInviteCodeGenerateParamsBO;
+import online.longlian.app.pojo.bo.invite.OrganizationInviteCodeGenerateResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
@@ -26,7 +27,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.invite.OrganizationInviteCodeService;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
@@ -54,7 +55,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
-    private final OTPServiceFactory otpServiceFactory;
+    private final OrganizationInviteCodeService organizationInviteCodeService;
 
     private final MemberQueryBuilder memberQueryBuilder;
     private final MemberAssembler memberAssembler;
@@ -180,15 +181,17 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     @Override
     public OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params) {
-        OneTimePassword oneTimePassword = otpServiceFactory.get(OTPType.OrganizationUserInvite).generate(
-                OTPGenerateContextBO.builder()
+        OrganizationInviteCodeGenerateResultBO generated = organizationInviteCodeService.generate(
+                OrganizationInviteCodeGenerateParamsBO.builder()
+                        .bizType(OTPType.OrganizationUserInvite)
                         .creatorId(params.getCreatorId())
                         .orgId(params.getOrgId())
+                        .expiredAt(params.getExpiredAt())
                         .build()
         );
         return OrgAdminGenerateJoinOrgInviteCodeResultBO.builder()
-                .inviteCode(oneTimePassword.getCode())
-                .expireAt(oneTimePassword.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
+                .inviteCode(generated.getInviteCode())
+                .expireAt(generated.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
                 .build();
     }
 

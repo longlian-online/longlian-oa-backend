@@ -53,7 +53,7 @@ longlian-oa-backend/
 主要表结构：
 - **RBAC**: permission, role, role_permission, user, user_role
 - **Organization**: organization, organization_member, group_application
-- **OTP**: one_time_password, email_verify_otp, organization_create_otp, organization_join_otp
+- **OTP**: one_time_password, email_verify_otp, organization_create_otp, organization_join_otp, organization_invite_code
 - **Project/Work**: project, project_type, item, base_task, task_template, task_template_node, item_task_flow, item_task_node, task_instance, task_submission, user_operation_log, project_workshop
 - **Resource**: resource
 - **Admin**: admin, token_blacklist
