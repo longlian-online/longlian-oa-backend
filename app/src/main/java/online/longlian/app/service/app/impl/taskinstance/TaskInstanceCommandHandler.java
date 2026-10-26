@@ -88,12 +88,47 @@ public class TaskInstanceCommandHandler {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
         }
         requireAssignee(instance, userId, "仅接取人可提交任务");
-
-        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-        if (node == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
-        }
+        ItemTaskNode node = requireNode(instance);
         List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
+        LocalDateTime now = LocalDateTime.now(clock);
+        return completeSubmission(instance, node, beforeNodes, userId, userId, orgId, values,
+                now, now, TaskInstanceStatus.CLAIMED, false);
+    }
+
+    /**
+     * 代提交：PENDING → COMPLETED，不经过接取。
+     * 提交记录和任务时间归指定组员，且使用调用方设定的提交时间；附件仍由实际操作人绑定。
+     */
+    public TaskInstanceSubmitResultBO proxySubmit(TaskInstance instance, Long assigneeId, Long orgId,
+                                                  Long operatorId, Map<String, Object> values,
+                                                  LocalDateTime submittedAt, String expectedRevision) {
+        if (instance.getStatus() == TaskInstanceStatus.CLAIMED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务已接取，不能代提交");
+        }
+        if (instance.getStatus() != TaskInstanceStatus.PENDING) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务已提交，不能代提交");
+        }
+        requireRevision(instance, expectedRevision);
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (submittedAt.isAfter(now)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "提交时间不能晚于当前时间");
+        }
+        ItemTaskNode node = requireNode(instance);
+        List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
+        return completeSubmission(instance, node, beforeNodes, assigneeId, operatorId, orgId, values,
+                submittedAt, now, TaskInstanceStatus.PENDING, true);
+    }
+
+    /**
+     * 两条提交入口共用的完成动作：校验表单、绑定附件、推进状态、写入提交记录并累加计数。
+     * 代提交额外把执行人改成归属组员，并把接取时间写成设定的提交时间。
+     */
+    private TaskInstanceSubmitResultBO completeSubmission(TaskInstance instance, ItemTaskNode node,
+                                                          List<ItemStageNodeStatusBO> beforeNodes,
+                                                          Long submitterId, Long resourceOwnerId, Long orgId,
+                                                          Map<String, Object> values, LocalDateTime submittedAt,
+                                                          LocalDateTime updatedAt, TaskInstanceStatus requiredStatus,
+                                                          boolean claimAndAssign) {
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
@@ -101,40 +136,55 @@ public class TaskInstanceCommandHandler {
                 .bizType("task_submit")
                 .bizId(instance.getId())
                 .orgId(orgId)
-                .creatorId(userId)
+                .creatorId(resourceOwnerId)
                 .build());
 
-        LocalDateTime now = LocalDateTime.now(clock);
-
-        int updated = taskInstanceMapper.update(null,
-                new LambdaUpdateWrapper<TaskInstance>()
-                        .eq(TaskInstance::getId, instance.getId())
-                        .eq(TaskInstance::getRevision, instance.getRevision())
-                        .setSql("revision = revision + 1")
-                        .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                        .eq(TaskInstance::getAssigneeId, userId)
-                        .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
-                        .set(TaskInstance::getSubmittedAt, now)
-                        .set(TaskInstance::getCompletedAt, now)
-                        .set(TaskInstance::getUpdatedAt, now));
-        requireUpdated(updated);
+        LambdaUpdateWrapper<TaskInstance> update = new LambdaUpdateWrapper<TaskInstance>()
+                .eq(TaskInstance::getId, instance.getId())
+                .eq(TaskInstance::getRevision, instance.getRevision())
+                .setSql("revision = revision + 1")
+                .eq(TaskInstance::getStatus, requiredStatus);
+        if (!claimAndAssign) {
+            update.eq(TaskInstance::getAssigneeId, submitterId);
+        }
+        update.set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
+                .set(TaskInstance::getSubmittedAt, submittedAt)
+                .set(TaskInstance::getCompletedAt, submittedAt)
+                .set(TaskInstance::getUpdatedAt, updatedAt);
+        if (claimAndAssign) {
+            update.set(TaskInstance::getAssigneeId, submitterId)
+                    .set(TaskInstance::getClaimedAt, submittedAt);
+        }
+        requireUpdated(taskInstanceMapper.update(null, update));
 
         TaskSubmission submission = TaskSubmission.builder()
                 .projectId(instance.getProjectId())
                 .itemId(instance.getItemId())
                 .taskInstanceId(instance.getId())
                 .itemTaskNodeId(instance.getItemTaskNodeId())
-                .submitterId(userId)
+                .submitterId(submitterId)
                 .versionNo(nextVersionNo(instance.getId()))
                 .metadata(validated.serialize())
                 .status(TaskSubmissionStatus.SUBMITTED)
-                .createdAt(now)
-                .updatedAt(now)
+                .createdAt(submittedAt)
+                .updatedAt(updatedAt)
                 .build();
         taskSubmissionMapper.insert(submission);
+        if (claimAndAssign) {
+            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId(), submittedAt);
+        } else {
+            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId());
+        }
+        return new TaskInstanceSubmitResultBO(submission.getId(),
+                claimAndAssign ? updatedAt : submission.getCreatedAt(), beforeNodes);
+    }
 
-        memberSubmitCountHandler.incrementSubmitCount(userId, instance.getProjectId());
-        return new TaskInstanceSubmitResultBO(submission.getId(), submission.getCreatedAt(), beforeNodes);
+    private ItemTaskNode requireNode(TaskInstance instance) {
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        if (node == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
+        }
+        return node;
     }
 
     /**

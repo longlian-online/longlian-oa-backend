@@ -301,6 +301,7 @@ public class ProjectServiceImpl implements ProjectService {
         );
     }
 
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProject(ProjectDeleteParamsBO params) {

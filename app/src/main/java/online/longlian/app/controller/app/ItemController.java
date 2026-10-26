@@ -13,6 +13,7 @@ import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
@@ -108,6 +109,23 @@ public class ItemController {
                 .operatorId(sessionContext.userId())
                 .expectedItemIds(dto.getExpectedItemIds())
                 .itemIds(dto.getItemIds())
+                .build());
+    }
+
+    @Operation(summary = "删除项目", description = "仅企划负责人可删除。项目仍有已提交任务时请改为提交删除申请")
+    @Parameter(name = "projectId", description = "企划ID")
+    @Parameter(name = "itemId", description = "项目ID")
+    @DeleteMapping("/{itemId}")
+    @ResponseMessage("删除成功")
+    public void deleteProjectItem(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @PathVariable Long itemId) {
+        itemService.deleteProjectItem(ItemDeleteParamsBO.builder()
+                .projectId(projectId)
+                .itemId(itemId)
+                .orgId(sessionContext.orgId())
+                .userId(sessionContext.userId())
                 .build());
     }
 

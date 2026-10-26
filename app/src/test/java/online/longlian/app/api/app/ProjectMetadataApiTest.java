@@ -35,7 +35,13 @@ class ProjectMetadataApiTest extends BaseApiTest {
     @ParameterizedTest
     @ValueSource(strings = {"{", "[]", "{}", "{\"tags\":{}}", "{\"tags\":[null]}",
             "{\"tags\":[{\"key\":\"作者\",\"value\":1}]}",
-            "{\"tags\":[{\"key\":\"作者\",\"value\":\"\",\"extra\":true}]}"})
+            "{\"tags\":[{\"key\":\"作者\",\"value\":\"\",\"extra\":true}]}",
+            "{\"tags\":[],\"fields\":{}}",
+            "{\"tags\":[],\"fields\":[null]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\" \",\"value\":\"xxxx\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":1}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\",\"extra\":true}]}"})
     void shouldRejectInvalidMetadataOnCreate(String metadata) {
         authRequest(token).body(createBody(metadata)).post("/app/projects").then().statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
@@ -49,7 +55,12 @@ class ProjectMetadataApiTest extends BaseApiTest {
             "{\"tags\":[{\"value\":\"smile_snow\"}]}",
             "{\"tags\":[{\"key\":\" \",\"value\":\"\"}]}",
             "{\"tags\":[{\"key\":\"作者\",\"value\":null}]}",
-            "{\"tags\":[{\"key\":\"作者\",\"value\":\"\",\"extra\":true}]}"})
+            "{\"tags\":[{\"key\":\"作者\",\"value\":\"\",\"extra\":true}]}",
+            "{\"tags\":[],\"fields\":null}",
+            "{\"tags\":[],\"fields\":[{}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"\",\"value\":\"xxxx\"}]}",
+            "{\"tags\":[],\"fields\":[{\"value\":\"xxxx\"}]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":null}]}"})
     void shouldRejectInvalidMetadataOnUpdate(String metadata) {
         jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, creator_id) VALUES (1, 1, 1, '原标题', 'original', ?, 1)",
                 "{\"tags\":[]}");
@@ -65,7 +76,9 @@ class ProjectMetadataApiTest extends BaseApiTest {
     @ParameterizedTest
     @ValueSource(strings = {"{ \"tags\": [] }",
             "{\"note\":\"保留\",\"tags\":[{\"key\":\"作者\",\"value\":\"\"},{\"key\":\"作者\",\"value\":\"smile_snow\"}]}",
-            "{\"tags\":[{\"key\":\"单键\"},{\"key\":\"蓝色\",\"color\":\"blue\"},{\"key\":\"绿色\",\"value\":\"\",\"color\":\"green\"},{\"key\":\"琥珀色\",\"value\":\"内容\",\"color\":\"amber\"},{\"key\":\"玫瑰色\",\"color\":\"rose\"},{\"key\":\"紫色\",\"color\":\"violet\"}]}"})
+            "{\"tags\":[{\"key\":\"单键\"},{\"key\":\"蓝色\",\"color\":\"blue\"},{\"key\":\"绿色\",\"value\":\"\",\"color\":\"green\"},{\"key\":\"琥珀色\",\"value\":\"内容\",\"color\":\"amber\"},{\"key\":\"玫瑰色\",\"color\":\"rose\"},{\"key\":\"紫色\",\"color\":\"violet\"}]}",
+            "{\"tags\":[],\"fields\":[]}",
+            "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"},{\"name\":\"作者\",\"value\":\"\"}]}"})
     void shouldSaveValidMetadataUnchangedOnCreateAndUpdate(String metadata) {
         authRequest(token).body(createBody(metadata)).post("/app/projects").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
@@ -136,6 +149,59 @@ class ProjectMetadataApiTest extends BaseApiTest {
                 .containsExactly(pair, single, empty);
         assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = ?", String.class, id))
                 .isEqualTo(updated);
+    }
+
+    /** 自定义字段随创建、更新和详情原样往返，同组织成员可读。 */
+    @Test
+    void shouldPersistCustomFieldsForCreatorAndOrganizationMember() {
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = 1 WHERE id = 2");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String created = "{\"tags\":[{\"key\":\"加急\",\"color\":\"amber\"}],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"}]}";
+        authRequest(token).body(createBody(created)).post("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM project", Long.class);
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = ?", String.class, id))
+                .isEqualTo(created);
+
+        String memberToken = loginAs("member", "123456");
+        authRequest(memberToken).get("/app/projects/" + id).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.metadata", equalTo(created));
+
+        String updated = "{\"tags\":[],\"fields\":[{\"name\":\"译者\",\"value\":\"\"},{\"name\":\"作者\",\"value\":\"yyyy\"}]}";
+        authRequest(token).body(updateBody(updated)).put("/app/projects/" + id).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(token).get("/app/projects/" + id).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.metadata", equalTo(updated));
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = ?", String.class, id))
+                .isEqualTo(updated);
+    }
+
+    /** 非创建者不能改自定义字段，未登录不能创建。 */
+    @Test
+    void shouldRejectCustomFieldChangesWithoutPermission() {
+        String original = "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"}]}";
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, creator_id) VALUES (1, 1, 1, '原标题', 'original', ?, 1)",
+                original);
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = 1 WHERE id = 2");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+
+        authRequest(loginAs("member", "123456")).body(updateBody(
+                        "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"changed\"}]}"))
+                .put("/app/projects/1").then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
+                .isEqualTo(original);
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("原标题");
+
+        request().body(createBody("{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"}]}"))
+                .post("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM project", Integer.class)).isEqualTo(1);
     }
 
     private Map<String, String> createBody(String metadata) {

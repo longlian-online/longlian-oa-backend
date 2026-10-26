@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -15,4 +17,5 @@ public class OTPGenerateContextBO {
     private String receiver;
     private EmailVerifyBusinessType businessType;
     private Long orgId;
+    private LocalDateTime expiredAt;
 }

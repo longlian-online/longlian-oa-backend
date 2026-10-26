@@ -33,7 +33,7 @@ class OrganizationImplTest {
     @Test
     void shouldRejectNormalAdminBeforeGeneratingInvite() {
         when(admins.selectById(2L)).thenReturn(Admin.builder().id(2L).role("normal").build());
-        assertThatThrownBy(() -> service.generateCreateOrgInviteCode(new AdminGenerateCreateOrgInviteCodeParamsBO(2L)))
+        assertThatThrownBy(() -> service.generateCreateOrgInviteCode(new AdminGenerateCreateOrgInviteCodeParamsBO(2L, null)))
                 .isInstanceOf(AppException.class);
         verifyNoInteractions(otps, organizations);
     }

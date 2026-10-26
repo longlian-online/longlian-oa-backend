@@ -17,6 +17,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
@@ -605,6 +606,95 @@ class TaskInstanceServiceImplTest {
         verify(taskInstanceCommandHandler, never()).reset(any(), anyLong());
     }
 
+
+    @Test
+    void proxySubmitTask_rejectsNonCreator() {
+        proxyInstance(9L);
+
+        assertThatThrownBy(() -> service.proxySubmitTask(proxyParams(1L, 20L)))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("仅企划负责人可代提交");
+        verify(taskInstanceCommandHandler, never()).proxySubmit(any(), any(), any(), any(), any(), any(), any());
+        verify(projectService, never()).addToWorkshop(any());
+    }
+
+
+    @Test
+    void proxySubmitTask_recordsMemberWithoutAddingWorkshop() {
+        TaskInstance instance = proxyInstance(1L);
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 10, 1, 9, 30);
+        when(taskInstanceCommandHandler.proxySubmit(eq(instance), eq(20L), eq(10L), eq(1L), any(), eq(submittedAt), eq("0")))
+                .thenReturn(new TaskInstanceSubmitResultBO(9L, submittedAt, List.of()));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(any())).thenReturn(List.of());
+
+        service.proxySubmitTask(proxyParams(1L, 20L));
+
+        verify(projectService, never()).addToWorkshop(any());
+        verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), eq(UserOperationType.TASK_SUBMIT), any());
+    }
+
+    @Test
+    void proxySubmitTask_notifiesAsAssigneeRatherThanOperator() {
+        TaskInstance instance = proxyInstance(1L);
+        LocalDateTime triggeredAt = LocalDateTime.of(2026, 10, 22, 12, 0);
+        when(taskInstanceCommandHandler.proxySubmit(eq(instance), eq(20L), eq(10L), eq(1L), any(), any(), eq("0")))
+                .thenReturn(new TaskInstanceSubmitResultBO(901L, triggeredAt, List.of(
+                        progressNode(11L, 1, false), progressNode(21L, 2, false))));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(1L))).thenReturn(List.of(
+                progressNode(11L, 1, true), progressNode(21L, 2, false)));
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(201L).assigneeId(20L).build(),
+                TaskInstance.builder().id(202L).assigneeId(1L).build()));
+
+        service.proxySubmitTask(proxyParams(1L, 20L));
+
+        assertThat(capturedNotifications().getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(1L);
+            assertThat(notification.getSourceId()).isEqualTo(202L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.TASK_READY);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+            assertThat(notification.getCreatedAt()).isEqualTo(triggeredAt);
+        });
+    }
+
+    @Test
+    void proxySubmitTask_notifiesCreatorWhenAssigneeFinishesItem() {
+        TaskInstance instance = proxyInstance(1L);
+        when(taskInstanceCommandHandler.proxySubmit(eq(instance), eq(20L), eq(10L), eq(1L), any(), any(), eq("0")))
+                .thenReturn(new TaskInstanceSubmitResultBO(901L, LocalDateTime.of(2026, 10, 22, 12, 0),
+                        List.of(progressNode(11L, 1, false))));
+        when(taskInstanceMapper.selectItemStageNodeStatuses(List.of(1L))).thenReturn(List.of(
+                progressNode(11L, 1, true)));
+
+        service.proxySubmitTask(proxyParams(1L, 20L));
+
+        assertThat(capturedNotifications().getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(1L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.ITEM_COMPLETED);
+            assertThat(notification.getSourceId()).isEqualTo(1L);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+        });
+    }
+
+
+    private TaskInstance proxyInstance(long creatorId) {
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L)
+                .itemTaskNodeId(5L).taskFlowId(6L).build();
+        when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L)
+                .creatorId(creatorId).resourceStatus(Status.ENABLED).build());
+        when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
+        when(itemTaskNodeMapper.selectById(5L)).thenReturn(ItemTaskNode.builder()
+                .id(5L).projectId(2L).itemId(1L).itemTaskFlowId(6L).build());
+        return instance;
+    }
+
+    private TaskInstanceProxySubmitParamsBO proxyParams(long userId, long assigneeId) {
+        return TaskInstanceProxySubmitParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(userId).assigneeId(assigneeId)
+                .submittedAt(LocalDateTime.of(2026, 10, 1, 9, 30))
+                .expectedRevision("0").values(Map.of()).build();
+    }
 
     private TaskInstanceOperateParamsBO prepareClaim() {
         TaskInstanceOperateParamsBO params = TaskInstanceOperateParamsBO.builder()

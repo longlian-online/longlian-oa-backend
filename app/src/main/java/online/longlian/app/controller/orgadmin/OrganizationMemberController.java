@@ -24,6 +24,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
+import online.longlian.app.pojo.dto.common.GenerateInviteCodeDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgMemberListDTO;
@@ -199,14 +200,16 @@ public class OrganizationMemberController {
 
     @Operation(
         summary = "生成加入组织邀请码（管理员）",
-        description = "生成一次性邀请码（6位字母数字），有效期30分钟；供组织管理员邀请用户加入当前组织使用"
+        description = "生成一次性邀请码（6位字母数字），到期时间由邀请人指定；供组织管理员邀请用户加入当前组织使用"
     )
     @PostMapping("/invite-codes/join-org")
     @ResponseMessage("生成成功")
     public InviteCodeVO generateJoinOrgInviteCode(
-            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @RequestBody @Valid GenerateInviteCodeDTO dto) {
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
-                new OrgAdminGenerateJoinOrgInviteCodeParamsBO(sessionContext.userId(), sessionContext.orgId())
+                new OrgAdminGenerateJoinOrgInviteCodeParamsBO(
+                        sessionContext.userId(), sessionContext.orgId(), dto.getExpiredAt())
         );
         return InviteCodeVO.builder()
                 .inviteCode(resultBO.getInviteCode())

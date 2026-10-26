@@ -15,6 +15,16 @@ public interface OrganizationMembershipService {
     OrganizationMember requireEnabledMember(Long userId, Long orgId);
 
     /**
+     * 代提交指定的组员必须是当前组织的启用成员。文案针对被选中的人，而不是操作者。
+     */
+    OrganizationMember requireAssignableMember(Long userId, Long orgId);
+
+    /**
+     * 列出当前组织全部启用组员，供企划负责人选择代提交归属人。
+     */
+    java.util.List<OrganizationMemberProfile> listEnabledMembers(Long orgId);
+
+    /**
      * 读取用户默认组织。没有默认组织时组织 ID 为空。
      * 默认组织已禁用或用户不是启用成员时仍返回已保存的组织 ID，角色为空，不改用其他组织。
      */

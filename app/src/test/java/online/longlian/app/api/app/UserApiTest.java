@@ -2,6 +2,7 @@ package online.longlian.app.api.app;
 
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
+import online.longlian.app.common.constants.PatternConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
@@ -52,6 +53,7 @@ public class UserApiTest extends BaseApiTest {
         // 创建超管并生成邀请码
         String adminToken = createRootAdmin();
         Response inviteResponse = authRequest(adminToken)
+                .body(inviteExpiryBody())
                 .post("/admin/organizations/invite-codes/create-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -84,6 +86,7 @@ public class UserApiTest extends BaseApiTest {
     void shouldRejectLoginCodeWhenRegistering() {
         String adminToken = createRootAdmin();
         String inviteCode = authRequest(adminToken)
+                .body(inviteExpiryBody())
                 .post("/admin/organizations/invite-codes/create-org")
                 .then()
                 .statusCode(200)
@@ -133,6 +136,7 @@ public class UserApiTest extends BaseApiTest {
         String orgAdminToken = loginAs("orgadmin_" + adminUserId, "123456");
 
         Response inviteResponse = authRequest(orgAdminToken)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -198,10 +202,10 @@ public class UserApiTest extends BaseApiTest {
                 .isEqualTo(validUsername);
     }
 
-    /** 弱密码及大小写变体不得创建账号或申请，且失败后仍可使用同一组验证码注册。 */
+    /** 缺少大写、小写或数字的密码不得创建账号或申请，失败后仍可使用同一组验证码注册。 */
     @ParameterizedTest
     @ValueSource(strings = {"create-organization", "join-organization"})
-    void shouldRejectWeakPasswordsWithoutConsumingRegistrationCodes(String registrationMode) {
+    void shouldRejectPasswordsMissingCharacterClassWithoutConsumingRegistrationCodes(String registrationMode) {
         boolean creatingOrganization = "create-organization".equals(registrationMode);
         if (creatingOrganization) {
             createOrganizationCreateInviteOTP("INVITE");
@@ -211,7 +215,7 @@ public class UserApiTest extends BaseApiTest {
         }
         createEmailVerifyOTP("EMAIL1", 1L, "new@example.com");
 
-        for (String password : List.of("123456", "654321", "111111", "password", "PASSWORD", "PaSsWoRd")) {
+        for (String password : List.of("123456", "password1", "PASSWORD1", "Password", "a-password-b", "PaSsWoRd")) {
             request().body(Map.of(
                             "username", "newuser", "password", password, "nickname", "新用户",
                             "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
@@ -219,7 +223,7 @@ public class UserApiTest extends BaseApiTest {
                     .post("/app/user/register/" + registrationMode)
                     .then().statusCode(200)
                     .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                    .body("msg", not(blankOrNullString()))
+                    .body("msg", equalTo(PatternConstants.PASSWORD_COMPLEXITY_MESSAGE))
                     .body("data", nullValue());
         }
 
@@ -231,7 +235,7 @@ public class UserApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM one_time_password WHERE status <> 0", Integer.class)).isZero();
 
-        String password = "River!82Maple";
+        String password = "Password1";
         request().body(Map.of(
                         "username", "newuser", "password", password, "nickname", "新用户",
                         "email", "new@example.com", "inviteCode", "INVITE", "code", "EMAIL1",
@@ -257,6 +261,7 @@ public class UserApiTest extends BaseApiTest {
         String adminToken = loginAs("orgadmin", "123456");
 
         Response inviteResponse = authRequest(adminToken)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -367,6 +372,7 @@ public class UserApiTest extends BaseApiTest {
         // user1 登录并生成加入自己组织的邀请码
         String token1 = loginAs("user1", "123456");
         Response inviteResponse = authRequest(token1, 1L)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -417,6 +423,7 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then().statusCode(200)
                 .extract().path("data.inviteCode");
@@ -449,6 +456,7 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then().statusCode(200)
                 .extract().path("data.inviteCode");
@@ -481,6 +489,7 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then().statusCode(200)
                 .extract().path("data.inviteCode");
@@ -517,7 +526,7 @@ public class UserApiTest extends BaseApiTest {
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
         Response response = request()
-                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "new-password"))
+                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "New-password1"))
                 .put("/app/user/password");
 
         response.then()
@@ -534,7 +543,7 @@ public class UserApiTest extends BaseApiTest {
                 .body("code", not(equalTo(ResultCode.SUCCESS.getCode())));
 
         request()
-                .body(Map.of("username", "testuser", "password", "new-password"))
+                .body(Map.of("username", "testuser", "password", "New-password1"))
                 .post("/app/session/pwd")
                 .then()
                 .statusCode(200)
@@ -542,7 +551,7 @@ public class UserApiTest extends BaseApiTest {
                 .body("data.token", notNullValue());
 
         request()
-                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "another-password"))
+                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "Another-password1"))
                 .put("/app/user/password")
                 .then()
                 .statusCode(200)
@@ -557,7 +566,7 @@ public class UserApiTest extends BaseApiTest {
         createTestUser(1L, "testuser", "123456", "test@example.com");
 
         request()
-                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "new-password"))
+                .body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "New-password1"))
                 .put("/app/user/password")
                 .then()
                 .statusCode(200)
@@ -572,7 +581,7 @@ public class UserApiTest extends BaseApiTest {
         createEmailVerifyOTP("A1B2C3", 1L, "missing@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
         request()
-                .body(Map.of("email", "missing@example.com", "code", "A1B2C3", "password", "new-password"))
+                .body(Map.of("email", "missing@example.com", "code", "A1B2C3", "password", "New-password1"))
                 .put("/app/user/password")
                 .then()
                 .statusCode(200)
@@ -637,20 +646,20 @@ public class UserApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
-    /** 找回密码拒绝弱密码时保留原密码、会话和验证码，同一验证码仍可设置合格密码。 */
+    /** 找回密码拒绝缺少大写、小写或数字的密码时保留原密码、会话和验证码，同一验证码仍可设置合格密码。 */
     @Test
-    void shouldRejectWeakResetPasswordsWithoutChangingCredentialsOrConsumingCode() {
+    void shouldRejectResetPasswordsMissingCharacterClassWithoutChangingCredentialsOrConsumingCode() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("testuser", "123456");
         String originalHash = jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 1", String.class);
         createEmailVerifyOTP("A1B2C3", 1L, "test@example.com", EmailVerifyBusinessType.FORGOT_PASSWORD);
 
-        for (String password : List.of("123456", "654321", "password", "PASSWORD", "PaSsWoRd")) {
+        for (String password : List.of("123456", "password1", "PASSWORD1", "Password", "a-password-b")) {
             request().body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", password))
                     .put("/app/user/password")
                     .then().statusCode(200)
                     .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                    .body("msg", not(blankOrNullString()))
+                    .body("msg", equalTo(PatternConstants.PASSWORD_COMPLEXITY_MESSAGE))
                     .body("data", nullValue());
         }
 
@@ -661,26 +670,26 @@ public class UserApiTest extends BaseApiTest {
         userRequest(token).get("/app/user/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
-        request().body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "River!82Maple"))
+        request().body(Map.of("email", "test@example.com", "code", "A1B2C3", "password", "Password1"))
                 .put("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat(passwordEncoder.matches("River!82Maple", jdbcTemplate.queryForObject(
+        assertThat(passwordEncoder.matches("Password1", jdbcTemplate.queryForObject(
                 "SELECT password FROM `user` WHERE id = 1", String.class))).isTrue();
     }
 
-    /** 修改密码拒绝弱新密码时保留原密码和会话，已有弱旧密码仍可用于验证身份。 */
+    /** 修改密码拒绝缺少字符类别的新密码时保留原密码和会话，已有弱旧密码仍可用于验证身份。 */
     @Test
-    void shouldRejectWeakPasswordChangesWithoutChangingCredentialsOrRevokingSession() {
+    void shouldRejectNewPasswordsMissingCharacterClassWithoutChangingCredentialsOrRevokingSession() {
         createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("testuser", "123456");
         String originalHash = jdbcTemplate.queryForObject("SELECT password FROM `user` WHERE id = 1", String.class);
 
-        for (String password : List.of("123456", "654321", "password", "PASSWORD", "PaSsWoRd")) {
+        for (String password : List.of("123456", "password1", "PASSWORD1", "Password", "a-password-b")) {
             userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", password))
                     .patch("/app/user/password")
                     .then().statusCode(200)
                     .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                    .body("msg", not(blankOrNullString()))
+                    .body("msg", equalTo(PatternConstants.PASSWORD_COMPLEXITY_MESSAGE))
                     .body("data", nullValue());
         }
 
@@ -688,10 +697,10 @@ public class UserApiTest extends BaseApiTest {
                 .isEqualTo(originalHash);
         userRequest(token).get("/app/user/")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
+        userRequest(token).body(Map.of("oldPassword", "123456", "newPassword", "Password1"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
-        assertThat(passwordEncoder.matches("River!82Maple", jdbcTemplate.queryForObject(
+        assertThat(passwordEncoder.matches("Password1", jdbcTemplate.queryForObject(
                 "SELECT password FROM `user` WHERE id = 1", String.class))).isTrue();
     }
 

@@ -2,6 +2,7 @@ package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
 import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
@@ -50,6 +51,11 @@ public interface ItemService {
     List<ItemOrderEntryResultBO> getProjectItemOrder(ItemOrderQueryParamsBO params);
 
     void reorderProjectItems(ItemReorderParamsBO params);
+
+    /**
+     * 企划负责人直接软删除没有已提交任务的项目。
+     */
+    void deleteProjectItem(ItemDeleteParamsBO params);
 
     /**
      * 审核通过后软删除项目，不再检查创建者或是否已有提交。

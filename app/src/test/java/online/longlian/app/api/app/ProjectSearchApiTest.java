@@ -415,6 +415,78 @@ class ProjectSearchApiTest extends BaseApiTest {
                 .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("2")));
     }
 
+    /** 自定义字段按完整 name/value 命中，不匹配子串或其他 metadata，也不改保存顺序。 */
+    @Test
+    void shouldSearchWholeCustomFieldNamesAndValues() {
+        String original = "{\"tags\":[{\"key\":\"系列\",\"value\":\"山田\"}],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"},{\"name\":\"语言\",\"value\":\"\"}]}";
+        createProject(1, "普通企划", "ordinary", original);
+        createProject(2, "标题企划", "alias", "{\"tags\":[],\"fields\":[{\"name\":\"系列\",\"value\":\"星海远征\"}]}");
+        createProject(3, "其他信息", "extra", "{\"note\":\"xxxx\",\"publication\":{\"value\":\"xxxx\"},\"tags\":[{\"key\":\"语言\",\"value\":\"日文\"}]}");
+        createProject(4, "子串企划", "partial", "{\"tags\":[],\"fields\":[{\"name\":\"作者简介\",\"value\":\"xxxx-long\"}]}");
+        createProject(5, "xxxx", "exact", "{\"tags\":[]}");
+
+        Response byValue = search("xxxx");
+        byValue.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("5", "1")));
+        var returned = JSON.parseObject(byValue.jsonPath().getString("data.list[1].metadata"));
+        assertThat(returned.getJSONArray("fields").stream()
+                .map(field -> ((com.alibaba.fastjson2.JSONObject) field).getString("name")))
+                .containsExactly("作者", "语言");
+        assertThat(returned.getJSONArray("tags").getJSONObject(0).getString("key")).isEqualTo("系列");
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM project WHERE id = 1", String.class))
+                .isEqualTo(original);
+
+        search("作者").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+        search("语言").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("3", "1")));
+        search("星海").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(0));
+        search("星海远征").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("2")));
+    }
+
+    /** 自定义字段与 tag 同时命中只记一次元数据分，且不越过标题命中。 */
+    @Test
+    void shouldScoreCustomFieldHitsOnceAlongsideTags() {
+        createProject(1, "普通企划", "one",
+                "{\"tags\":[{\"key\":\"重点\",\"value\":\"其他\"}],\"fields\":[{\"name\":\"重点\",\"value\":\"重点\"},{\"name\":\"分类\",\"value\":\"重点\"}]}");
+        createProject(2, "其他企划", "two", "{\"tags\":[{\"key\":\"分类\",\"value\":\"重点\"}]}");
+        createProject(3, "重点", "three", "{\"tags\":[]}");
+
+        search("重点").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3)).body("data.list.id", equalTo(List.of("3", "2", "1")));
+    }
+
+    /** 字段比较忽略大小写和重音，通配符按字面值匹配。 */
+    @Test
+    void shouldSearchCustomFieldsLiterallyIgnoringCaseAndAccents() {
+        createProject(1, "普通企划", "one", "{\"tags\":[],\"fields\":[{\"name\":\"CAFÉ\",\"value\":\"山田\"}]}");
+        createProject(2, "其他企划", "two", "{\"tags\":[],\"fields\":[{\"name\":\"进度\",\"value\":\"50%_!\"}]}");
+        createProject(3, "扩大企划", "three", "{\"tags\":[],\"fields\":[{\"name\":\"进度\",\"value\":\"5000\"}]}");
+
+        search("cafe").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+        search("50%_!").then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("2")));
+    }
+
+    /** 其他组织不能靠自定义字段搜到本组织企划。 */
+    @Test
+    void shouldHideCustomFieldMatchesFromAnotherOrganization() {
+        createProject(1, "普通企划", "ordinary", "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"}]}");
+        createUserWithOrganization(2L, "outsider", "123456", "outsider@example.com", 2L, 2L, "ORG_USER");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (2, 2, '漫画', 1, 2)");
+
+        authRequest(loginAs("outsider", "123456"), 2L).queryParam("keyword", "xxxx")
+                .get("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(0));
+        authRequest(token, 1L).queryParam("keyword", "xxxx").get("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+    }
+
     private Response search(String keyword) {
         return authRequest(token).queryParam("keyword", keyword).get("/app/projects");
     }
