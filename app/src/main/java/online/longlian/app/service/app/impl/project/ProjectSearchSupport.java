@@ -43,7 +43,9 @@ public final class ProjectSearchSupport {
             return metadata;
         }
         JSONObject object = JSON.parseObject(metadata);
-        JSONArray tags = object.getJSONArray("tags");
+        if (!(object.get("tags") instanceof JSONArray tags)) {
+            return metadata;
+        }
         Set<String> matched = new LinkedHashSet<>(paths);
         JSONArray ordered = new JSONArray();
         for (int i = 0; i < tags.size(); i++) {

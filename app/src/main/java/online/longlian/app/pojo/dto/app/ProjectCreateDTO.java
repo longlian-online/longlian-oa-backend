@@ -25,7 +25,7 @@ public class ProjectCreateDTO {
     private Long typeId;
 
     @NotBlank(message = "扩展信息不能为空")
-    @Schema(description = "扩展信息(JSON对象字符串)：tags 数组可为空；每项仅允许 key、value、color。key 为非空白字符串且可重复；value 可省略，提供时必须为字符串且可为空；color 可省略，提供时仅允许 blue、green、amber、rose、violet。数组顺序和原始 JSON 保留", example = "{\"tags\":[{\"key\":\"加急\",\"color\":\"amber\"},{\"key\":\"作者\",\"value\":\"smile_snow\",\"color\":\"blue\"}]}", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "扩展信息(JSON对象字符串)：tags 数组可为空；每项仅允许 key、value、color。key 为非空白字符串且可重复；value 可省略，提供时必须为字符串且可为空；color 可省略，提供时仅允许 blue、green、amber、rose、violet。fields 可省略；提供时必须是数组且可为空，每项仅允许 name、value。name 为非空白字符串且可重复，空白 name 拒绝保存；value 必须为字符串且可为空。数组顺序和原始 JSON 保留", example = "{\"tags\":[{\"key\":\"加急\",\"color\":\"amber\"},{\"key\":\"作者\",\"value\":\"smile_snow\",\"color\":\"blue\"}],\"fields\":[{\"name\":\"作者\",\"value\":\"xxxx\"}]}", requiredMode = Schema.RequiredMode.REQUIRED)
     private String metadata;
 
     @NotNull(message = "企划简介不能为空")
