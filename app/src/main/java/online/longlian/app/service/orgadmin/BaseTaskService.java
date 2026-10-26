@@ -9,6 +9,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 
 import java.util.List;
+import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
 
 /**
  * 组织管理端基础任务（原子任务）服务接口。
@@ -20,6 +21,9 @@ import java.util.List;
  * 管理接口由 Controller 校验组织管理员权限，内部引用写入复用任务校验。
  */
 public interface BaseTaskService {
+
+    /** Includes disabled task types still referenced by existing workflows. */
+    List<PlazaTaskTypeOptionResultBO> listPlazaTaskTypes(Long orgId);
 
     /**
      * 分页查询组织下的基础任务列表，支持关键词搜索和状态筛选。

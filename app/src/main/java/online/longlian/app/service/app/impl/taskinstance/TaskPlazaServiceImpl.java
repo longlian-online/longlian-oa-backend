@@ -49,6 +49,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
     public PageResultVO<PlazaProjectGroupVO> getTaskPlaza(TaskPlazaParamsBO params) {
         TaskPlazaSearchParamsBO searchParams = TaskPlazaSearchParamsBO.builder()
                 .orgId(params.getOrgId())
+                .baseTaskId(params.getBaseTaskId())
                 .typeId(resolveTypeId(params.getOrgId(), params.getProjectType()))
                 .matchPattern(buildMatchPattern(params.getKeyword()))
                 .sortBy(params.getSortBy())
@@ -63,6 +64,9 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
         int offset = (params.getPage().getPageNum() - 1) * params.getPage().getPageSize();
         List<PlazaProjectSummaryBO> summaries = taskInstanceMapper.selectPlazaProjectSummaries(
                 searchParams, offset, params.getPage().getPageSize());
+        if (summaries.isEmpty()) {
+            return new PageResultVO<>(Collections.emptyList(), total);
+        }
 
         List<Long> projectIds = summaries.stream().map(PlazaProjectSummaryBO::getProjectId).toList();
         List<PlazaTaskRowBO> rows = taskInstanceMapper.selectPlazaTaskRows(searchParams, projectIds);
@@ -85,7 +89,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 summaries, rows, itemSorts,
                 loadImageUrls(summaries, PlazaProjectSummaryBO::getCoverFileId),
                 resizeThumbnailUrls(loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId)),
-                nodesByItem);
+                nodesByItem, params.getBaseTaskId());
         return new PageResultVO<>(groups, total);
     }
 
