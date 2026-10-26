@@ -73,7 +73,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
         later.then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM group_application WHERE org_id=1 AND user_id=2 AND status=0", Integer.class))
                 .isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT accepted FROM organization_invite_code WHERE code='JOIN02'", Integer.class))
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code='JOIN02'", Integer.class))
                 .isZero();
     }
 
@@ -135,7 +135,7 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 Integer.class, applicationId)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM organization_member WHERE org_id = 1 AND user_id = 2",
                 Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT accepted FROM organization_invite_code WHERE code = 'JOIN02'",
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code = 'JOIN02'",
                 Integer.class)).isZero();
     }
 

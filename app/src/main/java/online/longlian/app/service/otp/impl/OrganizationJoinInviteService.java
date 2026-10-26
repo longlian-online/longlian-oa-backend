@@ -1,0 +1,100 @@
+package online.longlian.app.service.otp.impl;
+
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.constants.InviteConstants;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.util.RandomCodeUtil;
+import online.longlian.app.mapper.OrganizationJoinOtpMapper;
+import online.longlian.app.mapper.OrganizationMapper;
+import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.common.OTPUseContextBO;
+import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
+import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
+import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.entity.Organization;
+import online.longlian.app.pojo.entity.OrganizationJoinOtp;
+import online.longlian.app.service.otp.OTPStrategyService;
+import online.longlian.app.service.otp.OneTimePasswordService;
+import online.longlian.common.enumeration.OTPType;
+import online.longlian.common.enumeration.Status;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+
+@Service
+@RequiredArgsConstructor
+public class OrganizationJoinInviteService implements OTPStrategyService {
+
+    private final OneTimePasswordService oneTimePasswordService;
+    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    private final OrganizationMapper organizationMapper;
+    private final Clock clock;
+
+    @Override
+    public OTPType getOtpType() {
+        return OTPType.OrganizationUserInvite;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
+        Organization organization = getEnabledOrganization(otpGenerateContextBO.getOrgId());
+        LocalDateTime expiredAt = requireFutureExpiry(otpGenerateContextBO.getExpiredAt());
+        String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
+
+        OneTimePassword otp = oneTimePasswordService.generateOTP(
+                OneTimePasswordCreateParamsBO.builder()
+                        .code(inviteCode)
+                        .expiredAt(expiredAt)
+                        .bizType(OTPType.OrganizationUserInvite)
+                        .creatorId(otpGenerateContextBO.getCreatorId())
+                        .build()
+        );
+
+        OrganizationJoinOtp organizationJoinOtp = OrganizationJoinOtp.builder()
+                .otpId(otp.getId())
+                .orgId(organization.getId())
+                .build();
+        organizationJoinOtpMapper.insert(organizationJoinOtp);
+
+        return otp;
+    }
+
+    @Override
+    public OneTimePassword getValid(OTPValidateContextBO otpValidateContextBO) {
+        return oneTimePasswordService.getValidOTP(otpValidateContextBO.getCode(), OTPType.OrganizationUserInvite);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void use(OTPUseContextBO otpUseContextBO) {
+        oneTimePasswordService.useOTP(otpUseContextBO.getOtpId());
+        if (otpUseContextBO.getUserId() != null) {
+            organizationJoinOtpMapper.update(
+                    null,
+                    new LambdaUpdateWrapper<OrganizationJoinOtp>()
+                            .eq(OrganizationJoinOtp::getOtpId, otpUseContextBO.getOtpId())
+                            .set(OrganizationJoinOtp::getInvitedUserId, otpUseContextBO.getUserId())
+            );
+        }
+    }
+
+    private LocalDateTime requireFutureExpiry(LocalDateTime expiredAt) {
+        if (expiredAt == null || !expiredAt.isAfter(LocalDateTime.now(clock))) {
+            throw new AppException(ResultCode.PARAM_ERROR, "到期时间必须晚于当前时间");
+        }
+        return expiredAt;
+    }
+
+    private Organization getEnabledOrganization(Long orgId) {
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() == Status.DISABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在或已禁用");
+        }
+        return organization;
+    }
+}

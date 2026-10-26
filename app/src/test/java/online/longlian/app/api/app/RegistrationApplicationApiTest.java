@@ -28,10 +28,10 @@ class RegistrationApplicationApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user WHERE username='newuser' AND status=1",Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT password_hash FROM group_application WHERE id=?",String.class,second)).isNull();
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM organization_invite_code o " +
-                        "JOIN group_application a ON a.otp_id = o.id " +
+                "SELECT COUNT(*) FROM organization_join_otp o " +
+                        "JOIN group_application a ON a.otp_id = o.otp_id " +
                         "JOIN organization_member m ON m.id = o.org_member_id " +
-                        "WHERE a.id = ? AND o.invitee_user_id = a.user_id " +
+                        "WHERE a.id = ? AND o.invited_user_id = a.user_id " +
                         "AND m.user_id = a.user_id AND m.org_id = a.org_id",
                 Integer.class, second)).isEqualTo(1);
         assertThat(loginAs("newuser","River!82Maple")).isNotBlank();
@@ -58,7 +58,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM `user` WHERE email = ?", Integer.class, "new@example.com")).isZero();
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM organization_invite_code WHERE org_member_id IS NOT NULL", Integer.class)).isZero();
+                "SELECT COUNT(*) FROM organization_join_otp WHERE org_member_id IS NOT NULL", Integer.class)).isZero();
     }
 
     /** 禁用组织不能展示有效邀请或接受注册申请，失败不得消耗验证码。 */
@@ -78,7 +78,7 @@ class RegistrationApplicationApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
 
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM group_application", Integer.class)).isZero();
-        assertThat(jdbcTemplate.queryForObject("SELECT accepted FROM organization_invite_code WHERE code = ?",
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code = ?",
                 Integer.class, "JOIN01")).isZero();
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code = ?",
                 Integer.class, "EMAIL1")).isZero();
@@ -116,6 +116,6 @@ class RegistrationApplicationApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM group_application", Integer.class)).isZero();
         assertThat(jdbcTemplate.queryForObject("SELECT reviewer_id FROM group_application", Long.class)).isNull();
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM organization_invite_code WHERE org_member_id IS NOT NULL", Integer.class)).isZero();
+                "SELECT COUNT(*) FROM organization_join_otp WHERE org_member_id IS NOT NULL", Integer.class)).isZero();
     }
 }

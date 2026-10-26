@@ -18,7 +18,7 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.service.common.LockService;
-import online.longlian.app.service.invite.OrganizationInviteCodeService;
+import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
 import online.longlian.common.enumeration.ApplicationStatus;
@@ -53,7 +53,7 @@ class OrganizationMemberServiceImplTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC);
     @Mock private GroupApplicationMapper groupApplicationMapper;
     @Mock private OrganizationMemberMapper organizationMemberMapper;
-    @Mock private OrganizationInviteCodeService organizationInviteCodeService;
+    @Mock private OTPServiceFactory otpServiceFactory;
     @Mock private MemberQueryBuilder memberQueryBuilder;
     @Mock private MemberAssembler memberAssembler;
     @Mock private ApplicationReviewHandler applicationReviewHandler;
@@ -73,7 +73,7 @@ class OrganizationMemberServiceImplTest {
         lenient().when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_OWNER, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
-                organizationInviteCodeService, memberQueryBuilder, memberAssembler, applicationReviewHandler,
+                otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
                 memberStatusHandler, memberSubmissionHandler, lockService, transactions);
     }
 

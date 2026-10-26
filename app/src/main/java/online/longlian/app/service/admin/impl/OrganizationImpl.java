@@ -20,11 +20,11 @@ import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
-import online.longlian.app.pojo.bo.invite.OrganizationInviteCodeGenerateParamsBO;
-import online.longlian.app.pojo.bo.invite.OrganizationInviteCodeGenerateResultBO;
+import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.admin.OrganizationService;
-import online.longlian.app.service.invite.OrganizationInviteCodeService;
+import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
@@ -45,7 +45,7 @@ public class OrganizationImpl implements OrganizationService {
     private final OrganizationMapper organizationMapper;
     private final AdminMapper adminMapper;
     private final ResourceService resourceService;
-    private final OrganizationInviteCodeService organizationInviteCodeService;
+    private final OTPServiceFactory otpServiceFactory;
 
     public PageResultBO<AdminOrganizationListResultBO> getOrgListInfo(@NonNull AdminOrganizationListParamsBO params) {
         Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
@@ -100,16 +100,15 @@ public class OrganizationImpl implements OrganizationService {
     @Override
     public AdminGenerateInviteCodeResultBO generateCreateOrgInviteCode(@NonNull AdminGenerateCreateOrgInviteCodeParamsBO params) {
         requireRoot(params.getCreatorId());
-        OrganizationInviteCodeGenerateResultBO generated = organizationInviteCodeService.generate(
-                OrganizationInviteCodeGenerateParamsBO.builder()
-                        .bizType(OTPType.OrganizationInvite)
+        OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationInvite).generate(
+                OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
                         .expiredAt(params.getExpiredAt())
                         .build()
         );
         return AdminGenerateInviteCodeResultBO.builder()
-                .inviteCode(generated.getInviteCode())
-                .expireAt(generated.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
+                .inviteCode(otp.getCode())
+                .expireAt(otp.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
                 .build();
     }
 

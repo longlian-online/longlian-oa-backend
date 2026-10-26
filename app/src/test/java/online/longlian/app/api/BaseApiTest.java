@@ -285,9 +285,17 @@ public abstract class BaseApiTest {
                                                 int accepted, LocalDateTime acceptedAt) {
         long id = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO organization_invite_code (id, code, biz_type, org_id, creator_id, expired_at, accepted, accepted_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
-                id, code, bizType, orgId, expiredAt, accepted, acceptedAt
+                "INSERT INTO `one_time_password` (id, code, expired_at, used_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, ?, ?, 0)",
+                id, code, expiredAt, acceptedAt, bizType, accepted
         );
+        if (bizType == 1) {
+            jdbcTemplate.update("INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)", id, id);
+        } else {
+            jdbcTemplate.update(
+                    "INSERT INTO `organization_join_otp` (id, otp_id, org_id) VALUES (?, ?, ?)",
+                    id, id, orgId
+            );
+        }
         return id;
     }
 
