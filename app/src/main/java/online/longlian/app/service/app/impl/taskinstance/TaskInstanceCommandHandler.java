@@ -66,6 +66,30 @@ public class TaskInstanceCommandHandler {
 
 
     /**
+     * 负责人分配：PENDING -> CLAIMED，归属指定组员。组员不参与本次操作。
+     */
+    public void assign(TaskInstance instance, Long assigneeId, String expectedRevision) {
+        requireRevision(instance, expectedRevision);
+        if (instance.getStatus() != TaskInstanceStatus.PENDING || instance.getAssigneeId() != null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可分配");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        int updated = taskInstanceMapper.update(null,
+                new LambdaUpdateWrapper<TaskInstance>()
+                        .eq(TaskInstance::getId, instance.getId())
+                        .eq(TaskInstance::getRevision, instance.getRevision())
+                        .eq(TaskInstance::getStatus, TaskInstanceStatus.PENDING)
+                        .isNull(TaskInstance::getAssigneeId)
+                        .setSql("revision = revision + 1")
+                        .set(TaskInstance::getAssigneeId, assigneeId)
+                        .set(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                        .set(TaskInstance::getClaimedAt, now)
+                        .set(TaskInstance::getUpdatedAt, now));
+        requireUpdated(updated);
+    }
+
+
+    /**
      * 版本号取实例内已有最大版本号 +1；首次提交为 1。
      * 并发由状态机乐观锁和 {@code uk_task_submission_version} 唯一键共同约束。
      */

@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
@@ -23,6 +24,7 @@ import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationCreateBO;
 import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.common.enumeration.InboxNotificationKind;
+import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -45,7 +47,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import java.util.Collections;
 import java.util.List;
@@ -94,7 +99,7 @@ class TaskInstanceServiceImplTest {
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,
-                inboxNotificationService);
+                inboxNotificationService, Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")));
         lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))
@@ -208,6 +213,75 @@ class TaskInstanceServiceImplTest {
         assertThatThrownBy(() -> service.claimTask(params)).isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(operationLogService);
     }
+
+    @Test
+    void shouldAssignPendingTaskAndNotifyAssignee() {
+        TaskInstanceAssignParamsBO params = prepareAssign(1L);
+        when(projectService.addToWorkshop(any())).thenReturn(new ProjectWorkshopAddResultBO(true));
+
+        TaskClaimResultBO result = service.assignTask(params);
+
+        assertThat(result.isAutoJoinedProject()).isTrue();
+        verify(organizationMembershipService).requireEnabledMember(20L, 10L);
+        verify(taskInstanceCommandHandler).assign(any(TaskInstance.class), eq(20L), eq("0"));
+        ArgumentCaptor<ProjectWorkshopAddParamsBO> membership = ArgumentCaptor.forClass(ProjectWorkshopAddParamsBO.class);
+        verify(projectService).addToWorkshop(membership.capture());
+        assertThat(membership.getValue().getUserId()).isEqualTo(20L);
+        ArgumentCaptor<NotificationBatchCreateParamsBO> notifications =
+                ArgumentCaptor.forClass(NotificationBatchCreateParamsBO.class);
+        verify(inboxNotificationService).createBatch(notifications.capture());
+        NotificationCreateBO notification = notifications.getValue().getNotifications().get(0);
+        assertThat(notification.getRecipientUserId()).isEqualTo(20L);
+        assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.TASK_ASSIGNED);
+        assertThat(notification.getSourceId()).isEqualTo(100L);
+        assertThat(notification.getCreatedAt()).isEqualTo(LocalDateTime.parse("2026-10-26T01:00:00"));
+        verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), eq(UserOperationType.TASK_ASSIGN), any());
+    }
+
+    @Test
+    void shouldRejectAssignmentByNonCreator() {
+        TaskInstanceAssignParamsBO params = prepareAssign(99L);
+
+        assertThatThrownBy(() -> service.assignTask(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("仅企划负责人可分配任务");
+        verify(taskInstanceCommandHandler, never()).assign(any(), anyLong(), any());
+        verifyNoInteractions(inboxNotificationService);
+    }
+
+    @Test
+    void shouldRejectAssignmentOutsideOrganization() {
+        TaskInstanceAssignParamsBO params = prepareAssign(1L);
+        doThrow(new AppException(ResultCode.OPERATION_FAIL, "您不是该组织成员"))
+                .when(organizationMembershipService).requireEnabledMember(20L, 10L);
+        lenient().when(organizationMembershipService.requireEnabledMember(1L, 10L))
+                .thenReturn(online.longlian.app.pojo.entity.OrganizationMember.builder().userId(1L).build());
+
+        assertThatThrownBy(() -> service.assignTask(params)).isInstanceOf(AppException.class);
+        verify(taskInstanceCommandHandler, never()).assign(any(), anyLong(), any());
+        verifyNoInteractions(inboxNotificationService, projectService);
+    }
+
+    @Test
+    void shouldNotNotifyWhenAssignedTaskAlreadyClaimed() {
+        TaskInstanceAssignParamsBO params = prepareAssign(1L);
+        doThrow(new AppException(ResultCode.OPERATION_FAIL, "该任务不可分配"))
+                .when(taskInstanceCommandHandler).assign(any(), eq(20L), eq("0"));
+
+        assertThatThrownBy(() -> service.assignTask(params)).isInstanceOf(AppException.class);
+        verifyNoInteractions(inboxNotificationService, operationLogService);
+    }
+
+
+    private TaskInstanceAssignParamsBO prepareAssign(Long operatorId) {
+        TaskInstance instance = prepareReviewInstance();
+        instance.setStatus(TaskInstanceStatus.PENDING);
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder()
+                .id(2L).orgId(10L).creatorId(1L).resourceStatus(Status.ENABLED).build());
+        return TaskInstanceAssignParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(operatorId).assigneeId(20L).expectedRevision("0").build();
+    }
+
 
     @Test
     void claimTask_instanceNotFound_throws() {

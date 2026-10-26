@@ -12,6 +12,7 @@ final class InboxEmailCopy {
         String title = "「" + source.getProjectTitle() + " · " + source.getItemTitle() + "」";
         return switch (kind) {
             case TASK_READY -> title + "的前置步骤已完成，你接取的「" + slotLabel(source.getTaskSlot()) + "」可以开始了。";
+            case TASK_ASSIGNED -> title + "的「" + slotLabel(source.getTaskSlot()) + "」已分配给你，无需手动领取。";
             case ITEM_COMPLETED -> title + "的全部任务已完成。";
         };
     }

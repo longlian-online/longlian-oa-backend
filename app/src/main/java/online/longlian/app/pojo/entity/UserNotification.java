@@ -54,10 +54,10 @@ public class UserNotification implements Serializable {
     private Long recipientUserId;
 
     /**
-     * 类型 1-TASK_READY 2-ITEM_COMPLETED
+     * 类型 1-TASK_READY 2-ITEM_COMPLETED 3-TASK_ASSIGNED
      */
     @TableField("kind")
-    @ApiModelProperty("类型 1-TASK_READY 2-ITEM_COMPLETED")
+    @ApiModelProperty("类型 1-TASK_READY 2-ITEM_COMPLETED 3-TASK_ASSIGNED")
     private InboxNotificationKind kind;
 
     /**

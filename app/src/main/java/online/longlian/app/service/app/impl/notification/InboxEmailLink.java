@@ -42,7 +42,7 @@ final class InboxEmailLink {
                 .queryParam("orgId", orgId)
                 .queryParam("projectId", source.getProjectId())
                 .queryParam("itemId", source.getItemId());
-        if (kind == InboxNotificationKind.TASK_READY) {
+        if (kind == InboxNotificationKind.TASK_READY || kind == InboxNotificationKind.TASK_ASSIGNED) {
             builder.queryParam("taskInstanceId", sourceId);
         }
         return builder.encode().build().toUriString();

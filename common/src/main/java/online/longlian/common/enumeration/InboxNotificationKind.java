@@ -9,7 +9,8 @@ import online.longlian.common.annotation.ModelEnum;
 @ModelEnum(model = "user_notification", field = "kind")
 public enum InboxNotificationKind implements CodeEnum {
     TASK_READY(1, "可以开始"),
-    ITEM_COMPLETED(2, "项目完成");
+    ITEM_COMPLETED(2, "项目完成"),
+    TASK_ASSIGNED(3, "任务分配");
 
     private final Integer code;
     private final String desc;

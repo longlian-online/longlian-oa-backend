@@ -4,6 +4,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
@@ -19,7 +20,7 @@ import java.util.List;
  * <p>
  * 负责任务实例的全生命周期管理，状态流转如下：
  * <pre>
- *   PENDING  ──claimTask──▶  CLAIMED  ──submitTask──▶  COMPLETED
+ *   PENDING  ──claimTask / assignTask──▶  CLAIMED  ──submitTask──▶  COMPLETED
  *                  ▲              │                          │
  *                  │  abandonTask │                          │
  *                  └──────────────┘                          │
@@ -28,6 +29,7 @@ import java.util.List;
  * </pre>
  * <ul>
  *   <li>接取（claim）：任何待接取任务均可被成员接取</li>
+ *   <li>分配（assign）：仅企划负责人可将待接取任务直接分给启用组员，组员无需再领取</li>
  *   <li>放弃（abandon）：仅接取人可将已接取任务退回待接取状态</li>
  *   <li>提交（submit）：接取人提交任务成果并生成
  *       {@link online.longlian.app.pojo.entity.TaskSubmission TaskSubmission} 记录，
@@ -73,6 +75,14 @@ public interface TaskInstanceService {
      * @return 是否在本次接取中实际新增了有效企划工坊关联
      */
     TaskClaimResultBO claimTask(TaskInstanceOperateParamsBO params);
+
+    /**
+     * 分配任务：{@code PENDING → CLAIMED}，将接取人设为指定组员，并按需加入企划工坊。
+     * 仅企划负责人可操作；已接取或已完成的任务不能再次分配。
+     *
+     * @param params 包含操作人、被分配组员和当前修订号
+     */
+    TaskClaimResultBO assignTask(TaskInstanceAssignParamsBO params);
 
     /**
      * 放弃任务：{@code CLAIMED → PENDING}，清除接取人，接取人或企划创建人可操作。

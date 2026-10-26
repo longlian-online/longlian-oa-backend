@@ -1,6 +1,7 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -21,6 +22,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 
@@ -50,8 +52,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.Collections;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
@@ -76,6 +80,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final PlatformTransactionManager transactionManager;
     private final ProjectService projectService;
     private final InboxNotificationService inboxNotificationService;
+    private final Clock clock;
 
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
@@ -119,6 +124,29 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                             .build());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_CLAIM, params);
+            return new TaskClaimResultBO(membership.isAdded());
+        });
+    }
+
+    @Override
+    public TaskClaimResultBO assignTask(TaskInstanceAssignParamsBO params) {
+        return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            if (!params.getUserId().equals(project.getCreatorId())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可分配任务");
+            }
+            organizationMembershipService.requireEnabledMember(params.getAssigneeId(), params.getOrgId());
+            taskInstanceCommandHandler.assign(instance, params.getAssigneeId(), params.getExpectedRevision());
+            ProjectWorkshopAddResultBO membership = projectService.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
+                    .projectId(instance.getProjectId())
+                    .userId(params.getAssigneeId())
+                    .orgId(params.getOrgId())
+                    .build());
+            LocalDateTime assignedAt = LocalDateTime.now(clock);
+            inboxNotificationService.createBatch(new NotificationBatchCreateParamsBO(project.getOrgId(),
+                    List.of(new NotificationCreateBO(params.getAssigneeId(), InboxNotificationKind.TASK_ASSIGNED,
+                            instance.getId(), IdWorker.getId(), assignedAt))));
+            logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), null,
+                    UserOperationType.TASK_ASSIGN, "OWNER_ASSIGN", params.getAssigneeId());
             return new TaskClaimResultBO(membership.isAdded());
         });
     }
@@ -214,10 +242,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     private void logOwnerOperation(TaskInstance instance, Long userId, String expectedRevision, String reviewComment,
                                    UserOperationType type, String action) {
+        logOwnerOperation(instance, userId, expectedRevision, reviewComment, type, action, null);
+    }
+
+    private void logOwnerOperation(TaskInstance instance, Long userId, String expectedRevision, String reviewComment,
+                                   UserOperationType type, String action, Long assignedUserId) {
         Map<String, Object> audit = new LinkedHashMap<>();
         audit.put("action", action);
         audit.put("instanceId", instance.getId());
-        audit.put("assigneeId", instance.getAssigneeId());
+        audit.put("assigneeId", assignedUserId != null ? assignedUserId : instance.getAssigneeId());
         if (reviewComment != null) {
             audit.put("reviewComment", reviewComment);
         }
