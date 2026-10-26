@@ -11,6 +11,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.*;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
@@ -180,15 +181,16 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     @Override
     public OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params) {
-        OneTimePassword oneTimePassword = otpServiceFactory.get(OTPType.OrganizationUserInvite).generate(
+        OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationUserInvite).generate(
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
                         .orgId(params.getOrgId())
+                        .expiredAt(params.getExpiredAt())
                         .build()
         );
         return OrgAdminGenerateJoinOrgInviteCodeResultBO.builder()
-                .inviteCode(oneTimePassword.getCode())
-                .expireAt(oneTimePassword.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
+                .inviteCode(otp.getCode())
+                .expireAt(otp.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
                 .build();
     }
 

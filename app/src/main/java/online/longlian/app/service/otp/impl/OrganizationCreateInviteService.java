@@ -11,14 +11,11 @@ import online.longlian.app.pojo.bo.common.OTPValidateContextBO;
 import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.OrganizationCreateOtp;
-import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.app.service.otp.OTPStrategyService;
+import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +23,6 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
 
     private final OneTimePasswordService oneTimePasswordService;
     private final OrganizationCreateOtpMapper organizationCreateOtpMapper;
-    private final Clock clock;
 
     @Override
     public OTPType getOtpType() {
@@ -36,19 +32,18 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OneTimePassword generate(OTPGenerateContextBO otpGenerateContextBO) {
-        LocalDateTime expiredAt = LocalDateTime.now(clock).plusMinutes(InviteConstants.INVITE_EXPIRE_MINUTES);
         String inviteCode = RandomCodeUtil.generateCode(InviteConstants.INVITE_CODE_LENGTH);
 
         OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
                         .code(inviteCode)
-                        .expiredAt(expiredAt)
+                        .expiredAt(otpGenerateContextBO.getExpiredAt())
                         .bizType(OTPType.OrganizationInvite)
                         .creatorId(otpGenerateContextBO.getCreatorId())
                         .build()
         );
 
-        // 关联 OrganizationCreateOtp 记录：注册流程中需要通过 otpId 校验邀请码未被占用
+        // 关联 OrganizationCreateOtp 记录：注册流程中需要通过 otpId 回填被邀请人。
         OrganizationCreateOtp organizationCreateOtp = OrganizationCreateOtp.builder()
                 .otpId(oneTimePassword.getId())
                 .build();
@@ -74,4 +69,5 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
                         .set(otpUseContextBO.getOrgId() != null, OrganizationCreateOtp::getOrgId, otpUseContextBO.getOrgId())
         );
     }
+
 }

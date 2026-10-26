@@ -28,13 +28,20 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
     public OneTimePassword generateOTP(OneTimePasswordCreateParamsBO params) {
         OneTimePassword oneTimePassword = OneTimePassword.builder()
                 .code(params.getCode())
-                .expiredAt(params.getExpiredAt())
+                .expiredAt(requireFutureExpiry(params.getExpiredAt()))
                 .bizType(params.getBizType())
                 .status(OTPStatus.PENDING)
                 .creatorId(params.getCreatorId())
                 .build();
         oneTimePasswordMapper.insert(oneTimePassword);
         return oneTimePassword;
+    }
+
+    private LocalDateTime requireFutureExpiry(LocalDateTime expiredAt) {
+        if (expiredAt == null || !expiredAt.isAfter(LocalDateTime.now(clock))) {
+            throw new AppException(ResultCode.PARAM_ERROR, "到期时间必须晚于当前时间");
+        }
+        return expiredAt;
     }
 
     @Override

@@ -18,7 +18,7 @@ class AuthorizationBoundaryApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT role FROM admin", String.class)).isEqualTo("normal");
         authRequest(token).get("/admin/organizations/").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode())).body("data.total", equalTo(0));
-        authRequest(token).post("/admin/organizations/invite-codes/create-org").then().statusCode(200)
+        authRequest(token).body(inviteExpiryBody()).post("/admin/organizations/invite-codes/create-org").then().statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
@@ -28,7 +28,7 @@ class AuthorizationBoundaryApiTest extends BaseApiTest {
         createAdmin(1L, "normal", "123456", "normal");
         createOrganization(1L, "organization");
         String token = adminLoginAs("normal", "123456");
-        authRequest(token).post("/admin/organizations/invite-codes/create-org")
+        authRequest(token).body(inviteExpiryBody()).post("/admin/organizations/invite-codes/create-org")
                 .then().body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         authRequest(token).body(Map.of("status", "DISABLED")).patch("/admin/organizations/1/status")
                 .then().body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));

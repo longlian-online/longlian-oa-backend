@@ -336,6 +336,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
 
         response.then()
