@@ -177,14 +177,6 @@ public class TaskProxySubmitApiTest extends BaseApiTest {
                 .body("msg", containsString("所选组员已被禁用"));
 
         authRequest(token)
-                .body(proxyBody(3L, SUBMITTED_AT, "0", Map.of()))
-                .post("/app/task/instance/1/proxy-submit")
-                .then()
-                .statusCode(200)
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", containsString("该组员不属于企划"));
-
-        authRequest(token)
                 .body(proxyBody(5L, SUBMITTED_AT, "0", Map.of()))
                 .post("/app/task/instance/1/proxy-submit")
                 .then()
@@ -199,6 +191,18 @@ public class TaskProxySubmitApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
                 .body("msg", containsString("请先完成前置阶段"));
+
+        authRequest(token)
+                .body(proxyBody(3L, SUBMITTED_AT, "0", Map.of()))
+                .post("/app/task/instance/1/proxy-submit")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT assignee_id FROM task_instance WHERE id = 1", Long.class))
+                .isEqualTo(3L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT deleted_at IS NOT NULL FROM project_workshop WHERE project_id = 1 AND user_id = 3",
+                Boolean.class)).isTrue();
     }
 
     @Test
@@ -218,26 +222,32 @@ public class TaskProxySubmitApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldListOnlyEnabledMembersToProjectCreator() {
+    void shouldListEnabledMembersOfCurrentOrganization() {
         seedPendingTask("[]");
         jdbcTemplate.update("UPDATE organization_member SET status = 0 WHERE user_id = 4");
         jdbcTemplate.update("UPDATE `user` SET nickname = ? WHERE id = ?", "小明", 2L);
 
         authRequest(loginAs("creator", "123456"))
-                .get("/app/task/instance/1/proxy-submit/candidates")
+                .get("/app/members")
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.size()", equalTo(2))
-                .body("data.userId", hasItems("1", "2"))
-                .body("data.userId", not(hasItems("3", "4", "5")))
+                .body("data.size()", equalTo(3))
+                .body("data.userId", hasItems("1", "2", "3"))
+                .body("data.userId", not(hasItems("4", "5")))
                 .body("data.nickname", hasItems("小明"));
 
         authRequest(loginAs("admin", "123456"))
-                .get("/app/task/instance/1/proxy-submit/candidates")
+                .get("/app/members")
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.userId", hasItems("1", "2", "3"));
+
+        request().get("/app/members")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
     }
 
     @Test

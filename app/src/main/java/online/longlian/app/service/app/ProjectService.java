@@ -90,10 +90,6 @@ public interface ProjectService {
      */
     void removeFromWorkshop(ProjectWorkshopRemoveParamsBO params);
 
-    /**
-     * 仍在企划中的用户。已退出的工坊关联不返回。
-     */
-    List<Long> listActiveWorkshopUserIds(Long projectId);
 
     /**
      * 删除企划。仅创建者可操作；企划下仍有项目时拒绝。

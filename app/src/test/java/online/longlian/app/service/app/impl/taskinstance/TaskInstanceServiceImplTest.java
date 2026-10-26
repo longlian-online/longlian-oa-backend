@@ -17,10 +17,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxyCandidatesParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
-import online.longlian.app.pojo.vo.app.ProxySubmitCandidateVO;
-import online.longlian.app.service.common.OrganizationMemberProfile;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
@@ -621,22 +618,10 @@ class TaskInstanceServiceImplTest {
         verify(projectService, never()).addToWorkshop(any());
     }
 
-    @Test
-    void proxySubmitTask_rejectsMemberWhoLeftProject() {
-        proxyInstance(1L);
-        when(projectService.listActiveWorkshopUserIds(2L)).thenReturn(List.of(1L));
-
-        assertThatThrownBy(() -> service.proxySubmitTask(proxyParams(1L, 20L)))
-                .isInstanceOf(AppException.class)
-                .hasMessageContaining("该组员不属于企划");
-        verify(taskInstanceCommandHandler, never()).proxySubmit(any(), any(), any(), any(), any(), any(), any());
-        verify(projectService, never()).addToWorkshop(any());
-    }
 
     @Test
     void proxySubmitTask_recordsMemberWithoutAddingWorkshop() {
         TaskInstance instance = proxyInstance(1L);
-        when(projectService.listActiveWorkshopUserIds(2L)).thenReturn(List.of(20L));
         LocalDateTime submittedAt = LocalDateTime.of(2026, 10, 1, 9, 30);
         when(taskInstanceCommandHandler.proxySubmit(eq(instance), eq(20L), eq(10L), eq(1L), any(), eq(submittedAt), eq("0")))
                 .thenReturn(new TaskInstanceSubmitResultBO(9L, submittedAt, List.of()));
@@ -648,22 +633,6 @@ class TaskInstanceServiceImplTest {
         verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), eq(UserOperationType.TASK_SUBMIT), any());
     }
 
-    @Test
-    void listProxySubmitCandidates_keepsOnlyCurrentProjectMembers() {
-        when(taskInstanceMapper.selectById(100L)).thenReturn(
-                TaskInstance.builder().id(100L).projectId(2L).itemId(1L).build());
-        when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L)
-                .creatorId(1L).resourceStatus(Status.ENABLED).build());
-        when(projectService.listActiveWorkshopUserIds(2L)).thenReturn(List.of(20L));
-        when(organizationMembershipService.listEnabledMembers(10L)).thenReturn(List.of(
-                new OrganizationMemberProfile(20L, "组员"),
-                new OrganizationMemberProfile(30L, "外人")));
-
-        assertThat(service.listProxySubmitCandidates(TaskInstanceProxyCandidatesParamsBO.builder()
-                .instanceId(100L).userId(1L).orgId(10L).build()))
-                .extracting(ProxySubmitCandidateVO::getUserId)
-                .containsExactly(20L);
-    }
 
     private TaskInstance proxyInstance(long creatorId) {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).projectId(2L).itemId(1L)

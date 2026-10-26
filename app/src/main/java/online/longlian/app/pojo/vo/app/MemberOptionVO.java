@@ -11,8 +11,8 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "可代提交的组员")
-public class ProxySubmitCandidateVO {
+@Schema(description = "当前组织可选组员")
+public class MemberOptionVO {
 
     @JsonLongIdString
     @Schema(type = "string", description = "组员用户ID")

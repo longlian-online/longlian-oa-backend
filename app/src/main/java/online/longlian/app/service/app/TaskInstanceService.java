@@ -7,9 +7,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxyCandidatesParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
-import online.longlian.app.pojo.vo.app.ProxySubmitCandidateVO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
@@ -98,14 +96,9 @@ public interface TaskInstanceService {
 
     /**
      * 代提交：{@code PENDING → COMPLETED}。仅企划负责人可把未接取任务记到指定组员名下，
-     * 提交时间使用设定值。组员必须已经属于该企划，不会自动加入。
+     * 提交时间使用设定值。组员必须是当前组织的启用成员，不要求已加入该企划，也不会自动加入。
      */
     void proxySubmitTask(TaskInstanceProxySubmitParamsBO params);
-
-    /**
-     * 列出代提交可选组员：当前组织的启用成员，且仍在该企划中。仅企划负责人可查询。
-     */
-    List<ProxySubmitCandidateVO> listProxySubmitCandidates(TaskInstanceProxyCandidatesParamsBO params);
 
     /**
      * 重置任务：{@code COMPLETED → CLAIMED}，将提交记录标记为 {@code RESET} 并扣减提交统计。

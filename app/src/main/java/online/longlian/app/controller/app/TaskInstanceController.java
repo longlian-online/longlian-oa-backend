@@ -17,10 +17,8 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxyCandidatesParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.dto.app.TaskProxySubmitDTO;
-import online.longlian.app.pojo.vo.app.ProxySubmitCandidateVO;
 import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
 import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
@@ -219,7 +217,7 @@ public class TaskInstanceController {
     @Operation(
             summary = "代提交任务",
             description = "仅企划负责人可将尚未接取的任务直接记为指定组员已提交。"
-                    + "组员必须已属于该企划。提交时间使用请求中的设定值，不使用当前时间。已接取或已提交的任务不可调用"
+                    + "组员必须是当前组织的启用成员。提交时间使用请求中的设定值，不使用当前时间。已接取或已提交的任务不可调用"
     )
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/{instanceId}/proxy-submit")
@@ -235,23 +233,6 @@ public class TaskInstanceController {
                 .submittedAt(request.getSubmittedAt())
                 .expectedRevision(request.getExpectedRevision())
                 .values(request.getValues())
-                .build());
-    }
-
-    @Operation(
-            summary = "代提交可选组员",
-            description = "仅企划负责人可查询。只返回当前组织启用、且仍在该企划中的组员"
-    )
-    @Parameter(name = "instanceId", description = "任务实例ID")
-    @GetMapping("/{instanceId}/proxy-submit/candidates")
-    @ResponseMessage("查询成功")
-    public List<ProxySubmitCandidateVO> listProxySubmitCandidates(
-            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-            @PathVariable Long instanceId) {
-        return taskInstanceService.listProxySubmitCandidates(TaskInstanceProxyCandidatesParamsBO.builder()
-                .instanceId(instanceId)
-                .userId(sessionContext.userId())
-                .orgId(sessionContext.orgId())
                 .build());
     }
 
