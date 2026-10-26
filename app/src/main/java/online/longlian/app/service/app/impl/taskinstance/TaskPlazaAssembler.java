@@ -35,7 +35,8 @@ public class TaskPlazaAssembler {
                                                     Map<Long, List<Integer>> itemSorts,
                                                     Map<Long, String> coverUrlByProjectId,
                                                     Map<Long, String> thumbnailUrlByProjectId,
-                                                    Map<Long, List<ItemStageNodeStatusBO>> nodesByItem) {
+                                                    Map<Long, List<ItemStageNodeStatusBO>> nodesByItem,
+                                              Long baseTaskId) {
         if (summaries.isEmpty()) {
             return Collections.emptyList();
         }
@@ -46,7 +47,7 @@ public class TaskPlazaAssembler {
         return summaries.stream()
                 .map(summary -> assembleGroup(summary,
                         rowsByProject.getOrDefault(summary.getProjectId(), Collections.emptyList()),
-                        itemSorts, coverUrlByProjectId, thumbnailUrlByProjectId, nodesByItem))
+                        itemSorts, coverUrlByProjectId, thumbnailUrlByProjectId, nodesByItem, baseTaskId))
                 .toList();
     }
 
@@ -55,7 +56,8 @@ public class TaskPlazaAssembler {
                                               Map<Long, List<Integer>> itemSorts,
                                               Map<Long, String> coverUrlByProjectId,
                                               Map<Long, String> thumbnailUrlByProjectId,
-                                              Map<Long, List<ItemStageNodeStatusBO>> nodesByItem) {
+                                              Map<Long, List<ItemStageNodeStatusBO>> nodesByItem,
+                                              Long baseTaskId) {
         // (条目, 阶段) 分组保持行序；SQL 已按 条目→阶段→并行组→创建时间 排序
         Map<String, List<PlazaTaskRowBO>> slotGroups = projectRows.stream()
                 .collect(Collectors.groupingBy(TaskPlazaAssembler::slotKey,
@@ -70,7 +72,9 @@ public class TaskPlazaAssembler {
             int filledSlots = parallelTotal - pendingSlots;
 
             for (PlazaTaskRowBO row : groupRows) {
-                if (row.getStatus() != TaskInstanceStatus.PENDING) {
+                // Keep all stage rows for slot counts; filter only the emitted cards.
+                if (row.getStatus() != TaskInstanceStatus.PENDING
+                        || (baseTaskId != null && !baseTaskId.equals(row.getBaseTaskId()))) {
                     continue;
                 }
                 List<Integer> sorts = itemSorts.get(row.getItemId());

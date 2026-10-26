@@ -12,6 +12,7 @@ import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
@@ -539,7 +540,7 @@ class ProjectServiceImplTest {
         Page<ProjectSearchResultBO> page = new Page<>(2, 10, 12);
         page.setRecords(List.of(row));
         when(projectMapper.selectSearchPage(any(), any())).thenReturn(page);
-        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+        when(projectAssembler.assembleList(List.of(project), 7L)).thenReturn(List.of(
                 ProjectListResultBO.builder().id(1L).metadata(original).build()));
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(ProjectListParamsBO.builder()
@@ -566,7 +567,7 @@ class ProjectServiceImplTest {
 
         assertThat(result.getList()).isEmpty();
         assertThat(result.getTotal()).isEqualTo(12);
-        verify(projectAssembler, never()).assembleList(any());
+        verify(projectAssembler, never()).assembleList(any(), any());
     }
 
     @Test
@@ -579,7 +580,7 @@ class ProjectServiceImplTest {
         page.setRecords(List.of(project));
         when(projectQueryBuilder.buildListQuery(params, null)).thenReturn(wrapper);
         when(projectMapper.selectPage(any(), any())).thenReturn(page);
-        when(projectAssembler.assembleList(List.of(project))).thenReturn(List.of(
+        when(projectAssembler.assembleList(List.of(project), params.getOrgId())).thenReturn(List.of(
                 ProjectListResultBO.builder().metadata(project.getMetadata()).build()));
 
         PageResultBO<ProjectListResultBO> result = service.getProjectList(params);
@@ -686,6 +687,22 @@ class ProjectServiceImplTest {
         ProjectDetailResultBO result = service.getProjectDetail(100L, 2L, 1L);
 
         assertThat(result.getHasItems()).isTrue();
+    }
+
+    @Test
+    void lockEnabledProject_rejectsForeignOrganization() {
+        when(projectMapper.selectOne(any())).thenReturn(enabledProject(2L));
+        assertThatThrownBy(() -> service.lockEnabledProject(new ProjectAccessParamsBO(100L, 99L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
+    void lockEnabledProject_rejectsDisabledProject() {
+        when(projectMapper.selectOne(any())).thenReturn(disabledProject());
+        assertThatThrownBy(() -> service.lockEnabledProject(new ProjectAccessParamsBO(100L, 1L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     private Project enabledProject(Long creatorId) {

@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,6 +64,15 @@ class BaseTaskServiceImplTest {
                 baseTaskAssembler,
                 new TaskFormService()
         );
+    }
+
+    @Test
+    void listPlazaTaskTypes_readsOnlyRequestedOrganization() {
+        var options = List.of(new PlazaTaskTypeOptionResultBO(7L, "translate"));
+        when(baseTaskMapper.selectPlazaTaskTypes(2L)).thenReturn(options);
+        assertThat(service.listPlazaTaskTypes(2L)).containsExactlyElementsOf(options);
+        verify(baseTaskMapper).selectPlazaTaskTypes(2L);
+        verifyNoInteractions(itemTaskNodeMapper, taskTemplateNodeMapper);
     }
 
     @Test

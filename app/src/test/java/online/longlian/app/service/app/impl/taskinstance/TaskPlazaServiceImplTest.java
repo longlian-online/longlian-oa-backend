@@ -72,6 +72,16 @@ class TaskPlazaServiceImplTest {
     }
 
     @Test
+    void getTaskPlaza_pagePastFilteredTotal_returnsEmptyWithoutQueryingEmptyIds() {
+        when(taskInstanceMapper.selectPlazaProjectCount(any())).thenReturn(1L);
+        when(taskInstanceMapper.selectPlazaProjectSummaries(any(), anyInt(), anyInt())).thenReturn(List.of());
+        var result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
+        assertThat(result.getTotal()).isEqualTo(1L);
+        assertThat(result.getList()).isEmpty();
+        verify(taskInstanceMapper, never()).selectPlazaTaskRows(any(), anyList());
+    }
+
+    @Test
     void getTaskPlaza_buildsSearchParamsAndAssembles() {
         when(taskInstanceMapper.selectPlazaProjectCount(any())).thenReturn(1L);
         PlazaProjectSummaryBO summary = new PlazaProjectSummaryBO();
@@ -87,7 +97,7 @@ class TaskPlazaServiceImplTest {
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
         PlazaProjectGroupVO group = PlazaProjectGroupVO.builder().projectId(100L).build();
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap(), any()))
                 .thenReturn(List.of(group));
 
         PageResultVO<PlazaProjectGroupVO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
@@ -111,10 +121,10 @@ class TaskPlazaServiceImplTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Long, List<Integer>>> sortsCaptor =
                 ArgumentCaptor.forClass(Map.class);
-        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), sortsCaptor.capture(), anyMap(), anyMap(), anyMap());
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), sortsCaptor.capture(), anyMap(), anyMap(), anyMap(), any());
         assertThat(sortsCaptor.getValue()).containsEntry(200L, List.of(1, 2));
         verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(),
-                eq(Map.of(100L, "http://cover/7")), eq(Map.of()), eq(Map.of()));
+                eq(Map.of(100L, "http://cover/7")), eq(Map.of()), eq(Map.of()), eq(null));
     }
 
     @Test
@@ -182,7 +192,7 @@ class TaskPlazaServiceImplTest {
         when(taskInstanceMapper.selectPlazaTaskRows(any(), anyList())).thenReturn(List.of());
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap(), any()))
                 .thenReturn(List.of());
 
         service.getTaskPlaza(params(PlazaSortBy.LATEST));
@@ -190,7 +200,7 @@ class TaskPlazaServiceImplTest {
         verify(resourceService).getResourceReadUrls(List.of(7L));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Long, String>> coverCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(), coverCaptor.capture(), anyMap(), anyMap());
+        verify(taskPlazaAssembler).assembleGroups(anyList(), anyList(), anyMap(), coverCaptor.capture(), anyMap(), anyMap(), any());
         assertThat(coverCaptor.getValue()).containsOnlyKeys(101L);
     }
 
@@ -216,7 +226,7 @@ class TaskPlazaServiceImplTest {
                 .thenReturn(Map.of(
                         8L, new ResourceReadUrlGetResultBO("http://thumb/8?token=abc&t=1", 10L, "t8"),
                         10L, new ResourceReadUrlGetResultBO("http://thumb/10", 10L, "t10")));
-        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap()))
+        when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap(), any()))
                 .thenReturn(List.of());
 
         service.getTaskPlaza(params(PlazaSortBy.LATEST));
@@ -228,7 +238,18 @@ class TaskPlazaServiceImplTest {
                 eq(Map.of(
                         100L, "http://thumb/8?token=abc&t=1&eo-img.resize=w/144/h/144",
                         101L, "http://thumb/10?eo-img.resize=w/144/h/144")),
-                eq(Map.of()));
+                eq(Map.of()), eq(null));
+    }
+
+    @Test
+    void getTaskPlaza_passesTaskTypeToProjectFiltering() {
+        when(taskInstanceMapper.selectPlazaProjectCount(any())).thenReturn(0L);
+        TaskPlazaParamsBO params = params(PlazaSortBy.MOST);
+        params.setBaseTaskId(8L);
+        service.getTaskPlaza(params);
+        ArgumentCaptor<TaskPlazaSearchParamsBO> captor = ArgumentCaptor.forClass(TaskPlazaSearchParamsBO.class);
+        verify(taskInstanceMapper).selectPlazaProjectCount(captor.capture());
+        assertThat(captor.getValue().getBaseTaskId()).isEqualTo(8L);
     }
 
     private TaskPlazaParamsBO params(PlazaSortBy sortBy) {

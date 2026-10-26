@@ -5,13 +5,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ItemOperationParamsBO {
-    private Long projectId;
-    private Long itemId;
-    private Long orgId;
-    private Long operatorId;
+public class UserConfigResultBO {
+    private Map<String, Object> config;
 }

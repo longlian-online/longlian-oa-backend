@@ -13,6 +13,8 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
@@ -35,6 +37,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -100,7 +103,7 @@ public class ProjectServiceImpl implements ProjectService {
         if (projects.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());
         }
-        return new PageResultBO<>(projectAssembler.assembleList(projects), projectPage.getTotal());
+        return new PageResultBO<>(projectAssembler.assembleList(projects, params.getOrgId()), projectPage.getTotal());
     }
 
     private PageResultBO<ProjectListResultBO> searchProjects(ProjectListParamsBO params, Long typeId) {
@@ -112,7 +115,7 @@ public class ProjectServiceImpl implements ProjectService {
             return new PageResultBO<>(Collections.emptyList(), searchPage.getTotal());
         }
         List<ProjectListResultBO> results = projectAssembler.assembleList(
-                records.stream().map(ProjectSearchResultBO::getProject).toList());
+                records.stream().map(ProjectSearchResultBO::getProject).toList(), params.getOrgId());
         for (int i = 0; i < results.size(); i++) {
             ProjectListResultBO result = results.get(i);
             result.setMetadata(ProjectSearchSupport.prioritizeMetadata(
@@ -320,6 +323,19 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可删除企划");
         }
         return project.getTitle();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ProjectAccessResultBO lockEnabledProject(ProjectAccessParamsBO params) {
+        Project project = projectMapper.selectOne(new LambdaQueryWrapper<Project>()
+                .eq(Project::getId, params.getProjectId())
+                .last("FOR UPDATE"));
+        if (project == null || !project.getOrgId().equals(params.getOrgId())
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
+        }
+        return new ProjectAccessResultBO(project.getCreatorId());
     }
 
     @Override

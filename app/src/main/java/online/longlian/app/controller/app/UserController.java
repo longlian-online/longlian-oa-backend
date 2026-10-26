@@ -13,6 +13,7 @@ import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
 import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
 import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
+import online.longlian.app.pojo.bo.app.UserConfigResultBO;
 import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
 import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
 import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
@@ -20,17 +21,21 @@ import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
 import online.longlian.app.pojo.dto.app.JoinByInviteCodeDTO;
 import online.longlian.app.pojo.dto.app.RegisterByInviteDTO;
 import online.longlian.app.pojo.dto.app.ResetPasswordDTO;
 import online.longlian.app.pojo.dto.app.ChangePasswordDTO;
 import online.longlian.app.pojo.dto.app.BindEmailDTO;
 import online.longlian.app.pojo.dto.app.UpdateMyInfoDTO;
+import online.longlian.app.pojo.dto.app.PatchUserConfigDTO;
+import online.longlian.app.pojo.dto.app.UpdateUserConfigDTO;
 import online.longlian.app.pojo.dto.common.OrgIdDTO;
 import online.longlian.app.pojo.vo.admin.OrgSimpleInfoVO;
 import online.longlian.app.pojo.vo.admin.UserOrgSwitchVO;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
+import online.longlian.app.pojo.vo.app.UserConfigVO;
 import online.longlian.app.service.app.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -155,6 +160,35 @@ public class UserController {
                         .nickname(updateMyInfoDTO.getNickname())
                         .avatarFileId(updateMyInfoDTO.getAvatarFileId())
                         .build());
+    }
+
+    @Operation(summary = "获取当前用户配置", description = "返回完整用户配置，未配置时为空对象。无需选择组织")
+    @GetMapping("/config")
+    public UserConfigVO getConfig(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext) {
+        UserConfigResultBO result = userService.getConfig(sessionContext.userId());
+        return new UserConfigVO(result.getConfig());
+    }
+
+    @Operation(summary = "整体替换当前用户配置", description = "用请求中的完整配置对象替换当前用户配置。无需选择组织")
+    @PutMapping("/config")
+    @ResponseMessage("用户配置已更新")
+    public void replaceConfig(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
+                              @RequestBody @Valid UpdateUserConfigDTO dto) {
+        userService.replaceConfig(UserConfigParamsBO.builder()
+                .userId(sessionContext.userId())
+                .config(dto.getConfig())
+                .build());
+    }
+
+    @Operation(summary = "部分更新当前用户配置", description = "只更新请求中出现的配置字段；值为 null 时删除该字段，其他字段保持不变。无需选择组织")
+    @PatchMapping("/config")
+    @ResponseMessage("用户配置已更新")
+    public void patchConfig(@UserSession(OrganizationDeclaration.NONE) SessionContext sessionContext,
+                            @RequestBody @Valid PatchUserConfigDTO dto) {
+        userService.patchConfig(UserConfigParamsBO.builder()
+                .userId(sessionContext.userId())
+                .config(dto.getConfig())
+                .build());
     }
 
     @Operation(summary = "获取用户加入的组织列表", description = "查询用户加入的组织列表")

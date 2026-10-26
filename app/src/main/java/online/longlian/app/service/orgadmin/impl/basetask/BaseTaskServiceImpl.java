@@ -30,6 +30,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +43,11 @@ public class BaseTaskServiceImpl implements BaseTaskService {
     private final BaseTaskQueryBuilder baseTaskQueryBuilder;
     private final BaseTaskAssembler baseTaskAssembler;
     private final TaskFormService taskFormService;
+
+    @Override
+    public List<PlazaTaskTypeOptionResultBO> listPlazaTaskTypes(Long orgId) {
+        return baseTaskMapper.selectPlazaTaskTypes(orgId);
+    }
 
     @Override
     public PageResultBO<BaseTaskListResultBO> listBaseTasks(BaseTaskListParamsBO params) {

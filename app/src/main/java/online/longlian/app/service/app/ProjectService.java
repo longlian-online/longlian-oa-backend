@@ -1,6 +1,8 @@
 package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
@@ -99,6 +101,9 @@ public interface ProjectService {
      * 确认当前用户是启用企划的负责人，并返回企划名称。
      */
     String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId);
+
+    /** 锁定启用企划，供调用方事务中的项目写入共用。 */
+    ProjectAccessResultBO lockEnabledProject(ProjectAccessParamsBO params);
 
     /**
      * 审核通过后软删除企划。调用方须已处理其下项目。

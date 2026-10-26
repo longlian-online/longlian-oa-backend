@@ -17,7 +17,11 @@ import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOperationParamsBO;
+import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
+import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
@@ -29,6 +33,7 @@ import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.service.app.ItemService;
+import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -42,6 +47,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,6 +75,7 @@ public class ItemServiceImpl implements ItemService {
     private final Clock clock;
     private final ItemQueryBuilder itemQueryBuilder;
     private final ItemAssembler itemAssembler;
+    private final ProjectService projectService;
 
     @Override
     public PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params) {
@@ -86,9 +97,72 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    public List<ItemOrderEntryResultBO> getProjectItemOrder(ItemOrderQueryParamsBO params) {
+        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+        return itemMapper.selectList(new LambdaQueryWrapper<Item>()
+                        .select(Item::getId, Item::getTitle)
+                        .eq(Item::getProjectId, params.getProjectId())
+                        .orderByAsc(Item::getSort, Item::getId)).stream()
+                .map(item -> new ItemOrderEntryResultBO(item.getId(), item.getTitle()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void reorderProjectItems(ItemReorderParamsBO params) {
+        lockProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
+        List<Long> expected = params.getExpectedItemIds();
+        List<Long> requested = params.getItemIds();
+        Set<Long> expectedSet = new HashSet<>(expected);
+        Set<Long> requestedSet = new HashSet<>(requested);
+        if (expectedSet.size() != expected.size() || requestedSet.size() != requested.size()
+                || !expectedSet.equals(requestedSet)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "排序前后必须包含相同且不重复的项目");
+        }
+
+        // 锁定当前读，避免复用外层事务较早建立的 MVCC 快照。
+        List<Item> items = itemMapper.selectList(new LambdaQueryWrapper<Item>()
+                .select(Item::getId, Item::getSort)
+                .eq(Item::getProjectId, params.getProjectId())
+                .orderByAsc(Item::getId)
+                .last("FOR UPDATE"));
+        if (items.size() != expectedSet.size()
+                || items.stream().anyMatch(item -> !expectedSet.contains(item.getId()))) {
+            throw orderConflict();
+        }
+        List<Long> current = items.stream()
+                .sorted(Comparator.comparing(Item::getSort).thenComparing(Item::getId))
+                .map(Item::getId).toList();
+        if (current.equals(requested)) {
+            return;
+        }
+        if (!current.equals(expected)) {
+            throw orderConflict();
+        }
+
+        Map<Long, Long> currentSorts = new HashMap<>();
+        items.forEach(item -> currentSorts.put(item.getId(), item.getSort()));
+        List<ItemSortUpdateBO> updates = new ArrayList<>();
+        for (int index = 0; index < requested.size(); index++) {
+            Long id = requested.get(index);
+            long sort = index + 1L;
+            if (currentSorts.get(id) != sort) {
+                updates.add(new ItemSortUpdateBO(id, sort));
+            }
+        }
+        if (!updates.isEmpty()) {
+            itemMapper.updateSorts(params.getProjectId(), updates);
+        }
+    }
+
+    private AppException orderConflict() {
+        return new AppException(ResultCode.OPERATION_FAIL, "项目列表或顺序已变化，请重新加载后再试");
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void createProjectItem(ItemCreateParamsBO params) {
-        checkProjectCreator(params.getProjectId(), params.getCreatorId(), params.getOrgId());
+        lockProjectCreator(params.getProjectId(), params.getCreatorId(), params.getOrgId());
 
         TaskTemplate template = taskTemplateMapper.selectById(params.getTaskTemplateId());
         if (template == null || template.getStatus() != Status.ENABLED) {
@@ -121,10 +195,17 @@ public class ItemServiceImpl implements ItemService {
                 .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
 
         LocalDateTime now = LocalDateTime.now(clock);
+        Item lastItem = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
+                .select(Item::getSort)
+                .eq(Item::getProjectId, params.getProjectId())
+                .orderByDesc(Item::getSort)
+                .last("LIMIT 1"));
+        long nextSort = lastItem == null ? 1L : lastItem.getSort() + 1L;
 
         Item item = Item.builder()
                 .projectId(params.getProjectId())
                 .title(params.getTitle())
+                .sort(nextSort)
                 .taskTemplateId(params.getTaskTemplateId())
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
@@ -182,26 +263,15 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteProjectItem(ItemOperationParamsBO params) {
-        checkProjectCreator(params.getProjectId(), params.getOperatorId(), params.getOrgId());
-        Item item = requireItem(params.getProjectId(), params.getItemId());
-        if (hasSubmittedTask(params.getItemId())) {
-            throw new AppException(ResultCode.PARAM_ERROR, "项目存在已提交任务，请提交删除申请");
-        }
-        softDeleteItem(item, params.getOrgId());
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
     public void deleteProjectItemForReview(Long projectId, Long itemId, Long orgId) {
-        requireEnabledProject(projectId, orgId);
+        projectService.lockEnabledProject(new ProjectAccessParamsBO(projectId, orgId));
         softDeleteItem(requireItem(projectId, itemId), orgId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectItemsForReview(Long projectId, Long orgId) {
-        requireEnabledProject(projectId, orgId);
+        projectService.lockEnabledProject(new ProjectAccessParamsBO(projectId, orgId));
         List<Item> items = itemMapper.selectList(new LambdaQueryWrapper<Item>().eq(Item::getProjectId, projectId));
         for (Item item : items) {
             softDeleteItem(item, orgId);
@@ -247,15 +317,6 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
         return item;
-    }
-
-    private Project requireEnabledProject(Long projectId, Long orgId) {
-        Project project = projectMapper.selectById(projectId);
-        if (project == null || !project.getOrgId().equals(orgId)
-                || project.getResourceStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
-        }
-        return project;
     }
 
     private void softDeleteItem(Item item, Long orgId) {
@@ -313,6 +374,14 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
         if (!project.getCreatorId().equals(userId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
+        }
+    }
+
+    private void lockProjectCreator(Long projectId, Long userId, Long orgId) {
+        Long creatorId = projectService.lockEnabledProject(new ProjectAccessParamsBO(projectId, orgId))
+                .getCreatorId();
+        if (!creatorId.equals(userId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
     }

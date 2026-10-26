@@ -75,12 +75,14 @@ CREATE TABLE `item` (
   `id` bigint NOT NULL,
   `project_id` bigint NOT NULL COMMENT "所属企划ID",
   `title` varchar(100) NOT NULL COMMENT "项目名称",
+  `sort` bigint NOT NULL DEFAULT 0 COMMENT "企划内项目展示顺序",
   `task_template_id` bigint NOT NULL COMMENT "创建时关联的任务模板ID（仅记录溯源）",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_item_project_order` (`project_id`, `deleted_at`, `sort`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "项目表";
 -- Create "item_task_flow" table
 CREATE TABLE `item_task_flow` (
@@ -179,6 +181,38 @@ CREATE TABLE `organization_member` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_org_member_user` (`org_id`, `user_id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织成员表";
+-- Create "organization_preset_tag" table
+CREATE TABLE `organization_preset_tag` (
+  `id` bigint NOT NULL COMMENT "组织预制标签ID",
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `name` varchar(50) NOT NULL COMMENT "标签名",
+  `color` varchar(16) NULL COMMENT "颜色，空为默认。blue/green/amber/rose/violet",
+  `priority` int NOT NULL DEFAULT 0 COMMENT "优先级，仅用户端下拉按值降序",
+  `creator_id` bigint NOT NULL COMMENT "创建人ID",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_org_preset_tag_org` (`org_id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织预制标签表";
+-- Create "outbox_message" table
+CREATE TABLE `outbox_message` (
+  `id` bigint NOT NULL COMMENT "消息ID",
+  `type` tinyint NOT NULL COMMENT "投递类型 1-INBOX_EMAIL",
+  `dedupe_key` varchar(64) NOT NULL COMMENT "同一类型内的幂等键",
+  `payload` json NOT NULL COMMENT "该 type 专用的 JSON",
+  `status` tinyint NOT NULL COMMENT "1-PENDING 2-PROCESSING 3-SENT 4-FAILED 5-SKIPPED",
+  `attempt_count` int NOT NULL DEFAULT 0 COMMENT "已领取次数，含崩溃后再次领取",
+  `available_at` datetime NOT NULL COMMENT "PENDING 可领取时间",
+  `locked_until` datetime NULL COMMENT "PROCESSING 租约",
+  `last_error` varchar(500) NULL COMMENT "最近一次失败或跳过原因，不含邮箱地址和正文",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_outbox_message_dedupe` (`type`, `dedupe_key`),
+  INDEX `idx_outbox_message_pending` (`status`, `available_at`, `id`),
+  INDEX `idx_outbox_message_processing` (`status`, `locked_until`, `id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "通用 outbox。一种 type 对应一个投递器";
 -- Create "permission" table
 CREATE TABLE `permission` (
   `id` bigint NOT NULL COMMENT "权限ID",
@@ -407,6 +441,7 @@ CREATE TABLE `user` (
   `email` varchar(100) NULL DEFAULT NULL COMMENT "邮箱（登录/通知，未绑定时为NULL）",
   `avatar_file_id` bigint NULL COMMENT "用户头像",
   `default_org_id` bigint NOT NULL DEFAULT 0 COMMENT "默认组织ID",
+  `config` json NOT NULL DEFAULT '{}' COMMENT "用户配置",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
