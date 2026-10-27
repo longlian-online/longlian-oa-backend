@@ -8,6 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -384,6 +385,69 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldPageJoinInviteCodesWithoutExpiredRows() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "其他组织");
+        String token = loginAs("orgadmin", "123456");
+        LocalDateTime created = LocalDateTime.of(2026, 10, 1, 0, 0);
+        LocalDateTime open = testNow().plusDays(2);
+        insertJoinInvite(201L, 301L, "OLD001", 1L, created, open, 0, null, 0, null);
+        insertJoinInvite(102L, 102L, "NEW001", 1L, created.plusDays(1), open, 1, 3, 0, null);
+        insertJoinInvite(103L, 103L, "FULL01", 1L, created.plusDays(2), open, 2, 2, 0, null);
+        insertJoinInvite(104L, 104L, "GONE01", 1L, created.plusDays(3), testNow().minusMinutes(1), 0, null, 0, null);
+        insertJoinInvite(105L, 105L, "OTHER1", 2L, created.plusDays(4), open, 0, null, 0, null);
+        insertJoinInvite(106L, 106L, "DROP01", 1L, created.plusDays(5), open, 0, null, 0, testNow());
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 2))
+                .post("/orgadmin/members/invite-codes")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.list", hasSize(2))
+                .body("data.list[0].inviteCode", equalTo("FULL01"))
+                .body("data.list[0].status", equalTo("USED"))
+                .body("data.list[0].useCount", equalTo(2))
+                .body("data.list[1].inviteCode", equalTo("NEW001"))
+                .body("data.list[1].status", equalTo("PENDING"));
+
+        Response secondPage = authRequest(token)
+                .body(Map.of("pageNum", 2, "pageSize", 2))
+                .post("/orgadmin/members/invite-codes");
+        secondPage.then()
+                .statusCode(200)
+                .body("data.total", equalTo(3))
+                .body("data.list", hasSize(1))
+                .body("data.list[0].inviteCode", equalTo("OLD001"));
+        assertThat(secondPage.jsonPath().getLong("data.list[0].id")).isEqualTo(201L);
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "status", "PENDING"))
+                .post("/orgadmin/members/invite-codes")
+                .then()
+                .statusCode(200)
+                .body("data.total", equalTo(2))
+                .body("data.list[0].inviteCode", equalTo("NEW001"))
+                .body("data.list[1].inviteCode", equalTo("OLD001"));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "status", "USED"))
+                .post("/orgadmin/members/invite-codes")
+                .then()
+                .statusCode(200)
+                .body("data.total", equalTo(1))
+                .body("data.list[0].inviteCode", equalTo("FULL01"));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10, "status", "NOPE"))
+                .post("/orgadmin/members/invite-codes")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
     void shouldRejectRevokingInviteFromAnotherOrganization() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createOrganization(2L, "其他组织");
@@ -488,6 +552,18 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT org_role FROM organization_member WHERE id = 2", String.class)).isEqualTo("ORG_USER");
+    }
+
+    private void insertJoinInvite(long id, long otpId, String code, long orgId, LocalDateTime createdAt,
+                                   LocalDateTime expiredAt, int useCount, Integer maxUses, int status,
+                                   LocalDateTime deletedAt) {
+        jdbcTemplate.update(
+                "INSERT INTO one_time_password (id, code, expired_at, max_uses, use_count, biz_type, status, creator_id, created_at) "
+                        + "VALUES (?, ?, ?, ?, ?, 2, ?, 0, ?)",
+                otpId, code, expiredAt, maxUses, useCount, status, createdAt);
+        jdbcTemplate.update(
+                "INSERT INTO organization_join_otp (id, otp_id, org_id, deleted_at) VALUES (?, ?, ?, ?)",
+                id, otpId, orgId, deletedAt);
     }
 
 }
