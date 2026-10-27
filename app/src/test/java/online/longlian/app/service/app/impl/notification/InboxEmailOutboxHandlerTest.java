@@ -109,6 +109,25 @@ class InboxEmailOutboxHandlerTest {
     }
 
     @Test
+    void shouldSendAssignmentCopyToAssignee() throws Exception {
+        String assigned = "「企划 · 项目」的「翻译 · 2/2」已分配给你，无需手动领取。";
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目",
+                new NotificationTaskSlotBO("翻译", 2, 2, null))));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+
+        handler.deliver(message(InboxNotificationKind.TASK_ASSIGNED, 202L), EXECUTE_TIME);
+
+        assertThat(sent().content()).contains(HtmlUtils.htmlEscape(assigned));
+        assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(link(InboxNotificationKind.TASK_ASSIGNED, 202L)) + "\"");
+        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 任务分配");
+        assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_ASSIGNED, new NotificationSourceResultBO(
+                1L, "企划", 7L, "项目", new NotificationTaskSlotBO("翻译", 2, 2, null)))).isEqualTo(assigned);
+    }
+
+
+
+
+    @Test
     void shouldNotRescanPlaceholdersInsertedByDisplayNameOrMessage() throws Exception {
         InboxEmailOutboxHandler named = handler(new DefaultResourceLoader(), "名${displayName}");
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划${message}", "项目${displayName}", null)));

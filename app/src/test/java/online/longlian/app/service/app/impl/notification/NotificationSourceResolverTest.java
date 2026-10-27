@@ -50,7 +50,7 @@ class NotificationSourceResolverTest {
         Map<Long, NotificationResolvedSourceBO> result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
                 new NotificationSourceRefBO(1L, InboxNotificationKind.TASK_READY, 7L),
                 new NotificationSourceRefBO(2L, InboxNotificationKind.ITEM_COMPLETED, 7L),
-                new NotificationSourceRefBO(3L, InboxNotificationKind.TASK_READY, 7L))));
+                new NotificationSourceRefBO(3L, InboxNotificationKind.TASK_ASSIGNED, 7L))));
         assertThat(result.get(1L).getSource().getItemId()).isEqualTo(8L);
         assertThat(result.get(1L).getSource().getProjectId()).isEqualTo(9L);
         assertThat(result.get(1L).getSource().getTaskSlot().getSerialStep()).isEqualTo(2);
