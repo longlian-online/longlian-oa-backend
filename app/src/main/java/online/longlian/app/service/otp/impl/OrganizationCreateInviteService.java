@@ -38,6 +38,7 @@ public class OrganizationCreateInviteService implements OTPStrategyService {
                 OneTimePasswordCreateParamsBO.builder()
                         .code(inviteCode)
                         .expiredAt(otpGenerateContextBO.getExpiredAt())
+                        .maxUses(1)
                         .bizType(OTPType.OrganizationInvite)
                         .creatorId(otpGenerateContextBO.getCreatorId())
                         .build()

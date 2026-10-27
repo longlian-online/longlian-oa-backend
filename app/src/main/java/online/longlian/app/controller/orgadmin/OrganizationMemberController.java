@@ -23,15 +23,20 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
-import online.longlian.app.pojo.dto.common.GenerateInviteCodeDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationReviewDTO;
+import online.longlian.app.pojo.dto.orgadmin.GenerateJoinInviteCodeDTO;
+import online.longlian.app.pojo.dto.orgadmin.JoinInviteCodeListDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgMemberListDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgMemberChangeRoleDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
+import online.longlian.app.pojo.vo.orgadmin.JoinInviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
@@ -199,21 +204,62 @@ public class OrganizationMemberController {
     }
 
     @Operation(
+        summary = "分页查询加入组织邀请码",
+        description = "只返回当前组织尚未手动失效的邀请码，按创建时间倒序"
+    )
+    @PostMapping("/invite-codes")
+    @ResponseMessage("查询成功")
+    public PageResultVO<JoinInviteCodeVO> listJoinInviteCodes(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @RequestBody @Valid JoinInviteCodeListDTO dto) {
+        PageResultBO<OrgAdminJoinInviteCodeResultBO> resultBO = organizationMemberService.listJoinInviteCodes(
+                OrgAdminJoinInviteCodeListParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .status(dto.getStatus())
+                        .page(new PageParamsBO(dto.getPageNum(), dto.getPageSize()))
+                        .build()
+        );
+        List<JoinInviteCodeVO> list = resultBO.getList().stream()
+                .map(bo -> {
+                    JoinInviteCodeVO vo = new JoinInviteCodeVO();
+                    BeanUtils.copyProperties(bo, vo);
+                    return vo;
+                })
+                .toList();
+        return new PageResultVO<>(list, resultBO.getTotal());
+    }
+
+    @Operation(
         summary = "生成加入组织邀请码（管理员）",
-        description = "生成一次性邀请码（6位字母数字），到期时间由邀请人指定；供组织管理员邀请用户加入当前组织使用"
+        description = "生成 6 位字母数字邀请码。不传使用上限表示不限次数，邀请码没有到期时间"
     )
     @PostMapping("/invite-codes/join-org")
     @ResponseMessage("生成成功")
     public InviteCodeVO generateJoinOrgInviteCode(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-            @RequestBody @Valid GenerateInviteCodeDTO dto) {
+            @RequestBody(required = false) @Valid GenerateJoinInviteCodeDTO dto) {
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
                 new OrgAdminGenerateJoinOrgInviteCodeParamsBO(
-                        sessionContext.userId(), sessionContext.orgId(), dto.getExpiredAt())
+                        sessionContext.userId(), sessionContext.orgId(), dto == null ? null : dto.getMaxUses())
         );
         return InviteCodeVO.builder()
+                .id(resultBO.getId())
                 .inviteCode(resultBO.getInviteCode())
-                .expireAt(resultBO.getExpireAt())
+                .maxUses(resultBO.getMaxUses())
                 .build();
+    }
+
+    @Operation(summary = "手动失效加入组织邀请码", description = "只能失效当前组织仍待使用的邀请码，失效后不再展示")
+    @Parameter(name = "inviteId", description = "邀请记录 ID")
+    @PostMapping("/invite-codes/{inviteId}/revoke")
+    @ResponseMessage("邀请码已失效")
+    public void revokeJoinInviteCode(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long inviteId) {
+        organizationMemberService.revokeJoinInviteCode(
+                OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .inviteId(inviteId)
+                        .build());
     }
 }

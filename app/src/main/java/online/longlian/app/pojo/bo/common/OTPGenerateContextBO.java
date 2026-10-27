@@ -18,4 +18,5 @@ public class OTPGenerateContextBO {
     private EmailVerifyBusinessType businessType;
     private Long orgId;
     private LocalDateTime expiredAt;
+    private Integer maxUses;
 }

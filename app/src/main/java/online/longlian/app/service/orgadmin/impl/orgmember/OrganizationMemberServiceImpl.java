@@ -16,6 +16,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
@@ -28,6 +31,7 @@ import online.longlian.app.pojo.entity.*;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
@@ -39,22 +43,23 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 @Service
 @RequiredArgsConstructor
 public class OrganizationMemberServiceImpl implements OrganizationMemberService {
 
-    private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
-
-
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
+    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    private final OneTimePasswordMapper oneTimePasswordMapper;
     private final OTPServiceFactory otpServiceFactory;
 
     private final MemberQueryBuilder memberQueryBuilder;
@@ -185,13 +190,113 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
                         .orgId(params.getOrgId())
-                        .expiredAt(params.getExpiredAt())
+                        .maxUses(params.getMaxUses())
                         .build()
         );
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationJoinOtp>()
+                        .eq(OrganizationJoinOtp::getOtpId, otp.getId())
+                        .last("LIMIT 1")
+        );
         return OrgAdminGenerateJoinOrgInviteCodeResultBO.builder()
+                .id(joinOtp.getId())
                 .inviteCode(otp.getCode())
-                .expireAt(otp.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
+                .maxUses(otp.getMaxUses())
                 .build();
+    }
+
+    @Override
+    public PageResultBO<OrgAdminJoinInviteCodeResultBO> listJoinInviteCodes(@NonNull OrgAdminJoinInviteCodeListParamsBO params) {
+        // 列表同时受组织归属和验证码状态约束，OTP 策略不承载管理端分页。
+        OTPStatus status = parseInviteStatus(params.getStatus());
+        List<OrganizationJoinOtp> joins = organizationJoinOtpMapper.selectList(
+                new LambdaQueryWrapper<OrganizationJoinOtp>()
+                        .eq(OrganizationJoinOtp::getOrgId, params.getOrgId()));
+        if (joins.isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), 0L);
+        }
+        Map<Long, OrganizationJoinOtp> joinsByOtpId = joins.stream()
+                .collect(Collectors.toMap(OrganizationJoinOtp::getOtpId, join -> join, (left, right) -> left));
+        List<OrgAdminJoinInviteCodeResultBO> matched = oneTimePasswordMapper.selectList(
+                new LambdaQueryWrapper<OneTimePassword>().in(OneTimePassword::getId, joinsByOtpId.keySet())).stream()
+                .filter(otp -> otp.getStatus() != OTPStatus.REVOKED)
+                .filter(otp -> matchesInviteStatus(otp, status))
+                .sorted(Comparator.comparing(OneTimePassword::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(OneTimePassword::getId, Comparator.reverseOrder()))
+                .map(otp -> toInviteResult(joinsByOtpId.get(otp.getId()), otp))
+                .toList();
+        int from = Math.min((params.getPage().getPageNum() - 1) * params.getPage().getPageSize(), matched.size());
+        int to = Math.min(from + params.getPage().getPageSize(), matched.size());
+        return new PageResultBO<>(matched.subList(from, to), (long) matched.size());
+    }
+
+    @Override
+    public void revokeJoinInviteCode(@NonNull OrgAdminRevokeJoinInviteCodeParamsBO params) {
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectById(params.getInviteId());
+        if (joinOtp == null || !params.getOrgId().equals(joinOtp.getOrgId())) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "邀请码不存在");
+        }
+        OneTimePassword otp = oneTimePasswordMapper.selectById(joinOtp.getOtpId());
+        if (otp == null || otp.getBizType() != OTPType.OrganizationUserInvite) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "邀请码不存在");
+        }
+        if (otp.getStatus() == OTPStatus.REVOKED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已失效");
+        }
+        if (otp.getStatus() != OTPStatus.PENDING || isExhausted(otp)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已用尽，不能失效");
+        }
+        int rows = oneTimePasswordMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OneTimePassword>()
+                        .eq(OneTimePassword::getId, otp.getId())
+                        .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
+                        .set(OneTimePassword::getStatus, OTPStatus.REVOKED)
+                        .set(OneTimePassword::getUpdatedAt, LocalDateTime.now(clock)));
+        if (rows == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已失效");
+        }
+    }
+
+    private OTPStatus parseInviteStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            OTPStatus parsed = OTPStatus.valueOf(status);
+            if (parsed == OTPStatus.REVOKED) {
+                throw new IllegalArgumentException();
+            }
+            return parsed;
+        } catch (IllegalArgumentException ex) {
+            throw new AppException(ResultCode.PARAM_ERROR, "邀请码状态不正确");
+        }
+    }
+
+    private boolean matchesInviteStatus(OneTimePassword otp, OTPStatus status) {
+        if (status == null) {
+            return true;
+        }
+        return (isExhausted(otp) ? OTPStatus.USED : otp.getStatus()) == status;
+    }
+
+    private OrgAdminJoinInviteCodeResultBO toInviteResult(OrganizationJoinOtp joinOtp, OneTimePassword otp) {
+        OTPStatus status = isExhausted(otp) ? OTPStatus.USED : otp.getStatus();
+        return OrgAdminJoinInviteCodeResultBO.builder()
+                .id(joinOtp.getId())
+                .inviteCode(otp.getCode())
+                .useCount(otp.getUseCount() == null ? 0 : otp.getUseCount())
+                .maxUses(otp.getMaxUses())
+                .status(status.name())
+                .createdAt(otp.getCreatedAt())
+                .build();
+    }
+
+    private boolean isExhausted(OneTimePassword otp) {
+        if (otp.getMaxUses() == null) {
+            return false;
+        }
+        int useCount = otp.getUseCount() == null ? 0 : otp.getUseCount();
+        return useCount >= otp.getMaxUses();
     }
 
     private void updateMemberRole(Long memberId, String orgRole) {

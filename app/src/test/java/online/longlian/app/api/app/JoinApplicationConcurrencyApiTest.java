@@ -75,6 +75,8 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code='JOIN02'", Integer.class))
                 .isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT use_count FROM one_time_password WHERE code='JOIN01'", Integer.class))
+                .isEqualTo(1);
     }
 
     /** 在等待期间先提交并批准另一申请时，旧快照请求必须识别新成员，不能再留下待审申请。 */
@@ -137,6 +139,8 @@ class JoinApplicationConcurrencyApiTest extends BaseApiTest {
                 Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM one_time_password WHERE code = 'JOIN02'",
                 Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT use_count FROM one_time_password WHERE code = 'JOIN01'",
+                Integer.class)).isEqualTo(1);
     }
 
     private Response afterEarlierSnapshot(Supplier<Response> delayedRequest, Runnable interveningWrite) throws Exception {

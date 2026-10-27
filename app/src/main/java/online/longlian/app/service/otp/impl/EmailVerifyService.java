@@ -79,6 +79,7 @@ public class EmailVerifyService implements OTPStrategyService {
                 OneTimePasswordCreateParamsBO.builder()
                         .code(code)
                         .expiredAt(now.plusSeconds(CommonConstants.CODE_EXPIRE))
+                        .maxUses(1)
                         .bizType(OTPType.EmailVerify)
                         .creatorId(otpGenerateContextBO.getCreatorId() != null ? otpGenerateContextBO.getCreatorId() : 0L)
                         .build()
