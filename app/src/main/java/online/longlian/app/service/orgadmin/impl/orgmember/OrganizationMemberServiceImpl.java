@@ -16,6 +16,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
@@ -28,6 +31,7 @@ import online.longlian.app.pojo.entity.*;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
@@ -51,10 +55,11 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
-
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
+    private final OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    private final OneTimePasswordMapper oneTimePasswordMapper;
     private final OTPServiceFactory otpServiceFactory;
 
     private final MemberQueryBuilder memberQueryBuilder;
@@ -186,12 +191,84 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                         .creatorId(params.getCreatorId())
                         .orgId(params.getOrgId())
                         .expiredAt(params.getExpiredAt())
+                        .maxUses(params.getMaxUses())
                         .build()
         );
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectOne(
+                new LambdaQueryWrapper<OrganizationJoinOtp>()
+                        .eq(OrganizationJoinOtp::getOtpId, otp.getId())
+                        .last("LIMIT 1")
+        );
         return OrgAdminGenerateJoinOrgInviteCodeResultBO.builder()
+                .id(joinOtp.getId())
                 .inviteCode(otp.getCode())
-                .expireAt(otp.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
+                .maxUses(otp.getMaxUses())
+                .expiredAt(otp.getExpiredAt())
                 .build();
+    }
+
+    @Override
+    public PageResultBO<OrgAdminJoinInviteCodeResultBO> listJoinInviteCodes(@NonNull OrgAdminJoinInviteCodeListParamsBO params) {
+        OTPStatus status = parseInviteStatus(params.getStatus());
+        Page<OrgAdminJoinInviteCodeResultBO> invitePage = organizationJoinOtpMapper.selectActiveJoinInviteCodePage(
+                new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize()),
+                params.getOrgId(),
+                status,
+                OTPStatus.USED,
+                OTPType.OrganizationUserInvite,
+                LocalDateTime.now(clock));
+        return new PageResultBO<>(invitePage.getRecords(), invitePage.getTotal());
+    }
+
+    @Override
+    public void revokeJoinInviteCode(@NonNull OrgAdminRevokeJoinInviteCodeParamsBO params) {
+        OrganizationJoinOtp joinOtp = organizationJoinOtpMapper.selectById(params.getInviteId());
+        if (joinOtp == null || !params.getOrgId().equals(joinOtp.getOrgId())) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "邀请码不存在");
+        }
+        OneTimePassword otp = oneTimePasswordMapper.selectById(joinOtp.getOtpId());
+        if (otp == null || otp.getBizType() != OTPType.OrganizationUserInvite) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "邀请码不存在");
+        }
+        if (isExpired(otp)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
+        }
+        if (otp.getStatus() != OTPStatus.PENDING || isExhausted(otp)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已用尽，不能失效");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        int rows = oneTimePasswordMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OneTimePassword>()
+                        .eq(OneTimePassword::getId, otp.getId())
+                        .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
+                        .set(OneTimePassword::getExpiredAt, now)
+                        .set(OneTimePassword::getUpdatedAt, now));
+        if (rows == 0) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
+        }
+    }
+
+    private OTPStatus parseInviteStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return OTPStatus.valueOf(status);
+        } catch (IllegalArgumentException ex) {
+            throw new AppException(ResultCode.PARAM_ERROR, "邀请码状态不正确");
+        }
+    }
+
+    private boolean isExpired(OneTimePassword otp) {
+        return otp.getExpiredAt() != null && !otp.getExpiredAt().isAfter(LocalDateTime.now(clock));
+    }
+
+    private boolean isExhausted(OneTimePassword otp) {
+        if (otp.getMaxUses() == null) {
+            return false;
+        }
+        int useCount = otp.getUseCount() == null ? 0 : otp.getUseCount();
+        return useCount >= otp.getMaxUses();
     }
 
     private void updateMemberRole(Long memberId, String orgRole) {

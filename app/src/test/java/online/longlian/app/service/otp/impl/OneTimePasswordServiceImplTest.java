@@ -46,6 +46,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
                 .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .maxUses(1)
                 .bizType(OTPType.EmailVerify)
                 .creatorId(1L)
                 .build();
@@ -55,19 +56,39 @@ class OneTimePasswordServiceImplTest {
 
         assertThat(result.getCode()).isEqualTo("123456");
         assertThat(result.getStatus()).isEqualTo(OTPStatus.PENDING);
+        assertThat(result.getUseCount()).isZero();
         verify(oneTimePasswordMapper).insert(any(OneTimePassword.class));
+    }
+
+    @Test
+    void generateOTP_allowsJoinInviteWithoutExpiry() {
+        OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
+                .code("JOIN01")
+                .expiredAt(LocalDateTime.now(clock).plusDays(1))
+                .maxUses(null)
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .build();
+        when(oneTimePasswordMapper.insert(any(OneTimePassword.class))).thenReturn(1);
+
+        OneTimePassword result = service.generateOTP(params);
+
+        assertThat(result.getExpiredAt()).isEqualTo(LocalDateTime.now(clock).plusDays(1));
+        assertThat(result.getMaxUses()).isNull();
     }
 
     @Test
     void generateOTP_rejectsExpiryThatIsNotInTheFuture() {
         OneTimePasswordCreateParamsBO missing = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
+                .maxUses(1)
                 .bizType(OTPType.OrganizationInvite)
                 .creatorId(1L)
                 .build();
         OneTimePasswordCreateParamsBO past = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
                 .expiredAt(LocalDateTime.now(clock))
+                .maxUses(1)
                 .bizType(OTPType.OrganizationUserInvite)
                 .creatorId(1L)
                 .build();
@@ -78,6 +99,37 @@ class OneTimePasswordServiceImplTest {
         assertThatThrownBy(() -> service.generateOTP(past))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("到期时间必须晚于当前时间");
+        verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
+    }
+
+    @Test
+    void generateOTP_rejectsUnlimitedUsesOutsideJoinInvite() {
+        OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
+                .code("123456")
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .bizType(OTPType.EmailVerify)
+                .creatorId(1L)
+                .build();
+
+        assertThatThrownBy(() -> service.generateOTP(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("只有加入组织邀请码可以不限次数");
+        verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
+    }
+
+    @Test
+    void generateOTP_rejectsNonPositiveMaxUses() {
+        OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
+                .code("123456")
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .maxUses(0)
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .build();
+
+        assertThatThrownBy(() -> service.generateOTP(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("使用次数必须为正整数");
         verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
     }
 
@@ -145,7 +197,7 @@ class OneTimePasswordServiceImplTest {
     void useOTP_valid_updatesStatus() {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
-                .status(OTPStatus.PENDING).usedAt(null)
+                .status(OTPStatus.PENDING).usedAt(null).useCount(0).maxUses(1)
                 .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .build();
         when(oneTimePasswordMapper.selectById(1L)).thenReturn(otp);
@@ -160,7 +212,7 @@ class OneTimePasswordServiceImplTest {
     void useOTP_concurrentUse_throws() {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(1L).code("123456").bizType(OTPType.EmailVerify)
-                .status(OTPStatus.PENDING).usedAt(null)
+                .status(OTPStatus.PENDING).usedAt(null).useCount(0).maxUses(1)
                 .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
                 .build();
         when(oneTimePasswordMapper.selectById(1L)).thenReturn(otp);
@@ -169,5 +221,57 @@ class OneTimePasswordServiceImplTest {
         assertThatThrownBy(() -> service.useOTP(1L))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("已被使用");
+    }
+
+    @Test
+    void getValidOTP_unlimitedJoinInviteWithoutExpiry_returnsOtp() {
+        OneTimePassword otp = OneTimePassword.builder()
+                .id(2L).code("JOIN01").bizType(OTPType.OrganizationUserInvite)
+                .status(OTPStatus.PENDING).useCount(4)
+                .build();
+        when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
+
+        assertThat(service.getValidOTP("JOIN01", OTPType.OrganizationUserInvite).getId()).isEqualTo(2L);
+    }
+
+    @Test
+    void getValidOTP_exhaustedLimitedInvite_throws() {
+        OneTimePassword otp = OneTimePassword.builder()
+                .id(3L).code("JOIN02").bizType(OTPType.OrganizationUserInvite)
+                .status(OTPStatus.PENDING).useCount(2).maxUses(2)
+                .build();
+        when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
+
+        assertThatThrownBy(() -> service.getValidOTP("JOIN02", OTPType.OrganizationUserInvite))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("已使用");
+    }
+
+    @Test
+    void getValidOTP_expiredInvite_throws() {
+        OneTimePassword otp = OneTimePassword.builder()
+                .id(4L).code("JOIN03").bizType(OTPType.OrganizationUserInvite)
+                .status(OTPStatus.PENDING).useCount(1)
+                .expiredAt(LocalDateTime.now(clock))
+                .build();
+        when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
+
+        assertThatThrownBy(() -> service.getValidOTP("JOIN03", OTPType.OrganizationUserInvite))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("已过期");
+    }
+
+    @Test
+    void useOTP_reusableInvite_keepsPendingUntilLimit() {
+        OneTimePassword otp = OneTimePassword.builder()
+                .id(5L).code("JOIN04").bizType(OTPType.OrganizationUserInvite)
+                .status(OTPStatus.PENDING).useCount(1).maxUses(3)
+                .build();
+        when(oneTimePasswordMapper.selectById(5L)).thenReturn(otp);
+        when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(1);
+
+        service.useOTP(5L);
+
+        verify(oneTimePasswordMapper).update(isNull(), any());
     }
 }

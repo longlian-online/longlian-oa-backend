@@ -15,8 +15,10 @@ import java.time.LocalDateTime;
 public class OneTimePasswordCreateParamsBO {
     // 验证码
     private String code;
-    // 过期时间
+    // 过期时间，为空表示不过期
     private LocalDateTime expiredAt;
+    // 使用上限，为空表示不限次数
+    private Integer maxUses;
     // 业务类型
     private OTPType bizType;
     // 创建者 ID

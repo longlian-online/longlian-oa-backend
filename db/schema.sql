@@ -119,8 +119,10 @@ CREATE TABLE `item_task_node` (
 CREATE TABLE `one_time_password` (
   `id` bigint unsigned NOT NULL,
   `code` varchar(128) NOT NULL COMMENT "验证码",
-  `expired_at` datetime NOT NULL COMMENT "过期时间",
+  `expired_at` datetime NULL COMMENT "过期时间，为空表示不过期",
   `used_at` datetime NULL COMMENT "使用时间",
+  `max_uses` int NULL COMMENT "使用上限，为空表示不限次数",
+  `use_count` int NOT NULL DEFAULT 0 COMMENT "已使用次数",
   `biz_type` tinyint NOT NULL COMMENT "业务类型 1-邀请创建组织 2-邀请加入组织 3-邮箱验证码",
   `status` tinyint NOT NULL COMMENT "状态 0-待使用 1-已使用",
   `creator_id` bigint NOT NULL COMMENT "创建者 ID",

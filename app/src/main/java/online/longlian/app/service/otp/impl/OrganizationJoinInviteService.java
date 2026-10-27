@@ -1,6 +1,5 @@
 package online.longlian.app.service.otp.impl;
 
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
@@ -45,6 +44,7 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
                 OneTimePasswordCreateParamsBO.builder()
                         .code(inviteCode)
                         .expiredAt(otpGenerateContextBO.getExpiredAt())
+                        .maxUses(otpGenerateContextBO.getMaxUses())
                         .bizType(OTPType.OrganizationUserInvite)
                         .creatorId(otpGenerateContextBO.getCreatorId())
                         .build()
@@ -68,14 +68,6 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
     @Transactional(rollbackFor = Exception.class)
     public void use(OTPUseContextBO otpUseContextBO) {
         oneTimePasswordService.useOTP(otpUseContextBO.getOtpId());
-        if (otpUseContextBO.getUserId() != null) {
-            organizationJoinOtpMapper.update(
-                    null,
-                    new LambdaUpdateWrapper<OrganizationJoinOtp>()
-                            .eq(OrganizationJoinOtp::getOtpId, otpUseContextBO.getOtpId())
-                            .set(OrganizationJoinOtp::getInvitedUserId, otpUseContextBO.getUserId())
-            );
-        }
     }
 
     private Organization getEnabledOrganization(Long orgId) {

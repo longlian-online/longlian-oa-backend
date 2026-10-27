@@ -13,4 +13,5 @@ public class OrgAdminGenerateJoinOrgInviteCodeParamsBO {
     private Long creatorId;
     private Long orgId;
     private LocalDateTime expiredAt;
+    private Integer maxUses;
 }

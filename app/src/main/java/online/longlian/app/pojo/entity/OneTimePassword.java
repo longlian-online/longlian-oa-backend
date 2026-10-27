@@ -44,9 +44,9 @@ public class OneTimePassword implements Serializable {
     private String code;
 
     /**
-     * 过期时间
+     * 过期时间，为空表示不过期
      */
-    @ApiModelProperty("过期时间")
+    @ApiModelProperty("过期时间，为空表示不过期")
     @TableField("expired_at")
     private LocalDateTime expiredAt;
 
@@ -56,6 +56,20 @@ public class OneTimePassword implements Serializable {
     @TableField("used_at")
     @ApiModelProperty("使用时间")
     private LocalDateTime usedAt;
+
+    /**
+     * 使用上限，为空表示不限次数
+     */
+    @TableField("max_uses")
+    @ApiModelProperty("使用上限，为空表示不限次数")
+    private Integer maxUses;
+
+    /**
+     * 已使用次数
+     */
+    @TableField("use_count")
+    @ApiModelProperty("已使用次数")
+    private Integer useCount;
 
     /**
      * 业务类型 1.邀请创建组织 2.邀请加入组织

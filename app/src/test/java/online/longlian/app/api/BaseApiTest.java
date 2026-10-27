@@ -235,7 +235,7 @@ public abstract class BaseApiTest {
      */
     protected void createOTP(String code, Integer bizType, Long creatorId, LocalDateTime expiredAt) {
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                "INSERT INTO `one_time_password` (id, code, expired_at, max_uses, use_count, biz_type, status, creator_id) VALUES (?, ?, ?, 1, 0, ?, 0, ?)",
                 System.nanoTime(), code, expiredAt, bizType, creatorId
         );
     }
@@ -258,7 +258,7 @@ public abstract class BaseApiTest {
                                         EmailVerifyBusinessType businessType) {
         long otpId = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 0, ?)",
+                "INSERT INTO `one_time_password` (id, code, expired_at, max_uses, use_count, biz_type, status, creator_id) VALUES (?, ?, ?, 1, 0, ?, 0, ?)",
                 otpId, code, testNow().plusMinutes(30), 3, creatorId
         );
         jdbcTemplate.update(
@@ -285,8 +285,8 @@ public abstract class BaseApiTest {
                                                 int accepted, LocalDateTime acceptedAt) {
         long id = System.nanoTime();
         jdbcTemplate.update(
-                "INSERT INTO `one_time_password` (id, code, expired_at, used_at, biz_type, status, creator_id) VALUES (?, ?, ?, ?, ?, ?, 0)",
-                id, code, expiredAt, acceptedAt, bizType, accepted
+                "INSERT INTO `one_time_password` (id, code, expired_at, used_at, max_uses, use_count, biz_type, status, creator_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, 0)",
+                id, code, expiredAt, acceptedAt, accepted == 0 ? 0 : 1, bizType, accepted
         );
         if (bizType == 1) {
             jdbcTemplate.update("INSERT INTO `organization_create_otp` (id, otp_id) VALUES (?, ?)", id, id);
