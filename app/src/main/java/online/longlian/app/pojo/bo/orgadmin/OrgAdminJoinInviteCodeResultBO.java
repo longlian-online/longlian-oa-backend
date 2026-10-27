@@ -12,6 +12,7 @@ public class OrgAdminJoinInviteCodeResultBO {
     private String inviteCode;
     private Integer useCount;
     private Integer maxUses;
+    private LocalDateTime expiredAt;
     private String status;
     private LocalDateTime createdAt;
 }

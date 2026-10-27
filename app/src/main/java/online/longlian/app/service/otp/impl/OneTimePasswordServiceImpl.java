@@ -26,16 +26,14 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
 
     @Override
     public OneTimePassword generateOTP(OneTimePasswordCreateParamsBO params) {
-        boolean unlimited = params.getMaxUses() == null;
-        if (!unlimited && params.getMaxUses() < 1) {
+        if (params.getMaxUses() != null && params.getMaxUses() < 1) {
             throw new AppException(ResultCode.PARAM_ERROR, "使用次数必须为正整数");
         }
-        // 不限次数只属于没有到期时间的加入组织邀请码，其余类型仍必须一次到期。
-        if (unlimited) {
-            if (params.getBizType() != OTPType.OrganizationUserInvite || params.getExpiredAt() != null) {
-                throw new AppException(ResultCode.PARAM_ERROR, "只有加入组织邀请码可以不限次数");
-            }
-        } else if (params.getExpiredAt() == null && params.getBizType() != OTPType.OrganizationUserInvite) {
+        // 不限次数只属于加入组织邀请码；到期时间与次数互不冲突。
+        if (params.getMaxUses() == null && params.getBizType() != OTPType.OrganizationUserInvite) {
+            throw new AppException(ResultCode.PARAM_ERROR, "只有加入组织邀请码可以不限次数");
+        }
+        if (params.getExpiredAt() == null && params.getBizType() != OTPType.OrganizationUserInvite) {
             throw new AppException(ResultCode.PARAM_ERROR, "到期时间必须晚于当前时间");
         }
         OneTimePassword oneTimePassword = OneTimePassword.builder()
@@ -117,9 +115,6 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
     private void validateOtpAvailability(OneTimePassword oneTimePassword, OTPType bizType) {
         if (oneTimePassword == null) {
             throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "不存在");
-        }
-        if (oneTimePassword.getStatus() == OTPStatus.REVOKED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "已失效");
         }
         if (oneTimePassword.getStatus() == OTPStatus.USED || isExhausted(oneTimePassword)) {
             throw new AppException(ResultCode.OPERATION_FAIL, bizType.getDesc() + "已使用");

@@ -136,7 +136,7 @@ public class UserApiTest extends BaseApiTest {
         String orgAdminToken = loginAs("orgadmin_" + adminUserId, "123456");
 
         Response inviteResponse = authRequest(orgAdminToken)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -261,7 +261,7 @@ public class UserApiTest extends BaseApiTest {
         String adminToken = loginAs("orgadmin", "123456");
 
         Response inviteResponse = authRequest(adminToken)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -372,7 +372,7 @@ public class UserApiTest extends BaseApiTest {
         // user1 登录并生成加入自己组织的邀请码
         String token1 = loginAs("user1", "123456");
         Response inviteResponse = authRequest(token1, 1L)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
         inviteResponse.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         String inviteCode = inviteResponse.jsonPath().getString("data.inviteCode");
@@ -423,7 +423,7 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then().statusCode(200)
                 .extract().path("data.inviteCode");
@@ -456,7 +456,7 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then().statusCode(200)
                 .extract().path("data.inviteCode");
@@ -489,7 +489,7 @@ public class UserApiTest extends BaseApiTest {
         createUserWithOrganization(1L, "user1", "123456", "user1@example.com", 1L, 1L, "ORG_ADMIN");
         String token1 = loginAs("user1", "123456");
         String inviteCode = authRequest(token1)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then().statusCode(200)
                 .extract().path("data.inviteCode");

@@ -336,7 +336,7 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
-                .body(Map.of())
+                .body(inviteExpiryBody())
                 .post("/orgadmin/members/invite-codes/join-org");
 
         response.then()
@@ -351,8 +351,8 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
     void shouldListAndRevokeJoinInviteCode() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         String token = loginAs("orgadmin", "123456");
-        long inviteId = createOrganizationInviteCode("KEEP01", 2, 1L, null, 0, null);
-        createOrganizationInviteCode("USED01", 2, 1L, null, 1, testNow());
+        long inviteId = createOrganizationInviteCode("KEEP01", 2, 1L, testNow().plusDays(1), 0, null);
+        createOrganizationInviteCode("USED01", 2, 1L, testNow().plusDays(1), 1, testNow());
 
         authRequest(token)
                 .body(Map.of("pageNum", 1, "pageSize", 10))

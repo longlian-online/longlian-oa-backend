@@ -82,7 +82,7 @@ public class OneTimePassword implements Serializable {
      * 状态 0-待使用 1-已使用
      */
     @TableField("status")
-    @ApiModelProperty("状态 0-待使用 1-已使用 2-已失效")
+    @ApiModelProperty("状态 0-待使用 1-已使用")
     private OTPStatus status;
 
     /**

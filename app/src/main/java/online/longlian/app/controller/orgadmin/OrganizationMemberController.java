@@ -205,7 +205,7 @@ public class OrganizationMemberController {
 
     @Operation(
         summary = "分页查询加入组织邀请码",
-        description = "只返回当前组织尚未手动失效的邀请码，按创建时间倒序"
+        description = "只返回当前组织尚未过期且尚未手动失效的邀请码，按创建时间倒序"
     )
     @PostMapping("/invite-codes")
     @ResponseMessage("查询成功")
@@ -231,21 +231,22 @@ public class OrganizationMemberController {
 
     @Operation(
         summary = "生成加入组织邀请码（管理员）",
-        description = "生成 6 位字母数字邀请码。不传使用上限表示不限次数，邀请码没有到期时间"
+        description = "生成 6 位字母数字邀请码。必须指定到期时间；不传使用上限表示不限次数"
     )
     @PostMapping("/invite-codes/join-org")
     @ResponseMessage("生成成功")
     public InviteCodeVO generateJoinOrgInviteCode(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-            @RequestBody(required = false) @Valid GenerateJoinInviteCodeDTO dto) {
+            @RequestBody @Valid GenerateJoinInviteCodeDTO dto) {
         OrgAdminGenerateJoinOrgInviteCodeResultBO resultBO = organizationMemberService.generateJoinOrgInviteCode(
                 new OrgAdminGenerateJoinOrgInviteCodeParamsBO(
-                        sessionContext.userId(), sessionContext.orgId(), dto == null ? null : dto.getMaxUses())
+                        sessionContext.userId(), sessionContext.orgId(), dto.getExpiredAt(), dto.getMaxUses())
         );
         return InviteCodeVO.builder()
                 .id(resultBO.getId())
                 .inviteCode(resultBO.getInviteCode())
                 .maxUses(resultBO.getMaxUses())
+                .expireAt(resultBO.getExpiredAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                 .build();
     }
 

@@ -30,6 +30,10 @@ public class JoinInviteCodeVO {
     @Schema(description = "使用上限，为空表示不限次数")
     private Integer maxUses;
 
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "到期时间")
+    private LocalDateTime expiredAt;
+
     @Schema(description = "状态：PENDING 待使用，USED 已用尽")
     private String status;
 

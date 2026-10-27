@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -13,4 +15,5 @@ public class OrgAdminGenerateJoinOrgInviteCodeResultBO {
     private Long id;
     private String inviteCode;
     private Integer maxUses;
+    private LocalDateTime expiredAt;
 }

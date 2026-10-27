@@ -43,6 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -54,6 +55,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrganizationMemberServiceImpl implements OrganizationMemberService {
+
+    private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
 
     private final Clock clock;
     private final GroupApplicationMapper groupApplicationMapper;
@@ -190,6 +193,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 OTPGenerateContextBO.builder()
                         .creatorId(params.getCreatorId())
                         .orgId(params.getOrgId())
+                        .expiredAt(params.getExpiredAt())
                         .maxUses(params.getMaxUses())
                         .build()
         );
@@ -202,6 +206,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 .id(joinOtp.getId())
                 .inviteCode(otp.getCode())
                 .maxUses(otp.getMaxUses())
+                .expiredAt(otp.getExpiredAt())
                 .build();
     }
 
@@ -219,7 +224,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 .collect(Collectors.toMap(OrganizationJoinOtp::getOtpId, join -> join, (left, right) -> left));
         List<OrgAdminJoinInviteCodeResultBO> matched = oneTimePasswordMapper.selectList(
                 new LambdaQueryWrapper<OneTimePassword>().in(OneTimePassword::getId, joinsByOtpId.keySet())).stream()
-                .filter(otp -> otp.getStatus() != OTPStatus.REVOKED)
+                .filter(otp -> !isExpired(otp))
                 .filter(otp -> matchesInviteStatus(otp, status))
                 .sorted(Comparator.comparing(OneTimePassword::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(OneTimePassword::getId, Comparator.reverseOrder()))
@@ -240,20 +245,21 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         if (otp == null || otp.getBizType() != OTPType.OrganizationUserInvite) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "邀请码不存在");
         }
-        if (otp.getStatus() == OTPStatus.REVOKED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已失效");
+        if (isExpired(otp)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
         }
         if (otp.getStatus() != OTPStatus.PENDING || isExhausted(otp)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已用尽，不能失效");
         }
+        LocalDateTime now = LocalDateTime.now(clock);
         int rows = oneTimePasswordMapper.update(null,
                 new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OneTimePassword>()
                         .eq(OneTimePassword::getId, otp.getId())
                         .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
-                        .set(OneTimePassword::getStatus, OTPStatus.REVOKED)
-                        .set(OneTimePassword::getUpdatedAt, LocalDateTime.now(clock)));
+                        .set(OneTimePassword::getExpiredAt, now)
+                        .set(OneTimePassword::getUpdatedAt, now));
         if (rows == 0) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已失效");
+            throw new AppException(ResultCode.OPERATION_FAIL, "邀请码已过期");
         }
     }
 
@@ -262,11 +268,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             return null;
         }
         try {
-            OTPStatus parsed = OTPStatus.valueOf(status);
-            if (parsed == OTPStatus.REVOKED) {
-                throw new IllegalArgumentException();
-            }
-            return parsed;
+            return OTPStatus.valueOf(status);
         } catch (IllegalArgumentException ex) {
             throw new AppException(ResultCode.PARAM_ERROR, "邀请码状态不正确");
         }
@@ -286,9 +288,14 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
                 .inviteCode(otp.getCode())
                 .useCount(otp.getUseCount() == null ? 0 : otp.getUseCount())
                 .maxUses(otp.getMaxUses())
+                .expiredAt(otp.getExpiredAt())
                 .status(status.name())
                 .createdAt(otp.getCreatedAt())
                 .build();
+    }
+
+    private boolean isExpired(OneTimePassword otp) {
+        return otp.getExpiredAt() != null && !otp.getExpiredAt().isAfter(LocalDateTime.now(clock));
     }
 
     private boolean isExhausted(OneTimePassword otp) {
