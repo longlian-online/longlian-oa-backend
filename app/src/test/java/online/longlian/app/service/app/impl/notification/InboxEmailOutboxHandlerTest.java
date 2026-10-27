@@ -110,7 +110,7 @@ class InboxEmailOutboxHandlerTest {
 
     @Test
     void shouldSendAssignmentCopyToAssignee() throws Exception {
-        String assigned = "「企划 · 项目」的「翻译 · 2/2」已分配给你，无需手动领取。";
+        String assigned = "「企划 · 项目」的「翻译 · 2/2」已由企划负责人分配给你。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目",
                 new NotificationTaskSlotBO("翻译", 2, 2, null))));
         when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
@@ -122,6 +122,32 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 任务分配");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_ASSIGNED, new NotificationSourceResultBO(
                 1L, "企划", 7L, "项目", new NotificationTaskSlotBO("翻译", 2, 2, null)))).isEqualTo(assigned);
+    }
+
+    @Test
+    void shouldSendJoinAndDeletionReviewCopyToAdministrators() throws Exception {
+        String joined = "「小周」申请加入组织。";
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(
+                NotificationSourceResultBO.builder().applicantName("小周").build(), List.of())));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+        handler.deliver(message(InboxNotificationKind.JOIN_APPLICATION, 77L), EXECUTE_TIME);
+        assertThat(sent().content()).contains(HtmlUtils.htmlEscape(joined));
+        assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
+                "https://oa.example/go?type=JOIN_APPLICATION&orgId=1&applicationId=77") + "\"");
+        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 入组申请");
+
+        String deleted = "「管理员」申请删除项目「第一章」。";
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(
+                NotificationSourceResultBO.builder().requesterName("管理员").targetType("ITEM")
+                        .targetTitle("第一章").build(), List.of())));
+        handler.deliver(message(InboxNotificationKind.DELETION_REQUEST, 56L), EXECUTE_TIME);
+        assertThat(sent().content()).contains(HtmlUtils.htmlEscape(deleted));
+        assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
+                "https://oa.example/go?type=DELETION_REQUEST&orgId=1&requestId=56") + "\"");
+        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 删除申请");
+        assertThat(InboxEmailCopy.message(InboxNotificationKind.DELETION_REQUEST, NotificationSourceResultBO.builder()
+                .requesterName("管理员").targetType("PROJECT").targetTitle("作品").build()))
+                .isEqualTo("「管理员」申请删除企划「作品」。");
     }
 
 

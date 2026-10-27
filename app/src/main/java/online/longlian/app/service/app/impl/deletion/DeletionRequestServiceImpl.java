@@ -14,7 +14,9 @@ import online.longlian.app.service.app.DeletionRequestService;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.UserService;
+import online.longlian.app.service.app.impl.notification.AdminReviewNotificationPublisher;
 import online.longlian.common.enumeration.DeletionRequestStatus;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.DeletionTargetType;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ public class DeletionRequestServiceImpl implements DeletionRequestService {
     private final ItemService itemService;
     private final UserService userService;
     private final Clock clock;
+    private final AdminReviewNotificationPublisher adminReviewNotificationPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -144,5 +147,7 @@ public class DeletionRequestServiceImpl implements DeletionRequestService {
         } catch (DuplicateKeyException exception) {
             throw new AppException(ResultCode.OPERATION_FAIL, "已提交删除申请，请等待审核");
         }
+        adminReviewNotificationPublisher.publish(orgId, InboxNotificationKind.DELETION_REQUEST,
+                request.getId(), request.getCreatedAt());
     }
 }

@@ -262,25 +262,31 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
-    void listJoinInviteCodesHidesExpiredAndKeepsExhausted() {
-        when(organizationJoinOtpMapper.selectList(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<OrganizationJoinOtp>>any())).thenReturn(List.of(
-                OrganizationJoinOtp.builder().id(11L).orgId(1L).otpId(101L).build(),
-                OrganizationJoinOtp.builder().id(12L).orgId(1L).otpId(102L).build(),
-                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build()));
-        when(oneTimePasswordMapper.selectList(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<OneTimePassword>>any())).thenReturn(List.of(
-                invite(101L, "AAAAAA", OTPStatus.PENDING, 1, null, LocalDateTime.parse("2026-10-27T10:00:00"))
-                        .setExpiredAt(LocalDateTime.parse("2026-10-27T00:00:00")),
-                invite(102L, "BBBBBB", OTPStatus.PENDING, 2, 2, LocalDateTime.parse("2026-10-27T09:00:00")),
-                invite(103L, "CCCCCC", OTPStatus.PENDING, 3, null, LocalDateTime.parse("2026-10-27T11:00:00"))));
+    void listJoinInviteCodesReturnsTheDatabasePage() {
+        OrgAdminJoinInviteCodeResultBO visible = OrgAdminJoinInviteCodeResultBO.builder()
+                .id(13L).inviteCode("CCCCCC").status("PENDING").build();
+        Page<OrgAdminJoinInviteCodeResultBO> page = new Page<>(2, 5);
+        page.setRecords(List.of(visible));
+        page.setTotal(6);
+        when(organizationJoinOtpMapper.selectActiveJoinInviteCodePage(
+                any(), eq(1L), eq(OTPStatus.PENDING), eq(OTPStatus.USED), eq(OTPType.OrganizationUserInvite),
+                eq(LocalDateTime.now(clock)))).thenReturn(page);
 
         PageResultBO<OrgAdminJoinInviteCodeResultBO> result = service.listJoinInviteCodes(
-                OrgAdminJoinInviteCodeListParamsBO.builder().orgId(1L).page(new PageParamsBO(1, 10)).build());
+                OrgAdminJoinInviteCodeListParamsBO.builder()
+                        .orgId(1L).status("PENDING").page(new PageParamsBO(2, 5)).build());
 
-        assertThat(result.getTotal()).isEqualTo(2);
-        assertThat(result.getList()).extracting(OrgAdminJoinInviteCodeResultBO::getInviteCode)
-                .containsExactly("CCCCCC", "BBBBBB");
-        assertThat(result.getList().get(1).getStatus()).isEqualTo("USED");
-        assertThat(result.getList().get(0).getId()).isEqualTo(13L);
+        assertThat(result.getTotal()).isEqualTo(6);
+        assertThat(result.getList()).containsExactly(visible);
+    }
+
+    @Test
+    void listJoinInviteCodesRejectsUnknownStatus() {
+        assertThatThrownBy(() -> service.listJoinInviteCodes(OrgAdminJoinInviteCodeListParamsBO.builder()
+                .orgId(1L).status("NOPE").page(new PageParamsBO(1, 10)).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码状态不正确");
+        verify(organizationJoinOtpMapper, never()).selectActiveJoinInviteCodePage(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -320,6 +326,42 @@ class OrganizationMemberServiceImplTest {
         service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder().orgId(1L).inviteId(13L).build());
 
         verify(oneTimePasswordMapper).update(isNull(), any());
+    }
+
+    @Test
+    void revokeJoinInviteCodeRejectsMissingOrExpiredPassword() {
+        when(organizationJoinOtpMapper.selectById(13L)).thenReturn(
+                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build());
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(13L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码不存在");
+
+        OneTimePassword expired = invite(103L, "CCCCCC", OTPStatus.PENDING, 0, null, LocalDateTime.parse("2026-10-27T11:00:00"));
+        expired.setExpiredAt(LocalDateTime.parse("2026-09-21T00:00:00"));
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(expired);
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(13L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("已过期");
+        verify(oneTimePasswordMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void revokeJoinInviteCodeTreatsLostUpdateAsExpired() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OneTimePassword.class);
+        when(organizationJoinOtpMapper.selectById(13L)).thenReturn(
+                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build());
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(
+                invite(103L, "CCCCCC", OTPStatus.PENDING, 0, null, LocalDateTime.parse("2026-10-27T11:00:00")));
+        when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(13L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("已过期");
     }
 
     private OneTimePassword invite(Long id, String code, OTPStatus status, int useCount, Integer maxUses, LocalDateTime createdAt) {

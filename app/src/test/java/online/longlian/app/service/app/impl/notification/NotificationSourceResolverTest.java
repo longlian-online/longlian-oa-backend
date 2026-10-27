@@ -20,11 +20,14 @@ class NotificationSourceResolverTest {
     @Mock TaskInstanceMapper tasks;
     @Mock ItemMapper items;
     @Mock ProjectMapper projects;
+    @Mock GroupApplicationMapper applications;
+    @Mock DeletionRequestMapper deletions;
+    @Mock UserMapper users;
     NotificationSourceResolver resolver;
 
     @BeforeEach
     void setUp() {
-        resolver = new NotificationSourceResolver(tasks, items, projects);
+        resolver = new NotificationSourceResolver(tasks, items, projects, applications, deletions, users);
     }
 
     @Test
@@ -62,6 +65,35 @@ class NotificationSourceResolverTest {
         verify(tasks).selectBatchIds(List.of(7L));
         verify(items).selectBatchIds(anyCollection());
         verify(projects).selectList(any());
+    }
+
+    @Test
+    void shouldResolveJoinAndDeletionSourcesWithoutReadingProjects() {
+        when(applications.selectBatchIds(anyCollection())).thenReturn(List.of(
+                GroupApplication.builder().id(4L).orgId(1L).nickname("  小周  ").username("zhou").build(),
+                GroupApplication.builder().id(5L).orgId(2L).nickname("别人").build()));
+        when(deletions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                DeletionRequest.builder().id(8L).orgId(1L).requesterId(3L).targetType(DeletionTargetType.ITEM)
+                        .targetTitle(" 第一章 ").build(),
+                DeletionRequest.builder().id(9L).orgId(1L).requesterId(99L).targetType(DeletionTargetType.PROJECT)
+                        .targetTitle("失踪").build()));
+        when(users.selectBatchIds(anyCollection())).thenReturn(List.of(
+                User.builder().id(3L).nickname("").username("申请人").build()));
+
+        Map<Long, NotificationResolvedSourceBO> result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.JOIN_APPLICATION, 4L),
+                new NotificationSourceRefBO(2L, InboxNotificationKind.JOIN_APPLICATION, 5L),
+                new NotificationSourceRefBO(3L, InboxNotificationKind.DELETION_REQUEST, 8L),
+                new NotificationSourceRefBO(4L, InboxNotificationKind.DELETION_REQUEST, 9L))));
+
+        assertThat(result.get(1L).getSource().getApplicantName()).isEqualTo("小周");
+        assertThat(result.get(1L).getImageResourceIds()).isEmpty();
+        assertThat(result.get(2L).getSource()).isNull();
+        assertThat(result.get(3L).getSource().getRequesterName()).isEqualTo("申请人");
+        assertThat(result.get(3L).getSource().getTargetType()).isEqualTo("ITEM");
+        assertThat(result.get(3L).getSource().getTargetTitle()).isEqualTo("第一章");
+        assertThat(result.get(4L).getSource()).isNull();
+        verifyNoInteractions(tasks, items, projects);
     }
 
     @Test

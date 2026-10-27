@@ -135,7 +135,7 @@ public interface UserService extends IService<User> {
     /**
      * 更新当前用户的个人信息（昵称、头像）。
      * <p>
-     * 更新用户表的昵称和头像文件 ID。
+     * 始终更新昵称。头像文件 ID 为空时保留原头像，不重新绑定资源。
      * @param params 包含用户 ID、昵称和头像文件 ID 的更新参数
      */
     void updateMyInfo(UserUpdateMyInfoParamsBO params);

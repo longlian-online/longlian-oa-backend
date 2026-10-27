@@ -46,6 +46,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
                 .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .maxUses(1)
                 .bizType(OTPType.EmailVerify)
                 .creatorId(1L)
                 .build();
@@ -80,6 +81,7 @@ class OneTimePasswordServiceImplTest {
     void generateOTP_rejectsExpiryThatIsNotInTheFuture() {
         OneTimePasswordCreateParamsBO missing = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
+                .maxUses(1)
                 .bizType(OTPType.OrganizationInvite)
                 .creatorId(1L)
                 .build();
@@ -97,6 +99,37 @@ class OneTimePasswordServiceImplTest {
         assertThatThrownBy(() -> service.generateOTP(past))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("到期时间必须晚于当前时间");
+        verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
+    }
+
+    @Test
+    void generateOTP_rejectsUnlimitedUsesOutsideJoinInvite() {
+        OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
+                .code("123456")
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .bizType(OTPType.EmailVerify)
+                .creatorId(1L)
+                .build();
+
+        assertThatThrownBy(() -> service.generateOTP(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("只有加入组织邀请码可以不限次数");
+        verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
+    }
+
+    @Test
+    void generateOTP_rejectsNonPositiveMaxUses() {
+        OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
+                .code("123456")
+                .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .maxUses(0)
+                .bizType(OTPType.OrganizationUserInvite)
+                .creatorId(1L)
+                .build();
+
+        assertThatThrownBy(() -> service.generateOTP(params))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("使用次数必须为正整数");
         verify(oneTimePasswordMapper, never()).insert(any(OneTimePassword.class));
     }
 

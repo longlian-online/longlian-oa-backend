@@ -501,7 +501,7 @@ CREATE TABLE `user_notification` (
   `id` bigint NOT NULL COMMENT "通知ID",
   `org_id` bigint NULL COMMENT "组织作用域",
   `recipient_user_id` bigint NOT NULL COMMENT "固定收件人ID",
-  `kind` tinyint NOT NULL COMMENT "类型 1-TASK_READY 2-ITEM_COMPLETED 3-TASK_ASSIGNED",
+  `kind` tinyint NOT NULL COMMENT "类型 1-TASK_READY 2-ITEM_COMPLETED 3-TASK_ASSIGNED 4-JOIN_APPLICATION 5-DELETION_REQUEST",
   `source_id` bigint NOT NULL COMMENT "类型定义的来源ID",
   `trigger_id` bigint NOT NULL COMMENT "类型定义的一次触发ID",
   `read_at` datetime NULL COMMENT "已读时间，NULL为未读",

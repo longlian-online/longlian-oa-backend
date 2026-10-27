@@ -6,6 +6,7 @@ import online.longlian.app.common.constants.PatternConstants;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -702,6 +703,66 @@ public class UserApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         assertThat(passwordEncoder.matches("Password1", jdbcTemplate.queryForObject(
                 "SELECT password FROM `user` WHERE id = 1", String.class))).isTrue();
+    }
+
+    /** 只改昵称时保留已有头像，20 个字符的昵称可以保存。 */
+    @Test
+    void shouldUpdateNicknameAtMaxLengthAndKeepAvatar() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_USER");
+        createResource(11L, 1L, 1L);
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 11, nickname = '旧昵称' WHERE id = 1");
+        jdbcTemplate.update("UPDATE resource SET biz_id = 1 WHERE id = 11");
+        String token = loginAs("testuser", "123456");
+        String nickname = "名".repeat(20);
+
+        userRequest(token).body(Map.of("nickname", nickname))
+                .put("/app/user/")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT nickname FROM `user` WHERE id = 1", String.class))
+                .isEqualTo(nickname);
+        assertThat(jdbcTemplate.queryForObject("SELECT avatar_file_id FROM `user` WHERE id = 1", Long.class))
+                .isEqualTo(11L);
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 11", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+        userRequest(token).get("/app/user/")
+                .then()
+                .statusCode(200)
+                .body("data.nickname", equalTo(nickname));
+    }
+
+    /** 空白、超长或缺失昵称不改资料；未登录不能修改。 */
+    @Test
+    void shouldRejectInvalidNicknameWithoutChangingProfile() {
+        createUserWithOrganization(1L, "testuser", "123456", "test@example.com", 1L, 1L, "ORG_USER");
+        createResource(11L, 1L, 1L);
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 11 WHERE id = 1");
+        String token = loginAs("testuser", "123456");
+
+        for (Object nickname : List.of("   ", "", "名".repeat(21))) {
+            userRequest(token).body(Map.of("nickname", nickname))
+                    .put("/app/user/")
+                    .then()
+                    .statusCode(200)
+                    .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        }
+        userRequest(token).body(Map.of())
+                .put("/app/user/")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        request().body(Map.of("nickname", "新昵称"))
+                .put("/app/user/")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT nickname FROM `user` WHERE id = 1", String.class))
+                .isEqualTo("testuser");
+        assertThat(jdbcTemplate.queryForObject("SELECT avatar_file_id FROM `user` WHERE id = 1", Long.class))
+                .isEqualTo(11L);
     }
 
     // ========== 认证失败 ==========

@@ -45,11 +45,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 
 @Service
@@ -212,27 +209,15 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     @Override
     public PageResultBO<OrgAdminJoinInviteCodeResultBO> listJoinInviteCodes(@NonNull OrgAdminJoinInviteCodeListParamsBO params) {
-        // 列表同时受组织归属和验证码状态约束，OTP 策略不承载管理端分页。
         OTPStatus status = parseInviteStatus(params.getStatus());
-        List<OrganizationJoinOtp> joins = organizationJoinOtpMapper.selectList(
-                new LambdaQueryWrapper<OrganizationJoinOtp>()
-                        .eq(OrganizationJoinOtp::getOrgId, params.getOrgId()));
-        if (joins.isEmpty()) {
-            return new PageResultBO<>(Collections.emptyList(), 0L);
-        }
-        Map<Long, OrganizationJoinOtp> joinsByOtpId = joins.stream()
-                .collect(Collectors.toMap(OrganizationJoinOtp::getOtpId, join -> join, (left, right) -> left));
-        List<OrgAdminJoinInviteCodeResultBO> matched = oneTimePasswordMapper.selectList(
-                new LambdaQueryWrapper<OneTimePassword>().in(OneTimePassword::getId, joinsByOtpId.keySet())).stream()
-                .filter(otp -> !isExpired(otp))
-                .filter(otp -> matchesInviteStatus(otp, status))
-                .sorted(Comparator.comparing(OneTimePassword::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(OneTimePassword::getId, Comparator.reverseOrder()))
-                .map(otp -> toInviteResult(joinsByOtpId.get(otp.getId()), otp))
-                .toList();
-        int from = Math.min((params.getPage().getPageNum() - 1) * params.getPage().getPageSize(), matched.size());
-        int to = Math.min(from + params.getPage().getPageSize(), matched.size());
-        return new PageResultBO<>(matched.subList(from, to), (long) matched.size());
+        Page<OrgAdminJoinInviteCodeResultBO> invitePage = organizationJoinOtpMapper.selectActiveJoinInviteCodePage(
+                new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize()),
+                params.getOrgId(),
+                status,
+                OTPStatus.USED,
+                OTPType.OrganizationUserInvite,
+                LocalDateTime.now(clock));
+        return new PageResultBO<>(invitePage.getRecords(), invitePage.getTotal());
     }
 
     @Override
@@ -272,26 +257,6 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         } catch (IllegalArgumentException ex) {
             throw new AppException(ResultCode.PARAM_ERROR, "邀请码状态不正确");
         }
-    }
-
-    private boolean matchesInviteStatus(OneTimePassword otp, OTPStatus status) {
-        if (status == null) {
-            return true;
-        }
-        return (isExhausted(otp) ? OTPStatus.USED : otp.getStatus()) == status;
-    }
-
-    private OrgAdminJoinInviteCodeResultBO toInviteResult(OrganizationJoinOtp joinOtp, OneTimePassword otp) {
-        OTPStatus status = isExhausted(otp) ? OTPStatus.USED : otp.getStatus();
-        return OrgAdminJoinInviteCodeResultBO.builder()
-                .id(joinOtp.getId())
-                .inviteCode(otp.getCode())
-                .useCount(otp.getUseCount() == null ? 0 : otp.getUseCount())
-                .maxUses(otp.getMaxUses())
-                .expiredAt(otp.getExpiredAt())
-                .status(status.name())
-                .createdAt(otp.getCreatedAt())
-                .build();
     }
 
     private boolean isExpired(OneTimePassword otp) {
