@@ -51,6 +51,14 @@ final class InboxEmailLink {
 
     static String href(String origin, InboxNotificationKind kind, long orgId,
                        NotificationSourceResultBO source, long sourceId) {
+        if (kind == InboxNotificationKind.JOIN_APPLICATION || kind == InboxNotificationKind.DELETION_REQUEST) {
+            String idName = kind == InboxNotificationKind.JOIN_APPLICATION ? "applicationId" : "requestId";
+            return UriComponentsBuilder.fromUriString(origin + "/go")
+                    .queryParam("type", kind.name())
+                    .queryParam("orgId", orgId)
+                    .queryParam(idName, sourceId)
+                    .encode().build().toUriString();
+        }
         if (source.getProjectId() == null || source.getItemId() == null) {
             throw new IllegalStateException("来源不可用");
         }

@@ -43,7 +43,9 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.UserService;
+import online.longlian.app.service.app.impl.notification.AdminReviewNotificationPublisher;
 import online.longlian.common.enumeration.ApplicationStatus;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.OTPType;
@@ -86,6 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final Clock clock;
     private final SessionService sessionService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final AdminReviewNotificationPublisher adminReviewNotificationPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -503,6 +506,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         } catch (DuplicateKeyException e) {
             throw new AppException(ResultCode.OPERATION_FAIL, "您已提交过入组申请，请等待审核");
         }
+        adminReviewNotificationPublisher.publish(application.getOrgId(), InboxNotificationKind.JOIN_APPLICATION,
+                application.getId(), application.getCreatedAt());
     }
 
     private OneTimePassword validateRegisterRequest(UserRegisterByInviteParamsBO params) {

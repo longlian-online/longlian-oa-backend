@@ -21,4 +21,12 @@ public class NotificationSourceVO {
     private String itemTitle;
     @Schema(nullable = true, description = "任务来源的当前槽位结构；项目完成通知为 null")
     private NotificationTaskSlotVO taskSlot;
+    @Schema(nullable = true, description = "入组申请人显示名")
+    private String applicantName;
+    @Schema(nullable = true, description = "删除申请人显示名")
+    private String requesterName;
+    @Schema(nullable = true, allowableValues = {"PROJECT", "ITEM"}, description = "删除目标类型")
+    private String targetType;
+    @Schema(nullable = true, description = "删除目标提交时的名称")
+    private String targetTitle;
 }
