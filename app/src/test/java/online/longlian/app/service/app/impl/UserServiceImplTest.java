@@ -32,11 +32,13 @@ import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
+import online.longlian.app.service.app.impl.notification.AdminReviewNotificationPublisher;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TokenType;
@@ -59,6 +61,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
@@ -91,6 +94,8 @@ class UserServiceImplTest {
     private SessionService sessionService;
     @Mock
     private TokenBlacklistService tokenBlacklistService;
+    @Mock
+    private AdminReviewNotificationPublisher adminReviewNotificationPublisher;
 
     private UserServiceImpl service;
 
@@ -111,7 +116,8 @@ class UserServiceImplTest {
                 otpServiceFactory,
                 Clock.systemUTC(),
                 sessionService,
-                tokenBlacklistService
+                tokenBlacklistService,
+                adminReviewNotificationPublisher
         );
     }
 
@@ -666,6 +672,26 @@ class UserServiceImplTest {
         verify(emailVerifyService, never()).use(any());
         verify(joinInviteService, never()).use(any());
         verify(userMapper, never()).insert(any(User.class));
+        verifyNoInteractions(adminReviewNotificationPublisher);
+    }
+
+    @Test
+    void shouldNotifyAdministratorsAfterJoinApplicationIsInserted() {
+        stubRegisterValidation();
+        stubJoinInvite();
+        when(organizationJoinOtpMapper.selectOne(any())).thenReturn(
+                OrganizationJoinOtp.builder().otpId(20L).orgId(30L).build());
+        when(organizationMapper.selectOne(any())).thenReturn(
+                Organization.builder().id(30L).status(Status.ENABLED).build());
+        when(groupApplicationMapper.selectOne(any())).thenReturn(null);
+        when(groupApplicationMapper.insert(any(GroupApplication.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, GroupApplication.class).setId(77L);
+            return 1;
+        });
+
+        service.registerAndJoinOrganizationByInvite(registerParams());
+
+        verify(adminReviewNotificationPublisher).publish(eq(30L), eq(InboxNotificationKind.JOIN_APPLICATION), eq(77L), any());
     }
 
     private void stubRegisterValidation() {

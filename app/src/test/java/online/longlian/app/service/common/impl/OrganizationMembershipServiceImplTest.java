@@ -25,6 +25,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.ArgumentCaptor;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -175,6 +177,24 @@ class OrganizationMembershipServiceImplTest {
         assertThat(service.listEnabledMembers(10L)).containsExactly(
                 new OrganizationMemberProfile(1L, "owner"),
                 new OrganizationMemberProfile(2L, "小明"));
+    }
+
+    @Test
+    void shouldListEnabledOwnerAndAdministratorsByUserId() {
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().userId(8L).build(),
+                OrganizationMember.builder().userId(2L).build(),
+                OrganizationMember.builder().userId(8L).build(),
+                OrganizationMember.builder().userId(null).build()));
+
+        assertThat(service.listEnabledAdministratorIds(10L)).containsExactly(2L, 8L);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<OrganizationMember>> query =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(organizationMemberMapper).selectList(query.capture());
+        assertThat(query.getValue().getSqlSegment()).contains("org_role");
+        assertThat(query.getValue().getSqlSegment()).contains("status");
     }
 
     private Organization enabledOrg(long orgId) {

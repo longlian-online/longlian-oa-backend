@@ -2,6 +2,7 @@ package online.longlian.app.service.common.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
@@ -106,6 +107,21 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
                 .map(user -> new OrganizationMemberProfile(user.getId(), displayName(user)))
                 .sorted(Comparator.comparing(OrganizationMemberProfile::nickname, Comparator.nullsLast(String::compareTo))
                         .thenComparing(OrganizationMemberProfile::userId))
+                .toList();
+    }
+
+    @Override
+    public List<Long> listEnabledAdministratorIds(Long orgId) {
+        return organizationMemberMapper.selectList(new LambdaQueryWrapper<OrganizationMember>()
+                        .select(OrganizationMember::getUserId)
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .eq(OrganizationMember::getStatus, Status.ENABLED)
+                        .in(OrganizationMember::getOrgRole, InviteConstants.ROLE_ORG_OWNER, InviteConstants.ROLE_ORG_ADMIN))
+                .stream()
+                .map(OrganizationMember::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
                 .toList();
     }
 

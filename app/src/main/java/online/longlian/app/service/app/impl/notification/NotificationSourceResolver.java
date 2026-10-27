@@ -2,17 +2,24 @@ package online.longlian.app.service.app.impl.notification;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.mapper.DeletionRequestMapper;
+import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.*;
+import online.longlian.app.pojo.entity.DeletionRequest;
+import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
+import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.app.impl.taskinstance.SlotLabels;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.function.Function;
@@ -28,6 +35,9 @@ public class NotificationSourceResolver {
     private final TaskInstanceMapper taskInstanceMapper;
     private final ItemMapper itemMapper;
     private final ProjectMapper projectMapper;
+    private final GroupApplicationMapper groupApplicationMapper;
+    private final DeletionRequestMapper deletionRequestMapper;
+    private final UserMapper userMapper;
 
     public Map<Long, NotificationResolvedSourceBO> resolve(NotificationSourceResolveParamsBO params) {
         if (params.getSources().isEmpty()) {
@@ -62,6 +72,8 @@ public class NotificationSourceResolver {
             Map<Long, NotificationResolvedSourceBO> sources = switch (group.getKey()) {
                 case TASK_READY, TASK_ASSIGNED -> resolveTaskSources(sourceIds(group.getValue()), tasks, items, projects, nodes);
                 case ITEM_COMPLETED -> resolveItemSources(sourceIds(group.getValue()), items, projects);
+                case JOIN_APPLICATION -> resolveJoinSources(params.getOrgId(), sourceIds(group.getValue()));
+                case DELETION_REQUEST -> resolveDeletionSources(params.getOrgId(), sourceIds(group.getValue()));
             };
             for (NotificationSourceRefBO ref : group.getValue()) {
                 results.put(ref.getNotificationId(), sources.get(ref.getSourceId()));
@@ -117,6 +129,71 @@ public class NotificationSourceResolver {
         return sources;
     }
 
+
+    private Map<Long, NotificationResolvedSourceBO> resolveJoinSources(Long orgId, List<Long> ids) {
+        Map<Long, GroupApplication> applications = ids.isEmpty() ? Map.of()
+                : groupApplicationMapper.selectBatchIds(ids).stream()
+                .collect(Collectors.toMap(GroupApplication::getId, Function.identity()));
+        Map<Long, NotificationResolvedSourceBO> sources = new HashMap<>();
+        for (Long id : ids) {
+            GroupApplication application = applications.get(id);
+            String applicantName = application == null ? "" : applicantName(application);
+            if (application == null || !orgId.equals(application.getOrgId()) || !StringUtils.hasText(applicantName)) {
+                sources.put(id, unavailable());
+                continue;
+            }
+            sources.put(id, new NotificationResolvedSourceBO(NotificationSourceResultBO.builder()
+                    .applicantName(applicantName).build(), List.of()));
+        }
+        return sources;
+    }
+
+    private Map<Long, NotificationResolvedSourceBO> resolveDeletionSources(Long orgId, List<Long> ids) {
+        List<DeletionRequest> requests = ids.isEmpty() ? List.of() : deletionRequestMapper.selectBatchIds(ids);
+        Map<Long, DeletionRequest> byId = requests.stream()
+                .collect(Collectors.toMap(DeletionRequest::getId, Function.identity()));
+        List<Long> requesterIds = requests.stream()
+                .filter(request -> orgId.equals(request.getOrgId()))
+                .map(DeletionRequest::getRequesterId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, User> users = requesterIds.isEmpty() ? Map.of() : userMapper.selectBatchIds(requesterIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<Long, NotificationResolvedSourceBO> sources = new HashMap<>();
+        for (Long id : ids) {
+            DeletionRequest request = byId.get(id);
+            String requesterName = request == null ? null : displayName(users.get(request.getRequesterId()));
+            if (request == null || !orgId.equals(request.getOrgId()) || requesterName == null
+                    || request.getTargetType() == null || !StringUtils.hasText(request.getTargetTitle())) {
+                sources.put(id, unavailable());
+                continue;
+            }
+            sources.put(id, new NotificationResolvedSourceBO(NotificationSourceResultBO.builder()
+                    .requesterName(requesterName)
+                    .targetType(request.getTargetType().name())
+                    .targetTitle(request.getTargetTitle().trim())
+                    .build(), List.of()));
+        }
+        return sources;
+    }
+
+    private String applicantName(GroupApplication application) {
+        if (StringUtils.hasText(application.getNickname())) {
+            return application.getNickname().trim();
+        }
+        if (StringUtils.hasText(application.getUsername())) {
+            return application.getUsername().trim();
+        }
+        return "";
+    }
+
+    private String displayName(User user) {
+        if (user != null && StringUtils.hasText(user.getNickname())) {
+            return user.getNickname().trim();
+        }
+        if (user != null && StringUtils.hasText(user.getUsername())) {
+            return user.getUsername().trim();
+        }
+        return null;
+    }
 
     private NotificationResolvedSourceBO unavailable() {
         return new NotificationResolvedSourceBO(null, List.of());
