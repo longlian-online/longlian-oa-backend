@@ -336,14 +336,65 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
 
         Response response = authRequest(token)
-                .body(inviteExpiryBody())
+                .body(Map.of())
                 .post("/orgadmin/members/invite-codes/join-org");
 
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.inviteCode", notNullValue())
-                .body("data.expireAt", notNullValue());
+                .body("data.id", notNullValue())
+                .body("data.maxUses", equalTo(null));
+    }
+
+    @Test
+    void shouldListAndRevokeJoinInviteCode() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        long inviteId = createOrganizationInviteCode("KEEP01", 2, 1L, null, 0, null);
+        createOrganizationInviteCode("USED01", 2, 1L, null, 1, testNow());
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/members/invite-codes")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2));
+
+        authRequest(token)
+                .post("/orgadmin/members/invite-codes/" + inviteId + "/revoke")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/members/invite-codes")
+                .then()
+                .statusCode(200)
+                .body("data.total", equalTo(1))
+                .body("data.list[0].inviteCode", equalTo("USED01"))
+                .body("data.list[0].status", equalTo("USED"));
+
+        request().get("/app/user/register/join-organization/invite-info?inviteCode=KEEP01")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    @Test
+    void shouldRejectRevokingInviteFromAnotherOrganization() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createOrganization(2L, "其他组织");
+        long inviteId = createOrganizationInviteCode("OTHER1", 2, 2L, null, 0, null);
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .post("/orgadmin/members/invite-codes/" + inviteId + "/revoke")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     // ========== 认证失败 ==========

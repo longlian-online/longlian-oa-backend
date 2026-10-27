@@ -7,18 +7,28 @@ import online.longlian.app.common.constants.InviteConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.GroupApplicationMapper;
+import online.longlian.app.mapper.OneTimePasswordMapper;
+import online.longlian.app.mapper.OrganizationJoinOtpMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
+import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.common.enumeration.OTPStatus;
+import online.longlian.common.enumeration.OTPType;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.service.DistributedLockService;
 import online.longlian.common.enumeration.ApplicationStatus;
@@ -36,6 +46,7 @@ import org.springframework.dao.DuplicateKeyException;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +65,8 @@ class OrganizationMemberServiceImplTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC);
     @Mock private GroupApplicationMapper groupApplicationMapper;
     @Mock private OrganizationMemberMapper organizationMemberMapper;
+    @Mock private OrganizationJoinOtpMapper organizationJoinOtpMapper;
+    @Mock private OneTimePasswordMapper oneTimePasswordMapper;
     @Mock private OTPServiceFactory otpServiceFactory;
     @Mock private MemberQueryBuilder memberQueryBuilder;
     @Mock private MemberAssembler memberAssembler;
@@ -73,8 +87,8 @@ class OrganizationMemberServiceImplTest {
         lenient().when(lockService.tryAcquireOrThrow("org:member:role:1", 0, TimeUnit.SECONDS)).thenReturn(lock);
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_OWNER, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
-                otpServiceFactory, memberQueryBuilder, memberAssembler, applicationReviewHandler,
-                memberStatusHandler, memberSubmissionHandler, lockService, transactions);
+                organizationJoinOtpMapper, oneTimePasswordMapper, otpServiceFactory, memberQueryBuilder, memberAssembler,
+                applicationReviewHandler, memberStatusHandler, memberSubmissionHandler, lockService, transactions);
     }
 
     @Test
@@ -247,6 +261,70 @@ class OrganizationMemberServiceImplTest {
                 .extracting("code").isEqualTo(ResultCode.OPERATION_FAIL.getCode());
     }
 
+    @Test
+    void listJoinInviteCodesHidesRevokedAndKeepsExhausted() {
+        when(organizationJoinOtpMapper.selectList(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<OrganizationJoinOtp>>any())).thenReturn(List.of(
+                OrganizationJoinOtp.builder().id(11L).orgId(1L).otpId(101L).build(),
+                OrganizationJoinOtp.builder().id(12L).orgId(1L).otpId(102L).build(),
+                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build()));
+        when(oneTimePasswordMapper.selectList(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<OneTimePassword>>any())).thenReturn(List.of(
+                invite(101L, "AAAAAA", OTPStatus.REVOKED, 1, null, LocalDateTime.parse("2026-10-27T10:00:00")),
+                invite(102L, "BBBBBB", OTPStatus.PENDING, 2, 2, LocalDateTime.parse("2026-10-27T09:00:00")),
+                invite(103L, "CCCCCC", OTPStatus.PENDING, 3, null, LocalDateTime.parse("2026-10-27T11:00:00"))));
+
+        PageResultBO<OrgAdminJoinInviteCodeResultBO> result = service.listJoinInviteCodes(
+                OrgAdminJoinInviteCodeListParamsBO.builder().orgId(1L).page(new PageParamsBO(1, 10)).build());
+
+        assertThat(result.getTotal()).isEqualTo(2);
+        assertThat(result.getList()).extracting(OrgAdminJoinInviteCodeResultBO::getInviteCode)
+                .containsExactly("CCCCCC", "BBBBBB");
+        assertThat(result.getList().get(1).getStatus()).isEqualTo("USED");
+        assertThat(result.getList().get(0).getId()).isEqualTo(13L);
+    }
+
+    @Test
+    void revokeJoinInviteCodeRejectsAnotherOrganization() {
+        when(organizationJoinOtpMapper.selectById(11L)).thenReturn(
+                OrganizationJoinOtp.builder().id(11L).orgId(2L).otpId(101L).build());
+
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(11L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码不存在");
+        verify(oneTimePasswordMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void revokeJoinInviteCodeRejectsExhaustedCode() {
+        when(organizationJoinOtpMapper.selectById(12L)).thenReturn(
+                OrganizationJoinOtp.builder().id(12L).orgId(1L).otpId(102L).build());
+        when(oneTimePasswordMapper.selectById(102L)).thenReturn(
+                invite(102L, "BBBBBB", OTPStatus.PENDING, 1, 1, LocalDateTime.parse("2026-10-27T09:00:00")));
+
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(12L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("不能失效");
+    }
+
+    @Test
+    void revokeJoinInviteCodeMarksPendingCodeRevoked() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OneTimePassword.class);
+        when(organizationJoinOtpMapper.selectById(13L)).thenReturn(
+                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build());
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(
+                invite(103L, "CCCCCC", OTPStatus.PENDING, 0, null, LocalDateTime.parse("2026-10-27T11:00:00")));
+        when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(1);
+
+        service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder().orgId(1L).inviteId(13L).build());
+
+        verify(oneTimePasswordMapper).update(isNull(), any());
+    }
+
+    private OneTimePassword invite(Long id, String code, OTPStatus status, int useCount, Integer maxUses, LocalDateTime createdAt) {
+        return OneTimePassword.builder().id(id).code(code).bizType(OTPType.OrganizationUserInvite)
+                .status(status).useCount(useCount).maxUses(maxUses).createdAt(createdAt).build();
+    }
 
     private OrganizationMember member(String role, Status status) {
         return OrganizationMember.builder().id(2L).orgId(1L).userId(20L).orgRole(role).status(status).build();

@@ -10,7 +10,8 @@ import online.longlian.common.annotation.ModelEnum;
 public enum OTPStatus implements CodeEnum {
 
     PENDING(0, "待使用"),
-    USED(1, "已使用");
+    USED(1, "已使用"),
+    REVOKED(2, "已失效");
 
     private final Integer code;
     private final String desc;

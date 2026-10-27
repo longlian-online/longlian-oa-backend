@@ -29,12 +29,14 @@ public class OrganizationInviteCodeApiTest extends BaseApiTest {
                 .body("data.expireAt", equalTo("2099-03-01 08:30:00"));
 
         authRequest(orgToken)
-                .body(Map.of("expiredAt", "2099-04-02 09:15:00"))
+                .body(Map.of("maxUses", 5))
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.expireAt", equalTo("2099-04-02 09:15:00"));
+                .body("data.inviteCode", notNullValue())
+                .body("data.maxUses", equalTo(5))
+                .body("data.expireAt", equalTo(null));
     }
 
     @Test
@@ -72,5 +74,25 @@ public class OrganizationInviteCodeApiTest extends BaseApiTest {
         request().get("/app/user/register/join-organization/invite-info?inviteCode=USED01")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    @Test
+    void shouldAllowUnlimitedInviteCodeToBeQueriedRepeatedly() {
+        createUserWithOrganization(2L, "orgadmin", "123456", "orgadmin@example.com", 2L, 8L, "ORG_ADMIN");
+        String orgToken = loginAs("orgadmin", "123456");
+        String inviteCode = authRequest(orgToken)
+                .body(Map.of())
+                .post("/orgadmin/members/invite-codes/join-org")
+                .then()
+                .statusCode(200)
+                .extract()
+                .path("data.inviteCode");
+
+        request().get("/app/user/register/join-organization/invite-info?inviteCode=" + inviteCode)
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        request().get("/app/user/register/join-organization/invite-info?inviteCode=" + inviteCode)
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.orgName", equalTo("组织8"));
     }
 }

@@ -5,6 +5,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
@@ -78,9 +81,19 @@ public interface OrganizationMemberService {
     /**
      * 生成组织加入邀请码。
      *
-     * @param params 包含组织 ID 和邀请码有效期的生成参数
+     * @param params 包含组织 ID 和使用上限的生成参数
      * @return 包含邀请码及相关元信息的结果
      */
     OrgAdminGenerateJoinOrgInviteCodeResultBO generateJoinOrgInviteCode(@NonNull OrgAdminGenerateJoinOrgInviteCodeParamsBO params);
+
+    /**
+     * 分页查询当前组织尚未手动失效的加入邀请码。
+     */
+    PageResultBO<OrgAdminJoinInviteCodeResultBO> listJoinInviteCodes(@NonNull OrgAdminJoinInviteCodeListParamsBO params);
+
+    /**
+     * 手动失效当前组织仍待使用的加入邀请码。
+     */
+    void revokeJoinInviteCode(@NonNull OrgAdminRevokeJoinInviteCodeParamsBO params);
 }
 

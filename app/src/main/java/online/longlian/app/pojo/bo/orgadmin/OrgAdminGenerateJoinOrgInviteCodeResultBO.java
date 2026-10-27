@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrgAdminGenerateJoinOrgInviteCodeResultBO {
+    private Long id;
     private String inviteCode;
-    private String expireAt;
+    private Integer maxUses;
 }
