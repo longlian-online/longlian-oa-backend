@@ -46,6 +46,7 @@ class OneTimePasswordServiceImplTest {
         OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
                 .expiredAt(LocalDateTime.now(clock).plusMinutes(5))
+                .maxUses(1)
                 .bizType(OTPType.EmailVerify)
                 .creatorId(1L)
                 .build();
@@ -80,6 +81,7 @@ class OneTimePasswordServiceImplTest {
     void generateOTP_rejectsExpiryThatIsNotInTheFuture() {
         OneTimePasswordCreateParamsBO missing = OneTimePasswordCreateParamsBO.builder()
                 .code("123456")
+                .maxUses(1)
                 .bizType(OTPType.OrganizationInvite)
                 .creatorId(1L)
                 .build();

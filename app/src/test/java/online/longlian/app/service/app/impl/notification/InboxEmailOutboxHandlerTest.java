@@ -110,7 +110,7 @@ class InboxEmailOutboxHandlerTest {
 
     @Test
     void shouldSendAssignmentCopyToAssignee() throws Exception {
-        String assigned = "「企划 · 项目」的「翻译 · 2/2」已分配给你，无需手动领取。";
+        String assigned = "「企划 · 项目」的「翻译 · 2/2」已由企划负责人分配给你。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目",
                 new NotificationTaskSlotBO("翻译", 2, 2, null))));
         when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());

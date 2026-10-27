@@ -89,7 +89,7 @@ public class TaskAssignApiTest extends BaseApiTest {
         outboxDispatcher.dispatch(testNow().plusSeconds(1));
         verify(mailUtil).send(argThat(mail -> "assignmember@example.com".equals(mail.receiver())
                 && "longlian-oa 任务分配".equals(mail.title())
-                && mail.content().contains("已分配给你，无需手动领取。")
+                && mail.content().contains("已由企划负责人分配给你。")
                 && mail.content().contains("type=TASK_ASSIGNED")
                 && mail.content().contains("taskInstanceId=1")));
     }
