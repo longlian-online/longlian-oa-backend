@@ -124,7 +124,7 @@ CREATE TABLE `one_time_password` (
   `max_uses` int NULL COMMENT "使用上限，为空表示不限次数",
   `use_count` int NOT NULL DEFAULT 0 COMMENT "已使用次数",
   `biz_type` tinyint NOT NULL COMMENT "业务类型 1-邀请创建组织 2-邀请加入组织 3-邮箱验证码",
-  `status` tinyint NOT NULL COMMENT "状态 0-待使用 1-已使用 2-已失效",
+  `status` tinyint NOT NULL COMMENT "状态 0-待使用 1-已使用",
   `creator_id` bigint NOT NULL COMMENT "创建者 ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,

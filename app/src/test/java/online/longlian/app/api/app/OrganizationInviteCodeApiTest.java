@@ -29,14 +29,14 @@ public class OrganizationInviteCodeApiTest extends BaseApiTest {
                 .body("data.expireAt", equalTo("2099-03-01 08:30:00"));
 
         authRequest(orgToken)
-                .body(Map.of("maxUses", 5))
+                .body(Map.of("expiredAt", "2099-04-02 09:15:00", "maxUses", 5))
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.inviteCode", notNullValue())
                 .body("data.maxUses", equalTo(5))
-                .body("data.expireAt", equalTo(null));
+                .body("data.expireAt", equalTo("2099-04-02 09:15:00"));
     }
 
     @Test
@@ -81,7 +81,7 @@ public class OrganizationInviteCodeApiTest extends BaseApiTest {
         createUserWithOrganization(2L, "orgadmin", "123456", "orgadmin@example.com", 2L, 8L, "ORG_ADMIN");
         String orgToken = loginAs("orgadmin", "123456");
         String inviteCode = authRequest(orgToken)
-                .body(Map.of())
+                .body(Map.of("expiredAt", "2099-04-02 09:15:00"))
                 .post("/orgadmin/members/invite-codes/join-org")
                 .then()
                 .statusCode(200)

@@ -43,6 +43,7 @@ public class OrganizationJoinInviteService implements OTPStrategyService {
         OneTimePassword otp = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
                         .code(inviteCode)
+                        .expiredAt(otpGenerateContextBO.getExpiredAt())
                         .maxUses(otpGenerateContextBO.getMaxUses())
                         .bizType(OTPType.OrganizationUserInvite)
                         .creatorId(otpGenerateContextBO.getCreatorId())

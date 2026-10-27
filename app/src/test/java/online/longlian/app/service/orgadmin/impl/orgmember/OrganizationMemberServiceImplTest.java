@@ -262,13 +262,14 @@ class OrganizationMemberServiceImplTest {
     }
 
     @Test
-    void listJoinInviteCodesHidesRevokedAndKeepsExhausted() {
+    void listJoinInviteCodesHidesExpiredAndKeepsExhausted() {
         when(organizationJoinOtpMapper.selectList(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<OrganizationJoinOtp>>any())).thenReturn(List.of(
                 OrganizationJoinOtp.builder().id(11L).orgId(1L).otpId(101L).build(),
                 OrganizationJoinOtp.builder().id(12L).orgId(1L).otpId(102L).build(),
                 OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build()));
         when(oneTimePasswordMapper.selectList(org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<OneTimePassword>>any())).thenReturn(List.of(
-                invite(101L, "AAAAAA", OTPStatus.REVOKED, 1, null, LocalDateTime.parse("2026-10-27T10:00:00")),
+                invite(101L, "AAAAAA", OTPStatus.PENDING, 1, null, LocalDateTime.parse("2026-10-27T10:00:00"))
+                        .setExpiredAt(LocalDateTime.parse("2026-10-27T00:00:00")),
                 invite(102L, "BBBBBB", OTPStatus.PENDING, 2, 2, LocalDateTime.parse("2026-10-27T09:00:00")),
                 invite(103L, "CCCCCC", OTPStatus.PENDING, 3, null, LocalDateTime.parse("2026-10-27T11:00:00"))));
 

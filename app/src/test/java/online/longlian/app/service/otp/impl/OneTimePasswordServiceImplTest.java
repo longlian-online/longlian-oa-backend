@@ -63,6 +63,7 @@ class OneTimePasswordServiceImplTest {
     void generateOTP_allowsJoinInviteWithoutExpiry() {
         OneTimePasswordCreateParamsBO params = OneTimePasswordCreateParamsBO.builder()
                 .code("JOIN01")
+                .expiredAt(LocalDateTime.now(clock).plusDays(1))
                 .maxUses(null)
                 .bizType(OTPType.OrganizationUserInvite)
                 .creatorId(1L)
@@ -71,7 +72,7 @@ class OneTimePasswordServiceImplTest {
 
         OneTimePassword result = service.generateOTP(params);
 
-        assertThat(result.getExpiredAt()).isNull();
+        assertThat(result.getExpiredAt()).isEqualTo(LocalDateTime.now(clock).plusDays(1));
         assertThat(result.getMaxUses()).isNull();
     }
 
@@ -214,16 +215,17 @@ class OneTimePasswordServiceImplTest {
     }
 
     @Test
-    void getValidOTP_revokedInvite_throws() {
+    void getValidOTP_expiredInvite_throws() {
         OneTimePassword otp = OneTimePassword.builder()
                 .id(4L).code("JOIN03").bizType(OTPType.OrganizationUserInvite)
-                .status(OTPStatus.REVOKED).useCount(1)
+                .status(OTPStatus.PENDING).useCount(1)
+                .expiredAt(LocalDateTime.now(clock))
                 .build();
         when(oneTimePasswordMapper.selectOne(any())).thenReturn(otp);
 
         assertThatThrownBy(() -> service.getValidOTP("JOIN03", OTPType.OrganizationUserInvite))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("已失效");
+                .hasMessageContaining("已过期");
     }
 
     @Test

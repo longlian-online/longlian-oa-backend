@@ -24,6 +24,6 @@ public class InviteCodeVO {
     @Schema(description = "使用上限，为空表示不限次数；创建组织邀请码不返回")
     private Integer maxUses;
 
-    @Schema(description = "邀请码过期时间，加入组织邀请码不返回")
+    @Schema(description = "邀请码过期时间")
     private String expireAt;
 }
