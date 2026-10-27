@@ -328,6 +328,42 @@ class OrganizationMemberServiceImplTest {
         verify(oneTimePasswordMapper).update(isNull(), any());
     }
 
+    @Test
+    void revokeJoinInviteCodeRejectsMissingOrExpiredPassword() {
+        when(organizationJoinOtpMapper.selectById(13L)).thenReturn(
+                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build());
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(13L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("邀请码不存在");
+
+        OneTimePassword expired = invite(103L, "CCCCCC", OTPStatus.PENDING, 0, null, LocalDateTime.parse("2026-10-27T11:00:00"));
+        expired.setExpiredAt(LocalDateTime.parse("2026-09-21T00:00:00"));
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(expired);
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(13L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("已过期");
+        verify(oneTimePasswordMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void revokeJoinInviteCodeTreatsLostUpdateAsExpired() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OneTimePassword.class);
+        when(organizationJoinOtpMapper.selectById(13L)).thenReturn(
+                OrganizationJoinOtp.builder().id(13L).orgId(1L).otpId(103L).build());
+        when(oneTimePasswordMapper.selectById(103L)).thenReturn(
+                invite(103L, "CCCCCC", OTPStatus.PENDING, 0, null, LocalDateTime.parse("2026-10-27T11:00:00")));
+        when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.revokeJoinInviteCode(OrgAdminRevokeJoinInviteCodeParamsBO.builder()
+                .orgId(1L).inviteId(13L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("已过期");
+    }
+
     private OneTimePassword invite(Long id, String code, OTPStatus status, int useCount, Integer maxUses, LocalDateTime createdAt) {
         return OneTimePassword.builder().id(id).code(code).bizType(OTPType.OrganizationUserInvite)
                 .status(status).useCount(useCount).maxUses(maxUses).createdAt(createdAt).build();
