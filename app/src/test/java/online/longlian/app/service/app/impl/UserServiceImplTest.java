@@ -429,6 +429,22 @@ class UserServiceImplTest {
                 && resource.getReplacedResourceId().equals(10L)));
     }
 
+    /** 只更新昵称时不传头像，不能清空或重新绑定现有头像。 */
+    @Test
+    void shouldKeepAvatarWhenNicknameUpdateOmitsAvatarFileId() {
+        UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
+                .userId(1L).nickname("新昵称").build();
+
+        service.updateMyInfo(params);
+
+        verify(userMapper, never()).selectById(any());
+        verifyNoInteractions(resourceService);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaUpdateWrapper<User>> captor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(userMapper).update(isNull(), captor.capture());
+        assertThat(captor.getValue().getSqlSet()).contains("nickname").doesNotContain("avatar_file_id");
+    }
+
     @Test
     void registerAndJoinOrganizationStoresInviteIdOnApplication() {
         UserRegisterByInviteParamsBO params = UserRegisterByInviteParamsBO.builder()

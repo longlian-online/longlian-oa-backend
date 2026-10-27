@@ -295,21 +295,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateMyInfo(UserUpdateMyInfoParamsBO params) {
-        User user = userMapper.selectById(params.getUserId());
-        Long oldAvatarFileId = user.getAvatarFileId();
-        userMapper.update(null,
-                new LambdaUpdateWrapper<User>()
-                        .eq(User::getId, params.getUserId())
-                        .set(User::getNickname, params.getNickname())
-                        .set(User::getAvatarFileId, params.getAvatarFileId())
-        );
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(params.getAvatarFileId())
-                .replacedResourceId(oldAvatarFileId)
-                .bizType("avatar")
-                .bizId(params.getUserId())
-                .creatorId(params.getUserId())
-                .build());
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<User>()
+                .eq(User::getId, params.getUserId())
+                .set(User::getNickname, params.getNickname());
+        // 只改昵称时不传头像，不能把现有头像写成空并废弃资源。
+        Long oldAvatarFileId = null;
+        if (params.getAvatarFileId() != null) {
+            User user = userMapper.selectById(params.getUserId());
+            oldAvatarFileId = user.getAvatarFileId();
+            updateWrapper.set(User::getAvatarFileId, params.getAvatarFileId());
+        }
+        userMapper.update(null, updateWrapper);
+        if (params.getAvatarFileId() != null) {
+            resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                    .resourceId(params.getAvatarFileId())
+                    .replacedResourceId(oldAvatarFileId)
+                    .bizType("avatar")
+                    .bizId(params.getUserId())
+                    .creatorId(params.getUserId())
+                    .build());
+        }
     }
 
     @Override
