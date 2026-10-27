@@ -14,7 +14,8 @@ public enum UserOperationType implements CodeEnum {
     TASK_ABANDON(3, "放弃任务"),
     TASK_REJECT(4, "打回任务"),
     TASK_RESET(5, "重置任务"),
-    FILE_DOWNLOAD(6, "下载任务");
+    FILE_DOWNLOAD(6, "下载任务"),
+    TASK_ASSIGN(7, "分配任务");
 
     private final Integer code;
     private final String desc;

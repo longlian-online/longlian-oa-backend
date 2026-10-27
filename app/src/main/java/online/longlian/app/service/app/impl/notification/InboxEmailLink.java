@@ -13,23 +13,40 @@ final class InboxEmailLink {
     }
 
     static String origin(String webUrl) {
+        URI uri = parseWebUrl(webUrl);
+        if (!isRootHttpOrigin(uri)) {
+            throw invalidWebUrl(null);
+        }
+        return uri.getScheme() + "://" + uri.getRawAuthority();
+    }
+
+    private static URI parseWebUrl(String webUrl) {
         if (webUrl == null || webUrl.isBlank() || webUrl.contains("${")) {
-            throw new IllegalStateException("longlian.web-url 无效");
+            throw invalidWebUrl(null);
         }
-        URI uri;
         try {
-            uri = URI.create(webUrl.trim());
+            return URI.create(webUrl.trim());
         } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException("longlian.web-url 无效", exception);
+            throw invalidWebUrl(exception);
         }
+    }
+
+    private static boolean isRootHttpOrigin(URI uri) {
         String scheme = uri.getScheme();
-        boolean rooted = uri.getPath() == null || uri.getPath().isEmpty() || "/".equals(uri.getPath());
-        if ((!"http".equals(scheme) && !"https".equals(scheme)) || uri.getHost() == null
-                || uri.getUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null
-                || !rooted || uri.getRawAuthority() == null) {
-            throw new IllegalStateException("longlian.web-url 无效");
-        }
-        return scheme + "://" + uri.getRawAuthority();
+        return ("http".equals(scheme) || "https".equals(scheme)) && hasBareAuthority(uri) && isRootPath(uri.getPath());
+    }
+
+    private static boolean hasBareAuthority(URI uri) {
+        return uri.getHost() != null && uri.getUserInfo() == null && uri.getRawQuery() == null
+                && uri.getRawFragment() == null && uri.getRawAuthority() != null;
+    }
+
+    private static boolean isRootPath(String path) {
+        return path == null || path.isEmpty() || "/".equals(path);
+    }
+
+    private static IllegalStateException invalidWebUrl(Exception cause) {
+        return new IllegalStateException("longlian.web-url 无效", cause);
     }
 
     static String href(String origin, InboxNotificationKind kind, long orgId,
@@ -42,7 +59,7 @@ final class InboxEmailLink {
                 .queryParam("orgId", orgId)
                 .queryParam("projectId", source.getProjectId())
                 .queryParam("itemId", source.getItemId());
-        if (kind == InboxNotificationKind.TASK_READY) {
+        if (kind == InboxNotificationKind.TASK_READY || kind == InboxNotificationKind.TASK_ASSIGNED) {
             builder.queryParam("taskInstanceId", sourceId);
         }
         return builder.encode().build().toUriString();

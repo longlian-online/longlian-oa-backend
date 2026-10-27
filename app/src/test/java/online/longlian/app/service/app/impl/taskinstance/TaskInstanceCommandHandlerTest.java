@@ -95,6 +95,39 @@ class TaskInstanceCommandHandlerTest {
     }
 
     @Test
+    void assign_pendingInstance_claimsForAssignee() {
+        TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.PENDING).build();
+        when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
+
+        handler.assign(instance, 20L, "0");
+
+        assertRevisionIncrement(TaskInstanceStatus.PENDING);
+        assertThat(capturedSqlSet()).contains("assignee_id", "claimed_at", "status");
+    }
+
+    @Test
+    void assign_claimedInstance_throws() {
+        TaskInstance instance = TaskInstance.builder().revision(1L).id(1L)
+                .status(TaskInstanceStatus.CLAIMED).assigneeId(20L).build();
+
+        assertThatThrownBy(() -> handler.assign(instance, 30L, "1"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("该任务不可分配");
+        verify(taskInstanceMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void assign_staleRevision_throws() {
+        TaskInstance instance = TaskInstance.builder().revision(2L).id(1L).status(TaskInstanceStatus.PENDING).build();
+
+        assertThatThrownBy(() -> handler.assign(instance, 20L, "1"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("该任务状态已变更");
+        verify(taskInstanceMapper, never()).update(any(), any());
+    }
+
+
+    @Test
     void abandon_claimedBySameUser_succeeds() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(10L).build();
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);

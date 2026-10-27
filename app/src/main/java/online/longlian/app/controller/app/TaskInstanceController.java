@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
@@ -25,6 +26,7 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.dto.app.MyTaskListDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
 import online.longlian.app.pojo.dto.app.TaskAbandonDTO;
+import online.longlian.app.pojo.dto.app.TaskAssignDTO;
 
 import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
@@ -46,7 +48,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
-@Tag(name = "任务实例接口", description = "任务接取、放弃、提交、代提交、重置、打回、查看详情、按项目查询实例列表")
+@Tag(name = "任务实例接口", description = "任务接取、分配、放弃、提交、代提交、重置、打回、查看详情、按项目查询实例列表")
 @RequestMapping("/app/task/instance")
 @RestController
 @RequiredArgsConstructor
@@ -76,6 +78,7 @@ public class TaskInstanceController {
                         .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
                         .build());
     }
+
 
     @Operation(
             summary = "任务广场（缺人任务）",
@@ -172,6 +175,28 @@ public class TaskInstanceController {
                         .instanceId(instanceId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
+                        .build());
+        return new TaskClaimResultVO(result.isAutoJoinedProject());
+    }
+
+    @Operation(
+        summary = "分配任务",
+        description = "企划负责人将 PENDING 任务直接分配给当前组织的启用组员。" +
+                "分配后任务变为 CLAIMED 并归属该组员，组员无需再领取；同时发送站内信和邮件"
+    )
+    @Parameter(name = "instanceId", description = "任务实例ID")
+    @PostMapping("/{instanceId}/assign")
+    @ResponseMessage("分配成功")
+    public TaskClaimResultVO assignTask(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                         @PathVariable Long instanceId,
+                                         @RequestBody @Valid TaskAssignDTO request) {
+        TaskClaimResultBO result = taskInstanceService.assignTask(
+                TaskInstanceAssignParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
+                        .assigneeId(request.getAssigneeId())
+                        .expectedRevision(request.getExpectedRevision())
                         .build());
         return new TaskClaimResultVO(result.isAutoJoinedProject());
     }

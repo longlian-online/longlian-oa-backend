@@ -94,7 +94,8 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
                 List.of(new NotificationSourceRefBO(payload.notificationId(), payload.kind(), payload.sourceId()))));
         var match = resolved.get(payload.notificationId());
         NotificationSourceResultBO source = match == null ? null : match.getSource();
-        if (source == null || (payload.kind() == InboxNotificationKind.TASK_READY && source.getTaskSlot() == null)) {
+        if (source == null || ((payload.kind() == InboxNotificationKind.TASK_READY
+                || payload.kind() == InboxNotificationKind.TASK_ASSIGNED) && source.getTaskSlot() == null)) {
             throw new OutboxSkipException("来源不可用");
         }
         return source;

@@ -36,7 +36,10 @@ public class NotificationSourceResolver {
         Map<InboxNotificationKind, List<NotificationSourceRefBO>> groups = params.getSources().stream()
                 .collect(Collectors.groupingBy(NotificationSourceRefBO::getKind,
                         () -> new EnumMap<>(InboxNotificationKind.class), Collectors.toList()));
-        List<Long> taskIds = sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_READY, List.of()));
+        List<Long> taskIds = java.util.stream.Stream.concat(
+                        sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_READY, List.of())).stream(),
+                        sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_ASSIGNED, List.of())).stream())
+                .distinct().toList();
         Map<Long, TaskInstance> tasks = taskIds.isEmpty() ? Map.of() : taskInstanceMapper.selectBatchIds(taskIds)
                 .stream().collect(Collectors.toMap(TaskInstance::getId, Function.identity()));
         Set<Long> itemIds = new HashSet<>(sourceIds(groups.getOrDefault(InboxNotificationKind.ITEM_COMPLETED, List.of())));
@@ -57,7 +60,7 @@ public class NotificationSourceResolver {
         Map<Long, NotificationResolvedSourceBO> results = new HashMap<>();
         for (var group : groups.entrySet()) {
             Map<Long, NotificationResolvedSourceBO> sources = switch (group.getKey()) {
-                case TASK_READY -> resolveTaskSources(sourceIds(group.getValue()), tasks, items, projects, nodes);
+                case TASK_READY, TASK_ASSIGNED -> resolveTaskSources(sourceIds(group.getValue()), tasks, items, projects, nodes);
                 case ITEM_COMPLETED -> resolveItemSources(sourceIds(group.getValue()), items, projects);
             };
             for (NotificationSourceRefBO ref : group.getValue()) {
