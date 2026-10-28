@@ -48,66 +48,112 @@ final class ItemTaskFlowEditPlanner {
     }
 
     static Plan plan(List<CurrentNode> current, List<DesiredNode> desired, List<RemovedNode> removed) {
+        requireDesired(desired);
+        List<RemovedNode> removals = removed == null ? List.of() : removed;
+        Map<Long, CurrentNode> currentById = indexCurrent(current);
+        requireSameNodes(currentById.keySet(), desiredIds(desired), removedIds(removals));
+        List<Kept> kept = new ArrayList<>();
+        List<Created> created = new ArrayList<>();
+        for (Positioned item : normalize(desired)) {
+            collect(item, currentById, kept, created);
+        }
+        return new Plan(kept, deletions(removals, currentById), created);
+    }
+
+    private static void requireDesired(List<DesiredNode> desired) {
         if (desired == null || desired.isEmpty()) {
             throw new AppException(ResultCode.PARAM_ERROR, "请至少保留一个任务");
         }
-        List<RemovedNode> removals = removed == null ? List.of() : removed;
+    }
+
+    private static Map<Long, CurrentNode> indexCurrent(List<CurrentNode> current) {
         Map<Long, CurrentNode> currentById = new LinkedHashMap<>();
         for (CurrentNode node : current) {
             if (currentById.put(node.id(), node) != null) {
                 throw new AppException(ResultCode.OPERATION_FAIL, STALE);
             }
         }
+        return currentById;
+    }
 
-        Set<Long> desiredIds = new HashSet<>();
-        Set<Long> removedIds = new HashSet<>();
+    private static Set<Long> desiredIds(List<DesiredNode> desired) {
+        Set<Long> ids = new HashSet<>();
         for (DesiredNode node : desired) {
-            if (node.id() != null && !desiredIds.add(node.id())) {
+            if (node.id() != null && !ids.add(node.id())) {
                 throw new AppException(ResultCode.PARAM_ERROR, "节点重复");
             }
         }
+        return ids;
+    }
+
+    private static Set<Long> removedIds(List<RemovedNode> removals) {
+        Set<Long> ids = new HashSet<>();
         for (RemovedNode node : removals) {
-            if (!removedIds.add(node.id()) || desiredIds.contains(node.id())) {
+            if (!ids.add(node.id())) {
                 throw new AppException(ResultCode.PARAM_ERROR, "节点重复");
             }
         }
-        if (!currentById.keySet().equals(union(desiredIds, removedIds))) {
-            throw new AppException(ResultCode.OPERATION_FAIL, STALE);
-        }
+        return ids;
+    }
 
-        List<Positioned> positioned = normalize(desired);
-        List<Kept> kept = new ArrayList<>();
-        List<Created> created = new ArrayList<>();
-        for (Positioned item : positioned) {
-            DesiredNode node = item.node();
-            if (node.id() == null) {
-                created.add(new Created(node.baseTaskId(), item.sort(), item.parallelSort(), blankToNull(node.name())));
-                continue;
-            }
-            CurrentNode existing = currentById.get(node.id());
-            if (existing == null || node.revision() == null || node.revision() != existing.revision()) {
-                throw new AppException(ResultCode.OPERATION_FAIL, STALE);
-            }
-            if (node.baseTaskId() != existing.baseTaskId()) {
-                throw new AppException(ResultCode.PARAM_ERROR, BASE_TASK_CHANGED);
-            }
-            String name = blankToNull(node.name());
-            kept.add(new Kept(existing.id(), existing.instanceId(), existing.revision(),
-                    item.sort(), item.parallelSort(), name == null ? existing.name() : name));
+    private static void requireSameNodes(Set<Long> currentIds, Set<Long> desiredIds, Set<Long> removedIds) {
+        if (overlaps(desiredIds, removedIds) || !currentIds.equals(union(desiredIds, removedIds))) {
+            throw new AppException(desiredIdsRemoveOverlap(desiredIds, removedIds)
+                    ? ResultCode.PARAM_ERROR : ResultCode.OPERATION_FAIL,
+                    desiredIdsRemoveOverlap(desiredIds, removedIds) ? "节点重复" : STALE);
         }
+    }
 
+    private static boolean overlaps(Set<Long> left, Set<Long> right) {
+        for (Long id : left) {
+            if (right.contains(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean desiredIdsRemoveOverlap(Set<Long> desiredIds, Set<Long> removedIds) {
+        return overlaps(desiredIds, removedIds);
+    }
+
+    private static void collect(Positioned item, Map<Long, CurrentNode> currentById,
+                                List<Kept> kept, List<Created> created) {
+        DesiredNode node = item.node();
+        if (node.id() == null) {
+            created.add(new Created(node.baseTaskId(), item.sort(), item.parallelSort(), blankToNull(node.name())));
+            return;
+        }
+        kept.add(keep(item, requireCurrent(currentById, node.id(), node.revision()), node));
+    }
+
+    private static Kept keep(Positioned item, CurrentNode existing, DesiredNode node) {
+        if (node.baseTaskId() != existing.baseTaskId()) {
+            throw new AppException(ResultCode.PARAM_ERROR, BASE_TASK_CHANGED);
+        }
+        String name = blankToNull(node.name());
+        return new Kept(existing.id(), existing.instanceId(), existing.revision(),
+                item.sort(), item.parallelSort(), name == null ? existing.name() : name);
+    }
+
+    private static List<Deleted> deletions(List<RemovedNode> removals, Map<Long, CurrentNode> currentById) {
         List<Deleted> deleted = new ArrayList<>();
         for (RemovedNode node : removals) {
-            CurrentNode existing = currentById.get(node.id());
-            if (existing == null || node.revision() != existing.revision()) {
-                throw new AppException(ResultCode.OPERATION_FAIL, STALE);
-            }
+            CurrentNode existing = requireCurrent(currentById, node.id(), node.revision());
             if (!canDelete(existing)) {
                 throw new AppException(ResultCode.OPERATION_FAIL, LOCKED_DELETE);
             }
             deleted.add(new Deleted(existing.id(), existing.instanceId(), existing.revision()));
         }
-        return new Plan(kept, deleted, created);
+        return deleted;
+    }
+
+    private static CurrentNode requireCurrent(Map<Long, CurrentNode> currentById, long id, Long revision) {
+        CurrentNode existing = currentById.get(id);
+        if (existing == null || revision == null || revision != existing.revision()) {
+            throw new AppException(ResultCode.OPERATION_FAIL, STALE);
+        }
+        return existing;
     }
 
     private static boolean canDelete(CurrentNode node) {
