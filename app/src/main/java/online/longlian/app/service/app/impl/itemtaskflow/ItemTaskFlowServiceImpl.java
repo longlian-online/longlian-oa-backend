@@ -9,7 +9,10 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
 import online.longlian.app.pojo.entity.Item;
+import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -18,9 +21,12 @@ import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.service.app.ItemTaskFlowService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,8 +36,10 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
     private final ItemTaskFlowMapper itemTaskFlowMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceMapper taskInstanceMapper;
+    private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemTaskFlowAssembler itemTaskFlowAssembler;
     private final ProjectMapper projectMapper;
+    private final ItemTaskFlowEditor itemTaskFlowEditor;
 
     @Override
     public ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId) {
@@ -66,12 +74,27 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
                 : taskInstanceMapper.selectList(
                         new LambdaQueryWrapper<TaskInstance>()
                                 .in(TaskInstance::getItemTaskNodeId, nodeIds));
+        Set<Long> submittedInstanceIds = instances.isEmpty()
+                ? Set.of()
+                : taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
+                                .select(TaskSubmission::getTaskInstanceId)
+                                .in(TaskSubmission::getTaskInstanceId,
+                                        instances.stream().map(TaskInstance::getId).toList()))
+                        .stream()
+                        .map(TaskSubmission::getTaskInstanceId)
+                        .collect(Collectors.toSet());
 
         return ItemTaskFlowVO.builder()
                 .itemTitle(item.getTitle())
                 .name(flow.getName())
                 .description(flow.getDescription())
-                .nodes(itemTaskFlowAssembler.assembleNodes(nodes, instances))
+                .nodes(itemTaskFlowAssembler.assembleNodes(nodes, instances, submittedInstanceIds))
                 .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateItemTaskFlow(ItemTaskFlowUpdateParamsBO params) {
+        itemTaskFlowEditor.update(params);
     }
 }

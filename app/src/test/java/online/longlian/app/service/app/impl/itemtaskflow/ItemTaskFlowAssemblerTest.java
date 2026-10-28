@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -47,7 +48,8 @@ class ItemTaskFlowAssemblerTest {
         TaskInstance instance = TaskInstance.builder().id(100L).itemTaskNodeId(2L)
                 .status(TaskInstanceStatus.CLAIMED).build();
 
-        List<ItemTaskNodeVO> result = assembler.assembleNodes(List.of(first, second), List.of(instance));
+        List<ItemTaskNodeVO> result = assembler.assembleNodes(
+                List.of(first, second), List.of(instance), Set.of());
 
         assertThat(result).extracting(ItemTaskNodeVO::getName)
                 .containsExactly("自定义翻译", "历史审核");
@@ -58,6 +60,9 @@ class ItemTaskFlowAssemblerTest {
         assertThat(result.get(1).getBaseTaskIcon()).isNull();
         assertThat(result.get(1).getTaskInstanceId()).isEqualTo(100L);
         assertThat(result.get(1).getTaskStatus()).isEqualTo(TaskInstanceStatus.CLAIMED);
+        assertThat(result.get(0).getRemovable()).isFalse();
+        assertThat(result.get(1).getRemovable()).isFalse();
+        assertThat(result.get(1).getRevision()).isEqualTo("0");
     }
 
     @Test
@@ -65,6 +70,6 @@ class ItemTaskFlowAssemblerTest {
         TaskInstance orphan = TaskInstance.builder().id(100L).itemTaskNodeId(2L)
                 .status(TaskInstanceStatus.CLAIMED).build();
 
-        assertThat(assembler.assembleNodes(Collections.emptyList(), List.of(orphan))).isEmpty();
+        assertThat(assembler.assembleNodes(Collections.emptyList(), List.of(orphan), Set.of())).isEmpty();
     }
 }
