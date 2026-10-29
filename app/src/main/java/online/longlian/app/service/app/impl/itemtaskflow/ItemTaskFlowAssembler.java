@@ -9,9 +9,12 @@ import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
 import online.longlian.app.service.common.TaskFormService;
 import org.springframework.stereotype.Component;
 
+import online.longlian.common.enumeration.TaskInstanceStatus;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -22,7 +25,8 @@ public class ItemTaskFlowAssembler {
     private final BaseTaskMapper baseTaskMapper;
     private final TaskFormService taskFormService;
 
-    public List<ItemTaskNodeVO> assembleNodes(List<ItemTaskNode> nodes, List<TaskInstance> instances) {
+    public List<ItemTaskNodeVO> assembleNodes(List<ItemTaskNode> nodes, List<TaskInstance> instances,
+                                               Set<Long> submittedInstanceIds) {
         if (nodes.isEmpty()) {
             return Collections.emptyList();
         }
@@ -49,8 +53,15 @@ public class ItemTaskFlowAssembler {
 
                     TaskInstance instance = instanceMap.get(node.getId());
                     if (instance != null) {
+                        boolean submitted = submittedInstanceIds.contains(instance.getId());
                         builder.taskInstanceId(instance.getId())
-                                .taskStatus(instance.getStatus());
+                                .taskStatus(instance.getStatus())
+                                .revision(instance.getRevision() == null ? "0" : instance.getRevision().toString())
+                                .removable(instance.getStatus() == TaskInstanceStatus.PENDING
+                                        && instance.getAssigneeId() == null
+                                        && !submitted);
+                    } else {
+                        builder.removable(false);
                     }
                     return builder.build();
                 })

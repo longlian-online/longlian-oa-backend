@@ -6,6 +6,7 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.ItemTaskNode;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,15 +38,18 @@ class ItemTaskFlowServiceImplTest {
     @Mock private ItemTaskFlowMapper itemTaskFlowMapper;
     @Mock private ItemTaskNodeMapper itemTaskNodeMapper;
     @Mock private TaskInstanceMapper taskInstanceMapper;
+    @Mock private TaskSubmissionMapper taskSubmissionMapper;
     @Mock private ItemTaskFlowAssembler itemTaskFlowAssembler;
     @Mock private ProjectMapper projectMapper;
+    @Mock private ItemTaskFlowEditor itemTaskFlowEditor;
 
     private ItemTaskFlowServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new ItemTaskFlowServiceImpl(itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
-                taskInstanceMapper, itemTaskFlowAssembler, projectMapper);
+                taskInstanceMapper, taskSubmissionMapper, itemTaskFlowAssembler, projectMapper,
+                itemTaskFlowEditor);
     }
 
     @Test
@@ -84,7 +89,7 @@ class ItemTaskFlowServiceImplTest {
         when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(3L).itemId(1L).projectId(2L).name("漫画汉化流程").build());
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of());
-        when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList())).thenReturn(List.of());
+        when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of());
 
         ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
 
@@ -104,7 +109,7 @@ class ItemTaskFlowServiceImplTest {
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(ItemTaskNode.builder()
                 .id(4L).itemTaskFlowId(3L).name("翻译").sort(1).parallelSort(1).build()));
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of());
-        when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList())).thenReturn(List.of(
+        when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of(
                 ItemTaskNodeVO.builder().id(5L).name("翻译").sort(1).parallelSort(1).build()));
 
         ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
