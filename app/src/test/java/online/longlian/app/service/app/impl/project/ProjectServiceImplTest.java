@@ -31,6 +31,7 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
+import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -76,6 +77,8 @@ class ProjectServiceImplTest {
     private ProjectAssembler projectAssembler;
     @Mock
     private ProjectProgressHandler projectProgressHandler;
+    @Mock
+    private ProjectTypeCustomFormService projectTypeCustomFormService;
 
     private ProjectServiceImpl service;
 
@@ -94,9 +97,11 @@ class ProjectServiceImplTest {
                 projectQueryBuilder,
                 projectAssembler,
                 projectProgressHandler,
+                projectTypeCustomFormService,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
         lenient().when(itemMapper.selectCount(any())).thenReturn(0L);
+        lenient().when(projectTypeCustomFormService.requiredFieldNames(any(), any())).thenReturn(List.of());
     }
 
     /** 非法 metadata 不应创建项目或绑定资源。 */
@@ -110,6 +115,23 @@ class ProjectServiceImplTest {
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
         verify(projectMapper, never()).insert(any(Project.class));
         verify(resourceService, never()).bindBizResource(any());
+    }
+
+    @Test
+    void shouldRejectCreateWhenRequiredCustomFieldIsBlank() {
+        when(projectTypeMapper.selectById(10L)).thenReturn(
+                ProjectType.builder().id(10L).orgId(1L).status(Status.ENABLED).build());
+        when(projectTypeCustomFormService.requiredFieldNames(1L, 10L)).thenReturn(List.of("作者", "状态"));
+
+        assertThatThrownBy(() -> service.createProject(ProjectCreateParamsBO.builder()
+                .orgId(1L).typeId(10L)
+                .metadata("{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"  \"},{\"name\":\"备注\",\"value\":\"有\"}]}")
+                .build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                    assertThat(ex.getMessage()).isEqualTo("请填写必填字段：作者、状态");
+                });
+        verify(projectMapper, never()).insert(any(Project.class));
     }
 
     /** 非法 metadata 不应修改现有项目或封面绑定。 */

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -21,4 +22,5 @@ public class ProjectTypeListResultBO {
     private Long creatorId;
     private String creatorNickname;
     private LocalDateTime createdAt;
+    private List<ProjectTypeCustomFieldResultBO> customFields;
 }

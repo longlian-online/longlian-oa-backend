@@ -13,16 +13,19 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeUpdateParamsBO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectTypeCreateDTO;
+import online.longlian.app.pojo.dto.orgadmin.ProjectTypeCustomFieldDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectTypeListDTO;
 import online.longlian.app.pojo.dto.orgadmin.ProjectTypeUpdateDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ProjectTypeAdminVO;
+import online.longlian.app.pojo.vo.orgadmin.ProjectTypeCustomFieldVO;
 import online.longlian.app.service.orgadmin.ProjectTypeService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,7 +60,12 @@ public class ProjectTypeController {
 
         List<ProjectTypeAdminVO> projectTypeAdminVOList = resultBO.getList().stream().map(bo -> {
             ProjectTypeAdminVO projectTypeAdminVO = new ProjectTypeAdminVO();
-            BeanUtils.copyProperties(bo, projectTypeAdminVO);
+            BeanUtils.copyProperties(bo, projectTypeAdminVO, "customFields");
+            projectTypeAdminVO.setCustomFields(bo.getCustomFields().stream().map(field -> {
+                ProjectTypeCustomFieldVO item = new ProjectTypeCustomFieldVO();
+                BeanUtils.copyProperties(field, item);
+                return item;
+            }).toList());
             return projectTypeAdminVO;
         }).toList();
 
@@ -75,11 +83,12 @@ public class ProjectTypeController {
                         .creatorId(sessionContext.userId())
                         .name(projectTypeCreateDTO.getName().trim())
                         .priority(projectTypeCreateDTO.getPriority() == null ? 0 : projectTypeCreateDTO.getPriority())
+                        .customFields(toCustomFields(projectTypeCreateDTO.getCustomFields()))
                         .build()
         );
     }
 
-    @Operation(summary = "修改企划类型名称与优先级")
+    @Operation(summary = "修改企划类型", description = "可修改名称、优先级和默认自定义表单。自定义表单省略时保持原设置")
     @PutMapping("/{typeId}")
     @ResponseMessage("修改成功")
     public void updateProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
@@ -87,7 +96,20 @@ public class ProjectTypeController {
                                   @RequestBody @Valid ProjectTypeUpdateDTO projectTypeUpdateDTO) {
         projectTypeService.updateProjectType(ProjectTypeUpdateParamsBO.builder()
                 .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim())
-                .priority(projectTypeUpdateDTO.getPriority()).build());
+                .priority(projectTypeUpdateDTO.getPriority())
+                .customFields(toCustomFields(projectTypeUpdateDTO.getCustomFields())).build());
+    }
+
+    private List<ProjectTypeCustomFieldBO> toCustomFields(List<ProjectTypeCustomFieldDTO> fields) {
+        if (fields == null) {
+            return null;
+        }
+        return fields.stream()
+                .map(field -> ProjectTypeCustomFieldBO.builder()
+                        .presetFieldId(field.getPresetFieldId())
+                        .required(field.getRequired())
+                        .build())
+                .toList();
     }
 
     @Operation(summary = "删除企划类型", description = "仅允许删除未被企划引用的类型")
