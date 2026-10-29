@@ -47,4 +47,10 @@ public class ItemTaskNodeVO {
 
     @Schema(description = "任务实例状态：PENDING(待接取)/CLAIMED(待提交)/COMPLETED(已完成)，null 表示节点未解锁")
     private TaskInstanceStatus taskStatus;
+
+    @Schema(description = "任务修订号。保存工作流时回传，用于发现期间发生的接取或提交")
+    private String revision;
+
+    @Schema(description = "是否可从工作流中删除。已接取、已完成或已有提交记录时为 false")
+    private Boolean removable;
 }
