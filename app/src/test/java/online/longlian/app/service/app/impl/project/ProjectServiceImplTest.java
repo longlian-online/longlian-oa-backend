@@ -104,6 +104,14 @@ class ProjectServiceImplTest {
         lenient().when(projectTypeCustomFormService.requiredFieldNames(any(), any())).thenReturn(List.of());
     }
 
+    @Test
+    void getProjectTypes_returnsEmptyWithoutLoadingCustomForms() {
+        when(projectTypeMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(service.getProjectTypes(1L)).isEmpty();
+        verify(projectTypeCustomFormService, never()).listByTypeIds(any(), any());
+    }
+
     /** 非法 metadata 不应创建项目或绑定资源。 */
     @Test
     void shouldRejectInvalidMetadataOnCreate() {

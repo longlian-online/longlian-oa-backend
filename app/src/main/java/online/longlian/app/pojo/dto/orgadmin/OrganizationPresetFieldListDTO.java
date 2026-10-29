@@ -18,9 +18,4 @@ public class OrganizationPresetFieldListDTO extends PageRequestDTO {
 
     @Schema(description = "排序方式，默认创建时间倒序")
     private SortDirection orderDir = SortDirection.DESC;
-
-    @Override
-    public boolean canEqual(final Object other) {
-        return other instanceof OrganizationPresetFieldListDTO;
-    }
 }

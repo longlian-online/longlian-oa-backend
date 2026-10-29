@@ -91,6 +91,22 @@ class OrganizationPresetFieldServiceImplTest {
     }
 
     @Test
+    void listPresetFields_emptyPageDoesNotLookUpCreators() {
+        Page<OrganizationPresetField> page = new Page<>(1, 10);
+        page.setRecords(List.of());
+        page.setTotal(0);
+        when(queryBuilder.buildListQuery(any())).thenReturn(new LambdaQueryWrapper<>());
+        when(organizationPresetFieldMapper.selectPage(any(), any())).thenReturn(page);
+
+        var result = service.listPresetFields(OrganizationPresetFieldListParamsBO.builder()
+                .orgId(1L).page(new PageParamsBO(1, 10)).build());
+
+        assertThat(result.getList()).isEmpty();
+        assertThat(result.getTotal()).isZero();
+        assertThat(service.listExisting(1L, List.of())).isEmpty();
+    }
+
+    @Test
     void listPresetFields_usesNullNicknameWhenCreatorHasNoDisplayName() {
         OrganizationPresetField field = OrganizationPresetField.builder()
                 .id(1L).orgId(1L).name("作者").creatorId(2L).build();
