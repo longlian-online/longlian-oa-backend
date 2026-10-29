@@ -30,6 +30,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskOptionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
 
 @Service
@@ -47,6 +48,19 @@ public class BaseTaskServiceImpl implements BaseTaskService {
     @Override
     public List<PlazaTaskTypeOptionResultBO> listPlazaTaskTypes(Long orgId) {
         return baseTaskMapper.selectPlazaTaskTypes(orgId);
+    }
+
+    @Override
+    public List<BaseTaskOptionResultBO> listEnabledOptions(Long orgId) {
+        return baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
+                        .eq(BaseTask::getOrgId, orgId)
+                        .eq(BaseTask::getStatus, Status.ENABLED)
+                        .orderByAsc(BaseTask::getName)
+                        .orderByAsc(BaseTask::getId))
+                .stream()
+                .map(task -> new BaseTaskOptionResultBO(
+                        task.getId(), task.getName(), task.getIcon(), task.getDescription(), task.getStatus()))
+                .toList();
     }
 
     @Override
