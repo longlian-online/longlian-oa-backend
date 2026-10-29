@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskOptionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,6 +74,23 @@ class BaseTaskServiceImplTest {
         assertThat(service.listPlazaTaskTypes(2L)).containsExactlyElementsOf(options);
         verify(baseTaskMapper).selectPlazaTaskTypes(2L);
         verifyNoInteractions(itemTaskNodeMapper, taskTemplateNodeMapper);
+    }
+
+    @Test
+    void listEnabledOptions_mapsTaskFieldsWithoutSubmitSchema() {
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(BaseTask.builder()
+                .id(7L)
+                .orgId(2L)
+                .name("翻译")
+                .icon("Languages")
+                .description("说明")
+                .metaSchema("[{\"key\":\"secret\"}]")
+                .status(Status.ENABLED)
+                .build()));
+
+        assertThat(service.listEnabledOptions(2L)).containsExactly(
+                new BaseTaskOptionResultBO(7L, "翻译", "Languages", "说明", Status.ENABLED));
+        verifyNoInteractions(itemTaskNodeMapper, taskTemplateNodeMapper, baseTaskAssembler);
     }
 
     @Test
