@@ -134,6 +134,11 @@ public class NotificationSourceResolver {
         Map<Long, GroupApplication> applications = ids.isEmpty() ? Map.of()
                 : groupApplicationMapper.selectBatchIds(ids).stream()
                 .collect(Collectors.toMap(GroupApplication::getId, Function.identity()));
+        List<Long> applicantIds = applications.values().stream()
+                .filter(application -> orgId.equals(application.getOrgId()))
+                .map(GroupApplication::getUserId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, User> applicants = applicantIds.isEmpty() ? Map.of() : userMapper.selectBatchIds(applicantIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<Long, NotificationResolvedSourceBO> sources = new HashMap<>();
         for (Long id : ids) {
             GroupApplication application = applications.get(id);
@@ -142,8 +147,11 @@ public class NotificationSourceResolver {
                 sources.put(id, unavailable());
                 continue;
             }
+            User applicant = application.getUserId() == null ? null : applicants.get(application.getUserId());
+            List<Long> images = applicant != null && applicant.getAvatarFileId() != null && applicant.getAvatarFileId() > 0
+                    ? List.of(applicant.getAvatarFileId()) : List.of();
             sources.put(id, new NotificationResolvedSourceBO(NotificationSourceResultBO.builder()
-                    .applicantName(applicantName).build(), List.of()));
+                    .applicantName(applicantName).build(), images));
         }
         return sources;
     }
@@ -157,6 +165,12 @@ public class NotificationSourceResolver {
                 .map(DeletionRequest::getRequesterId).filter(Objects::nonNull).distinct().toList();
         Map<Long, User> users = requesterIds.isEmpty() ? Map.of() : userMapper.selectBatchIds(requesterIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
+        List<Long> projectIds = requests.stream().filter(request -> orgId.equals(request.getOrgId()))
+                .map(DeletionRequest::getProjectId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, Project> projects = projectIds.isEmpty() ? Map.of() : projectMapper.selectList(
+                new LambdaQueryWrapper<Project>().in(Project::getId, projectIds)
+                        .eq(Project::getOrgId, orgId).eq(Project::getResourceStatus, Status.ENABLED))
+                .stream().collect(Collectors.toMap(Project::getId, Function.identity()));
         Map<Long, NotificationResolvedSourceBO> sources = new HashMap<>();
         for (Long id : ids) {
             DeletionRequest request = byId.get(id);
@@ -170,7 +184,7 @@ public class NotificationSourceResolver {
                     .requesterName(requesterName)
                     .targetType(request.getTargetType().name())
                     .targetTitle(request.getTargetTitle().trim())
-                    .build(), List.of()));
+                    .build(), projectImages(projects.get(request.getProjectId()))));
         }
         return sources;
     }
@@ -199,7 +213,10 @@ public class NotificationSourceResolver {
         return new NotificationResolvedSourceBO(null, List.of());
     }
 
-    private NotificationResolvedSourceBO resolved(Project project, Item item, NotificationTaskSlotBO taskSlot) {
+    private List<Long> projectImages(Project project) {
+        if (project == null) {
+            return List.of();
+        }
         List<Long> images = new ArrayList<>(2);
         if (project.getThumbnailFileId() != null && project.getThumbnailFileId() > 0) {
             images.add(project.getThumbnailFileId());
@@ -207,7 +224,11 @@ public class NotificationSourceResolver {
         if (project.getCoverFileId() != null && project.getCoverFileId() > 0 && !images.contains(project.getCoverFileId())) {
             images.add(project.getCoverFileId());
         }
+        return images;
+    }
+
+    private NotificationResolvedSourceBO resolved(Project project, Item item, NotificationTaskSlotBO taskSlot) {
         return new NotificationResolvedSourceBO(new NotificationSourceResultBO(project.getId(), project.getTitle(),
-                item.getId(), item.getTitle(), taskSlot), images);
+                item.getId(), item.getTitle(), taskSlot), projectImages(project));
     }
 }
