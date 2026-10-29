@@ -91,6 +91,25 @@ class InboxNotificationServiceImplTest {
     }
 
     @Test
+    void shouldAllowApplicantAvatarFromOriginalOrganizationOnlyForJoinNotification() {
+        UserNotification join = row(1L);
+        join.setKind(InboxNotificationKind.JOIN_APPLICATION);
+        UserNotification deletion = row(2L);
+        deletion.setKind(InboxNotificationKind.DELETION_REQUEST);
+        when(mapper.selectList(any())).thenReturn(List.of(join, deletion, row(3L)));
+        when(mapper.selectCount(any())).thenReturn(3L);
+        when(resolver.resolve(any())).thenReturn(Map.of(
+                1L, source(List.of(10L)), 2L, source(List.of(10L)), 3L, source(List.of(10L))));
+        when(resources.getResourceReadUrls(anyList())).thenReturn(Map.of(
+                10L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 99L, "avatar")));
+
+        var page = service.list(new NotificationListParamsBO(1L, 2L, null, null, null));
+
+        assertThat(page.getList()).extracting(NotificationResultBO::getThumbnailUrl).containsExactly(
+                "https://cdn.example/avatar.png?eo-img.resize=w/144/h/144", null, null);
+    }
+
+    @Test
     void shouldNotMaskImageSigningFailureAsEmptyThumbnail() {
         when(mapper.selectList(any())).thenReturn(List.of(row(1L)));
         when(mapper.selectCount(any())).thenReturn(1L);

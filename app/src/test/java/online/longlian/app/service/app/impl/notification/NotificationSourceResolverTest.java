@@ -68,15 +68,15 @@ class NotificationSourceResolverTest {
     }
 
     @Test
-    void shouldResolveJoinAndDeletionSourcesWithoutReadingProjects() {
+    void shouldPreserveReviewTextWhenOptionalImagesAreUnavailable() {
         when(applications.selectBatchIds(anyCollection())).thenReturn(List.of(
                 GroupApplication.builder().id(4L).orgId(1L).nickname("  小周  ").username("zhou").build(),
                 GroupApplication.builder().id(5L).orgId(2L).nickname("别人").build()));
         when(deletions.selectBatchIds(anyCollection())).thenReturn(List.of(
-                DeletionRequest.builder().id(8L).orgId(1L).requesterId(3L).targetType(DeletionTargetType.ITEM)
-                        .targetTitle(" 第一章 ").build(),
-                DeletionRequest.builder().id(9L).orgId(1L).requesterId(99L).targetType(DeletionTargetType.PROJECT)
-                        .targetTitle("失踪").build()));
+                DeletionRequest.builder().id(8L).orgId(1L).requesterId(3L).projectId(10L)
+                        .targetType(DeletionTargetType.ITEM).targetTitle(" 第一章 ").build(),
+                DeletionRequest.builder().id(9L).orgId(1L).requesterId(99L).projectId(10L)
+                        .targetType(DeletionTargetType.PROJECT).targetTitle("失踪").build()));
         when(users.selectBatchIds(anyCollection())).thenReturn(List.of(
                 User.builder().id(3L).nickname("").username("申请人").build()));
 
@@ -92,7 +92,62 @@ class NotificationSourceResolverTest {
         assertThat(result.get(3L).getSource().getRequesterName()).isEqualTo("申请人");
         assertThat(result.get(3L).getSource().getTargetType()).isEqualTo("ITEM");
         assertThat(result.get(3L).getSource().getTargetTitle()).isEqualTo("第一章");
+        assertThat(result.get(3L).getImageResourceIds()).isEmpty();
         assertThat(result.get(4L).getSource()).isNull();
+        verifyNoInteractions(tasks, items);
+    }
+
+    @Test
+    void shouldUseProjectThumbnailBeforeCoverForBothDeletionTargetTypes() {
+        when(deletions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                DeletionRequest.builder().id(8L).orgId(1L).requesterId(3L).projectId(9L)
+                        .targetType(DeletionTargetType.ITEM).targetTitle("第一章").build(),
+                DeletionRequest.builder().id(10L).orgId(1L).requesterId(3L).projectId(9L)
+                        .targetType(DeletionTargetType.PROJECT).targetTitle("企划").build()));
+        when(users.selectBatchIds(anyCollection())).thenReturn(List.of(
+                User.builder().id(3L).username("申请人").build()));
+        when(projects.selectList(any())).thenReturn(List.of(
+                Project.builder().id(9L).orgId(1L).thumbnailFileId(20L).coverFileId(21L).build()));
+
+        var result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.DELETION_REQUEST, 8L),
+                new NotificationSourceRefBO(2L, InboxNotificationKind.DELETION_REQUEST, 10L))));
+
+        assertThat(result.get(1L).getImageResourceIds()).containsExactly(20L, 21L);
+        assertThat(result.get(2L).getImageResourceIds()).containsExactly(20L, 21L);
+        assertThat(result.get(1L).getSource().getTargetTitle()).isEqualTo("第一章");
+        verifyNoInteractions(tasks, items);
+    }
+
+    @Test
+    void shouldUseOnlyLinkedApplicantAvatarAndKeepApplicationsWithoutAvatarsReadable() {
+        when(applications.selectBatchIds(anyCollection())).thenReturn(List.of(
+                GroupApplication.builder().id(4L).orgId(1L).userId(3L).nickname("入组申请人").build(),
+                GroupApplication.builder().id(5L).orgId(2L).userId(8L).nickname("其他组织").build(),
+                GroupApplication.builder().id(6L).orgId(1L).nickname("注册待审").build(),
+                GroupApplication.builder().id(7L).orgId(1L).userId(4L).nickname("没有头像").build(),
+                GroupApplication.builder().id(8L).orgId(1L).userId(5L).nickname("空头像").build(),
+                GroupApplication.builder().id(9L).orgId(1L).userId(6L).nickname("用户已删除").build()));
+        when(users.selectBatchIds(anyCollection())).thenReturn(List.of(
+                User.builder().id(3L).avatarFileId(20L).build(),
+                User.builder().id(4L).build(),
+                User.builder().id(5L).avatarFileId(0L).build()));
+
+        var result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.JOIN_APPLICATION, 4L),
+                new NotificationSourceRefBO(2L, InboxNotificationKind.JOIN_APPLICATION, 5L),
+                new NotificationSourceRefBO(3L, InboxNotificationKind.JOIN_APPLICATION, 6L),
+                new NotificationSourceRefBO(4L, InboxNotificationKind.JOIN_APPLICATION, 7L),
+                new NotificationSourceRefBO(5L, InboxNotificationKind.JOIN_APPLICATION, 8L),
+                new NotificationSourceRefBO(6L, InboxNotificationKind.JOIN_APPLICATION, 9L))));
+
+        assertThat(result.get(1L).getImageResourceIds()).containsExactly(20L);
+        assertThat(result.get(2L).getSource()).isNull();
+        for (long id : List.of(3L, 4L, 5L, 6L)) {
+            assertThat(result.get(id).getSource()).isNotNull();
+            assertThat(result.get(id).getImageResourceIds()).isEmpty();
+        }
+        verify(users).selectBatchIds(argThat(ids -> ids.size() == 4 && ids.containsAll(List.of(3L, 4L, 5L, 6L))));
         verifyNoInteractions(tasks, items, projects);
     }
 

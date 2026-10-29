@@ -17,6 +17,7 @@ import online.longlian.app.mapper.UserNotificationMapper;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
 import online.longlian.app.pojo.entity.UserNotification;
 import online.longlian.app.service.app.InboxNotificationService;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,8 +72,10 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
                 : resourceService.getResourceReadUrls(imageIds);
         List<NotificationResultBO> list = page.stream().map(row -> {
             NotificationResolvedSourceBO source = sources.get(row.getId());
+            // 入组申请的图片仅来自已校验组织的申请人头像，资源仍归属于申请人原组织。
             String thumbnail = source.getImageResourceIds().stream().map(images::get)
-                    .filter(image -> image != null && params.getOrgId().equals(image.getOrganizationId()))
+                    .filter(image -> image != null && (row.getKind() == InboxNotificationKind.JOIN_APPLICATION
+                            || params.getOrgId().equals(image.getOrganizationId())))
                     .map(ResourceReadUrlGetResultBO::getUrl).filter(url -> url != null && !url.isBlank())
                     .findFirst().orElse(null);
             return new NotificationResultBO(row.getId(), row.getKind(), row.getSourceId(), row.getCreatedAt(),
