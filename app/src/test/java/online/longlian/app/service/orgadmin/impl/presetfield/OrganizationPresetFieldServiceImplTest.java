@@ -1,14 +1,19 @@
 package online.longlian.app.service.orgadmin.impl.presetfield;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationPresetFieldMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldListParamsBO;
 import online.longlian.app.pojo.entity.OrganizationPresetField;
+import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,9 +28,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,6 +88,26 @@ class OrganizationPresetFieldServiceImplTest {
 
         verify(organizationPresetFieldMapper).deleteById(8L);
         verify(customFormService).detachPresetField(1L, 8L);
+    }
+
+    @Test
+    void listPresetFields_usesNullNicknameWhenCreatorHasNoDisplayName() {
+        OrganizationPresetField field = OrganizationPresetField.builder()
+                .id(1L).orgId(1L).name("作者").creatorId(2L).build();
+        Page<OrganizationPresetField> page = new Page<>(1, 10);
+        page.setRecords(List.of(field));
+        page.setTotal(1);
+        when(queryBuilder.buildListQuery(any())).thenReturn(new LambdaQueryWrapper<>());
+        when(organizationPresetFieldMapper.selectPage(any(), any())).thenReturn(page);
+        when(userMapper.selectBatchIds(List.of(2L))).thenReturn(List.of(User.builder().id(2L).nickname("  ").build()));
+
+        var result = service.listPresetFields(OrganizationPresetFieldListParamsBO.builder()
+                .orgId(1L).page(new PageParamsBO(1, 10)).build());
+
+        assertThat(result.getList()).singleElement().satisfies(item -> {
+            assertThat(item.getName()).isEqualTo("作者");
+            assertThat(item.getCreatorNickname()).isNull();
+        });
     }
 
     @Test

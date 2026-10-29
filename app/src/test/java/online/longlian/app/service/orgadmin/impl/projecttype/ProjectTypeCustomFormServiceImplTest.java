@@ -8,6 +8,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectTypeCustomFieldMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldOptionBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
 import online.longlian.app.pojo.entity.ProjectTypeCustomField;
 import online.longlian.app.service.orgadmin.OrganizationPresetFieldService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -22,6 +23,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -94,5 +96,27 @@ class ProjectTypeCustomFormServiceImplTest {
         assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getPresetFieldId).containsExactly(2L, 1L);
         assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getRequired).containsExactly(true, false);
         assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getSort).containsExactly(0, 1);
+    }
+
+    @Test
+    void listByTypeIds_skipsPresetFieldsThatNoLongerExist() {
+        when(projectTypeCustomFieldMapper.selectList(any())).thenReturn(List.of(
+                ProjectTypeCustomField.builder().typeId(10L).presetFieldId(1L).required(true).sort(0).build(),
+                ProjectTypeCustomField.builder().typeId(10L).presetFieldId(9L).required(false).sort(1).build()));
+        when(organizationPresetFieldService.listExisting(1L, List.of(1L, 9L))).thenReturn(List.of(
+                OrganizationPresetFieldOptionBO.builder().id(1L).name("作者").build()));
+
+        Map<Long, List<ProjectTypeCustomFieldResultBO>> forms = service.listByTypeIds(1L, List.of(10L));
+
+        assertThat(forms.get(10L)).extracting(ProjectTypeCustomFieldResultBO::getName).containsExactly("作者");
+        assertThat(service.requiredFieldNames(1L, 10L)).containsExactly("作者");
+        assertThat(service.listByTypeIds(1L, List.of())).isEmpty();
+    }
+
+    @Test
+    void deleteByType_removesTheFormsRows() {
+        service.deleteByType(1L, 10L);
+
+        verify(projectTypeCustomFieldMapper).delete(any(LambdaQueryWrapper.class));
     }
 }
