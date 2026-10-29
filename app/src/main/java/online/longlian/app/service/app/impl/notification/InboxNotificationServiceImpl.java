@@ -12,11 +12,13 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import online.longlian.app.mapper.UserNotificationMapper;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
 import online.longlian.app.pojo.entity.UserNotification;
 import online.longlian.app.service.app.InboxNotificationService;
+import online.longlian.app.service.app.UserNotificationPreferenceService;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,6 +32,7 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
     private final ResourceService resourceService;
     private final Clock clock;
     private final InboxEmailOutboxWriter inboxEmailOutboxWriter;
+    private final UserNotificationPreferenceService notificationPreferenceService;
 
     @Override
     public NotificationStatusResultBO getStatus(NotificationStatusParamsBO params) {
@@ -125,7 +128,16 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
         if (params.getNotifications().isEmpty()) {
             return;
         }
-        List<UserNotification> notifications = params.getNotifications().stream().map(notification -> UserNotification.builder()
+        Map<Long, Set<InboxNotificationKind>> disabled = notificationPreferenceService.disabledKinds(
+                params.getNotifications().stream().map(NotificationCreateBO::getRecipientUserId).toList());
+        List<NotificationCreateBO> accepted = params.getNotifications().stream()
+                .filter(notification -> !disabled.getOrDefault(notification.getRecipientUserId(), Set.of())
+                        .contains(notification.getKind()))
+                .toList();
+        if (accepted.isEmpty()) {
+            return;
+        }
+        List<UserNotification> notifications = accepted.stream().map(notification -> UserNotification.builder()
                 .orgId(params.getOrgId())
                 .recipientUserId(notification.getRecipientUserId())
                 .kind(notification.getKind())

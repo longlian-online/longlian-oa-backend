@@ -192,6 +192,17 @@ class InboxEmailOutboxHandlerTest {
         verifyNoInteractions(mailUtil);
     }
 
+    @Test
+    void shouldSkipMailWhenRecipientDisabledThatKind() {
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(
+                new UserEmailNotificationRecipientResultBO("user@example.com", true,
+                        java.util.EnumSet.of(InboxNotificationKind.TASK_READY)));
+
+        assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME))
+                .isInstanceOf(OutboxSkipException.class).hasMessage("收件人已关闭该类型通知");
+        verifyNoInteractions(resolver, mailUtil);
+    }
+
     @ParameterizedTest
     @EnumSource(InboxNotificationKind.class)
     void shouldSkipBothNotificationKindsWhenEmailNotificationsAreDisabled(InboxNotificationKind kind) {
