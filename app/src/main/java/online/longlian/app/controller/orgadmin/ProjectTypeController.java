@@ -77,15 +77,15 @@ public class ProjectTypeController {
     @ResponseMessage("创建成功")
     public void createProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                    @RequestBody @Valid ProjectTypeCreateDTO projectTypeCreateDTO) {
-        projectTypeService.createProjectType(
-                ProjectTypeCreateParamsBO.builder()
-                        .orgId(sessionContext.orgId())
-                        .creatorId(sessionContext.userId())
-                        .name(projectTypeCreateDTO.getName().trim())
-                        .priority(projectTypeCreateDTO.getPriority() == null ? 0 : projectTypeCreateDTO.getPriority())
-                        .customFields(toCustomFields(projectTypeCreateDTO.getCustomFields()))
-                        .build()
-        );
+        ProjectTypeCreateParamsBO.ProjectTypeCreateParamsBOBuilder builder = ProjectTypeCreateParamsBO.builder()
+                .orgId(sessionContext.orgId())
+                .creatorId(sessionContext.userId())
+                .name(projectTypeCreateDTO.getName().trim())
+                .priority(projectTypeCreateDTO.getPriority() == null ? 0 : projectTypeCreateDTO.getPriority());
+        if (projectTypeCreateDTO.getCustomFields() != null) {
+            builder.customFields(toCustomFields(projectTypeCreateDTO.getCustomFields()));
+        }
+        projectTypeService.createProjectType(builder.build());
     }
 
     @Operation(summary = "修改企划类型", description = "可修改名称、优先级和默认自定义表单。自定义表单省略时保持原设置")
@@ -94,16 +94,16 @@ public class ProjectTypeController {
     public void updateProjectType(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                   @PathVariable Long typeId,
                                   @RequestBody @Valid ProjectTypeUpdateDTO projectTypeUpdateDTO) {
-        projectTypeService.updateProjectType(ProjectTypeUpdateParamsBO.builder()
+        ProjectTypeUpdateParamsBO.ProjectTypeUpdateParamsBOBuilder builder = ProjectTypeUpdateParamsBO.builder()
                 .typeId(typeId).orgId(sessionContext.orgId()).name(projectTypeUpdateDTO.getName().trim())
-                .priority(projectTypeUpdateDTO.getPriority())
-                .customFields(toCustomFields(projectTypeUpdateDTO.getCustomFields())).build());
+                .priority(projectTypeUpdateDTO.getPriority());
+        if (projectTypeUpdateDTO.getCustomFields() != null) {
+            builder.customFields(toCustomFields(projectTypeUpdateDTO.getCustomFields()));
+        }
+        projectTypeService.updateProjectType(builder.build());
     }
 
     private List<ProjectTypeCustomFieldBO> toCustomFields(List<ProjectTypeCustomFieldDTO> fields) {
-        if (fields == null) {
-            return null;
-        }
         return fields.stream()
                 .map(field -> ProjectTypeCustomFieldBO.builder()
                         .presetFieldId(field.getPresetFieldId())
