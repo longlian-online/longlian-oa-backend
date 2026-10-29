@@ -9,6 +9,7 @@ import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 
 import java.util.List;
+import online.longlian.app.pojo.bo.orgadmin.BaseTaskOptionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
 
 /**
@@ -24,6 +25,12 @@ public interface BaseTaskService {
 
     /** Includes disabled task types still referenced by existing workflows. */
     List<PlazaTaskTypeOptionResultBO> listPlazaTaskTypes(Long orgId);
+
+    /**
+     * 当前组织未删除且启用的原子任务。
+     * 供用户端编辑项目工作流和个人模板选择节点，不返回提交字段。
+     */
+    List<BaseTaskOptionResultBO> listEnabledOptions(Long orgId);
 
     /**
      * 分页查询组织下的基础任务列表，支持关键词搜索和状态筛选。
