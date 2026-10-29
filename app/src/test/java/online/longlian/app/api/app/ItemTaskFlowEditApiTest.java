@@ -2,8 +2,10 @@ package online.longlian.app.api.app;
 
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +58,48 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
                 "SELECT ref_count FROM task_template WHERE id = 1", Integer.class)).isEqualTo(1);
     }
 
+    /**
+     * 删除未接取节点时，只把该实例上仍在使用的任务附件送进保留期。
+     * 保留节点、其他组织、其他业务类型，以及原先已废弃的附件都不变。
+     */
+    @Test
+    void shouldDeprecateTaskResourcesWhenDeletingUntouchedNode() {
+        String token = prepareCreator();
+        Long itemId = createItem(token);
+        List<Map<String, Object>> nodes = flowNodes(token, itemId);
+        String keptId = stringField(nodes.get(0), "id");
+        String removedId = stringField(nodes.get(1), "id");
+        Long keptInstanceId = Long.valueOf(stringField(nodes.get(0), "taskInstanceId"));
+        Long removedInstanceId = Long.valueOf(stringField(nodes.get(1), "taskInstanceId"));
+        LocalDateTime deprecatedAt = LocalDateTime.of(2026, 1, 1, 0, 0);
+        insertTaskResource(1L, 1L, "task_submit", removedInstanceId, FileProcessStatus.Activated.getCode(), null);
+        insertTaskResource(2L, 1L, "task_submit", keptInstanceId, FileProcessStatus.Activated.getCode(), null);
+        insertTaskResource(3L, 1L, "task_submit", removedInstanceId, FileProcessStatus.Deprecated.getCode(), deprecatedAt);
+        insertTaskResource(4L, 2L, "task_submit", removedInstanceId, FileProcessStatus.Activated.getCode(), null);
+        insertTaskResource(5L, 1L, "cover", removedInstanceId, FileProcessStatus.Activated.getCode(), null);
+
+        authRequest(token).body(Map.of(
+                "nodes", List.of(node(keptId, "1", 1, 1, "翻译")),
+                "removed", List.of(Map.of("id", removedId, "revision", "0"))
+        )).put("/app/item/" + itemId + "/flow").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(processStatus(1L)).isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(deprecatedAt(1L)).isNotNull();
+        assertThat(processStatus(2L)).isEqualTo(FileProcessStatus.Activated.getCode());
+        assertThat(processStatus(3L)).isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(deprecatedAt(3L)).isEqualTo(deprecatedAt);
+        assertThat(processStatus(4L)).isEqualTo(FileProcessStatus.Activated.getCode());
+        assertThat(processStatus(5L)).isEqualTo(FileProcessStatus.Activated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM item_task_node WHERE id = ?", LocalDateTime.class, Long.valueOf(removedId)))
+                .isNotNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM task_instance WHERE id = ?", LocalDateTime.class, removedInstanceId))
+                .isNotNull();
+    }
+
     @Test
     void shouldFailWhenCallerIsNotProjectCreator() {
         prepareCreator();
@@ -94,6 +138,8 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
         jdbcTemplate.update(
                 "UPDATE task_instance SET status = 2, assignee_id = 1, revision = 1 WHERE item_task_node_id = ?",
                 Long.valueOf(secondId));
+        Long secondInstanceId = Long.valueOf(stringField(nodes.get(1), "taskInstanceId"));
+        insertTaskResource(21L, 1L, "task_submit", secondInstanceId, FileProcessStatus.Activated.getCode(), null);
 
         authRequest(token).body(Map.of(
                 "nodes", List.of(node(firstId, "1", 1, 1, "翻译")),
@@ -110,6 +156,12 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
                 .body("msg", containsString("已接取或已有提交的任务不能删除"));
+
+        assertThat(processStatus(21L)).isEqualTo(FileProcessStatus.Activated.getCode());
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM task_instance WHERE id = ?", LocalDateTime.class, secondInstanceId)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM item_task_node WHERE id = ?", LocalDateTime.class, Long.valueOf(secondId))).isNull();
     }
 
     @Test
@@ -185,5 +237,24 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
 
     private static String stringField(Map<String, Object> node, String field) {
         return String.valueOf(node.get(field));
+    }
+
+    private void insertTaskResource(long id, long orgId, String bizType, long bizId, int status,
+                                    LocalDateTime deprecatedAt) {
+        jdbcTemplate.update(
+                "INSERT INTO resource (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, "
+                        + "biz_type, biz_id, process_status, deprecated_at, creator_id) "
+                        + "VALUES (?, ?, 1, ?, '成果.png', 'png', 1, ?, ?, ?, ?, 1)",
+                id, orgId, bizType + "/" + id + ".png", bizType, bizId, status, deprecatedAt);
+    }
+
+    private Integer processStatus(long resourceId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT process_status FROM resource WHERE id = ?", Integer.class, resourceId);
+    }
+
+    private LocalDateTime deprecatedAt(long resourceId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT deprecated_at FROM resource WHERE id = ?", LocalDateTime.class, resourceId);
     }
 }
