@@ -152,6 +152,29 @@ class NotificationSourceResolverTest {
     }
 
     @Test
+    void shouldUseUsernameWhenApplicantNicknameIsBlankAndIgnoreCoverWithoutThumbnail() {
+        when(applications.selectBatchIds(anyCollection())).thenReturn(List.of(
+                GroupApplication.builder().id(4L).orgId(1L).nickname(" ").username("  zhou  ").build(),
+                GroupApplication.builder().id(5L).orgId(1L).nickname(" ").username(" ").build()));
+        when(deletions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                DeletionRequest.builder().id(8L).orgId(1L).requesterId(3L).projectId(9L)
+                        .targetType(DeletionTargetType.PROJECT).targetTitle("企划").build()));
+        when(users.selectBatchIds(anyCollection())).thenReturn(List.of(
+                User.builder().id(3L).username("申请人").build()));
+        when(projects.selectList(any())).thenReturn(List.of(
+                Project.builder().id(9L).thumbnailFileId(0L).coverFileId(21L).build()));
+
+        var result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.JOIN_APPLICATION, 4L),
+                new NotificationSourceRefBO(2L, InboxNotificationKind.JOIN_APPLICATION, 5L),
+                new NotificationSourceRefBO(3L, InboxNotificationKind.DELETION_REQUEST, 8L))));
+
+        assertThat(result.get(1L).getSource().getApplicantName()).isEqualTo("zhou");
+        assertThat(result.get(2L).getSource()).isNull();
+        assertThat(result.get(3L).getImageResourceIds()).containsExactly(21L);
+    }
+
+    @Test
     void shouldInvalidateOnlyMissingOrInconsistentRelationships() {
         when(tasks.selectBatchIds(anyCollection())).thenReturn(List.of(
                 TaskInstance.builder().id(1L).itemId(7L).projectId(9L).itemTaskNodeId(101L).build(),
