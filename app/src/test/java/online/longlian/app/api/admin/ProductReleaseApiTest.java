@@ -188,6 +188,155 @@ class ProductReleaseApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldFilterListByStatusAndServeAdminDetail() {
+        String admin = createNormalAdmin();
+        publish(admin, "1.0.0", "0.0.18", "1.0.52", true);
+        publish(admin, "1.1.0", "0.0.18", "1.0.52", false);
+
+        authRequest(admin)
+                .queryParam("status", "DRAFT")
+                .get("/admin/product-releases/")
+                .then()
+                .body("data.total", equalTo(1))
+                .body("data.list[0].version", equalTo("1.1.0"))
+                .body("data.list[0].status", equalTo("DRAFT"))
+                .body("data.list[0].frontendVersion", equalTo("0.0.18"));
+
+        authRequest(admin)
+                .queryParam("status", "PUBLISHED")
+                .get("/admin/product-releases/")
+                .then()
+                .body("data.total", equalTo(1))
+                .body("data.list[0].version", equalTo("1.0.0"));
+
+        authRequest(admin)
+                .get("/admin/product-releases/" + idOf("1.0.0"))
+                .then()
+                .body("data.version", equalTo("1.0.0"))
+                .body("data.title", equalTo("标题1.0.0"))
+                .body("data.summary", equalTo("摘要1.0.0"))
+                .body("data.added[0]", equalTo("新增1.0.0"))
+                .body("data.publishedAt", notNullValue());
+
+        authRequest(admin)
+                .get("/admin/product-releases/999999")
+                .then()
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        authRequest(admin)
+                .queryParam("status", "UNKNOWN")
+                .get("/admin/product-releases/")
+                .then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldRejectPublishingDraftWithoutCopy() {
+        String admin = createNormalAdmin();
+        authRequest(admin)
+                .body(Map.of(
+                        "version", "3.0.0",
+                        "frontendVersion", "0.0.1",
+                        "backendVersion", "1.0.0",
+                        "title", " ",
+                        "summary", "摘要",
+                        "added", List.of("一条新增"),
+                        "publish", true))
+                .post("/admin/product-releases/")
+                .then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+
+        authRequest(admin)
+                .body(Map.of(
+                        "version", "3.1.0",
+                        "frontendVersion", "0.0.1",
+                        "backendVersion", "1.0.0",
+                        "publish", false))
+                .post("/admin/product-releases/")
+                .then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(admin)
+                .post("/admin/product-releases/" + idOf("3.1.0") + "/publish")
+                .then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", containsString("标题不能为空"));
+        authRequest(admin)
+                .post("/admin/product-releases/" + idOf("3.1.0") + "/withdraw")
+                .then()
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    @Test
+    void shouldRejectRepeatedPublishAndWithdraw() {
+        String admin = createNormalAdmin();
+        publish(admin, "1.0.0", "0.0.18", "1.0.52", true);
+
+        authRequest(admin)
+                .post("/admin/product-releases/" + idOf("1.0.0") + "/publish")
+                .then()
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+
+        authRequest(admin)
+                .post("/admin/product-releases/" + idOf("1.0.0") + "/withdraw")
+                .then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(admin)
+                .post("/admin/product-releases/" + idOf("1.0.0") + "/withdraw")
+                .then()
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        authRequest(admin)
+                .body(Map.of(
+                        "version", "1.0.0",
+                        "frontendVersion", "0.0.18",
+                        "backendVersion", "1.0.52",
+                        "title", "标题",
+                        "summary", "摘要",
+                        "added", List.of("一条新增")))
+                .put("/admin/product-releases/" + idOf("1.0.0"))
+                .then()
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", containsString("已撤回的产品版本不能修改"));
+    }
+
+    @Test
+    void shouldListPublishedReleasesForUsersWithPaging() {
+        String admin = createNormalAdmin();
+        createTestUser(17L, "reader-seven", "123456", "reader-seven@example.com");
+        publish(admin, "1.0.0", "0.0.18", "1.0.52", true);
+        publish(admin, "1.1.0", "0.0.19", "1.0.52", true);
+        publish(admin, "1.2.0", "0.0.20", "1.0.52", false);
+
+        String reader = loginAs("reader-seven", "123456");
+        userRequest(reader)
+                .queryParam("pageNum", 1)
+                .queryParam("pageSize", 1)
+                .get("/app/product-releases/")
+                .then()
+                .body("data.total", equalTo(2))
+                .body("data.list.size()", equalTo(1))
+                .body("data.list[0].version", equalTo("1.1.0"))
+                .body("data.list[0].frontendVersion", nullValue());
+
+        userRequest(reader)
+                .queryParam("pageNum", 2)
+                .queryParam("pageSize", 1)
+                .get("/app/product-releases/")
+                .then()
+                .body("data.list[0].version", equalTo("1.0.0"));
+
+        userRequest(reader)
+                .get("/app/product-releases/current")
+                .then()
+                .body("data.release.version", equalTo("1.1.0"))
+                .body("data.olderCount", equalTo(1));
+
+        userRequest(reader)
+                .post("/app/product-releases/999999/seen")
+                .then()
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+    }
+
+    @Test
     void shouldRejectInvalidVersionAnonymousAndNonAdminAccess() {
         createTestUser(15L, "reader-five", "123456", "reader-five@example.com");
         String admin = createNormalAdmin();
