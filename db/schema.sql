@@ -541,3 +541,41 @@ CREATE TABLE `user_notification` (
   INDEX `idx_user_notification_inbox` (`org_id`, `recipient_user_id`, `created_at`, `id`),
   INDEX `idx_user_notification_unread` (`org_id`, `recipient_user_id`, `read_at`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "站内通知表";
+-- Create "product_release" table
+CREATE TABLE `product_release` (
+  `id` bigint NOT NULL COMMENT "产品版本ID",
+  `version` varchar(32) NOT NULL COMMENT "产品版本，x.y.z，不含v",
+  `frontend_version` varchar(32) NOT NULL COMMENT "绑定的前端版本，x.y.z，不含v",
+  `backend_version` varchar(32) NOT NULL COMMENT "绑定的后端版本，x.y.z，不含v",
+  `title` varchar(40) NOT NULL COMMENT "标题，草稿可为空字符串",
+  `summary` varchar(120) NOT NULL COMMENT "摘要，草稿可为空字符串",
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态 0-DRAFT(草稿) 1-PUBLISHED(已发布) 2-WITHDRAWN(已撤回)",
+  `published_at` datetime NULL COMMENT "发布时间，发布后不变",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `published_pair_guard` bigint GENERATED ALWAYS AS (IF(`status` = 1, 0, `id`)) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_product_release_version` (`version`),
+  UNIQUE INDEX `uk_product_release_published_pair` (`frontend_version`, `backend_version`, `published_pair_guard`),
+  INDEX `idx_product_release_published` (`status`, `published_at`, `id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "产品版本";
+-- Create "product_release_change" table
+CREATE TABLE `product_release_change` (
+  `id` bigint NOT NULL COMMENT "变更条目ID",
+  `release_id` bigint NOT NULL COMMENT "产品版本ID",
+  `kind` tinyint NOT NULL COMMENT "分组 1-ADDED(新增) 2-CHANGED(调整) 3-FIXED(修复)",
+  `sort` int NOT NULL COMMENT "组内顺序，从0开始",
+  `content` varchar(80) NOT NULL COMMENT "条目正文",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_product_release_change` (`release_id`, `kind`, `sort`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "产品版本变更条目";
+-- Create "user_product_release_state" table
+CREATE TABLE `user_product_release_state` (
+  `user_id` bigint NOT NULL COMMENT "用户ID",
+  `last_seen_published_at` datetime NOT NULL COMMENT "已读到的发布时间，只向前移动",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "用户产品版本已读位置";
