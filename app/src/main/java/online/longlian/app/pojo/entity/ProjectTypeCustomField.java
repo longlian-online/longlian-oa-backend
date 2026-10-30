@@ -44,8 +44,12 @@ public class ProjectTypeCustomField implements Serializable {
     private Long typeId;
 
     @TableField("preset_field_id")
-    @ApiModelProperty("预置表单字段ID")
+    @ApiModelProperty("预置表单字段ID；自行编辑的字段为空")
     private Long presetFieldId;
+
+    @TableField("name")
+    @ApiModelProperty("字段名；引用预置字段时为空，展示时取预置字段当前名称")
+    private String name;
 
     @TableField("required")
     @ApiModelProperty("是否必填 1-必填 0-选填")

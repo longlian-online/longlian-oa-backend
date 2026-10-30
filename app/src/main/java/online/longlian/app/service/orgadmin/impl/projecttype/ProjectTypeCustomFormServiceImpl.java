@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -37,15 +38,32 @@ public class ProjectTypeCustomFormServiceImpl implements ProjectTypeCustomFormSe
         if (fields == null) {
             return;
         }
-        List<Long> presetFieldIds = fields.stream().map(ProjectTypeCustomFieldBO::getPresetFieldId).toList();
+        List<Long> presetFieldIds = fields.stream()
+                .map(ProjectTypeCustomFieldBO::getPresetFieldId)
+                .filter(Objects::nonNull)
+                .toList();
         if (presetFieldIds.stream().distinct().count() != presetFieldIds.size()) {
             throw new AppException(ResultCode.PARAM_ERROR, "默认自定义表单不能重复选择同一字段");
         }
-        Map<Long, OrganizationPresetFieldOptionBO> presets = organizationPresetFieldService
-                .listExisting(orgId, presetFieldIds).stream()
-                .collect(Collectors.toMap(OrganizationPresetFieldOptionBO::getId, Function.identity()));
+        Map<Long, OrganizationPresetFieldOptionBO> presets = presetFieldIds.isEmpty()
+                ? Map.of()
+                : organizationPresetFieldService.listExisting(orgId, presetFieldIds).stream()
+                        .collect(Collectors.toMap(OrganizationPresetFieldOptionBO::getId, Function.identity()));
         if (presets.size() != presetFieldIds.size()) {
             throw new AppException(ResultCode.PARAM_ERROR, "预置表单字段不存在");
+        }
+
+        List<String> customNames = new ArrayList<>(fields.size());
+        for (ProjectTypeCustomFieldBO field : fields) {
+            if (field.getPresetFieldId() != null) {
+                customNames.add(null);
+                continue;
+            }
+            String customName = field.getName() == null ? "" : field.getName().trim();
+            if (customName.isEmpty()) {
+                throw new AppException(ResultCode.PARAM_ERROR, "字段名不能为空");
+            }
+            customNames.add(customName);
         }
 
         projectTypeCustomFieldMapper.delete(new LambdaQueryWrapper<ProjectTypeCustomField>()
@@ -58,6 +76,7 @@ public class ProjectTypeCustomFormServiceImpl implements ProjectTypeCustomFormSe
                     .orgId(orgId)
                     .typeId(typeId)
                     .presetFieldId(field.getPresetFieldId())
+                    .name(customNames.get(index))
                     .required(Boolean.TRUE.equals(field.getRequired()))
                     .sort(index)
                     .createdAt(now)
@@ -77,20 +96,31 @@ public class ProjectTypeCustomFormServiceImpl implements ProjectTypeCustomFormSe
                         .in(ProjectTypeCustomField::getTypeId, typeIds)
                         .orderByAsc(ProjectTypeCustomField::getSort)
                         .orderByAsc(ProjectTypeCustomField::getId));
-        Map<Long, OrganizationPresetFieldOptionBO> presets = organizationPresetFieldService
-                .listExisting(orgId, rows.stream().map(ProjectTypeCustomField::getPresetFieldId).distinct().toList())
-                .stream()
-                .collect(Collectors.toMap(OrganizationPresetFieldOptionBO::getId, Function.identity()));
+        List<Long> presetFieldIds = rows.stream()
+                .map(ProjectTypeCustomField::getPresetFieldId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, OrganizationPresetFieldOptionBO> presets = presetFieldIds.isEmpty()
+                ? Map.of()
+                : organizationPresetFieldService.listExisting(orgId, presetFieldIds).stream()
+                        .collect(Collectors.toMap(OrganizationPresetFieldOptionBO::getId, Function.identity()));
         Map<Long, List<ProjectTypeCustomFieldResultBO>> result = new LinkedHashMap<>();
         for (ProjectTypeCustomField row : rows) {
-            OrganizationPresetFieldOptionBO preset = presets.get(row.getPresetFieldId());
-            if (preset == null) {
+            String name;
+            if (row.getPresetFieldId() != null) {
+                OrganizationPresetFieldOptionBO preset = presets.get(row.getPresetFieldId());
+                name = preset != null ? preset.getName() : row.getName();
+            } else {
+                name = row.getName();
+            }
+            if (name == null || name.isBlank()) {
                 continue;
             }
             result.computeIfAbsent(row.getTypeId(), ignored -> new ArrayList<>())
                     .add(ProjectTypeCustomFieldResultBO.builder()
-                            .presetFieldId(preset.getId())
-                            .name(preset.getName())
+                            .presetFieldId(row.getPresetFieldId())
+                            .name(name)
                             .required(Boolean.TRUE.equals(row.getRequired()))
                             .build());
         }

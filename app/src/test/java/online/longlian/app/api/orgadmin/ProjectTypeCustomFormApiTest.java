@@ -56,6 +56,42 @@ public class ProjectTypeCustomFormApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldSaveCustomNamedFieldsAlongsidePresetFields() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update(
+                "INSERT INTO organization_preset_field (id, org_id, name, creator_id) VALUES (1, 1, '作者', 1)");
+
+        authRequest(token).body(Map.of(
+                "name", "漫画",
+                "customFields", List.of(
+                        Map.of("presetFieldId", "1", "required", true),
+                        Map.of("name", "备注", "required", false))))
+                .post("/orgadmin/project-types")
+                .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        Long typeId = jdbcTemplate.queryForObject("SELECT id FROM project_type WHERE name = '漫画'", Long.class);
+
+        authRequest(token).get("/orgadmin/project-types").then()
+                .body("data.list[0].customFields.name", contains("作者", "备注"))
+                .body("data.list[0].customFields.required", contains(true, false));
+        authRequest(token).get("/app/projects/types").then()
+                .body("data[0].customFields.name", contains("作者", "备注"))
+                .body("data[0].customFields.required", contains(true, false));
+
+        jdbcTemplate.update("UPDATE organization_preset_field SET name = '原作' WHERE id = 1");
+        authRequest(token).get("/app/projects/types").then()
+                .body("data[0].customFields.name", contains("原作", "备注"));
+
+        authRequest(token).body(Map.of("name", "漫画", "customFields", List.of(
+                Map.of("name", "  ", "required", true))))
+                .put("/orgadmin/project-types/" + typeId)
+                .then().body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM project_type_custom_field WHERE type_id = ? AND deleted_at IS NULL",
+                Integer.class, typeId)).isEqualTo(2);
+    }
+
+    @Test
     void shouldRejectDuplicateOrMissingPresetFields() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createOrganization(2L, "其他组织");

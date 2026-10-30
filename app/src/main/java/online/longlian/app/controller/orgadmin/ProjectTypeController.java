@@ -107,6 +107,7 @@ public class ProjectTypeController {
         return fields.stream()
                 .map(field -> ProjectTypeCustomFieldBO.builder()
                         .presetFieldId(field.getPresetFieldId())
+                        .name(field.getName())
                         .required(field.getRequired())
                         .build())
                 .toList();

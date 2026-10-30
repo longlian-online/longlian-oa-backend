@@ -11,5 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ProjectTypeCustomFieldBO {
     private Long presetFieldId;
+    private String name;
     private Boolean required;
 }

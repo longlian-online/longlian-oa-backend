@@ -114,6 +114,45 @@ class ProjectTypeCustomFormServiceImplTest {
     }
 
     @Test
+    void replace_storesCustomFieldNamesWithoutPreset() {
+        service.replace(1L, 10L, List.of(
+                ProjectTypeCustomFieldBO.builder().name(" 作者 ").required(true).build(),
+                ProjectTypeCustomFieldBO.builder().name("状态").required(false).build()));
+
+        verify(projectTypeCustomFieldMapper).delete(any(LambdaQueryWrapper.class));
+        ArgumentCaptor<ProjectTypeCustomField> captor = ArgumentCaptor.forClass(ProjectTypeCustomField.class);
+        verify(projectTypeCustomFieldMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+        assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getPresetFieldId).containsOnlyNulls();
+        assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getName).containsExactly("作者", "状态");
+        assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getRequired).containsExactly(true, false);
+        assertThat(captor.getAllValues()).extracting(ProjectTypeCustomField::getSort).containsExactly(0, 1);
+    }
+
+    @Test
+    void replace_rejectsBlankCustomFieldName() {
+        assertThatThrownBy(() -> service.replace(1L, 10L, List.of(
+                ProjectTypeCustomFieldBO.builder().name("  ").required(true).build())))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getMessage()).isEqualTo("字段名不能为空"));
+        verify(projectTypeCustomFieldMapper, never()).delete(any());
+    }
+
+    @Test
+    void listByTypeIds_returnsCustomFieldNames() {
+        when(projectTypeCustomFieldMapper.selectList(any())).thenReturn(List.of(
+                ProjectTypeCustomField.builder().typeId(10L).name("备注").required(true).sort(0).build(),
+                ProjectTypeCustomField.builder().typeId(10L).presetFieldId(1L).required(false).sort(1).build()));
+        when(organizationPresetFieldService.listExisting(1L, List.of(1L))).thenReturn(List.of(
+                OrganizationPresetFieldOptionBO.builder().id(1L).name("作者").build()));
+
+        Map<Long, List<ProjectTypeCustomFieldResultBO>> forms = service.listByTypeIds(1L, List.of(10L));
+
+        assertThat(forms.get(10L)).extracting(ProjectTypeCustomFieldResultBO::getName).containsExactly("备注", "作者");
+        assertThat(forms.get(10L)).extracting(ProjectTypeCustomFieldResultBO::getPresetFieldId).containsExactly(null, 1L);
+        assertThat(service.requiredFieldNames(1L, 10L)).containsExactly("备注");
+    }
+
+    @Test
     void deleteByType_removesTheFormsRows() {
         service.deleteByType(1L, 10L);
 
