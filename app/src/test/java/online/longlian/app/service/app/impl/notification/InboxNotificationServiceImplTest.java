@@ -5,7 +5,6 @@ import online.longlian.app.mapper.UserNotificationMapper;
 import online.longlian.app.pojo.bo.app.*;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.UserNotification;
-import online.longlian.app.service.app.UserNotificationPreferenceService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +14,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import java.time.*;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import static org.assertj.core.api.Assertions.*;
@@ -28,14 +26,12 @@ class InboxNotificationServiceImplTest {
     @Mock NotificationSourceResolver resolver;
     @Mock ResourceService resources;
     @Mock InboxEmailOutboxWriter writer;
-    @Mock UserNotificationPreferenceService preferences;
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneOffset.UTC);
     InboxNotificationServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new InboxNotificationServiceImpl(resolver, resources, clock, writer, preferences);
-        lenient().when(preferences.disabledKinds(any())).thenReturn(Map.of());
+        service = new InboxNotificationServiceImpl(resolver, resources, clock, writer);
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
                 new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
                 UserNotification.class);
@@ -135,38 +131,6 @@ class InboxNotificationServiceImplTest {
         doReturn(true).when(spyService).saveBatch(anyCollection());
         assertThatThrownBy(() -> spyService.createBatch(new NotificationBatchCreateParamsBO(1L, List.of(created()))))
                 .isInstanceOf(IllegalStateException.class).hasMessage("站内通知未生成ID");
-        verifyNoInteractions(writer);
-    }
-
-    @Test
-    void shouldDropRecipientsWhoDisabledThatKindBeforeSaving() {
-        when(preferences.disabledKinds(any())).thenReturn(Map.of(4L, EnumSet.of(InboxNotificationKind.TASK_READY)));
-        InboxNotificationServiceImpl spyService = spy(service);
-        doAnswer(invocation -> {
-            List<UserNotification> rows = invocation.getArgument(0);
-            rows.forEach(row -> row.setId(11L));
-            return true;
-        }).when(spyService).saveBatch(anyCollection());
-        NotificationCreateBO allowed = created();
-        allowed.setRecipientUserId(5L);
-        allowed.setKind(InboxNotificationKind.ITEM_COMPLETED);
-
-        spyService.createBatch(new NotificationBatchCreateParamsBO(8L, List.of(created(), allowed)));
-
-        verify(spyService).saveBatch(argThat(rows -> rows.size() == 1
-                && rows.iterator().next().getRecipientUserId().equals(5L)
-                && rows.iterator().next().getKind() == InboxNotificationKind.ITEM_COMPLETED));
-        verify(writer).enqueue(eq(8L), argThat(rows -> rows.size() == 1));
-    }
-
-    @Test
-    void shouldNotSaveWhenEveryRecipientDisabledTheKind() {
-        when(preferences.disabledKinds(any())).thenReturn(Map.of(4L, EnumSet.of(InboxNotificationKind.TASK_READY)));
-        InboxNotificationServiceImpl spyService = spy(service);
-
-        spyService.createBatch(new NotificationBatchCreateParamsBO(8L, List.of(created())));
-
-        verify(spyService, never()).saveBatch(anyCollection());
         verifyNoInteractions(writer);
     }
 
