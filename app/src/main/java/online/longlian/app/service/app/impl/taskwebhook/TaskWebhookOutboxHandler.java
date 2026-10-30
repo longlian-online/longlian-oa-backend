@@ -70,26 +70,15 @@ public class TaskWebhookOutboxHandler implements OutboxHandler {
     @Override
     public void deliver(OutboxMessage message, LocalDateTime executeTime) {
         TaskWebhookDispatch dispatch = read(message.getPayload());
-        ItemTaskNode node = itemTaskNodeMapper.selectById(dispatch.itemTaskNodeId());
-        if (node == null || node.getWebhookUrl() == null || node.getWebhookUrl().isBlank()) {
-            throw new OutboxSkipException("未配置 webhook");
-        }
-        if (node.getWebhookSecret() == null || node.getWebhookSecret().isBlank()) {
-            throw new OutboxPermanentException("webhook 密钥缺失");
-        }
-        TaskSubmission submission = taskSubmissionMapper.selectById(dispatch.submissionId());
-        if (submission == null || !submission.getTaskInstanceId().equals(dispatch.taskInstanceId())
-                || !submission.getItemTaskNodeId().equals(dispatch.itemTaskNodeId())) {
-            throw new OutboxSkipException("提交不存在");
-        }
-        Item item = itemMapper.selectById(submission.getItemId());
-        Project project = item == null ? null : projectMapper.selectById(item.getProjectId());
-        if (project == null || !Long.valueOf(dispatch.orgId()).equals(project.getOrgId())) {
-            throw new OutboxSkipException("提交不存在");
-        }
-        byte[] body = body(message.getId(), dispatch, node, submission, item, project);
+        Delivery delivery = load(dispatch);
+        byte[] body = body(message.getId(), dispatch, delivery.node(), delivery.submission(),
+                delivery.item(), delivery.project());
+        post(delivery.node(), body, message.getId());
+    }
+
+    private void post(ItemTaskNode node, byte[] body, Long messageId) {
         String timestamp = Long.toString(clock.instant().getEpochSecond());
-        String deliveryId = Long.toString(message.getId());
+        String deliveryId = Long.toString(messageId);
         int status;
         try {
             status = client.post(addressGuard.require(node.getWebhookUrl()), body, timestamp, deliveryId,
@@ -104,6 +93,37 @@ public class TaskWebhookOutboxHandler implements OutboxHandler {
             throw new TaskWebhookTransientException("webhook 响应 " + status);
         }
         throw new OutboxPermanentException("webhook 响应 " + status);
+    }
+
+    private Delivery load(TaskWebhookDispatch dispatch) {
+        ItemTaskNode node = requireNode(dispatch.itemTaskNodeId());
+        TaskSubmission submission = requireSubmission(dispatch);
+        Item item = itemMapper.selectById(submission.getItemId());
+        Project project = item == null ? null : projectMapper.selectById(item.getProjectId());
+        if (project == null || !Long.valueOf(dispatch.orgId()).equals(project.getOrgId())) {
+            throw new OutboxSkipException("提交不存在");
+        }
+        return new Delivery(node, submission, item, project);
+    }
+
+    private ItemTaskNode requireNode(long nodeId) {
+        ItemTaskNode node = itemTaskNodeMapper.selectById(nodeId);
+        if (node == null || node.getWebhookUrl() == null || node.getWebhookUrl().isBlank()) {
+            throw new OutboxSkipException("未配置 webhook");
+        }
+        if (node.getWebhookSecret() == null || node.getWebhookSecret().isBlank()) {
+            throw new OutboxPermanentException("webhook 密钥缺失");
+        }
+        return node;
+    }
+
+    private TaskSubmission requireSubmission(TaskWebhookDispatch dispatch) {
+        TaskSubmission submission = taskSubmissionMapper.selectById(dispatch.submissionId());
+        if (submission == null || !submission.getTaskInstanceId().equals(dispatch.taskInstanceId())
+                || !submission.getItemTaskNodeId().equals(dispatch.itemTaskNodeId())) {
+            throw new OutboxSkipException("提交不存在");
+        }
+        return submission;
     }
 
     private byte[] body(Long messageId, TaskWebhookDispatch dispatch, ItemTaskNode node, TaskSubmission submission,
@@ -151,7 +171,7 @@ public class TaskWebhookOutboxHandler implements OutboxHandler {
         if (dispatch.reason() != null) {
             body.put("reason", dispatch.reason());
         }
-        if (TaskWebhookDispatch.INVALIDATED.equals(dispatch.event()) && submission.getReviewComment() != null
+        if (TaskWebhookEvents.INVALIDATED.equals(dispatch.event()) && submission.getReviewComment() != null
                 && !submission.getReviewComment().isBlank()) {
             body.put("reviewComment", submission.getReviewComment());
         }
@@ -232,6 +252,9 @@ public class TaskWebhookOutboxHandler implements OutboxHandler {
         } catch (JsonProcessingException exception) {
             throw new OutboxPermanentException("webhook payload 无效");
         }
+    }
+
+    private record Delivery(ItemTaskNode node, TaskSubmission submission, Item item, Project project) {
     }
 
     private static String signature(String secret, String timestamp, byte[] body) {

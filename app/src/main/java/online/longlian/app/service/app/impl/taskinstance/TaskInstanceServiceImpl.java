@@ -45,6 +45,7 @@ import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookDispatch;
+import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookEvents;
 import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookOutboxWriter;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.common.OrganizationMembershipService;
@@ -180,7 +181,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
             finishSubmission(instance, project, result, params.getUserId());
-            enqueueWebhook(project, instance, result.getSubmissionId(), TaskWebhookDispatch.SUBMITTED,
+            enqueueWebhook(project, instance, result.getSubmissionId(), TaskWebhookEvents.SUBMITTED,
                     null, result.getTriggeredAt());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
@@ -199,7 +200,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
                     params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
             finishSubmission(instance, project, result, params.getAssigneeId());
-            enqueueWebhook(project, instance, result.getSubmissionId(), TaskWebhookDispatch.SUBMITTED,
+            enqueueWebhook(project, instance, result.getSubmissionId(), TaskWebhookEvents.SUBMITTED,
                     null, params.getSubmittedAt());
             Map<String, Object> audit = new LinkedHashMap<>();
             audit.put("action", "PROXY_SUBMIT");
@@ -268,8 +269,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             Long submissionId = taskInstanceCommandHandler.reset(instance, params.getUserId());
             if (submissionId != null) {
-                enqueueWebhook(project, instance, submissionId, TaskWebhookDispatch.INVALIDATED,
-                        TaskWebhookDispatch.RESET, LocalDateTime.now(clock));
+                enqueueWebhook(project, instance, submissionId, TaskWebhookEvents.INVALIDATED,
+                        TaskWebhookEvents.RESET, LocalDateTime.now(clock));
             }
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_RESET, params);
@@ -284,8 +285,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             Long submissionId = taskInstanceCommandHandler.reject(instance, params.getUserId(), projectCreator,
                     params.getExpectedRevision(), params.getReviewComment());
             if (submissionId != null) {
-                enqueueWebhook(project, instance, submissionId, TaskWebhookDispatch.INVALIDATED,
-                        TaskWebhookDispatch.REJECTED, LocalDateTime.now(clock));
+                enqueueWebhook(project, instance, submissionId, TaskWebhookEvents.INVALIDATED,
+                        TaskWebhookEvents.REJECTED, LocalDateTime.now(clock));
             }
             if (projectCreator) {
                 logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), params.getReviewComment(),

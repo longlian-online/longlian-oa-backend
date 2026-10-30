@@ -40,7 +40,7 @@ public class TaskWebhookOutboxWriter {
     }
 
     private static String dedupeKey(TaskWebhookDispatch dispatch) {
-        String prefix = TaskWebhookDispatch.SUBMITTED.equals(dispatch.event()) ? "submitted:" : "invalidated:";
+        String prefix = TaskWebhookEvents.SUBMITTED.equals(dispatch.event()) ? "submitted:" : "invalidated:";
         return prefix + dispatch.submissionId();
     }
 

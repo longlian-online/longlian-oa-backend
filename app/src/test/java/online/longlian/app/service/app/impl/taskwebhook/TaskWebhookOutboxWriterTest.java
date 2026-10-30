@@ -29,7 +29,7 @@ class TaskWebhookOutboxWriterTest {
     void shouldSkipWhenNodeIsMissing() {
         when(nodes.selectById(4L)).thenReturn(null);
 
-        writer.enqueue(dispatch(TaskWebhookDispatch.SUBMITTED, null), enqueuedAt);
+        writer.enqueue(dispatch(TaskWebhookEvents.SUBMITTED, null), enqueuedAt);
 
         verify(outboxService, never()).enqueueAll(anyList());
     }
@@ -38,7 +38,7 @@ class TaskWebhookOutboxWriterTest {
     void shouldSkipWhenNodeHasNoUrl() {
         when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).build());
 
-        writer.enqueue(dispatch(TaskWebhookDispatch.SUBMITTED, null), enqueuedAt);
+        writer.enqueue(dispatch(TaskWebhookEvents.SUBMITTED, null), enqueuedAt);
 
         verify(outboxService, never()).enqueueAll(anyList());
     }
@@ -47,8 +47,8 @@ class TaskWebhookOutboxWriterTest {
     void shouldEnqueueSubmissionAndInvalidationUnderSeparateKeys() throws Exception {
         when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).webhookUrl("https://example.com/hook").build());
 
-        writer.enqueue(dispatch(TaskWebhookDispatch.SUBMITTED, null), enqueuedAt);
-        writer.enqueue(dispatch(TaskWebhookDispatch.INVALIDATED, TaskWebhookDispatch.RESET), enqueuedAt);
+        writer.enqueue(dispatch(TaskWebhookEvents.SUBMITTED, null), enqueuedAt);
+        writer.enqueue(dispatch(TaskWebhookEvents.INVALIDATED, TaskWebhookEvents.RESET), enqueuedAt);
 
         @SuppressWarnings("unchecked")
         var captor = org.mockito.ArgumentCaptor.forClass(List.class);

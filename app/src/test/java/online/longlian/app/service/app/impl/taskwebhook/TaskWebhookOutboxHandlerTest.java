@@ -176,8 +176,8 @@ class TaskWebhookOutboxHandlerTest {
         when(client.post(any(), any(), any(), any(), any())).thenReturn(204);
         OutboxMessage invalidated = OutboxMessage.builder().id(42L).type(OutboxMessageType.TASK_WEBHOOK)
                 .payload(objectMapper.writeValueAsString(new TaskWebhookDispatch(
-                        1L, TaskWebhookDispatch.INVALIDATED, 8L, 9L, 4L, 4L,
-                        "2026-10-30 12:10:00", TaskWebhookDispatch.REJECTED)))
+                        1L, TaskWebhookEvents.INVALIDATED, 8L, 9L, 4L, 4L,
+                        "2026-10-30 12:10:00", TaskWebhookEvents.REJECTED)))
                 .build();
 
         handler.deliver(invalidated, LocalDateTime.now());
@@ -211,7 +211,7 @@ class TaskWebhookOutboxHandlerTest {
     private OutboxMessage message() throws Exception {
         return OutboxMessage.builder().id(41L).type(OutboxMessageType.TASK_WEBHOOK)
                 .payload(objectMapper.writeValueAsString(new TaskWebhookDispatch(
-                        1L, TaskWebhookDispatch.SUBMITTED, 8L, 9L, 4L, 3L, "2026-10-30 11:00:00", null)))
+                        1L, TaskWebhookEvents.SUBMITTED, 8L, 9L, 4L, 3L, "2026-10-30 11:00:00", null)))
                 .build();
     }
 

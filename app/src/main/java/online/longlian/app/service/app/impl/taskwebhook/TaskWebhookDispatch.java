@@ -15,8 +15,4 @@ public record TaskWebhookDispatch(
         long revision,
         String occurredAt,
         String reason) {
-    public static final String SUBMITTED = "task.submitted";
-    public static final String INVALIDATED = "task.submission_invalidated";
-    public static final String REJECTED = "rejected";
-    public static final String RESET = "reset";
 }
