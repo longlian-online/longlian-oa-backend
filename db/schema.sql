@@ -177,6 +177,7 @@ CREATE TABLE `organization_member` (
   `last_submitted_at` datetime NULL COMMENT "上次提交任务时间",
   `submit_count` int NOT NULL DEFAULT 0 COMMENT "任务提交总数",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
+  `note` varchar(500) NOT NULL DEFAULT "" COMMENT "管理员备注，仅组织管理端可见",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,

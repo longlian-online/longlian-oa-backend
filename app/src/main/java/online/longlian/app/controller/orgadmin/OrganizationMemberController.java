@@ -21,8 +21,12 @@ import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeRes
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberNoteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
@@ -33,6 +37,8 @@ import online.longlian.app.pojo.dto.orgadmin.GenerateJoinInviteCodeDTO;
 import online.longlian.app.pojo.dto.orgadmin.JoinInviteCodeListDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgMemberListDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgMemberChangeRoleDTO;
+import online.longlian.app.pojo.dto.orgadmin.OrgMemberNoteDTO;
+import online.longlian.app.pojo.dto.orgadmin.OrgMemberWorkloadListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
@@ -40,6 +46,8 @@ import online.longlian.app.pojo.vo.orgadmin.JoinInviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberWorkloadTaskVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberWorkloadVO;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -169,6 +177,40 @@ public class OrganizationMemberController {
     }
 
     @Operation(
+            summary = "查询组员负载",
+            description = "按名下待提交任务数分页返回当前组织成员。默认从多到少，数量相同时按成员 ID 升序。"
+                    + "待提交包含已停用企划上仍被接取的任务。备注仅组织管理端可见。"
+    )
+    @PostMapping("/workloads")
+    @ResponseMessage("查询成功")
+    public PageResultVO<OrgMemberWorkloadVO> listWorkloads(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @RequestBody @Valid OrgMemberWorkloadListDTO request) {
+        PageResultBO<OrgMemberWorkloadResultBO> result = organizationMemberService.listMemberWorkloads(
+                OrgMemberWorkloadListParamsBO.builder()
+                        .orgId(sessionContext.orgId())
+                        .keyword(request.getKeyword())
+                        .orderDir(request.getOrderDir())
+                        .page(new PageParamsBO(request.getPageNum(), request.getPageSize()))
+                        .build());
+        return new PageResultVO<>(result.getList().stream().map(this::toWorkloadVO).toList(), result.getTotal());
+    }
+
+    @Operation(summary = "修改组员备注", description = "空白表示清空。只保留最新一条，不通知成员。")
+    @Parameter(name = "memberId", description = "成员ID")
+    @PutMapping("/{memberId}/note")
+    @ResponseMessage("已保存")
+    public void updateMemberNote(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                 @PathVariable Long memberId,
+                                 @RequestBody @Valid OrgMemberNoteDTO request) {
+        organizationMemberService.updateMemberNote(OrgMemberNoteParamsBO.builder()
+                .orgId(sessionContext.orgId())
+                .memberId(memberId)
+                .note(request.getNote())
+                .build());
+    }
+
+    @Operation(
             summary = "启用/禁用组员",
             description = "仅限制成员访问当前组织，不改变用户全局账号状态。status: ENABLED-启用，DISABLED-禁用"
     )
@@ -262,5 +304,39 @@ public class OrganizationMemberController {
                         .orgId(sessionContext.orgId())
                         .inviteId(inviteId)
                         .build());
+    }
+
+    private OrgMemberWorkloadVO toWorkloadVO(OrgMemberWorkloadResultBO result) {
+        return OrgMemberWorkloadVO.builder()
+                .id(result.getId())
+                .userId(result.getUserId())
+                .nickname(result.getNickname())
+                .username(result.getUsername())
+                .avatarUrl(result.getAvatarUrl())
+                .status(result.getStatus())
+                .note(result.getNote())
+                .claimedCount(result.getClaimedCount())
+                .readyCount(result.getReadyCount())
+                .waitingCount(result.getWaitingCount())
+                .tasks(result.getTasks().stream().map(this::toWorkloadTaskVO).toList())
+                .build();
+    }
+
+    private OrgMemberWorkloadTaskVO toWorkloadTaskVO(ClaimedTaskLoadResultBO task) {
+        return OrgMemberWorkloadTaskVO.builder()
+                .instanceId(task.getInstanceId())
+                .itemId(task.getItemId())
+                .projectId(task.getProjectId())
+                .itemTitle(task.getItemTitle())
+                .projectName(task.getProjectName())
+                .nodeName(task.getNodeName())
+                .slotIndex(task.getSlotIndex())
+                .slotTotal(task.getSlotTotal())
+                .serialStep(task.getSerialStep())
+                .waitingStageName(task.getWaitingStageName())
+                .waitingSlotIndex(task.getWaitingSlotIndex())
+                .waitingSlotTotal(task.getWaitingSlotTotal())
+                .waitingSerialStep(task.getWaitingSerialStep())
+                .build();
     }
 }

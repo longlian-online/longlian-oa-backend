@@ -7,6 +7,7 @@ import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadListParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
@@ -181,5 +182,19 @@ class MemberQueryBuilderTest {
         LambdaQueryWrapper<OrganizationMember> wrapper = queryBuilder.buildMemberListQuery(params);
 
         assertNotNull(wrapper);
+    }
+
+    @Test
+    void buildWorkloadMemberQuery_unknownNickname_matchesNothing() {
+        when(userMapper.selectList(any())).thenReturn(Collections.emptyList());
+        OrgMemberWorkloadListParamsBO params = OrgMemberWorkloadListParamsBO.builder()
+                .orgId(1L)
+                .keyword("没有这个人")
+                .build();
+
+        LambdaQueryWrapper<OrganizationMember> wrapper = queryBuilder.buildWorkloadMemberQuery(params);
+
+        assertNotNull(wrapper);
+        verify(userMapper).selectList(any());
     }
 }

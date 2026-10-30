@@ -73,6 +73,7 @@ class OrganizationMemberServiceImplTest {
     @Mock private ApplicationReviewHandler applicationReviewHandler;
     @Mock private MemberStatusHandler memberStatusHandler;
     @Mock private MemberSubmissionHandler memberSubmissionHandler;
+    @Mock private MemberWorkloadHandler memberWorkloadHandler;
     @Mock private LockService lockService;
 
     private OrganizationMemberServiceImpl service;
@@ -88,7 +89,8 @@ class OrganizationMemberServiceImplTest {
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_OWNER, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
                 organizationJoinOtpMapper, oneTimePasswordMapper, otpServiceFactory, memberQueryBuilder, memberAssembler,
-                applicationReviewHandler, memberStatusHandler, memberSubmissionHandler, lockService, transactions);
+                applicationReviewHandler, memberStatusHandler, memberSubmissionHandler, memberWorkloadHandler,
+                lockService, transactions);
     }
 
     @Test

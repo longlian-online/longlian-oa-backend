@@ -14,6 +14,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberNoteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 
@@ -77,6 +80,16 @@ public interface OrganizationMemberService {
      * @return 包含各基础任务提交数量的统计结果
      */
     OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params);
+
+    /**
+     * 按待提交任务数分页查看当前组织成员的负载。
+     */
+    PageResultBO<OrgMemberWorkloadResultBO> listMemberWorkloads(@NonNull OrgMemberWorkloadListParamsBO params);
+
+    /**
+     * 填写或清空成员备注。空白会清空。备注只保存在组织成员上。
+     */
+    void updateMemberNote(@NonNull OrgMemberNoteParamsBO params);
 
     /**
      * 生成组织加入邀请码。

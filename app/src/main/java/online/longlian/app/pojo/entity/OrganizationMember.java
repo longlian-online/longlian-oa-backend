@@ -84,6 +84,13 @@ public class OrganizationMember implements Serializable {
     @ApiModelProperty("状态 1-启用 0-禁用")
     private Status status;
 
+    /**
+     * 管理员备注，仅组织管理端可见
+     */
+    @TableField("note")
+    @ApiModelProperty("管理员备注，仅组织管理端可见")
+    private String note;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 
