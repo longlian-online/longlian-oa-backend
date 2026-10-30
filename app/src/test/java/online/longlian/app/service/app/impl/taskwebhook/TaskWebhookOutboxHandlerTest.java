@@ -191,6 +191,24 @@ class TaskWebhookOutboxHandlerTest {
         assertThat(json.get("attachments").get(0).has("url")).isFalse();
     }
 
+    @Test
+    void shouldSkipWhenTheSubmissionIsOutsideTheOrganization() throws Exception {
+        stubSubmission();
+        when(projects.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(9L).title("企划").build());
+
+        assertThatThrownBy(() -> handler.deliver(message(), LocalDateTime.now()))
+                .isInstanceOf(OutboxSkipException.class);
+    }
+
+    @Test
+    void shouldSkipWhenTheItemIsGone() throws Exception {
+        stubSubmission();
+        when(items.selectById(3L)).thenReturn(null);
+
+        assertThatThrownBy(() -> handler.deliver(message(), LocalDateTime.now()))
+                .isInstanceOf(OutboxSkipException.class);
+    }
+
     private void stubSubmission() {
         when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).name("翻译")
                 .webhookUrl("https://example.com/hook").webhookSecret(SECRET)

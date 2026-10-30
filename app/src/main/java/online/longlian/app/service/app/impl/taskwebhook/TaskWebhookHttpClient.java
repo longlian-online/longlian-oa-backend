@@ -11,10 +11,18 @@ import java.time.Duration;
 
 @Component
 public class TaskWebhookHttpClient implements TaskWebhookClient {
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .build();
+    private final HttpClient httpClient;
+
+    public TaskWebhookHttpClient() {
+        this(HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build());
+    }
+
+    TaskWebhookHttpClient(HttpClient httpClient) {
+        this.httpClient = httpClient;
+    }
 
     @Override
     public int post(URI target, byte[] body, String timestamp, String deliveryId, String signature) {
