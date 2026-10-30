@@ -231,6 +231,27 @@ class ProductReleaseApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldPublishCompleteDraft() {
+        String admin = createNormalAdmin();
+        createTestUser(18L, "reader-eight", "123456", "reader-eight@example.com");
+        publish(admin, "5.0.0", "0.0.1", "1.0.0", false);
+
+        authRequest(admin)
+                .post("/admin/product-releases/" + idOf("5.0.0") + "/publish")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(statusOf("5.0.0")).isEqualTo(1);
+        assertThat(publishedAt("5.0.0")).isNotNull();
+
+        userRequest(loginAs("reader-eight", "123456"))
+                .get("/app/product-releases/current")
+                .then()
+                .body("data.release.version", equalTo("5.0.0"));
+    }
+
+    @Test
     void shouldRejectPublishingDraftWithoutCopy() {
         String admin = createNormalAdmin();
         authRequest(admin)
