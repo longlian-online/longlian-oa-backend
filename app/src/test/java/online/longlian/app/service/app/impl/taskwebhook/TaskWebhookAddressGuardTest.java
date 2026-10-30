@@ -28,6 +28,12 @@ class TaskWebhookAddressGuardTest {
     }
 
     @Test
+    void shouldTreatAnUnresolvableNameAsTemporary() {
+        assertThatThrownBy(() -> guard.require("https://webhook.invalid/hook"))
+                .isInstanceOf(TaskWebhookTransientException.class);
+    }
+
+    @Test
     void shouldAcceptAPublicHttpsAddress() {
         assertThatCode(() -> guard.require("https://example.com/hooks/task")).doesNotThrowAnyException();
     }

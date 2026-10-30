@@ -26,6 +26,15 @@ class TaskWebhookOutboxWriterTest {
     private final LocalDateTime enqueuedAt = LocalDateTime.of(2026, 10, 30, 12, 0);
 
     @Test
+    void shouldSkipWhenNodeIsMissing() {
+        when(nodes.selectById(4L)).thenReturn(null);
+
+        writer.enqueue(dispatch(TaskWebhookDispatch.SUBMITTED, null), enqueuedAt);
+
+        verify(outboxService, never()).enqueueAll(anyList());
+    }
+
+    @Test
     void shouldSkipWhenNodeHasNoUrl() {
         when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L).build());
 

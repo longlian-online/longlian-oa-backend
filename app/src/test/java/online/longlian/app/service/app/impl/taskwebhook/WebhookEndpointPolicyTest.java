@@ -45,6 +45,16 @@ class WebhookEndpointPolicyTest {
     }
 
     @Test
+    void shouldReportAnAddressThatCannotBeResolved() {
+        when(guard.require("https://missing.example/hook"))
+                .thenThrow(new TaskWebhookTransientException("webhook 地址暂时无法解析"));
+
+        assertThatThrownBy(() -> policy.resolve("https://missing.example/hook", "0123456789abcdef", null))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("暂时无法解析");
+    }
+
+    @Test
     void shouldRejectSecretWithoutUrl() {
         assertThatThrownBy(() -> policy.resolve(null, "0123456789abcdef", null))
                 .isInstanceOf(AppException.class)

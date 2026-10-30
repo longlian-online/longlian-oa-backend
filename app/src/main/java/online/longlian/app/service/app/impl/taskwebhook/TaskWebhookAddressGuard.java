@@ -47,11 +47,7 @@ public class TaskWebhookAddressGuard {
 
     private static InetAddress[] resolve(String host) {
         try {
-            InetAddress[] addresses = InetAddress.getAllByName(host);
-            if (addresses.length == 0) {
-                throw new TaskWebhookTransientException("webhook 地址暂时无法解析");
-            }
-            return addresses;
+            return InetAddress.getAllByName(host);
         } catch (UnknownHostException exception) {
             throw new TaskWebhookTransientException("webhook 地址暂时无法解析");
         }

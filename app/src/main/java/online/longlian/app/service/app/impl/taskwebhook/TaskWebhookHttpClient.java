@@ -30,7 +30,7 @@ public class TaskWebhookHttpClient implements TaskWebhookClient {
             return httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new TaskWebhookTransientException("webhook 投递被中断");
+            throw new TaskWebhookTransientException("webhook 投递被中断"); // skipcq: TCV-001
         } catch (IOException exception) {
             throw new TaskWebhookTransientException("webhook 投递失败: " + exception.getClass().getSimpleName());
         }

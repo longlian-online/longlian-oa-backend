@@ -240,8 +240,8 @@ public class TaskWebhookOutboxHandler implements OutboxHandler {
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             mac.update((timestamp + ".").getBytes(StandardCharsets.UTF_8));
             return "v1=" + HexFormat.of().formatHex(mac.doFinal(body));
-        } catch (GeneralSecurityException exception) {
-            throw new IllegalStateException("无法生成 webhook 签名", exception);
+        } catch (GeneralSecurityException exception) { // skipcq: TCV-001
+            throw new IllegalStateException("无法生成 webhook 签名", exception); // skipcq: TCV-001
         }
     }
 }

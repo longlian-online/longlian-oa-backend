@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -132,6 +133,62 @@ class TaskWebhookOutboxHandlerTest {
         assertThatThrownBy(() -> handler.deliver(message(), LocalDateTime.now()))
                 .isInstanceOf(TaskWebhookTransientException.class)
                 .hasMessage("webhook 响应 503");
+    }
+
+    @Test
+    void shouldSkipWhenSubmissionDoesNotMatchTheNode() throws Exception {
+        when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L)
+                .webhookUrl("https://example.com/hook").webhookSecret(SECRET).build());
+        when(submissions.selectById(9L)).thenReturn(null);
+
+        assertThatThrownBy(() -> handler.deliver(message(), LocalDateTime.now()))
+                .isInstanceOf(OutboxSkipException.class);
+    }
+
+    @Test
+    void shouldStopWhenTheSecretIsMissing() throws Exception {
+        when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().id(4L)
+                .webhookUrl("https://example.com/hook").build());
+
+        assertThatThrownBy(() -> handler.deliver(message(), LocalDateTime.now()))
+                .isInstanceOf(OutboxPermanentException.class)
+                .hasMessage("webhook 密钥缺失");
+    }
+
+    @Test
+    void shouldStopWhenTheAddressIsRejected() throws Exception {
+        stubSubmission();
+        when(guard.require(anyString())).thenThrow(new IllegalArgumentException("webhook 地址不能指向内网"));
+
+        assertThatThrownBy(() -> handler.deliver(message(), LocalDateTime.now()))
+                .isInstanceOf(OutboxPermanentException.class)
+                .hasMessage("webhook 地址不能指向内网");
+    }
+
+    @Test
+    void shouldIncludeTheInvalidationReasonAndUnavailableAttachment() throws Exception {
+        stubSubmission();
+        when(submissions.selectById(9L)).thenReturn(TaskSubmission.builder().id(9L).taskInstanceId(8L)
+                .itemTaskNodeId(4L).itemId(3L).submitterId(7L).versionNo(2)
+                .reviewComment("重做")
+                .metadata("{\"note\":\"你好\",\"pack\":{\"fileId\":\"5\"}}").build());
+        when(resources.findActivated(anyString(), anyLong(), anyLong(), any())).thenReturn(Map.of());
+        when(client.post(any(), any(), any(), any(), any())).thenReturn(204);
+        OutboxMessage invalidated = OutboxMessage.builder().id(42L).type(OutboxMessageType.TASK_WEBHOOK)
+                .payload(objectMapper.writeValueAsString(new TaskWebhookDispatch(
+                        1L, TaskWebhookDispatch.INVALIDATED, 8L, 9L, 4L, 4L,
+                        "2026-10-30 12:10:00", TaskWebhookDispatch.REJECTED)))
+                .build();
+
+        handler.deliver(invalidated, LocalDateTime.now());
+
+        ArgumentCaptor<byte[]> body = ArgumentCaptor.forClass(byte[].class);
+        verify(client).post(any(), body.capture(), any(), eq("42"), any());
+        JsonNode json = objectMapper.readTree(body.getValue());
+        assertThat(json.get("reason").asText()).isEqualTo("rejected");
+        assertThat(json.get("reviewComment").asText()).isEqualTo("重做");
+        assertThat(json.get("attachments").get(0).get("name").asText()).isEqualTo("附件不可用");
+        assertThat(json.get("attachments").get(0).has("url")).isFalse();
     }
 
     private void stubSubmission() {
