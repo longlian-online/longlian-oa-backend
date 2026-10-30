@@ -17,6 +17,7 @@ import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationCreateBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
@@ -59,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.List;
@@ -410,8 +412,8 @@ public class ItemServiceImpl implements ItemService {
      */
     private void createFromDraft(ItemCreateParamsBO params, TaskTemplate template,
                                  List<TaskTemplateNode> templateNodes) {
-        List<ItemCreateNodes.Node> nodes = ItemCreateNodes.normalize(params.getNodes());
-        List<Long> baseTaskIds = nodes.stream().map(ItemCreateNodes.Node::baseTaskId).distinct().sorted().toList();
+        List<DraftNode> nodes = normalizeDraft(params.getNodes());
+        List<Long> baseTaskIds = nodes.stream().map(DraftNode::baseTaskId).distinct().sorted().toList();
         List<BaseTask> baseTasks = baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
                 .in(BaseTask::getId, baseTaskIds)
                 .orderByAsc(BaseTask::getId)
@@ -424,7 +426,7 @@ public class ItemServiceImpl implements ItemService {
         requireDraftTasks(nodes, baseTaskMap, template, templateNodes);
 
         LinkedHashSet<Long> assigneeIds = new LinkedHashSet<>();
-        for (ItemCreateNodes.Node node : nodes) {
+        for (DraftNode node : nodes) {
             if (node.assigneeId() != null) {
                 assigneeIds.add(node.assigneeId());
             }
@@ -440,7 +442,7 @@ public class ItemServiceImpl implements ItemService {
 
         List<NotificationCreateBO> notifications = new ArrayList<>();
         Set<Long> joined = new HashSet<>();
-        for (ItemCreateNodes.Node node : nodes) {
+        for (DraftNode node : nodes) {
             BaseTask baseTask = baseTaskMap.get(node.baseTaskId());
             ItemTaskNode taskNode = ItemTaskNode.builder()
                     .itemTaskFlowId(flow.getId())
@@ -496,7 +498,7 @@ public class ItemServiceImpl implements ItemService {
     /**
      * 启用任务可以新加。停用任务只能保留模板里已经有的份数，不能再追加。
      */
-    private void requireDraftTasks(List<ItemCreateNodes.Node> nodes, Map<Long, BaseTask> baseTaskMap,
+    private void requireDraftTasks(List<DraftNode> nodes, Map<Long, BaseTask> baseTaskMap,
                                    TaskTemplate template, List<TaskTemplateNode> templateNodes) {
         Map<Long, Integer> allowedDisabled = new HashMap<>();
         for (TaskTemplateNode templateNode : templateNodes) {
@@ -505,7 +507,7 @@ public class ItemServiceImpl implements ItemService {
             }
         }
         Map<Long, Integer> submitted = new HashMap<>();
-        for (ItemCreateNodes.Node node : nodes) {
+        for (DraftNode node : nodes) {
             submitted.merge(node.baseTaskId(), 1, Integer::sum);
         }
         for (Map.Entry<Long, Integer> entry : submitted.entrySet()) {
@@ -563,6 +565,53 @@ public class ItemServiceImpl implements ItemService {
                 .build();
         itemTaskFlowMapper.insert(flow);
         return flow;
+    }
+
+    private record DraftNode(long baseTaskId, int sort, int parallelSort, String name, Long assigneeId) {
+    }
+
+    /**
+     * 编号规则与项目工作流保存相同：先按阶段和组内顺序排，再压掉空档。
+     */
+    private static List<DraftNode> normalizeDraft(List<ItemNodeCreateParamsBO> input) {
+        if (input.isEmpty()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "请至少添加一个任务节点");
+        }
+        List<ItemNodeCreateParamsBO> ordered = new ArrayList<>(input);
+        ordered.sort(Comparator.comparingInt(ItemNodeCreateParamsBO::getSort)
+                .thenComparingInt(ItemNodeCreateParamsBO::getParallelSort));
+        Map<Integer, Integer> sortMap = new LinkedHashMap<>();
+        for (ItemNodeCreateParamsBO node : ordered) {
+            if (node.getSort() == null || node.getParallelSort() == null
+                    || node.getBaseTaskId() == null
+                    || node.getSort() < 1 || node.getParallelSort() < 1) {
+                throw new AppException(ResultCode.PARAM_ERROR, "流程位置无效");
+            }
+            sortMap.computeIfAbsent(node.getSort(), ignored -> sortMap.size() + 1);
+        }
+        Map<Integer, Integer> parallelCursor = new LinkedHashMap<>();
+        List<DraftNode> normalized = new ArrayList<>();
+        for (ItemNodeCreateParamsBO node : ordered) {
+            int sort = sortMap.get(node.getSort());
+            int parallelSort = parallelCursor.merge(sort, 1, Integer::sum);
+            normalized.add(new DraftNode(node.getBaseTaskId(), sort, parallelSort,
+                    blankDraftName(node.getName()), node.getAssigneeId()));
+        }
+        return normalized;
+    }
+
+    private static String blankDraftName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String trimmed = name.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() > 100) {
+            throw new AppException(ResultCode.PARAM_ERROR, "节点名称不能超过 100 个字符");
+        }
+        return trimmed;
     }
 
     private void lockProjectCreator(Long projectId, Long userId, Long orgId) {
