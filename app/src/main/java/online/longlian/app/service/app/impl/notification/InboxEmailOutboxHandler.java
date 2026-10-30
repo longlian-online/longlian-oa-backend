@@ -76,6 +76,9 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
         if (!recipient.isEmailNotificationsEnabled()) {
             throw new OutboxSkipException("收件人已关闭邮件通知");
         }
+        if (recipient.rejectsKind(payload.kind())) {
+            throw new OutboxSkipException("收件人已关闭该类型通知");
+        }
         String email = recipient.getEmail();
         if (email == null || email.trim().isEmpty()) {
             throw new OutboxSkipException("收件人未绑定邮箱");

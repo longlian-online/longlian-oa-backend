@@ -201,6 +201,41 @@ class NotificationApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldKeepInboxButSkipEmailWhenRecipientDisabledThatKind() {
+        success(userRequest(next).body(Map.of("config", Map.of("notificationKinds", Map.of("TASK_READY", false))))
+                .patch("/app/user/config"));
+
+        success(submit(worker, 101));
+        success(submit(worker, 102));
+
+        assertThat(notifications()).extracting(row -> row.get("recipient_user_id")).containsExactly(3L, 4L);
+        list(next).then().body("data.list.sourceId", equalTo(List.of("201")));
+
+        outboxDispatcher.dispatch(testNow().plusSeconds(1));
+
+        assertThat(emailStatuses(3L)).containsExactly(5);
+        assertThat(emailStatuses(4L)).containsExactly(3);
+        verify(mailUtil, never()).send(argThat(mail -> mail.receiver().equals("notifynext@example.com")));
+        verify(mailUtil).send(argThat(mail -> mail.receiver().equals("notifyother@example.com")));
+    }
+
+    @Test
+    void shouldSkipQueuedMailWhenKindDisabledAfterItWasCreated() {
+        success(submit(worker, 101));
+        success(submit(worker, 102));
+        success(userRequest(next).body(Map.of("config", Map.of("notificationKinds", Map.of("TASK_READY", false))))
+                .patch("/app/user/config"));
+
+        outboxDispatcher.dispatch(testNow().plusSeconds(1));
+
+        assertThat(emailStatuses(3L)).containsExactly(5);
+        assertThat(emailStatuses(4L)).containsExactly(3);
+        verify(mailUtil, never()).send(argThat(mail -> mail.receiver().equals("notifynext@example.com")));
+        verify(mailUtil).send(argThat(mail -> mail.receiver().equals("notifyother@example.com")));
+        list(next).then().body("data.list.sourceId", equalTo(List.of("201")));
+    }
+
+    @Test
     void shouldSkipQueuedTaskMailAfterDisablingAndSendNewMailAfterEnabling() {
         success(submit(worker, 101));
         success(submit(worker, 102));
