@@ -153,6 +153,28 @@ class ProjectTypeCustomFormServiceImplTest {
     }
 
     @Test
+    void replace_rejectsCustomFieldWithoutName() {
+        assertThatThrownBy(() -> service.replace(1L, 10L, List.of(
+                ProjectTypeCustomFieldBO.builder().required(true).build())))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getMessage()).isEqualTo("字段名不能为空"));
+        verify(projectTypeCustomFieldMapper, never()).delete(any());
+    }
+
+    @Test
+    void listByTypeIds_skipsBlankCustomNamesWithoutQueryingPresets() {
+        when(projectTypeCustomFieldMapper.selectList(any())).thenReturn(List.of(
+                ProjectTypeCustomField.builder().typeId(10L).name("  ").required(false).sort(0).build(),
+                ProjectTypeCustomField.builder().typeId(10L).name("备注").required(true).sort(1).build()));
+
+        Map<Long, List<ProjectTypeCustomFieldResultBO>> forms = service.listByTypeIds(1L, List.of(10L));
+
+        assertThat(forms.get(10L)).extracting(ProjectTypeCustomFieldResultBO::getName).containsExactly("备注");
+        assertThat(service.requiredFieldNames(1L, 10L)).containsExactly("备注");
+        verify(organizationPresetFieldService, never()).listExisting(any(), any());
+    }
+
+    @Test
     void deleteByType_removesTheFormsRows() {
         service.deleteByType(1L, 10L);
 
