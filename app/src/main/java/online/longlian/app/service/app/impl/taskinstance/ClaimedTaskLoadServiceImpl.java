@@ -23,7 +23,7 @@ public class ClaimedTaskLoadServiceImpl implements ClaimedTaskLoadService {
 
     @Override
     public List<ClaimedTaskLoadResultBO> listClaimedTasks(ClaimedTaskLoadParamsBO params) {
-        if (params.getAssigneeIds() == null || params.getAssigneeIds().isEmpty()) {
+        if (params.getAssigneeIds().isEmpty()) {
             return List.of();
         }
         List<ClaimedTaskLoadRowBO> rows = taskInstanceMapper.selectClaimedTasksByAssignees(

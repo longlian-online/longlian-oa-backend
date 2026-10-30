@@ -89,15 +89,14 @@ public class MemberWorkloadHandler {
                                                 OrgMemberInfoResultBO profile,
                                                 List<ClaimedTaskLoadResultBO> tasks) {
         int waitingCount = (int) tasks.stream().filter(task -> task.getWaitingStageName() != null).count();
-        String note = member.getNote() == null ? "" : member.getNote();
         return OrgMemberWorkloadResultBO.builder()
                 .id(member.getId())
                 .userId(member.getUserId())
-                .nickname(profile == null ? null : profile.getNickname())
-                .username(profile == null ? null : profile.getUsername())
-                .avatarUrl(profile == null ? null : profile.getAvatarUrl())
+                .nickname(profile.getNickname())
+                .username(profile.getUsername())
+                .avatarUrl(profile.getAvatarUrl())
                 .status(member.getStatus())
-                .note(note)
+                .note(member.getNote())
                 .claimedCount(tasks.size())
                 .readyCount(tasks.size() - waitingCount)
                 .waitingCount(waitingCount)
