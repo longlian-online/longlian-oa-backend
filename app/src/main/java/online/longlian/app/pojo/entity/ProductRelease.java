@@ -15,7 +15,12 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 产品版本。published_pair_guard 由数据库生成，不进入实体，避免插入生成列。
+ * <p>
+ * 产品版本
+ * </p>
+ *
+ * @author longlian
+ * @since 
  */
 @Data
 @Builder
@@ -27,36 +32,60 @@ public class ProductRelease implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * 产品版本ID
+     */
     @TableId("id")
     @ApiModelProperty("产品版本ID")
     private Long id;
 
+    /**
+     * 产品版本，x.y.z，不含v
+     */
     @TableField("version")
     @ApiModelProperty("产品版本，x.y.z，不含v")
     private String version;
 
+    /**
+     * 绑定的前端版本，x.y.z，不含v
+     */
     @TableField("frontend_version")
     @ApiModelProperty("绑定的前端版本，x.y.z，不含v")
     private String frontendVersion;
 
+    /**
+     * 绑定的后端版本，x.y.z，不含v
+     */
     @TableField("backend_version")
     @ApiModelProperty("绑定的后端版本，x.y.z，不含v")
     private String backendVersion;
 
+    /**
+     * 标题，草稿可为空字符串
+     */
     @TableField("title")
-    @ApiModelProperty("标题")
+    @ApiModelProperty("标题，草稿可为空字符串")
     private String title;
 
+    /**
+     * 摘要，草稿可为空字符串
+     */
     @TableField("summary")
-    @ApiModelProperty("摘要")
+    @ApiModelProperty("摘要，草稿可为空字符串")
     private String summary;
 
+    /**
+     * 状态 0-DRAFT(草稿) 1-PUBLISHED(已发布) 2-WITHDRAWN(已撤回)
+     */
     @TableField("status")
-    @ApiModelProperty("状态 0-DRAFT 1-PUBLISHED 2-WITHDRAWN")
+    @ApiModelProperty("状态 0-DRAFT(草稿) 1-PUBLISHED(已发布) 2-WITHDRAWN(已撤回)")
     private ProductReleaseStatus status;
 
+    /**
+     * 发布时间，发布后不变；微秒精度用于区分同一秒内的连续发布
+     */
     @TableField("published_at")
-    @ApiModelProperty("发布时间，发布后不变")
+    @ApiModelProperty("发布时间，发布后不变；微秒精度用于区分同一秒内的连续发布")
     private LocalDateTime publishedAt;
 
     @TableField("created_at")

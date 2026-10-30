@@ -8,6 +8,14 @@ import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
 
+/**
+ * <p>
+ * 用户产品版本已读位置 Mapper 接口
+ * </p>
+ *
+ * @author longlian
+ * @since 
+ */
 @Mapper
 public interface UserProductReleaseStateMapper extends BaseMapper<UserProductReleaseState> {
 
