@@ -433,6 +433,55 @@ class ProductReleaseServiceImplTest {
         verify(userProductReleaseStateMapper).advanceSeen(9L, publishedAt);
     }
 
+    @Test
+    void shouldReportVersionConflictOnUpdateDuplicateKey() {
+        when(productReleaseMapper.selectById(7L)).thenReturn(release(7L, "1.1.0", ProductReleaseStatus.DRAFT, null));
+        when(productReleaseMapper.selectCount(any())).thenReturn(0L);
+        when(productReleaseMapper.update(any(), any())).thenThrow(
+                new DuplicateKeyException("Duplicate entry '1.2.0' for key 'uk_product_release_version'"));
+
+        assertThatThrownBy(() -> service.update(updateParams(7L, "1.2.0")))
+                .isInstanceOf(AppException.class)
+                .hasMessage("产品版本已存在");
+    }
+
+    @Test
+    void shouldCountOlderUnseenWhenUserAlreadySawAnEarlierRelease() {
+        LocalDateTime latest = LocalDateTime.of(2026, 3, 21, 18, 0);
+        when(productReleaseMapper.selectPage(any(), any())).thenReturn(
+                pageOf(release(5L, "1.2.0", ProductReleaseStatus.PUBLISHED, latest)));
+        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of());
+        when(userProductReleaseStateMapper.selectById(9L)).thenReturn(stateAt(9L, latest.minusDays(1)));
+        when(productReleaseMapper.selectCount(any())).thenReturn(1L);
+
+        var current = service.current(9L);
+
+        assertThat(current.getRelease().getVersion()).isEqualTo("1.2.0");
+        assertThat(current.getOlderCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportZeroOlderCountWhenCountIsUnavailable() {
+        LocalDateTime latest = LocalDateTime.of(2026, 3, 21, 18, 0);
+        when(productReleaseMapper.selectPage(any(), any())).thenReturn(
+                pageOf(release(5L, "1.2.0", ProductReleaseStatus.PUBLISHED, latest)));
+        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of());
+        when(userProductReleaseStateMapper.selectById(9L)).thenReturn(null);
+        when(productReleaseMapper.selectCount(any())).thenReturn(null);
+
+        assertThat(service.current(9L).getOlderCount()).isZero();
+    }
+
+    @Test
+    void shouldListPublishedWithoutLoadingChanges() {
+        when(productReleaseMapper.selectPage(any(), any())).thenReturn(pageOf());
+
+        PageResultBO<ProductReleaseNoticeResultBO> page = service.listPublished(new PageParamsBO(1, 10));
+
+        assertThat(page.getTotal()).isZero();
+        assertThat(page.getList()).isEmpty();
+    }
+
     private static ProductReleaseSaveParamsBO saveParams(boolean publish) {
         return ProductReleaseSaveParamsBO.builder()
                 .version("1.1.0")
@@ -459,6 +508,13 @@ class ProductReleaseServiceImplTest {
                 .changed(List.of())
                 .fixed(List.of())
                 .build();
+    }
+
+    private static UserProductReleaseState stateAt(Long userId, LocalDateTime lastSeen) {
+        UserProductReleaseState state = new UserProductReleaseState();
+        state.setUserId(userId);
+        state.setLastSeenPublishedAt(lastSeen);
+        return state;
     }
 
     private static ProductRelease release(Long id, String version, ProductReleaseStatus status, LocalDateTime publishedAt) {
