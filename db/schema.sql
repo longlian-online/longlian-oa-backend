@@ -550,7 +550,7 @@ CREATE TABLE `product_release` (
   `title` varchar(40) NOT NULL COMMENT "标题，草稿可为空字符串",
   `summary` varchar(120) NOT NULL COMMENT "摘要，草稿可为空字符串",
   `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态 0-DRAFT(草稿) 1-PUBLISHED(已发布) 2-WITHDRAWN(已撤回)",
-  `published_at` datetime NULL COMMENT "发布时间，发布后不变",
+  `published_at` datetime(6) NULL COMMENT "发布时间，发布后不变；微秒精度用于区分同一秒内的连续发布",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `published_pair_guard` bigint GENERATED ALWAYS AS (IF(`status` = 1, 0, `id`)) STORED,
@@ -574,7 +574,7 @@ CREATE TABLE `product_release_change` (
 -- Create "user_product_release_state" table
 CREATE TABLE `user_product_release_state` (
   `user_id` bigint NOT NULL COMMENT "用户ID",
-  `last_seen_published_at` datetime NOT NULL COMMENT "已读到的发布时间，只向前移动",
+  `last_seen_published_at` datetime(6) NOT NULL COMMENT "已读到的发布时间，只向前移动；与发布时间同为微秒精度",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`)

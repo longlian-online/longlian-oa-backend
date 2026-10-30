@@ -166,6 +166,28 @@ class ProductReleaseApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldDistinguishReleasesPublishedInTheSameSecond() {
+        String admin = createNormalAdmin();
+        createTestUser(16L, "reader-six", "123456", "reader-six@example.com");
+        publish(admin, "1.0.0", "0.0.18", "1.0.52", true);
+
+        String reader = loginAs("reader-six", "123456");
+        userRequest(reader)
+                .post("/app/product-releases/" + idOf("1.0.0") + "/seen")
+                .then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        // 紧跟着发布的一条通常与上一条落在同一秒，按秒比较会把它误判为已读。
+        publish(admin, "1.6.0", "0.0.22", "1.0.52", true);
+
+        userRequest(reader)
+                .get("/app/product-releases/current")
+                .then()
+                .body("data.release.version", equalTo("1.6.0"))
+                .body("data.olderCount", equalTo(0));
+    }
+
+    @Test
     void shouldRejectInvalidVersionAnonymousAndNonAdminAccess() {
         createTestUser(15L, "reader-five", "123456", "reader-five@example.com");
         String admin = createNormalAdmin();
