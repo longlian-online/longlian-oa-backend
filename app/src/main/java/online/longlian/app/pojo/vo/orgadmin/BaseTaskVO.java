@@ -30,6 +30,12 @@ public class BaseTaskVO {
     @Schema(description = "提交表单字段")
     private List<TaskFormField> submitFields;
 
+    @Schema(description = "提交 webhook 地址。空表示不投递")
+    private String webhookUrl;
+
+    @Schema(description = "是否已配置 webhook 签名密钥。接口不返回密钥本身")
+    private Boolean webhookSecretConfigured;
+
     @Schema(description = "引用次数（该任务被引用到任务流模板节点中的次数）")
     private Integer refCount;
 

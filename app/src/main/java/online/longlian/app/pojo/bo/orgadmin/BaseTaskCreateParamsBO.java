@@ -18,4 +18,6 @@ public class BaseTaskCreateParamsBO {
     private String description;
     private String icon;
     private List<TaskFormField> submitFields;
+    private String webhookUrl;
+    private String webhookSecret;
 }

@@ -214,12 +214,18 @@ public class TaskInstanceCommandHandler {
     /**
      * 重置任务：COMPLETED -> CLAIMED，提交记录标记 RESET 并回退成员提交计数。
      */
-    public void reset(TaskInstance instance, Long userId) {
+    public Long reset(TaskInstance instance, Long userId) {
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可重置");
         }
         requireAssignee(instance, userId, "仅接取人可重置任务");
 
+        List<TaskSubmission> currentSubmissions = taskSubmissionMapper.selectList(
+                new LambdaQueryWrapper<TaskSubmission>()
+                        .eq(TaskSubmission::getTaskInstanceId, instance.getId())
+                        .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED));
+        Long submissionId = currentSubmissions != null && currentSubmissions.size() == 1
+                ? currentSubmissions.get(0).getId() : null;
         LocalDateTime now = LocalDateTime.now(clock);
 
         int updated = taskInstanceMapper.update(null,
@@ -243,6 +249,7 @@ public class TaskInstanceCommandHandler {
                         .set(TaskSubmission::getUpdatedAt, now));
 
         memberSubmitCountHandler.revertSubmitCount(userId, instance.getProjectId());
+        return submissionId;
     }
 
 
@@ -271,7 +278,7 @@ public class TaskInstanceCommandHandler {
     }
 
     /** 当前有效提交精确打回一次；保留原接取人、接取时间及所有成果历史。 */
-    public void reject(TaskInstance instance, Long userId, boolean projectCreator,
+    public Long reject(TaskInstance instance, Long userId, boolean projectCreator,
                        String expectedRevision, String reviewComment) {
         requireRevision(instance, expectedRevision);
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
@@ -316,6 +323,7 @@ public class TaskInstanceCommandHandler {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前提交状态已变更，请刷新后重试");
         }
         memberSubmitCountHandler.revertSubmitCount(currentSubmission.getSubmitterId(), instance.getProjectId());
+        return currentSubmission.getId();
     }
 
     private void requireRevision(TaskInstance instance, String expectedRevision) {

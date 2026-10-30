@@ -44,6 +44,8 @@ public class BaseTaskAssembler {
                         .description(task.getDescription())
                         .icon(task.getIcon())
                         .submitFields(taskFormService.parseFields(task.getMetaSchema()))
+                        .webhookUrl(task.getWebhookUrl())
+                        .webhookSecretConfigured(task.getWebhookSecret() != null && !task.getWebhookSecret().isBlank())
                         .refCount(refCountMap.getOrDefault(task.getId(), 0L).intValue())
                         .status(task.getStatus())
                         .createdAt(task.getCreatedAt())
