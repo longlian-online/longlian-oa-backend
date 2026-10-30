@@ -167,6 +167,33 @@
         </choose>
     </select>
 
+    <!--
+      组织负载候选：状态码 task_instance 2-CLAIMED。多表关联，LambdaQueryWrapper 表达不清。
+      与我的待办不同，停用企划（resource_status 0）上仍被接取的任务也返回：负载看的是还挂在名下的任务。
+      已删除的企划、项目、节点不返回。
+    -->
+    <select id="selectClaimedTasksByAssignees" resultType="online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO">
+        SELECT ti.id AS instanceId,
+               ti.assignee_id AS assigneeId,
+               ti.item_id AS itemId,
+               ti.project_id AS projectId,
+               i.title AS itemTitle,
+               p.title AS projectName,
+               n.name AS nodeName,
+               n.id AS nodeId,
+               n.sort AS stageSort
+        FROM task_instance ti
+        JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
+        JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL
+        WHERE ti.deleted_at IS NULL
+          AND ti.status = 2
+          AND p.org_id = #{orgId}
+          AND ti.assignee_id IN
+          <foreach collection="assigneeIds" item="assigneeId" open="(" separator="," close=")">#{assigneeId}</foreach>
+        ORDER BY ti.claimed_at IS NULL, ti.claimed_at ASC, ti.id ASC
+    </select>
+
     <!-- 节点完成：存在未删除实例且全部为 COMPLETED(3)，与前端节点 taskStatus 口径一致 -->
     <select id="selectItemStageNodeStatuses" resultType="online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO">
         SELECT n.item_id AS itemId,

@@ -1,6 +1,7 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.MyTaskRowBO;
 import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
@@ -43,6 +44,14 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstance> {
     List<MyTaskRowBO> selectMyClaimedTasks(@Param("userId") Long userId,
                                            @Param("orgId") Long orgId,
                                            @Param("desc") boolean desc);
+
+    /**
+     * 组织负载：指定成员在当前组织内已接取（CLAIMED）的任务，按接取时间、实例 ID 升序。
+     * 空的接取人列表不要调用，IN 为空会产生非法 SQL。
+     */
+    List<ClaimedTaskLoadRowBO> selectClaimedTasksByAssignees(
+            @Param("orgId") Long orgId,
+            @Param("assigneeIds") List<Long> assigneeIds);
 
     /** 指定项目内全部任务节点及其完成情况（前置判定用） */
     List<ItemStageNodeStatusBO> selectItemStageNodeStatuses(@Param("itemIds") List<Long> itemIds);

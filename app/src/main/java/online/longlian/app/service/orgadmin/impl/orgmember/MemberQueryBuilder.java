@@ -6,6 +6,7 @@ import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadListParamsBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
@@ -80,6 +81,30 @@ public class MemberQueryBuilder {
             queryWrapper.orderByDesc(OrganizationMember::getJoinedAt, OrganizationMember::getId);
         }
 
+        return queryWrapper;
+    }
+
+    /**
+     * 负载页先取出当前组织匹配昵称的成员，再按待提交数量在内存中排序分页。
+     * 排序键属于任务域，不在这条成员查询里排序。
+     */
+    public LambdaQueryWrapper<OrganizationMember> buildWorkloadMemberQuery(OrgMemberWorkloadListParamsBO params) {
+        LambdaQueryWrapper<OrganizationMember> queryWrapper = new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getOrgId, params.getOrgId());
+        if (StringUtils.hasText(params.getKeyword())) {
+            String keyword = params.getKeyword().trim();
+            List<Long> matchedUserIds = userMapper.selectList(new LambdaQueryWrapper<User>()
+                            .select(User::getId)
+                            .like(User::getNickname, keyword))
+                    .stream()
+                    .map(User::getId)
+                    .toList();
+            if (!matchedUserIds.isEmpty()) {
+                queryWrapper.in(OrganizationMember::getUserId, matchedUserIds);
+            } else {
+                queryWrapper.eq(OrganizationMember::getId, -1L);
+            }
+        }
         return queryWrapper;
     }
 }

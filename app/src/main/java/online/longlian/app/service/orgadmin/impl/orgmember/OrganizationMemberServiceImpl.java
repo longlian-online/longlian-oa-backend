@@ -24,6 +24,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberNoteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberWorkloadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -67,6 +70,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final ApplicationReviewHandler applicationReviewHandler;
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
+    private final MemberWorkloadHandler memberWorkloadHandler;
     private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
 
@@ -182,6 +186,16 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该成员");
         }
         return memberSubmissionHandler.getSubmitCounts(member);
+    }
+
+    @Override
+    public PageResultBO<OrgMemberWorkloadResultBO> listMemberWorkloads(@NonNull OrgMemberWorkloadListParamsBO params) {
+        return memberWorkloadHandler.list(params);
+    }
+
+    @Override
+    public void updateMemberNote(@NonNull OrgMemberNoteParamsBO params) {
+        memberWorkloadHandler.updateNote(params);
     }
 
     @Override
