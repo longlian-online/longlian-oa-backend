@@ -54,10 +54,6 @@ public class TaskWebhookAddressGuard {
     }
 
     private static boolean isBlocked(InetAddress address) {
-        InetAddress unwrapped = unwrapMappedIpv4(address);
-        if (unwrapped != address) {
-            return isBlocked(unwrapped);
-        }
         if (isLocalOrMulticast(address)) {
             return true;
         }
@@ -76,27 +72,6 @@ public class TaskWebhookAddressGuard {
             return first == 0 || first == 255 || (first == 100 && second >= 64 && second <= 127);
         }
         return raw.length == 16 && (raw[0] & 0xfe) == 0xfc;
-    }
-
-    private static InetAddress unwrapMappedIpv4(InetAddress address) {
-        byte[] raw = address.getAddress();
-        if (raw.length != 16 || !isMappedIpv4(raw)) {
-            return address;
-        }
-        try {
-            return InetAddress.getByAddress(new byte[]{raw[12], raw[13], raw[14], raw[15]});
-        } catch (UnknownHostException exception) { // skipcq: TCV-001
-            return address; // skipcq: TCV-001
-        }
-    }
-
-    private static boolean isMappedIpv4(byte[] raw) {
-        for (int index = 0; index < 10; index++) {
-            if (raw[index] != 0) {
-                return false;
-            }
-        }
-        return (raw[10] & 0xff) == 0xff && (raw[11] & 0xff) == 0xff;
     }
 
     private static String stripDot(String host) {
