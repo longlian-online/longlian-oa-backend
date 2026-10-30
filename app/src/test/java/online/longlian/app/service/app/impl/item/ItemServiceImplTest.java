@@ -377,6 +377,84 @@ class ItemServiceImplTest {
         verifyNoInteractions(inboxNotificationService);
     }
 
+    @Test
+    void createProjectItem_draftNotifiesEachTaskButJoinsWorkshopOnce() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(null).sort(1).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(12L).baseTaskId(22L).sort(2).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).orgId(1L).name("翻译").status(Status.ENABLED).metaSchema("[]").build()));
+        when(itemMapper.selectOne(any())).thenReturn(Item.builder().sort(4L).build());
+        when(taskInstanceMapper.insert(any(TaskInstance.class))).thenAnswer(invocation -> {
+            invocation.<TaskInstance>getArgument(0).setId(700L);
+            return 1;
+        });
+
+        service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, "甲", 8L), node(22L, 1, 2, "乙", 8L)))
+                .build());
+
+        ArgumentCaptor<Item> created = ArgumentCaptor.forClass(Item.class);
+        verify(itemMapper).insert(created.capture());
+        assertThat(created.getValue().getSort()).isEqualTo(5L);
+        verify(projectService, times(1)).addToWorkshop(any(ProjectWorkshopAddParamsBO.class));
+        ArgumentCaptor<NotificationBatchCreateParamsBO> notifications =
+                ArgumentCaptor.forClass(NotificationBatchCreateParamsBO.class);
+        verify(inboxNotificationService).createBatch(notifications.capture());
+        assertThat(notifications.getValue().getNotifications()).hasSize(2);
+    }
+
+    @Test
+    void createProjectItem_draftRejectsTaskFromAnotherOrganization() {
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of());
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).orgId(2L).name("外组织").status(Status.ENABLED).metaSchema("[]").build()));
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, "翻译", null)))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权引用该任务");
+        verify(itemMapper, never()).insert(any(Item.class));
+    }
+
+    @Test
+    void createProjectItem_draftRejectsEmptyNodesAndInvalidPositionAndLongName() {
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of())
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("请至少添加一个任务节点");
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 0, 1, "翻译", null)))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("流程位置无效");
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, "名".repeat(101), null)))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("节点名称不能超过 100 个字符");
+        verify(itemMapper, never()).insert(any(Item.class));
+    }
+
     private static ItemNodeCreateParamsBO node(Long baseTaskId, int sort, int parallelSort, String name, Long assigneeId) {
         return ItemNodeCreateParamsBO.builder()
                 .baseTaskId(baseTaskId).sort(sort).parallelSort(parallelSort).name(name).assigneeId(assigneeId).build();
