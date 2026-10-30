@@ -19,6 +19,7 @@ import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemReorderDTO;
 import online.longlian.app.pojo.vo.app.ProjectItemOrderEntryVO;
+import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
@@ -64,7 +65,7 @@ public class ItemController {
         return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
     }
 
-    @Operation(summary = "创建项目", description = "创建项目并关联流程模板，自动生成任务流和所有任务实例")
+    @Operation(summary = "创建项目", description = "创建项目并关联流程模板。可同时提交调整后的步骤和执行人；不传步骤时按模板原样生成，任务均为待接取")
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("")
     @ResponseMessage("创建成功")
@@ -78,6 +79,15 @@ public class ItemController {
                         .title(projectItemCreateDTO.getTitle())
                         .taskTemplateId(projectItemCreateDTO.getTaskTemplateId())
                         .creatorId(sessionContext.userId())
+                        .nodes(projectItemCreateDTO.getNodes() == null ? null : projectItemCreateDTO.getNodes().stream()
+                                .map(node -> ItemNodeCreateParamsBO.builder()
+                                        .baseTaskId(node.getBaseTaskId())
+                                        .sort(node.getSort())
+                                        .parallelSort(node.getParallelSort())
+                                        .name(node.getName())
+                                        .assigneeId(node.getAssigneeId())
+                                        .build())
+                                .toList())
                         .build());
     }
 

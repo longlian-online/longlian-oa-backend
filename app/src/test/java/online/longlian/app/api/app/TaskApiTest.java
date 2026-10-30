@@ -26,6 +26,10 @@ public class TaskApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "模板1", "描述", 1, 1, 1L
         );
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '翻译', '[]', 0, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
 
         Response response = authRequest(token)
                 .get("/app/task-template/options");
@@ -34,7 +38,12 @@ public class TaskApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0))
-                .body("data", notNullValue());
+                .body("data", notNullValue())
+                .body("data[0].nodes", hasSize(1))
+                .body("data[0].nodes[0].baseTaskId", equalTo("1"))
+                .body("data[0].nodes[0].baseTaskName", equalTo("翻译"))
+                .body("data[0].nodes[0].baseTaskStatus", equalTo("DISABLED"))
+                .body("data[0].nodes[0].sort", equalTo(1));
     }
 
     /**

@@ -5,6 +5,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -611,6 +612,83 @@ public class ItemApiTest extends BaseApiTest {
                 .body(Map.of("title", "新项目", "taskTemplateId", "1"))
                 .post("/app/projects/1/items"));
         assertProjectNotFound(authRequest(token).get("/app/item/1/flow"));
+    }
+
+    /**
+     * 创建时提交的步骤和执行人一次落库。组员不在组织内则整次创建失败。
+     */
+    @Test
+    void shouldCreateDraftWithAssigneeAndRejectOutsiderWithoutPersisting() {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_USER");
+        createTestUser(2L, "member", "123456", "member@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        createTestUser(3L, "outsider", "123456", "outsider@example.com");
+        String token = loginAs("creator", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '企划', 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '漫画汉化', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '翻译', '[]', 0, 1), (2, 1, '嵌字', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
+
+        authRequest(token).body(Map.of(
+                "title", "第一话",
+                "taskTemplateId", "1",
+                "nodes", List.of(
+                        Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1, "name", "翻译甲", "assigneeId", "2"),
+                        Map.of("baseTaskId", "2", "sort", 2, "parallelSort", 1)
+                )
+        )).post("/app/projects/1/items").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        Long itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE title = '第一话'", Long.class);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT name FROM item_task_flow WHERE item_id = ?", String.class, itemId)).isEqualTo("漫画汉化");
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT name FROM item_task_node WHERE item_id = ? ORDER BY sort, parallel_sort", String.class, itemId))
+                .containsExactly("翻译甲", "嵌字");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM task_instance WHERE item_id = ? AND assignee_id = 2", Integer.class, itemId)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT assignee_id FROM task_instance WHERE item_id = ? AND status = 1", Long.class, itemId)).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM project_workshop WHERE project_id = 1 AND user_id = 2", Long.class)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT kind FROM user_notification", Integer.class)).isEqualTo(3);
+        assertThat(jdbcTemplate.queryForObject("SELECT payload FROM outbox_message", String.class)).contains("TASK_ASSIGNED");
+        assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id = 1", Integer.class)).isEqualTo(1);
+
+        authRequest(token).body(Map.of(
+                "title", "不该出现",
+                "taskTemplateId", "1",
+                "nodes", List.of(Map.of("baseTaskId", "2", "sort", 1, "parallelSort", 1, "assigneeId", "3"))
+        )).post("/app/projects/1/items").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForList("SELECT title FROM item", String.class)).containsExactly("第一话");
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_notification", Long.class)).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldRejectAddingDisabledTaskThatTemplateDoesNotKeep() {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("creator", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '企划', 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '翻译', '[]', 0, 1)");
+        jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
+
+        authRequest(token).body(Map.of(
+                "title", "超额",
+                "taskTemplateId", "1",
+                "nodes", List.of(
+                        Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1),
+                        Map.of("baseTaskId", "1", "sort", 2, "parallelSort", 1)
+                )
+        )).post("/app/projects/1/items").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
     }
 
     private void assertProjectNotFound(Response response) {
