@@ -283,7 +283,9 @@ class OutboxDispatcherTest {
     }
 
     private OutboxDispatcher dispatcher() {
-        return new OutboxDispatcher(List.of(handler), mapper, transactionManager());
+        OutboxHandler webhook = mock(OutboxHandler.class);
+        when(webhook.type()).thenReturn(OutboxMessageType.TASK_WEBHOOK);
+        return new OutboxDispatcher(List.of(handler, webhook), mapper, transactionManager());
     }
 
     private void stubPage(List<OutboxMessage> records) {

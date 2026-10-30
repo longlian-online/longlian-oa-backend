@@ -81,6 +81,20 @@ public class ItemTaskNode implements Serializable {
     private String metaSchema;
 
     /**
+     * 创建节点时的 webhook 地址快照，空表示不投递
+     */
+    @TableField("webhook_url")
+    @ApiModelProperty("创建节点时的 webhook 地址快照，空表示不投递")
+    private String webhookUrl;
+
+    /**
+     * 创建节点时的 webhook HMAC 密钥快照
+     */
+    @TableField("webhook_secret")
+    @ApiModelProperty("创建节点时的 webhook HMAC 密钥快照")
+    private String webhookSecret;
+
+    /**
      * 步骤顺序
      */
     @TableField("sort")

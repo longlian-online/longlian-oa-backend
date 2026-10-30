@@ -19,6 +19,8 @@ CREATE TABLE `base_task` (
   `icon` varchar(100) NULL COMMENT "Lucide 图标组件名",
   `description` varchar(500) NULL DEFAULT "" COMMENT "任务说明（简介）",
   `meta_schema` json NULL COMMENT "元数据字段定义(JSON数组)",
+  `webhook_url` varchar(500) NULL COMMENT "提交 webhook 地址，空表示不投递",
+  `webhook_secret` varchar(128) NULL COMMENT "webhook HMAC 密钥",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-禁用",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -107,6 +109,8 @@ CREATE TABLE `item_task_node` (
   `base_task_id` bigint NOT NULL COMMENT "关联原子任务ID",
   `name` varchar(100) NOT NULL COMMENT "任务名称",
   `meta_schema` json NULL COMMENT "节点元数据字段定义快照(JSON数组)",
+  `webhook_url` varchar(500) NULL COMMENT "创建节点时的 webhook 地址快照，空表示不投递",
+  `webhook_secret` varchar(128) NULL COMMENT "创建节点时的 webhook HMAC 密钥快照",
   `sort` int NOT NULL DEFAULT 0 COMMENT "步骤顺序",
   `parallel_sort` int NULL COMMENT "并行组号排序",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -212,7 +216,7 @@ CREATE TABLE `organization_preset_field` (
 -- Create "outbox_message" table
 CREATE TABLE `outbox_message` (
   `id` bigint NOT NULL COMMENT "消息ID",
-  `type` tinyint NOT NULL COMMENT "投递类型 1-INBOX_EMAIL",
+  `type` tinyint NOT NULL COMMENT "投递类型 1-INBOX_EMAIL 2-TASK_WEBHOOK",
   `dedupe_key` varchar(64) NOT NULL COMMENT "同一类型内的幂等键",
   `payload` json NOT NULL COMMENT "该 type 专用的 JSON",
   `status` tinyint NOT NULL COMMENT "1-PENDING 2-PROCESSING 3-SENT 4-FAILED 5-SKIPPED",

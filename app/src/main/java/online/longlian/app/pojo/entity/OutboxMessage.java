@@ -41,10 +41,10 @@ public class OutboxMessage implements Serializable {
     private Long id;
 
     /**
-     * 投递类型 1-INBOX_EMAIL
+     * 投递类型 1-INBOX_EMAIL 2-TASK_WEBHOOK
      */
     @TableField("type")
-    @ApiModelProperty("投递类型 1-INBOX_EMAIL")
+    @ApiModelProperty("投递类型 1-INBOX_EMAIL 2-TASK_WEBHOOK")
     private OutboxMessageType type;
 
     /**

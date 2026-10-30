@@ -28,4 +28,12 @@ public class BaseTaskCreateDTO {
     @NotNull
     @Schema(description = "提交表单字段", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<TaskFormField> submitFields;
+
+    @Size(max = 500, message = "webhook 地址不能超过 500 个字符")
+    @Schema(description = "提交 webhook 地址。空表示不投递；只接受 HTTPS")
+    private String webhookUrl;
+
+    @Size(max = 128, message = "webhook 签名密钥不能超过 128 个字符")
+    @Schema(description = "webhook HMAC 密钥。创建时与地址一起填写；编辑时留空保持原密钥")
+    private String webhookSecret;
 }
