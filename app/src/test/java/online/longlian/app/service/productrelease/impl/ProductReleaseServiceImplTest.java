@@ -183,6 +183,19 @@ class ProductReleaseServiceImplTest {
     }
 
     @Test
+    void shouldRejectPublishWhenDraftChangedBeforeUpdate() {
+        when(productReleaseMapper.selectById(8L)).thenReturn(release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null));
+        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(8L)));
+        when(productReleaseMapper.selectPage(any(), any())).thenReturn(pageOf());
+        when(productReleaseMapper.selectCount(any())).thenReturn(0L);
+        when(productReleaseMapper.update(any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.publish(8L))
+                .isInstanceOf(AppException.class)
+                .hasMessage("草稿才能发布");
+    }
+
+    @Test
     void shouldReportVersionConflictOnPublishDuplicateKey() {
         when(productReleaseMapper.selectById(8L)).thenReturn(release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null));
         when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(8L)));
