@@ -20,6 +20,7 @@ import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeUpdateParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
+import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,6 +53,8 @@ class ProjectTypeServiceImplTest {
     private ProjectTypeQueryBuilder queryBuilder;
     @Mock
     private ProjectTypeAssembler assembler;
+    @Mock
+    private ProjectTypeCustomFormService projectTypeCustomFormService;
 
     private ProjectTypeServiceImpl service;
 
@@ -60,7 +64,8 @@ class ProjectTypeServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), ProjectType.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), Project.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
-        service = new ProjectTypeServiceImpl(projectTypeMapper, projectMapper, clock, queryBuilder, assembler);
+        service = new ProjectTypeServiceImpl(
+                projectTypeMapper, projectMapper, clock, queryBuilder, assembler, projectTypeCustomFormService);
     }
 
     @Test
@@ -92,6 +97,7 @@ class ProjectTypeServiceImplTest {
         when(queryBuilder.buildListQuery(params)).thenReturn(queryWrapper);
         when(projectTypeMapper.selectPage(any(Page.class), same(queryWrapper))).thenReturn(projectTypePage);
         when(assembler.assembleList(eq(List.of(projectType)), eq(params.getOrgId()))).thenReturn(List.of(assembled));
+        when(projectTypeCustomFormService.listByTypeIds(eq(params.getOrgId()), eq(List.of(10L)))).thenReturn(Map.of());
 
         PageResultBO<ProjectTypeListResultBO> result = service.listProjectTypes(params);
 

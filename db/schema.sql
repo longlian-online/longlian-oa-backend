@@ -197,6 +197,18 @@ CREATE TABLE `organization_preset_tag` (
   PRIMARY KEY (`id`),
   INDEX `idx_org_preset_tag_org` (`org_id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织预制标签表";
+-- Create "organization_preset_field" table
+CREATE TABLE `organization_preset_field` (
+  `id` bigint NOT NULL COMMENT "组织预置表单字段ID",
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `name` varchar(50) NOT NULL COMMENT "字段名",
+  `creator_id` bigint NOT NULL COMMENT "创建人ID",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_org_preset_field_org` (`org_id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "组织预置表单字段表";
 -- Create "outbox_message" table
 CREATE TABLE `outbox_message` (
   `id` bigint NOT NULL COMMENT "消息ID",
@@ -266,6 +278,22 @@ CREATE TABLE `project_type` (
   `deleted_at` datetime NULL,
   PRIMARY KEY (`id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划类型表";
+-- Create "project_type_custom_field" table
+CREATE TABLE `project_type_custom_field` (
+  `id` bigint NOT NULL COMMENT "企划类型默认自定义字段ID",
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `type_id` bigint NOT NULL COMMENT "企划类型ID",
+  `preset_field_id` bigint NULL COMMENT "预置表单字段ID；自行编辑的字段为空",
+  `name` varchar(50) NULL COMMENT "字段名；引用预置字段时为空，展示时取预置字段当前名称",
+  `required` tinyint NOT NULL DEFAULT 0 COMMENT "是否必填 1-必填 0-选填",
+  `sort` int NOT NULL DEFAULT 0 COMMENT "表单内顺序，从 0 开始",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_type_custom_field_type` (`type_id`, `sort`),
+  INDEX `idx_type_custom_field_preset` (`preset_field_id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划类型默认自定义表单。不建唯一索引，避免软删除后无法再选同一预置字段";
 -- Create "project_workshop" table
 CREATE TABLE `project_workshop` (
   `id` bigint NOT NULL,

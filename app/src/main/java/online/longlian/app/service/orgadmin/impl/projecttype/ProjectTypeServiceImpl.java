@@ -14,9 +14,11 @@ import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCreateParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
 import online.longlian.app.pojo.bo.orgadmin.ProjectTypeUpdateParamsBO;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.Project;
+import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.orgadmin.ProjectTypeService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +39,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
     private final Clock clock;
     private final ProjectTypeQueryBuilder projectTypeQueryBuilder;
     private final ProjectTypeAssembler projectTypeAssembler;
+    private final ProjectTypeCustomFormService projectTypeCustomFormService;
 
     @Override
     public PageResultBO<ProjectTypeListResultBO> listProjectTypes(ProjectTypeListParamsBO params) {
@@ -46,7 +50,11 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
         if (projectTypes.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), projectTypePage.getTotal());
         }
-        return new PageResultBO<>(projectTypeAssembler.assembleList(projectTypes, params.getOrgId()), projectTypePage.getTotal());
+        List<ProjectTypeListResultBO> assembled = projectTypeAssembler.assembleList(projectTypes, params.getOrgId());
+        Map<Long, List<ProjectTypeCustomFieldResultBO>> forms = projectTypeCustomFormService.listByTypeIds(
+                params.getOrgId(), projectTypes.stream().map(ProjectType::getId).toList());
+        assembled.forEach(item -> item.setCustomFields(forms.getOrDefault(item.getId(), List.of())));
+        return new PageResultBO<>(assembled, projectTypePage.getTotal());
     }
 
     @Override
@@ -68,6 +76,9 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
                 .updatedAt(now)
                 .build();
         projectTypeMapper.insert(projectType);
+        if (params.getCustomFields() != null) {
+            projectTypeCustomFormService.replace(params.getOrgId(), projectType.getId(), params.getCustomFields());
+        }
     }
 
     @Override
@@ -86,6 +97,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
                 .eq(ProjectType::getId, type.getId()).set(ProjectType::getName, name)
                 .set(params.getPriority() != null, ProjectType::getPriority, params.getPriority())
                 .set(ProjectType::getUpdatedAt, LocalDateTime.now(clock)));
+        projectTypeCustomFormService.replace(params.getOrgId(), type.getId(), params.getCustomFields());
     }
 
     @Override
@@ -100,6 +112,7 @@ public class ProjectTypeServiceImpl implements ProjectTypeService {
         if (used > 0) {
             throw new AppException(ResultCode.PARAM_ERROR, "该类型已被 " + used + " 个企划使用，请改为禁用");
         }
+        projectTypeCustomFormService.deleteByType(orgId, typeId);
         projectTypeMapper.deleteById(typeId);
     }
 

@@ -7,6 +7,7 @@ import lombok.Data;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Schema(description = "企划类型管理列表信息")
@@ -37,4 +38,7 @@ public class ProjectTypeAdminVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
+
+    @Schema(description = "默认自定义表单")
+    private List<ProjectTypeCustomFieldVO> customFields;
 }
