@@ -31,8 +31,11 @@ import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
+import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
+import online.longlian.app.pojo.vo.app.ProjectTypeCustomFieldVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
@@ -45,6 +48,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 @Service("appProjectService")
@@ -59,6 +63,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectQueryBuilder projectQueryBuilder;
     private final ProjectAssembler projectAssembler;
     private final ProjectProgressHandler projectProgressHandler;
+    private final ProjectTypeCustomFormService projectTypeCustomFormService;
     private final Clock clock;
 
     @Override
@@ -70,8 +75,23 @@ public class ProjectServiceImpl implements ProjectService {
                         .orderByDesc(ProjectType::getPriority)
                         .orderByAsc(ProjectType::getId)
         );
+        if (types.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, List<ProjectTypeCustomFieldResultBO>> forms = projectTypeCustomFormService.listByTypeIds(
+                orgId, types.stream().map(ProjectType::getId).toList());
         return types.stream()
-                .map(t -> new ProjectTypeInfoVO(t.getId(), t.getName()))
+                .map(type -> ProjectTypeInfoVO.builder()
+                        .id(type.getId())
+                        .name(type.getName())
+                        .customFields(forms.getOrDefault(type.getId(), List.of()).stream()
+                                .map(field -> ProjectTypeCustomFieldVO.builder()
+                                        .presetFieldId(field.getPresetFieldId())
+                                        .name(field.getName())
+                                        .required(field.getRequired())
+                                        .build())
+                                .toList())
+                        .build())
                 .toList();
     }
 
@@ -188,6 +208,7 @@ public class ProjectServiceImpl implements ProjectService {
     public void createProject(ProjectCreateParamsBO params) {
         requireEnabledType(params.getTypeId(), params.getOrgId());
         ProjectMetadataValidator.validate(params.getMetadata());
+        requireCustomFields(params.getOrgId(), params.getTypeId(), params.getMetadata());
 
         LocalDateTime now = LocalDateTime.now(clock);
         Project project = Project.builder()
@@ -243,6 +264,8 @@ public class ProjectServiceImpl implements ProjectService {
         if (params.getTypeId() != null) {
             requireEnabledType(params.getTypeId(), params.getOrgId());
         }
+        Long typeId = params.getTypeId() != null ? params.getTypeId() : project.getTypeId();
+        requireCustomFields(params.getOrgId(), typeId, params.getMetadata());
 
         projectMapper.update(null,
                 new LambdaUpdateWrapper<Project>()
@@ -368,6 +391,11 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "企划不存在");
         }
         return project;
+    }
+
+    private void requireCustomFields(Long orgId, Long typeId, String metadata) {
+        ProjectCustomFieldRequirements.requireSatisfied(
+                metadata, projectTypeCustomFormService.requiredFieldNames(orgId, typeId));
     }
 
     private void requireEnabledType(Long typeId, Long orgId) {

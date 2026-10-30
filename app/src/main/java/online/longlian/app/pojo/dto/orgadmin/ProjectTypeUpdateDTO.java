@@ -1,9 +1,13 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 @Schema(description = "修改企划类型请求参数")
@@ -15,4 +19,8 @@ public class ProjectTypeUpdateDTO {
 
     @Schema(description = "优先级，仅影响用户端类型列表顺序，越大越靠前；省略时保留原值")
     private Integer priority;
+
+    @Valid
+    @Schema(description = "默认自定义表单。省略时保持原设置，空数组表示清空")
+    private List<@NotNull(message = "默认自定义表单不能包含空项") @Valid ProjectTypeCustomFieldDTO> customFields;
 }

@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @NoArgsConstructor
 @Data
 @AllArgsConstructor
@@ -21,5 +23,8 @@ public class ProjectTypeInfoVO {
 
     @Schema(description = "类型名称（如：漫画/小说/美术/视频）")
     private String name;
+
+    @Schema(description = "默认自定义表单，按类型中的顺序")
+    private List<ProjectTypeCustomFieldVO> customFields;
 
 }
