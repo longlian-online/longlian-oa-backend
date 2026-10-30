@@ -19,7 +19,9 @@ import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemReorderDTO;
 import online.longlian.app.pojo.vo.app.ProjectItemOrderEntryVO;
+import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
+import online.longlian.app.pojo.dto.app.ProjectItemNodeCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
 import online.longlian.app.service.app.DeletionRequestService;
@@ -29,6 +31,7 @@ import online.longlian.app.service.app.ItemService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Tag(name = "项目相关接口", description = "项目列表、创建、排序和删除申请")
@@ -64,7 +67,7 @@ public class ItemController {
         return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
     }
 
-    @Operation(summary = "创建项目", description = "创建项目并关联流程模板，自动生成任务流和所有任务实例")
+    @Operation(summary = "创建项目", description = "创建项目并关联流程模板。可同时提交调整后的步骤和执行人；不传步骤时按模板原样生成，任务均为待接取")
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("")
     @ResponseMessage("创建成功")
@@ -78,7 +81,23 @@ public class ItemController {
                         .title(projectItemCreateDTO.getTitle())
                         .taskTemplateId(projectItemCreateDTO.getTaskTemplateId())
                         .creatorId(sessionContext.userId())
+                        .nodes(toNodeParams(projectItemCreateDTO.getNodes()))
                         .build());
+    }
+
+    private static List<ItemNodeCreateParamsBO> toNodeParams(List<ProjectItemNodeCreateDTO> nodes) {
+        if (nodes == null) {
+            return null;
+        }
+        return nodes.stream()
+                .map(node -> ItemNodeCreateParamsBO.builder()
+                        .baseTaskId(node.getBaseTaskId())
+                        .sort(node.getSort())
+                        .parallelSort(node.getParallelSort())
+                        .name(node.getName())
+                        .assigneeId(node.getAssigneeId())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     @Operation(summary = "获取全部项目排序标题", description = "仅企划负责人可读，不分页且不受完成情况筛选影响")

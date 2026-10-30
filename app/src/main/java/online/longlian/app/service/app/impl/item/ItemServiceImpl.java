@@ -2,6 +2,7 @@ package online.longlian.app.service.app.impl.item;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
@@ -16,6 +17,9 @@ import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
@@ -33,9 +37,12 @@ import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
 import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
+import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.mapper.TaskSubmissionMapper;
@@ -52,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +85,8 @@ public class ItemServiceImpl implements ItemService {
     private final ItemQueryBuilder itemQueryBuilder;
     private final ItemAssembler itemAssembler;
     private final ProjectService projectService;
+    private final OrganizationMembershipService organizationMembershipService;
+    private final InboxNotificationService inboxNotificationService;
 
     @Override
     public PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params) {
@@ -176,6 +186,10 @@ public class ItemServiceImpl implements ItemService {
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTaskTemplateId())
                         .orderByAsc(TaskTemplateNode::getSort)
                         .orderByAsc(TaskTemplateNode::getParallelSort));
+        if (params.getNodes() != null) {
+            createFromDraft(params, template, templateNodes);
+            return;
+        }
 
         List<Long> baseTaskIds = templateNodes.stream()
                 .map(TaskTemplateNode::getBaseTaskId).filter(id -> id != null).distinct().sorted().toList();
@@ -388,6 +402,167 @@ public class ItemServiceImpl implements ItemService {
         if (!project.getCreatorId().equals(userId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
+    }
+
+    /**
+     * 按用户提交的步骤创建。模板只提供来源和停用任务的保留额度。
+     * 指定执行人的任务直接已接取，并入企划、站内信和邮件与事后分配相同。
+     */
+    private void createFromDraft(ItemCreateParamsBO params, TaskTemplate template,
+                                 List<TaskTemplateNode> templateNodes) {
+        List<ItemCreateNodes.Node> nodes = ItemCreateNodes.normalize(params.getNodes());
+        List<Long> baseTaskIds = nodes.stream().map(ItemCreateNodes.Node::baseTaskId).distinct().sorted().toList();
+        List<BaseTask> baseTasks = baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
+                .in(BaseTask::getId, baseTaskIds)
+                .orderByAsc(BaseTask::getId)
+                .last("FOR UPDATE"));
+        if (baseTasks.size() != baseTaskIds.size()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "任务不存在");
+        }
+        Map<Long, BaseTask> baseTaskMap = baseTasks.stream()
+                .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
+        requireDraftTasks(nodes, baseTaskMap, template, templateNodes);
+
+        LinkedHashSet<Long> assigneeIds = new LinkedHashSet<>();
+        for (ItemCreateNodes.Node node : nodes) {
+            if (node.assigneeId() != null) {
+                assigneeIds.add(node.assigneeId());
+            }
+        }
+        for (Long assigneeId : assigneeIds) {
+            organizationMembershipService.requireAssignableMember(assigneeId, params.getOrgId());
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        Item item = insertItem(params, now);
+        increaseTemplateRef(params.getTaskTemplateId(), now);
+        ItemTaskFlow flow = insertFlow(params, template, item, now);
+
+        List<NotificationCreateBO> notifications = new ArrayList<>();
+        Set<Long> joined = new HashSet<>();
+        for (ItemCreateNodes.Node node : nodes) {
+            BaseTask baseTask = baseTaskMap.get(node.baseTaskId());
+            ItemTaskNode taskNode = ItemTaskNode.builder()
+                    .itemTaskFlowId(flow.getId())
+                    .itemId(item.getId())
+                    .projectId(params.getProjectId())
+                    .baseTaskId(node.baseTaskId())
+                    .name(node.name() == null ? baseTask.getName() : node.name())
+                    .metaSchema(baseTask.getMetaSchema())
+                    .sort(node.sort())
+                    .parallelSort(node.parallelSort())
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            itemTaskNodeMapper.insert(taskNode);
+
+            boolean assigned = node.assigneeId() != null;
+            TaskInstance instance = TaskInstance.builder()
+                    .projectId(params.getProjectId())
+                    .itemId(item.getId())
+                    .itemTaskNodeId(taskNode.getId())
+                    .taskFlowId(flow.getId())
+                    .status(assigned ? TaskInstanceStatus.CLAIMED : TaskInstanceStatus.PENDING)
+                    .assigneeId(node.assigneeId())
+                    .claimedAt(assigned ? now : null)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            taskInstanceMapper.insert(instance);
+            if (!assigned) {
+                continue;
+            }
+            if (joined.add(node.assigneeId())) {
+                projectService.addToWorkshop(ProjectWorkshopAddParamsBO.builder()
+                        .projectId(params.getProjectId())
+                        .userId(node.assigneeId())
+                        .orgId(params.getOrgId())
+                        .build());
+            }
+            notifications.add(NotificationCreateBO.builder()
+                    .recipientUserId(node.assigneeId())
+                    .kind(InboxNotificationKind.TASK_ASSIGNED)
+                    .sourceId(instance.getId())
+                    .triggerId(IdWorker.getId())
+                    .createdAt(now)
+                    .build());
+        }
+        if (!notifications.isEmpty()) {
+            inboxNotificationService.createBatch(
+                    new NotificationBatchCreateParamsBO(params.getOrgId(), notifications));
+        }
+    }
+
+    /**
+     * 启用任务可以新加。停用任务只能保留模板里已经有的份数，不能再追加。
+     */
+    private void requireDraftTasks(List<ItemCreateNodes.Node> nodes, Map<Long, BaseTask> baseTaskMap,
+                                   TaskTemplate template, List<TaskTemplateNode> templateNodes) {
+        Map<Long, Integer> allowedDisabled = new HashMap<>();
+        for (TaskTemplateNode templateNode : templateNodes) {
+            if (templateNode.getBaseTaskId() != null) {
+                allowedDisabled.merge(templateNode.getBaseTaskId(), 1, Integer::sum);
+            }
+        }
+        Map<Long, Integer> submitted = new HashMap<>();
+        for (ItemCreateNodes.Node node : nodes) {
+            submitted.merge(node.baseTaskId(), 1, Integer::sum);
+        }
+        for (Map.Entry<Long, Integer> entry : submitted.entrySet()) {
+            BaseTask task = baseTaskMap.get(entry.getKey());
+            if (!Objects.equals(task.getOrgId(), template.getOrgId())) {
+                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权引用该任务");
+            }
+            if (task.getStatus() == Status.ENABLED) {
+                continue;
+            }
+            int kept = allowedDisabled.getOrDefault(entry.getKey(), 0);
+            if (task.getStatus() != Status.DISABLED || entry.getValue() > kept) {
+                throw new AppException(ResultCode.PARAM_ERROR, "任务不存在或已禁用");
+            }
+        }
+    }
+
+    private Item insertItem(ItemCreateParamsBO params, LocalDateTime now) {
+        Item lastItem = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
+                .select(Item::getSort)
+                .eq(Item::getProjectId, params.getProjectId())
+                .orderByDesc(Item::getSort)
+                .last("LIMIT 1"));
+        long nextSort = lastItem == null ? 1L : lastItem.getSort() + 1L;
+        Item item = Item.builder()
+                .projectId(params.getProjectId())
+                .title(params.getTitle())
+                .sort(nextSort)
+                .taskTemplateId(params.getTaskTemplateId())
+                .creatorId(params.getCreatorId())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        itemMapper.insert(item);
+        return item;
+    }
+
+    private void increaseTemplateRef(Long taskTemplateId, LocalDateTime now) {
+        taskTemplateMapper.update(null,
+                new LambdaUpdateWrapper<TaskTemplate>()
+                        .eq(TaskTemplate::getId, taskTemplateId)
+                        .setSql("ref_count = ref_count + 1")
+                        .set(TaskTemplate::getUpdatedAt, now));
+    }
+
+    private ItemTaskFlow insertFlow(ItemCreateParamsBO params, TaskTemplate template, Item item, LocalDateTime now) {
+        ItemTaskFlow flow = ItemTaskFlow.builder()
+                .itemId(item.getId())
+                .projectId(params.getProjectId())
+                .taskTemplateId(params.getTaskTemplateId())
+                .name(template.getName())
+                .description(template.getDescription())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        itemTaskFlowMapper.insert(flow);
+        return flow;
     }
 
     private void lockProjectCreator(Long projectId, Long userId, Long orgId) {

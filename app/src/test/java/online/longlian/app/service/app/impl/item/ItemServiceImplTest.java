@@ -16,13 +16,19 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
 import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
+import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
@@ -72,6 +78,8 @@ class ItemServiceImplTest {
     @Mock private ItemQueryBuilder itemQueryBuilder;
     @Mock private ItemAssembler itemAssembler;
     @Mock private ProjectService projectService;
+    @Mock private OrganizationMembershipService organizationMembershipService;
+    @Mock private InboxNotificationService inboxNotificationService;
 
     private ItemServiceImpl service;
 
@@ -81,7 +89,8 @@ class ItemServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new ItemServiceImpl(projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
-                taskSubmissionMapper, resourceService, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService);
+                taskSubmissionMapper, resourceService, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService,
+                organizationMembershipService, inboxNotificationService);
         lenient().when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
         lenient().when(taskSubmissionMapper.selectObjs(any())).thenReturn(List.of());
         lenient().when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(1L));
@@ -254,6 +263,123 @@ class ItemServiceImplTest {
         verify(itemMapper).insert(created.capture());
         assertThat(created.getValue().getSort()).isEqualTo(41L);
         verify(taskTemplateMapper).update(isNull(), any());
+    }
+
+    @Test
+    void createProjectItem_draftAssignsChosenNodesAndLeavesOthersPending() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build(),
+                TaskTemplateNode.builder().id(12L).baseTaskId(21L).sort(2).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).orgId(1L).name("翻译").status(Status.ENABLED).metaSchema("[]").build(),
+                BaseTask.builder().id(23L).orgId(1L).name("嵌字").status(Status.ENABLED).metaSchema("[]").build()));
+        when(taskInstanceMapper.insert(any(TaskInstance.class))).thenAnswer(invocation -> {
+            TaskInstance instance = invocation.getArgument(0);
+            instance.setId(instance.getAssigneeId() == null ? 501L : 500L);
+            return 1;
+        });
+
+        service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("第一话")
+                .nodes(List.of(
+                        node(22L, 1, 2, "翻译乙", null),
+                        node(22L, 1, 1, "  翻译甲  ", 8L),
+                        node(23L, 3, 1, "", null)))
+                .build());
+
+        ArgumentCaptor<ItemTaskNode> nodes = ArgumentCaptor.forClass(ItemTaskNode.class);
+        verify(itemTaskNodeMapper, times(3)).insert(nodes.capture());
+        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getName).containsExactly("翻译甲", "翻译乙", "嵌字");
+        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getSort).containsExactly(1, 1, 2);
+        assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getParallelSort).containsExactly(1, 2, 1);
+        ArgumentCaptor<TaskInstance> instances = ArgumentCaptor.forClass(TaskInstance.class);
+        verify(taskInstanceMapper, times(3)).insert(instances.capture());
+        assertThat(instances.getAllValues()).extracting(TaskInstance::getStatus)
+                .containsExactly(TaskInstanceStatus.CLAIMED, TaskInstanceStatus.PENDING, TaskInstanceStatus.PENDING);
+        assertThat(instances.getAllValues()).extracting(TaskInstance::getAssigneeId).containsExactly(8L, null, null);
+        assertThat(instances.getAllValues().get(0).getClaimedAt()).isNotNull();
+        verify(organizationMembershipService).requireAssignableMember(8L, 1L);
+        verify(projectService).addToWorkshop(any(ProjectWorkshopAddParamsBO.class));
+        ArgumentCaptor<NotificationBatchCreateParamsBO> notifications =
+                ArgumentCaptor.forClass(NotificationBatchCreateParamsBO.class);
+        verify(inboxNotificationService).createBatch(notifications.capture());
+        assertThat(notifications.getValue().getNotifications()).hasSize(1);
+        assertThat(notifications.getValue().getNotifications().get(0).getKind()).isEqualTo(InboxNotificationKind.TASK_ASSIGNED);
+        assertThat(notifications.getValue().getNotifications().get(0).getRecipientUserId()).isEqualTo(8L);
+        assertThat(notifications.getValue().getNotifications().get(0).getSourceId()).isEqualTo(500L);
+    }
+
+    @Test
+    void createProjectItem_draftRejectsExtraDisabledTaskWithoutPersisting() {
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).orgId(1L).name("翻译").status(Status.DISABLED).metaSchema("[]").build()));
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, "翻译", null), node(22L, 2, 1, "再译", null)))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("任务不存在或已禁用");
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(organizationMembershipService, inboxNotificationService);
+    }
+
+    @Test
+    void createProjectItem_draftKeepsDisabledTaskAlreadyOnTemplate() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).orgId(1L).name("停用翻译").status(Status.DISABLED).metaSchema("[]").build()));
+
+        service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, null, null)))
+                .build());
+
+        ArgumentCaptor<ItemTaskNode> nodes = ArgumentCaptor.forClass(ItemTaskNode.class);
+        verify(itemTaskNodeMapper).insert(nodes.capture());
+        assertThat(nodes.getValue().getName()).isEqualTo("停用翻译");
+        verifyNoInteractions(inboxNotificationService);
+    }
+
+    @Test
+    void createProjectItem_draftRejectsAssigneeBeforePersisting() {
+        when(taskTemplateMapper.selectById(1L)).thenReturn(
+                TaskTemplate.builder().id(1L).name("模板").status(Status.ENABLED)
+                        .scope(TaskTemplateScope.ORGANIZATION).orgId(1L).build());
+        when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(
+                TaskTemplateNode.builder().id(11L).baseTaskId(22L).sort(1).parallelSort(1).build()));
+        when(baseTaskMapper.selectList(any())).thenReturn(List.of(
+                BaseTask.builder().id(22L).orgId(1L).name("翻译").status(Status.ENABLED).metaSchema("[]").build()));
+        when(organizationMembershipService.requireAssignableMember(9L, 1L))
+                .thenThrow(new AppException(ResultCode.PARAM_ERROR, "所选组员不是当前组织成员"));
+
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, "翻译", 9L)))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("所选组员不是当前组织成员");
+        verify(itemMapper, never()).insert(any(Item.class));
+        verifyNoInteractions(inboxNotificationService);
+    }
+
+    private static ItemNodeCreateParamsBO node(Long baseTaskId, int sort, int parallelSort, String name, Long assigneeId) {
+        return ItemNodeCreateParamsBO.builder()
+                .baseTaskId(baseTaskId).sort(sort).parallelSort(parallelSort).name(name).assigneeId(assigneeId).build();
     }
 
     @Test
