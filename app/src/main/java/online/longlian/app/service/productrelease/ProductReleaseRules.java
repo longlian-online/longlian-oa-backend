@@ -3,8 +3,6 @@ package online.longlian.app.service.productrelease;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Pattern;
 
 public final class ProductReleaseRules {
@@ -20,25 +18,21 @@ public final class ProductReleaseRules {
             String backendVersion,
             String title,
             String summary,
-            List<String> added,
-            List<String> changed,
-            List<String> fixed,
+            String content,
             boolean requirePublishable
     ) {
-        ProductReleaseContent content = new ProductReleaseContent(
+        ProductReleaseContent normalized = new ProductReleaseContent(
                 normalizeVersion(version),
                 normalizeVersion(frontendVersion),
                 normalizeVersion(backendVersion),
                 normalizeText(title, 40, "标题"),
                 normalizeText(summary, 120, "摘要"),
-                normalizeItems(added, "新增"),
-                normalizeItems(changed, "调整"),
-                normalizeItems(fixed, "修复")
+                normalizeText(content, 4000, "更新说明")
         );
         if (requirePublishable) {
-            requirePublishable(content);
+            requirePublishable(normalized);
         }
-        return content;
+        return normalized;
     }
 
     public static void requirePublishable(ProductReleaseContent content) {
@@ -48,8 +42,8 @@ public final class ProductReleaseRules {
         if (content.summary().isEmpty()) {
             throw new AppException(ResultCode.PARAM_ERROR, "摘要不能为空");
         }
-        if (!content.hasChange()) {
-            throw new AppException(ResultCode.PARAM_ERROR, "至少写一条变更");
+        if (content.content().isEmpty()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "更新说明不能为空");
         }
     }
 
@@ -73,26 +67,5 @@ public final class ProductReleaseRules {
             throw new AppException(ResultCode.PARAM_ERROR, label + "最多 " + max + " 字");
         }
         return value;
-    }
-
-    private static List<String> normalizeItems(List<String> items, String label) {
-        if (items == null || items.isEmpty()) {
-            return List.of();
-        }
-        if (items.size() > 20) {
-            throw new AppException(ResultCode.PARAM_ERROR, label + "最多 20 条");
-        }
-        List<String> normalized = new ArrayList<>(items.size());
-        for (String item : items) {
-            String value = item == null ? "" : item.trim();
-            if (value.isEmpty()) {
-                throw new AppException(ResultCode.PARAM_ERROR, label + "不能有空白条目");
-            }
-            if (value.length() > 80) {
-                throw new AppException(ResultCode.PARAM_ERROR, label + "每条最多 80 字");
-            }
-            normalized.add(value);
-        }
-        return List.copyOf(normalized);
     }
 }

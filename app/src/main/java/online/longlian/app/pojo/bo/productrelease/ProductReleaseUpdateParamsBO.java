@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,7 +16,5 @@ public class ProductReleaseUpdateParamsBO {
     private String backendVersion;
     private String title;
     private String summary;
-    private List<String> added;
-    private List<String> changed;
-    private List<String> fixed;
+    private String content;
 }

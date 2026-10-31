@@ -7,7 +7,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.mapper.ProductReleaseChangeMapper;
 import online.longlian.app.mapper.ProductReleaseMapper;
 import online.longlian.app.mapper.UserProductReleaseStateMapper;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
@@ -21,13 +20,11 @@ import online.longlian.app.pojo.bo.productrelease.ProductReleaseNoticeResultBO;
 import online.longlian.app.pojo.bo.productrelease.ProductReleaseSaveParamsBO;
 import online.longlian.app.pojo.bo.productrelease.ProductReleaseUpdateParamsBO;
 import online.longlian.app.pojo.entity.ProductRelease;
-import online.longlian.app.pojo.entity.ProductReleaseChange;
 import online.longlian.app.pojo.entity.UserProductReleaseState;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.productrelease.ProductReleaseContent;
 import online.longlian.app.service.productrelease.ProductReleaseRules;
 import online.longlian.app.service.productrelease.ProductReleaseService;
-import online.longlian.common.enumeration.ProductReleaseChangeKind;
 import online.longlian.common.enumeration.ProductReleaseStatus;
 import online.longlian.common.service.DistributedLockService;
 import org.springframework.dao.DuplicateKeyException;
@@ -38,10 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -52,7 +46,6 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
     private static final String PUBLISH_LOCK = "product-release";
 
     private final ProductReleaseMapper productReleaseMapper;
-    private final ProductReleaseChangeMapper productReleaseChangeMapper;
     private final UserProductReleaseStateMapper userProductReleaseStateMapper;
     private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
@@ -66,9 +59,7 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
                 params.getBackendVersion(),
                 params.getTitle(),
                 params.getSummary(),
-                params.getAdded(),
-                params.getChanged(),
-                params.getFixed(),
+                params.getContent(),
                 params.isPublish()
         );
         if (params.isPublish()) {
@@ -85,9 +76,7 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
                 params.getBackendVersion(),
                 params.getTitle(),
                 params.getSummary(),
-                params.getAdded(),
-                params.getChanged(),
-                params.getFixed(),
+                params.getContent(),
                 false
         );
         inTransaction(() -> {
@@ -114,9 +103,7 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
 
     @Override
     public ProductReleaseDetailResultBO getAdmin(Long id) {
-        ProductRelease release = require(id);
-        Map<ProductReleaseChangeKind, List<String>> changes = loadChanges(List.of(release.getId())).getOrDefault(release.getId(), Map.of());
-        return toDetail(release, changes);
+        return toDetail(require(id));
     }
 
     @Override
@@ -162,17 +149,13 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         if (seen != null && !latest.getPublishedAt().isAfter(seen)) {
             return ProductReleaseCurrentResultBO.none();
         }
-        return new ProductReleaseCurrentResultBO(toNotice(latest, changesOf(latest.getId())), countOlderUnseen(latest, seen));
+        return new ProductReleaseCurrentResultBO(toNotice(latest), countOlderUnseen(latest, seen));
     }
 
     @Override
     public PageResultBO<ProductReleaseNoticeResultBO> listPublished(PageParamsBO page) {
         Page<ProductRelease> selected = productReleaseMapper.selectPage(pageOf(page), publishedOrder());
-        Map<Long, Map<ProductReleaseChangeKind, List<String>>> changes = loadChanges(
-                selected.getRecords().stream().map(ProductRelease::getId).toList());
-        List<ProductReleaseNoticeResultBO> list = selected.getRecords().stream()
-                .map(release -> toNotice(release, changes.getOrDefault(release.getId(), Map.of())))
-                .toList();
+        List<ProductReleaseNoticeResultBO> list = selected.getRecords().stream().map(this::toNotice).toList();
         return new PageResultBO<>(list, selected.getTotal());
     }
 
@@ -194,6 +177,7 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
                 .backendVersion(content.backendVersion())
                 .title(content.title())
                 .summary(content.summary())
+                .content(content.content())
                 .status(ProductReleaseStatus.DRAFT)
                 .build();
         try {
@@ -201,7 +185,6 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         } catch (DuplicateKeyException exception) {
             throw duplicate(exception);
         }
-        replaceChanges(release.getId(), content);
         if (publish) {
             markPublished(release, content);
         }
@@ -223,7 +206,8 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         LambdaUpdateWrapper<ProductRelease> update = new LambdaUpdateWrapper<ProductRelease>()
                 .eq(ProductRelease::getId, release.getId())
                 .set(ProductRelease::getTitle, content.title())
-                .set(ProductRelease::getSummary, content.summary());
+                .set(ProductRelease::getSummary, content.summary())
+                .set(ProductRelease::getContent, content.content());
         if (release.getStatus() == ProductReleaseStatus.DRAFT) {
             update.set(ProductRelease::getVersion, content.version())
                     .set(ProductRelease::getFrontendVersion, content.frontendVersion())
@@ -234,7 +218,6 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         } catch (DuplicateKeyException exception) {
             throw duplicate(exception);
         }
-        replaceChanges(release.getId(), content);
     }
 
     private void publishExisting(Long id) {
@@ -242,18 +225,15 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         if (release.getStatus() != ProductReleaseStatus.DRAFT) {
             throw new AppException(ResultCode.OPERATION_FAIL, "草稿才能发布");
         }
-        Map<ProductReleaseChangeKind, List<String>> changes = changesOf(release.getId());
-        ProductReleaseContent content = new ProductReleaseContent(
+        ProductReleaseContent content = ProductReleaseRules.normalize(
                 release.getVersion(),
                 release.getFrontendVersion(),
                 release.getBackendVersion(),
                 release.getTitle(),
                 release.getSummary(),
-                changes.getOrDefault(ProductReleaseChangeKind.ADDED, List.of()),
-                changes.getOrDefault(ProductReleaseChangeKind.CHANGED, List.of()),
-                changes.getOrDefault(ProductReleaseChangeKind.FIXED, List.of())
+                release.getContent(),
+                true
         );
-        ProductReleaseRules.requirePublishable(content);
         markPublished(release, content);
     }
 
@@ -294,26 +274,6 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
             }
         } catch (DuplicateKeyException exception) {
             throw duplicate(exception);
-        }
-    }
-
-    private void replaceChanges(Long releaseId, ProductReleaseContent content) {
-        productReleaseChangeMapper.delete(new LambdaQueryWrapper<ProductReleaseChange>()
-                .eq(ProductReleaseChange::getReleaseId, releaseId));
-        insertChanges(releaseId, ProductReleaseChangeKind.ADDED, content.added());
-        insertChanges(releaseId, ProductReleaseChangeKind.CHANGED, content.changed());
-        insertChanges(releaseId, ProductReleaseChangeKind.FIXED, content.fixed());
-    }
-
-    private void insertChanges(Long releaseId, ProductReleaseChangeKind kind, List<String> items) {
-        for (int index = 0; index < items.size(); index++) {
-            productReleaseChangeMapper.insert(ProductReleaseChange.builder()
-                    .id(IdWorker.getId())
-                    .releaseId(releaseId)
-                    .kind(kind)
-                    .sort(index)
-                    .content(items.get(index))
-                    .build());
         }
     }
 
@@ -375,29 +335,7 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         return release;
     }
 
-    private Map<ProductReleaseChangeKind, List<String>> changesOf(Long releaseId) {
-        return loadChanges(List.of(releaseId)).getOrDefault(releaseId, Map.of());
-    }
-
-    private Map<Long, Map<ProductReleaseChangeKind, List<String>>> loadChanges(List<Long> releaseIds) {
-        Map<Long, Map<ProductReleaseChangeKind, List<String>>> grouped = new java.util.HashMap<>();
-        if (releaseIds.isEmpty()) {
-            return grouped;
-        }
-        List<ProductReleaseChange> changes = productReleaseChangeMapper.selectList(new LambdaQueryWrapper<ProductReleaseChange>()
-                .in(ProductReleaseChange::getReleaseId, releaseIds)
-                .orderByAsc(ProductReleaseChange::getKind)
-                .orderByAsc(ProductReleaseChange::getSort)
-                .orderByAsc(ProductReleaseChange::getId));
-        for (ProductReleaseChange change : changes) {
-            grouped.computeIfAbsent(change.getReleaseId(), ignored -> new EnumMap<>(ProductReleaseChangeKind.class))
-                    .computeIfAbsent(change.getKind(), ignored -> new ArrayList<>())
-                    .add(change.getContent());
-        }
-        return grouped;
-    }
-
-    private ProductReleaseDetailResultBO toDetail(ProductRelease release, Map<ProductReleaseChangeKind, List<String>> changes) {
+    private ProductReleaseDetailResultBO toDetail(ProductRelease release) {
         return ProductReleaseDetailResultBO.builder()
                 .id(release.getId())
                 .version(release.getVersion())
@@ -405,25 +343,21 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
                 .backendVersion(release.getBackendVersion())
                 .title(release.getTitle())
                 .summary(release.getSummary())
+                .content(release.getContent())
                 .status(release.getStatus())
                 .publishedAt(release.getPublishedAt())
                 .updatedAt(release.getUpdatedAt())
-                .added(changes.getOrDefault(ProductReleaseChangeKind.ADDED, List.of()))
-                .changed(changes.getOrDefault(ProductReleaseChangeKind.CHANGED, List.of()))
-                .fixed(changes.getOrDefault(ProductReleaseChangeKind.FIXED, List.of()))
                 .build();
     }
 
-    private ProductReleaseNoticeResultBO toNotice(ProductRelease release, Map<ProductReleaseChangeKind, List<String>> changes) {
+    private ProductReleaseNoticeResultBO toNotice(ProductRelease release) {
         return ProductReleaseNoticeResultBO.builder()
                 .id(release.getId())
                 .version(release.getVersion())
                 .title(release.getTitle())
                 .summary(release.getSummary())
+                .content(release.getContent())
                 .publishedAt(release.getPublishedAt())
-                .added(changes.getOrDefault(ProductReleaseChangeKind.ADDED, List.of()))
-                .changed(changes.getOrDefault(ProductReleaseChangeKind.CHANGED, List.of()))
-                .fixed(changes.getOrDefault(ProductReleaseChangeKind.FIXED, List.of()))
                 .build();
     }
 

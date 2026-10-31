@@ -549,6 +549,7 @@ CREATE TABLE `product_release` (
   `backend_version` varchar(32) NOT NULL COMMENT "绑定的后端版本，x.y.z，不含v",
   `title` varchar(40) NOT NULL COMMENT "标题，草稿可为空字符串",
   `summary` varchar(120) NOT NULL COMMENT "摘要，草稿可为空字符串",
+  `content` varchar(4000) NOT NULL DEFAULT '' COMMENT "更新说明，Markdown，最多 4000 字",
   `status` tinyint NOT NULL DEFAULT 0 COMMENT "状态 0-DRAFT(草稿) 1-PUBLISHED(已发布) 2-WITHDRAWN(已撤回)",
   `published_at` datetime(6) NULL COMMENT "发布时间，发布后不变；微秒精度用于区分同一秒内的连续发布",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -559,18 +560,6 @@ CREATE TABLE `product_release` (
   UNIQUE INDEX `uk_product_release_published_pair` (`frontend_version`, `backend_version`, `published_pair_guard`),
   INDEX `idx_product_release_published` (`status`, `published_at`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "产品版本";
--- Create "product_release_change" table
-CREATE TABLE `product_release_change` (
-  `id` bigint NOT NULL COMMENT "变更条目ID",
-  `release_id` bigint NOT NULL COMMENT "产品版本ID",
-  `kind` tinyint NOT NULL COMMENT "分组 1-ADDED(新增) 2-CHANGED(调整) 3-FIXED(修复)",
-  `sort` int NOT NULL COMMENT "组内顺序，从0开始",
-  `content` varchar(80) NOT NULL COMMENT "条目正文",
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_product_release_change` (`release_id`, `kind`, `sort`)
-) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "产品版本变更条目";
 -- Create "user_product_release_state" table
 CREATE TABLE `user_product_release_state` (
   `user_id` bigint NOT NULL COMMENT "用户ID",

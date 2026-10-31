@@ -75,6 +75,13 @@ public class ProductRelease implements Serializable {
     private String summary;
 
     /**
+     * 更新说明，Markdown，最多 4000 字
+     */
+    @TableField("content")
+    @ApiModelProperty("更新说明，Markdown，最多 4000 字")
+    private String content;
+
+    /**
      * 状态 0-DRAFT(草稿) 1-PUBLISHED(已发布) 2-WITHDRAWN(已撤回)
      */
     @TableField("status")

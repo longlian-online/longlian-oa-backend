@@ -101,9 +101,7 @@ public class ProductReleaseController {
                 .backendVersion(dto.getBackendVersion())
                 .title(dto.getTitle())
                 .summary(dto.getSummary())
-                .added(dto.getAdded())
-                .changed(dto.getChanged())
-                .fixed(dto.getFixed())
+                .content(dto.getContent())
                 .publish(Boolean.TRUE.equals(dto.getPublish()))
                 .build();
     }
@@ -116,9 +114,7 @@ public class ProductReleaseController {
                 .backendVersion(dto.getBackendVersion())
                 .title(dto.getTitle())
                 .summary(dto.getSummary())
-                .added(dto.getAdded())
-                .changed(dto.getChanged())
-                .fixed(dto.getFixed())
+                .content(dto.getContent())
                 .build();
     }
 
@@ -130,12 +126,10 @@ public class ProductReleaseController {
                 .backendVersion(result.getBackendVersion())
                 .title(result.getTitle())
                 .summary(result.getSummary())
+                .content(result.getContent())
                 .status(result.getStatus())
                 .publishedAt(result.getPublishedAt())
                 .updatedAt(result.getUpdatedAt())
-                .added(result.getAdded())
-                .changed(result.getChanged())
-                .fixed(result.getFixed())
                 .build();
     }
 

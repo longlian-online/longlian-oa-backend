@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.mapper.ProductReleaseChangeMapper;
 import online.longlian.app.mapper.ProductReleaseMapper;
 import online.longlian.app.mapper.UserProductReleaseStateMapper;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
@@ -17,10 +16,8 @@ import online.longlian.app.pojo.bo.productrelease.ProductReleaseNoticeResultBO;
 import online.longlian.app.pojo.bo.productrelease.ProductReleaseSaveParamsBO;
 import online.longlian.app.pojo.bo.productrelease.ProductReleaseUpdateParamsBO;
 import online.longlian.app.pojo.entity.ProductRelease;
-import online.longlian.app.pojo.entity.ProductReleaseChange;
 import online.longlian.app.pojo.entity.UserProductReleaseState;
 import online.longlian.app.service.common.LockService;
-import online.longlian.common.enumeration.ProductReleaseChangeKind;
 import online.longlian.common.enumeration.ProductReleaseStatus;
 import online.longlian.common.service.DistributedLockService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -59,8 +56,6 @@ class ProductReleaseServiceImplTest {
     @Mock
     private ProductReleaseMapper productReleaseMapper;
     @Mock
-    private ProductReleaseChangeMapper productReleaseChangeMapper;
-    @Mock
     private UserProductReleaseStateMapper userProductReleaseStateMapper;
     @Mock
     private LockService lockService;
@@ -73,7 +68,6 @@ class ProductReleaseServiceImplTest {
     static void initTableInfo() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, ProductRelease.class);
-        TableInfoHelper.initTableInfo(assistant, ProductReleaseChange.class);
         TableInfoHelper.initTableInfo(assistant, UserProductReleaseState.class);
     }
 
@@ -84,7 +78,6 @@ class ProductReleaseServiceImplTest {
         lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
         service = new ProductReleaseServiceImpl(
                 productReleaseMapper,
-                productReleaseChangeMapper,
                 userProductReleaseStateMapper,
                 lockService,
                 transactionManager,
@@ -100,7 +93,6 @@ class ProductReleaseServiceImplTest {
 
         assertThat(id).isNotNull();
         verify(productReleaseMapper).insert(any(ProductRelease.class));
-        verify(productReleaseChangeMapper).insert(any(ProductReleaseChange.class));
         verify(lockService, never()).tryAcquireOrThrow(any(), anyLong(), any(TimeUnit.class));
     }
 
@@ -140,7 +132,6 @@ class ProductReleaseServiceImplTest {
     void shouldRejectPublishWhenPairMatchesLatest() {
         ProductRelease draft = release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null);
         when(productReleaseMapper.selectById(8L)).thenReturn(draft);
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(8L)));
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(
                 pageOf(release(3L, "1.0.0", ProductReleaseStatus.PUBLISHED, LocalDateTime.now(CLOCK))));
 
@@ -152,12 +143,13 @@ class ProductReleaseServiceImplTest {
 
     @Test
     void shouldRejectPublishWhenDraftIsMissingCopy() {
-        when(productReleaseMapper.selectById(8L)).thenReturn(release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of());
+        ProductRelease draft = release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null);
+        draft.setContent("");
+        when(productReleaseMapper.selectById(8L)).thenReturn(draft);
 
         assertThatThrownBy(() -> service.publish(8L))
                 .isInstanceOf(AppException.class)
-                .hasMessage("至少写一条变更");
+                .hasMessage("更新说明不能为空");
     }
 
     @Test
@@ -173,7 +165,6 @@ class ProductReleaseServiceImplTest {
     @Test
     void shouldRejectPublishWhenPairWasAlreadyPublished() {
         when(productReleaseMapper.selectById(8L)).thenReturn(release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(8L)));
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(pageOf());
         when(productReleaseMapper.selectCount(any())).thenReturn(1L);
 
@@ -185,7 +176,6 @@ class ProductReleaseServiceImplTest {
     @Test
     void shouldRejectPublishWhenDraftChangedBeforeUpdate() {
         when(productReleaseMapper.selectById(8L)).thenReturn(release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(8L)));
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(pageOf());
         when(productReleaseMapper.selectCount(any())).thenReturn(0L);
         when(productReleaseMapper.update(any(), any())).thenReturn(0);
@@ -198,7 +188,6 @@ class ProductReleaseServiceImplTest {
     @Test
     void shouldReportVersionConflictOnPublishDuplicateKey() {
         when(productReleaseMapper.selectById(8L)).thenReturn(release(8L, "1.1.0", ProductReleaseStatus.DRAFT, null));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(8L)));
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(pageOf());
         when(productReleaseMapper.selectCount(any())).thenReturn(0L);
         when(productReleaseMapper.update(any(), any())).thenThrow(
@@ -249,7 +238,6 @@ class ProductReleaseServiceImplTest {
         service.update(updateParams(7L, "1.2.0"));
 
         verify(productReleaseMapper).update(any(), any());
-        verify(productReleaseChangeMapper).insert(any(ProductReleaseChange.class));
     }
 
     @Test
@@ -278,7 +266,7 @@ class ProductReleaseServiceImplTest {
                 release(7L, "1.1.0", ProductReleaseStatus.PUBLISHED, LocalDateTime.now(CLOCK)));
         ProductReleaseUpdateParamsBO params = updateParams(7L, "1.1.0");
         params.setTitle(" ");
-        params.setAdded(List.of());
+        params.setContent("");
 
         assertThatThrownBy(() -> service.update(params))
                 .isInstanceOf(AppException.class)
@@ -318,19 +306,14 @@ class ProductReleaseServiceImplTest {
     }
 
     @Test
-    void shouldReturnDetailWithGroupedChanges() {
+    void shouldReturnDetailWithContent() {
         when(productReleaseMapper.selectById(7L)).thenReturn(release(7L, "1.1.0", ProductReleaseStatus.DRAFT, null));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(
-                change(7L, ProductReleaseChangeKind.ADDED, "一条新增"),
-                change(7L, ProductReleaseChangeKind.FIXED, "一条修复")));
 
         ProductReleaseDetailResultBO detail = service.getAdmin(7L);
 
         assertThat(detail.getVersion()).isEqualTo("1.1.0");
         assertThat(detail.getFrontendVersion()).isEqualTo("0.0.18");
-        assertThat(detail.getAdded()).containsExactly("一条新增");
-        assertThat(detail.getFixed()).containsExactly("一条修复");
-        assertThat(detail.getChanged()).isEmpty();
+        assertThat(detail.getContent()).isEqualTo("一条新增");
     }
 
     @Test
@@ -370,7 +353,6 @@ class ProductReleaseServiceImplTest {
         LocalDateTime latest = LocalDateTime.of(2026, 3, 21, 18, 0);
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(
                 pageOf(release(5L, "1.2.0", ProductReleaseStatus.PUBLISHED, latest)));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(change(5L)));
         when(productReleaseMapper.selectCount(any())).thenReturn(2L);
         when(userProductReleaseStateMapper.selectById(9L)).thenReturn(null);
 
@@ -403,16 +385,14 @@ class ProductReleaseServiceImplTest {
     }
 
     @Test
-    void shouldListPublishedReleasesWithGroupedChanges() {
+    void shouldListPublishedReleasesWithContent() {
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(
                 pageOf(release(5L, "1.2.0", ProductReleaseStatus.PUBLISHED, LocalDateTime.now(CLOCK))));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of(
-                change(5L, ProductReleaseChangeKind.CHANGED, "一条调整")));
 
         PageResultBO<ProductReleaseNoticeResultBO> page = service.listPublished(new PageParamsBO(1, 10));
 
         assertThat(page.getTotal()).isEqualTo(1);
-        assertThat(page.getList().get(0).getChanged()).containsExactly("一条调整");
+        assertThat(page.getList().get(0).getContent()).isEqualTo("一条新增");
     }
 
     @Test
@@ -463,7 +443,6 @@ class ProductReleaseServiceImplTest {
         LocalDateTime latest = LocalDateTime.of(2026, 3, 21, 18, 0);
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(
                 pageOf(release(5L, "1.2.0", ProductReleaseStatus.PUBLISHED, latest)));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of());
         when(userProductReleaseStateMapper.selectById(9L)).thenReturn(stateAt(9L, latest.minusDays(1)));
         when(productReleaseMapper.selectCount(any())).thenReturn(1L);
 
@@ -478,7 +457,6 @@ class ProductReleaseServiceImplTest {
         LocalDateTime latest = LocalDateTime.of(2026, 3, 21, 18, 0);
         when(productReleaseMapper.selectPage(any(), any())).thenReturn(
                 pageOf(release(5L, "1.2.0", ProductReleaseStatus.PUBLISHED, latest)));
-        when(productReleaseChangeMapper.selectList(any())).thenReturn(List.of());
         when(userProductReleaseStateMapper.selectById(9L)).thenReturn(null);
         when(productReleaseMapper.selectCount(any())).thenReturn(null);
 
@@ -502,9 +480,7 @@ class ProductReleaseServiceImplTest {
                 .backendVersion("1.0.52")
                 .title("标题")
                 .summary("摘要")
-                .added(List.of("一条新增"))
-                .changed(List.of())
-                .fixed(List.of())
+                .content("一条新增")
                 .publish(publish)
                 .build();
     }
@@ -517,9 +493,7 @@ class ProductReleaseServiceImplTest {
                 .backendVersion("1.0.52")
                 .title("标题")
                 .summary("摘要")
-                .added(List.of("一条新增"))
-                .changed(List.of())
-                .fixed(List.of())
+                .content("一条新增")
                 .build();
     }
 
@@ -538,22 +512,9 @@ class ProductReleaseServiceImplTest {
                 .backendVersion("1.0.52")
                 .title("标题")
                 .summary("摘要")
+                .content("一条新增")
                 .status(status)
                 .publishedAt(publishedAt)
-                .build();
-    }
-
-    private static ProductReleaseChange change(Long releaseId) {
-        return change(releaseId, ProductReleaseChangeKind.ADDED, "一条新增");
-    }
-
-    private static ProductReleaseChange change(Long releaseId, ProductReleaseChangeKind kind, String content) {
-        return ProductReleaseChange.builder()
-                .id(1L)
-                .releaseId(releaseId)
-                .kind(kind)
-                .sort(0)
-                .content(content)
                 .build();
     }
 

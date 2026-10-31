@@ -29,7 +29,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.release.version", equalTo("1.0.0"))
                 .body("data.release.title", equalTo("标题1.0.0"))
-                .body("data.release.added[0]", equalTo("新增1.0.0"))
+                .body("data.release.content", equalTo("新增1.0.0"))
                 .body("data.olderCount", equalTo(0))
                 .body("data.release.frontendVersion", nullValue())
                 .extract()
@@ -70,7 +70,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                         "backendVersion", "1.0.52",
                         "title", "改过的标题",
                         "summary", "改过的摘要",
-                        "added", List.of("仍然有一条")))
+                        "content", "仍然有一条"))
                 .put("/admin/product-releases/" + idOf("1.0.0"))
                 .then()
                 .statusCode(200)
@@ -85,13 +85,14 @@ class ProductReleaseApiTest extends BaseApiTest {
                         "backendVersion", "1.0.52",
                         "title", "改过的标题",
                         "summary", "改过的摘要",
-                        "fixed", List.of("修正了一处文案")))
+                        "content", "修正了一处文案"))
                 .put("/admin/product-releases/" + idOf("1.0.0"))
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         assertThat(publishedAt("1.0.0")).isEqualTo(publishedAt);
         assertThat(column("1.0.0", "title")).isEqualTo("改过的标题");
+        assertThat(column("1.0.0", "content")).isEqualTo("修正了一处文案");
     }
 
     @Test
@@ -215,7 +216,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                 .body("data.version", equalTo("1.0.0"))
                 .body("data.title", equalTo("标题1.0.0"))
                 .body("data.summary", equalTo("摘要1.0.0"))
-                .body("data.added[0]", equalTo("新增1.0.0"))
+                .body("data.content", equalTo("新增1.0.0"))
                 .body("data.publishedAt", notNullValue());
 
         authRequest(admin)
@@ -261,7 +262,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                         "backendVersion", "1.0.0",
                         "title", " ",
                         "summary", "摘要",
-                        "added", List.of("一条新增"),
+                        "content", "一条新增",
                         "publish", true))
                 .post("/admin/product-releases/")
                 .then()
@@ -312,7 +313,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                         "backendVersion", "1.0.52",
                         "title", "标题",
                         "summary", "摘要",
-                        "added", List.of("一条新增")))
+                        "content", "一条新增"))
                 .put("/admin/product-releases/" + idOf("1.0.0"))
                 .then()
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
@@ -454,7 +455,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                 "backendVersion", backend,
                 "title", "标题" + version,
                 "summary", "摘要" + version,
-                "added", List.of("新增" + version),
+                "content", "新增" + version,
                 "publish", publish
         );
     }

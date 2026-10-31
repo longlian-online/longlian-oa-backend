@@ -68,10 +68,8 @@ public class ProductReleaseController {
                 .version(result.getVersion())
                 .title(result.getTitle())
                 .summary(result.getSummary())
+                .content(result.getContent())
                 .publishedAt(result.getPublishedAt())
-                .added(result.getAdded())
-                .changed(result.getChanged())
-                .fixed(result.getFixed())
                 .build();
     }
 }
