@@ -182,8 +182,8 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
                 .build();
         try {
             productReleaseMapper.insert(release);
-        } catch (DuplicateKeyException exception) {
-            throw duplicate(exception);
+        } catch (DuplicateKeyException ignored) {
+            throw versionConflict();
         }
         if (publish) {
             markPublished(release, content);
@@ -215,8 +215,8 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         }
         try {
             productReleaseMapper.update(null, update);
-        } catch (DuplicateKeyException exception) {
-            throw duplicate(exception);
+        } catch (DuplicateKeyException ignored) {
+            throw versionConflict();
         }
     }
 
@@ -272,8 +272,8 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
             if (updated == 0) {
                 throw new AppException(ResultCode.OPERATION_FAIL, "草稿才能发布");
             }
-        } catch (DuplicateKeyException exception) {
-            throw duplicate(exception);
+        } catch (DuplicateKeyException ignored) {
+            throw versionConflict();
         }
     }
 
@@ -380,11 +380,7 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         return transaction.execute(status -> action.get());
     }
 
-    private AppException duplicate(DuplicateKeyException exception) {
-        String message = exception.getMostSpecificCause().getMessage();
-        if (message != null && message.contains("uk_product_release_published_pair")) {
-            return new AppException(ResultCode.OPERATION_FAIL, "这对前端和后端版本已经发布过");
-        }
+    private AppException versionConflict() {
         return new AppException(ResultCode.OPERATION_FAIL, "产品版本已存在");
     }
 }

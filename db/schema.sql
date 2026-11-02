@@ -554,10 +554,8 @@ CREATE TABLE `product_release` (
   `published_at` datetime(6) NULL COMMENT "发布时间，发布后不变；微秒精度用于区分同一秒内的连续发布",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `published_pair_guard` bigint GENERATED ALWAYS AS (IF(`status` = 1, 0, `id`)) STORED,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_product_release_version` (`version`),
-  UNIQUE INDEX `uk_product_release_published_pair` (`frontend_version`, `backend_version`, `published_pair_guard`),
   INDEX `idx_product_release_published` (`status`, `published_at`, `id`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "产品版本";
 -- Create "user_product_release_state" table

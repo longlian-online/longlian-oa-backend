@@ -107,14 +107,14 @@ class ProductReleaseServiceImplTest {
     }
 
     @Test
-    void shouldReportPublishedPairConflictOnDuplicateKey() {
+    void shouldReportVersionConflictOnCreateDuplicateKey() {
         when(productReleaseMapper.selectCount(any())).thenReturn(0L);
         when(productReleaseMapper.insert(any(ProductRelease.class))).thenThrow(
-                new DuplicateKeyException("Duplicate entry '0.0.18-1.0.52-0' for key 'uk_product_release_published_pair'"));
+                new DuplicateKeyException("Duplicate entry '1.1.0' for key 'uk_product_release_version'"));
 
         assertThatThrownBy(() -> service.create(saveParams(false)))
                 .isInstanceOf(AppException.class)
-                .hasMessageContaining("这对前端和后端版本已经发布过");
+                .hasMessageContaining("产品版本已存在");
     }
 
     @Test
