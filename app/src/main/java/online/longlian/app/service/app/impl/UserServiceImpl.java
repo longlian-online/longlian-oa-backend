@@ -220,7 +220,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             return null;
         }
-        return new UserEmailNotificationRecipientResultBO(user.getEmail(), emailNotificationsEnabled(user));
+        return new UserEmailNotificationRecipientResultBO(user.getEmail(), emailNotificationsEnabled(user),
+                NotificationKindPreference.disabled(user.getConfig()));
     }
 
     private boolean emailNotificationsEnabled(User user) {
