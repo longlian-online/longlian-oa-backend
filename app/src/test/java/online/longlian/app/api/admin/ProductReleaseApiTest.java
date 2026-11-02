@@ -388,9 +388,10 @@ class ProductReleaseApiTest extends BaseApiTest {
         authRequest(admin)
                 .get("/admin/product-releases/baseline")
                 .then()
+                .body("data.version", equalTo("2.0.0"))
                 .body("data.frontendVersion", equalTo("0.0.2"))
                 .body("data.backendVersion", equalTo("1.0.0"))
-                .body("data.version", nullValue());
+                .body("data.publishedAt", notNullValue());
 
         userRequest(loginAs("reader-five", "123456"))
                 .post("/app/product-releases/" + idOf("2.0.0") + "00/seen")

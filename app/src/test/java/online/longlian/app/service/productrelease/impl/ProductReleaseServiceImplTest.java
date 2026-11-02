@@ -337,8 +337,10 @@ class ProductReleaseServiceImplTest {
         ProductReleaseBaselineResultBO baseline = service.baseline();
 
         assertThat(baseline).isNotNull();
+        assertThat(baseline.getVersion()).isEqualTo("1.0.0");
         assertThat(baseline.getFrontendVersion()).isEqualTo("0.0.18");
         assertThat(baseline.getBackendVersion()).isEqualTo("1.0.52");
+        assertThat(baseline.getPublishedAt()).isNotNull();
     }
 
     @Test

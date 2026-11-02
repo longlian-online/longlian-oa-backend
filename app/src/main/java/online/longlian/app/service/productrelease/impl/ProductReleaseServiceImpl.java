@@ -136,7 +136,11 @@ public class ProductReleaseServiceImpl implements ProductReleaseService {
         if (latest == null) {
             return null;
         }
-        return new ProductReleaseBaselineResultBO(latest.getFrontendVersion(), latest.getBackendVersion());
+        return new ProductReleaseBaselineResultBO(
+                latest.getVersion(),
+                latest.getFrontendVersion(),
+                latest.getBackendVersion(),
+                latest.getPublishedAt());
     }
 
     @Override
