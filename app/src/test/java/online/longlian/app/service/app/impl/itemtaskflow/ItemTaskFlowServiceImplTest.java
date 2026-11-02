@@ -1,7 +1,5 @@
 package online.longlian.app.service.app.impl.itemtaskflow;
 
-import com.baomidou.mybatisplus.core.MybatisConfiguration;
-import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
@@ -13,13 +11,10 @@ import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
-import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
+import online.longlian.app.service.app.ItemService;
 import online.longlian.common.enumeration.Status;
-import online.longlian.common.enumeration.TaskSubmissionStatus;
-import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,15 +43,15 @@ class ItemTaskFlowServiceImplTest {
     @Mock private ItemTaskFlowAssembler itemTaskFlowAssembler;
     @Mock private ProjectMapper projectMapper;
     @Mock private ItemTaskFlowEditor itemTaskFlowEditor;
+    @Mock private ItemService itemService;
 
     private ItemTaskFlowServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskSubmission.class);
         service = new ItemTaskFlowServiceImpl(itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskInstanceMapper, taskSubmissionMapper, itemTaskFlowAssembler, projectMapper,
-                itemTaskFlowEditor);
+                itemTaskFlowEditor, itemService);
     }
 
     @Test
@@ -130,24 +125,21 @@ class ItemTaskFlowServiceImplTest {
     }
 
     @Test
-    void getItemTaskFlow_countsRejectedAndResetHistoryAsSubmissionRecord() {
+    void getItemTaskFlow_usesItemSubmissionHistoryEvenWithoutActiveNodes() {
         when(itemMapper.selectById(1L)).thenReturn(Item.builder()
                 .id(1L).projectId(2L).title("第3话").build());
         when(projectMapper.selectById(2L)).thenReturn(Project.builder()
                 .id(2L).orgId(1L).resourceStatus(Status.ENABLED).build());
         when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(3L).itemId(1L).projectId(2L).name("漫画汉化流程").build());
-        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(ItemTaskNode.builder()
-                .id(4L).itemTaskFlowId(3L).name("翻译").sort(1).parallelSort(1).build()));
-        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(TaskInstance.builder()
-                .id(6L).itemTaskNodeId(4L).build()));
-        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
-                TaskSubmission.builder().id(7L).taskInstanceId(6L).status(TaskSubmissionStatus.REJECTED).build(),
-                TaskSubmission.builder().id(8L).taskInstanceId(6L).status(TaskSubmissionStatus.RESET).build()));
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of());
+        when(itemService.hasSubmissionRecord(1L)).thenReturn(true);
         when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of());
 
         ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
 
         assertThat(flowVO.getHasSubmissionRecord()).isTrue();
+        verify(itemService).hasSubmissionRecord(1L);
+        verify(taskInstanceMapper, never()).selectList(any());
     }
 }

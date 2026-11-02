@@ -192,7 +192,16 @@ public class ItemApiTest extends BaseApiTest {
 
         jdbcTemplate.update("UPDATE task_submission SET status = 3 WHERE id = 1");
         authRequest(token).get("/app/item/1/flow").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.hasSubmissionRecord", equalTo(true));
+
+        jdbcTemplate.update("UPDATE task_submission SET deleted_at = NOW() WHERE id = 1");
+        jdbcTemplate.update("UPDATE task_instance SET deleted_at = NOW() WHERE id = 1");
+        jdbcTemplate.update("UPDATE item_task_node SET deleted_at = NOW() WHERE id = 1");
+        authRequest(token).get("/app/item/1/flow").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.hasSubmissionRecord", equalTo(true))
+                .body("data.nodes", hasSize(0));
     }
 
 
