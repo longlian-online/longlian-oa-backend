@@ -209,7 +209,12 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
     }
 
     private Long createItem(String token) {
-        authRequest(token).body(Map.of("title", "第1话", "taskTemplateId", "1"))
+        authRequest(token).body(Map.of(
+                        "title", "第1话",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(
+                                Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1),
+                                Map.of("baseTaskId", "1", "sort", 2, "parallelSort", 1))))
                 .post("/app/projects/1/items").then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
