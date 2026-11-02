@@ -46,7 +46,7 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstance> {
                                            @Param("desc") boolean desc);
 
     /**
-     * 组员负载：指定成员在当前组织内已接取（CLAIMED）的任务，按接取人、接取时间升序。
+     * 组员负载：指定成员在当前组织启用企划内已接取（CLAIMED）的任务，按接取人、接取时间升序。
      * 空的接取人列表不要调用，IN 为空会产生非法 SQL。
      */
     List<ClaimedTaskLoadRowBO> selectClaimedTasksByAssignees(

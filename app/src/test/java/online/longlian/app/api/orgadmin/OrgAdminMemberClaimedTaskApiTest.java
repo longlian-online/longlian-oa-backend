@@ -16,7 +16,7 @@ import static org.hamcrest.Matchers.nullValue;
 public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
 
     /**
-     * 接取任务按进行中/等待中拆分，并带上接取时间；停用企划上仍挂名的任务也返回
+     * 接取任务按进行中/等待中拆分并带接取时间，停用企划的任务不返回也不计入各分组数量
      */
     @Test
     void shouldListClaimedTasksByBucket() {
@@ -34,10 +34,10 @@ public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.memberId", equalTo("2"))
                 .body("data.userId", equalTo("2"))
-                .body("data.totalCount", equalTo(3))
-                .body("data.submittableCount", equalTo(2))
+                .body("data.totalCount", equalTo(2))
+                .body("data.submittableCount", equalTo(1))
                 .body("data.waitingCount", equalTo(1))
-                .body("data.list", hasSize(3))
+                .body("data.list", hasSize(2))
                 .body("data.list[0].instanceId", equalTo("2"))
                 .body("data.list[0].bucket", equalTo("WAITING"))
                 .body("data.list[0].waitingStageName", equalTo("翻译"))
@@ -45,10 +45,7 @@ public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
                 .body("data.list[1].instanceId", equalTo("4"))
                 .body("data.list[1].bucket", equalTo("SUBMITTABLE"))
                 .body("data.list[1].waitingStageName", nullValue())
-                .body("data.list[1].serialStep", equalTo(2))
-                .body("data.list[2].instanceId", equalTo("5"))
-                .body("data.list[2].projectName", equalTo("停用企划"))
-                .body("data.list[2].bucket", equalTo("SUBMITTABLE"));
+                .body("data.list[1].serialStep", equalTo(2));
     }
 
     /**
@@ -68,7 +65,7 @@ public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
-                .body("data.list.find { it.userId == '2' }.claimedTaskCount", equalTo(3))
+                .body("data.list.find { it.userId == '2' }.claimedTaskCount", equalTo(2))
                 .body("data.list.find { it.userId == '1' }.claimedTaskCount", equalTo(0));
     }
 
@@ -140,6 +137,77 @@ public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
     }
 
+    /**
+     * 停用后列表与数量同时清零，重新启用后恢复，不改动已接取的任务
+     */
+    @Test
+    void shouldHideAndRestoreTasksWhenProjectAvailabilityChanges() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "alan", "123456", "alan@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        seedTasks();
+        String token = loginAs("orgadmin", "123456");
+
+        for (int resourceStatus : new int[]{0, 1}) {
+            jdbcTemplate.update("UPDATE project SET resource_status = ? WHERE id = 1", resourceStatus);
+            int expectedTotal = resourceStatus == 1 ? 2 : 0;
+            int expectedBucketCount = resourceStatus == 1 ? 1 : 0;
+            authRequest(token)
+                    .get("/orgadmin/members/2/claimed-tasks")
+                    .then()
+                    .statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.totalCount", equalTo(expectedTotal))
+                    .body("data.submittableCount", equalTo(expectedBucketCount))
+                    .body("data.waitingCount", equalTo(expectedBucketCount))
+                    .body("data.list", hasSize(expectedTotal));
+
+            authRequest(token)
+                    .body(Map.of("pageNum", 1, "pageSize", 10))
+                    .post("/orgadmin/members")
+                    .then()
+                    .statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.list.find { it.userId == '2' }.claimedTaskCount", equalTo(expectedTotal));
+        }
+    }
+
+    /**
+     * 原本停用的企划启用后，可提交和等待中的任务都重新计入
+     */
+    @Test
+    void shouldIncludeBothBucketsAfterDisabledProjectIsEnabled() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createTestUser(2L, "alan", "123456", "alan@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        seedTasks();
+        jdbcTemplate.update("UPDATE project SET resource_status = 1 WHERE id = 2");
+        String token = loginAs("orgadmin", "123456");
+
+        authRequest(token)
+                .get("/orgadmin/members/2/claimed-tasks")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.totalCount", equalTo(4))
+                .body("data.submittableCount", equalTo(2))
+                .body("data.waitingCount", equalTo(2))
+                .body("data.list", hasSize(4))
+                .body("data.list[2].instanceId", equalTo("5"))
+                .body("data.list[2].bucket", equalTo("SUBMITTABLE"))
+                .body("data.list[3].instanceId", equalTo("9"))
+                .body("data.list[3].bucket", equalTo("WAITING"))
+                .body("data.list[3].waitingStageName", equalTo("图源"));
+
+        authRequest(token)
+                .body(Map.of("pageNum", 1, "pageSize", 10))
+                .post("/orgadmin/members")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.find { it.userId == '2' }.claimedTaskCount", equalTo(4));
+    }
+
     private void seedTasks() {
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '漫画', 1, 1)");
         jdbcTemplate.update(
@@ -163,6 +231,7 @@ public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
         insertNode(3, 2, 2, 1, "校对", 1, 1);
         insertNode(4, 2, 2, 1, "校对", 2, 1);
         insertNode(5, 3, 3, 2, "图源", 1, 1);
+        insertNode(9, 3, 3, 2, "发布", 2, 1);
         insertNode(7, 5, 5, 3, "翻译", 1, 1);
         insertNode(8, 6, 6, 1, "嵌字", 1, 1);
         insertInstance(1, 1, 1, 1, 1, null, 1, null);
@@ -170,6 +239,7 @@ public class OrgAdminMemberClaimedTaskApiTest extends BaseApiTest {
         insertInstance(3, 1, 2, 3, 2, 2L, 3, "2026-10-01 09:00:00");
         insertInstance(4, 1, 2, 4, 2, 2L, 2, "2026-10-02 10:00:00");
         insertInstance(5, 2, 3, 5, 3, 2L, 2, "2026-10-03 10:00:00");
+        insertInstance(9, 2, 3, 9, 3, 2L, 2, "2026-10-04 10:00:00");
         insertInstance(7, 3, 5, 7, 5, 2L, 2, "2026-10-01 08:00:00");
         insertInstance(8, 1, 6, 8, 6, 2L, 2, "2026-10-01 07:00:00");
     }

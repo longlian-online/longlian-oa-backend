@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * 组员负载：SQL 只负责范围过滤（组织、指定接取人、CLAIMED）与按接取时间排序；
+ * 组员负载：SQL 只负责范围过滤（组织、启用企划、指定接取人、CLAIMED）与按接取时间排序；
  * 分组判定统一走 {@link StageUnlockPolicy}，与「我的待办」共用同一口径。
  */
 @Service
