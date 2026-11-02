@@ -48,7 +48,6 @@ import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.common.enumeration.TaskSubmissionStatus;
 import online.longlian.common.enumeration.TaskTemplateScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,7 +104,7 @@ public class ItemServiceImpl implements ItemService {
             return new PageResultBO<>(Collections.emptyList(), itemPage.getTotal());
         }
         List<ProjectItemListVO> list = itemAssembler.assembleList(items);
-        markSubmittedTasks(list);
+        markSubmissionRecords(list);
         return new PageResultBO<>(list, itemPage.getTotal());
     }
 
@@ -199,8 +198,8 @@ public class ItemServiceImpl implements ItemService {
     public void deleteProjectItem(ItemDeleteParamsBO params) {
         lockProjectCreator(params.getProjectId(), params.getUserId(), params.getOrgId());
         Item item = requireItem(params.getProjectId(), params.getItemId());
-        if (hasSubmittedTask(item.getId())) {
-            throw new AppException(ResultCode.PARAM_ERROR, "项目存在已提交任务，请提交删除申请");
+        if (hasSubmissionRecord(item.getId())) {
+            throw new AppException(ResultCode.PARAM_ERROR, "项目存在提交记录，请提交删除申请");
         }
         softDeleteItem(item, params.getOrgId());
     }
@@ -232,27 +231,25 @@ public class ItemServiceImpl implements ItemService {
         return requireItem(projectId, itemId).getTitle();
     }
 
-    private void markSubmittedTasks(List<ProjectItemListVO> list) {
+    private void markSubmissionRecords(List<ProjectItemListVO> list) {
         List<Long> itemIds = list.stream().map(ProjectItemListVO::getId).toList();
-        List<Object> submittedIds = taskSubmissionMapper.selectObjs(new LambdaQueryWrapper<TaskSubmission>()
+        List<Object> recordItemIds = taskSubmissionMapper.selectObjs(new LambdaQueryWrapper<TaskSubmission>()
                 .select(TaskSubmission::getItemId)
-                .in(TaskSubmission::getItemId, itemIds)
-                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED));
-        if (submittedIds == null || submittedIds.isEmpty()) {
-            list.forEach(item -> item.setHasSubmittedTask(false));
+                .in(TaskSubmission::getItemId, itemIds));
+        if (recordItemIds == null || recordItemIds.isEmpty()) {
+            list.forEach(item -> item.setHasSubmissionRecord(false));
             return;
         }
-        java.util.Set<Long> submitted = submittedIds.stream()
+        java.util.Set<Long> itemsWithRecord = recordItemIds.stream()
                 .map(id -> ((Number) id).longValue())
                 .collect(java.util.stream.Collectors.toSet());
-        list.forEach(item -> item.setHasSubmittedTask(submitted.contains(item.getId())));
+        list.forEach(item -> item.setHasSubmissionRecord(itemsWithRecord.contains(item.getId())));
     }
 
     @Override
-    public boolean hasSubmittedTask(Long itemId) {
+    public boolean hasSubmissionRecord(Long itemId) {
         return taskSubmissionMapper.selectCount(new LambdaQueryWrapper<TaskSubmission>()
-                .eq(TaskSubmission::getItemId, itemId)
-                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)) > 0;
+                .eq(TaskSubmission::getItemId, itemId)) > 0;
     }
 
     private Item requireItem(Long projectId, Long itemId) {

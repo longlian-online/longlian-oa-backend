@@ -168,6 +168,33 @@ public class ItemApiTest extends BaseApiTest {
                 .body("data.nodes[0].taskStatus", equalTo("COMPLETED"));
     }
 
+    /** 项目任务流按提交记录判断删除方式：已打回、已重置的历史提交同样算作有提交记录。 */
+    @Test
+    void shouldReportSubmissionRecordInItemFlowForRejectedOrResetHistory() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (1, 1, '测试类型', 1, 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, status, creator_id) VALUES (1, 1, 1, '测试企划', 1, 1)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '翻译', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_template (id, org_id, name, status, scope, creator_id) VALUES (1, 1, '模板', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (1, 1, '项目', 1, 1, 1)");
+        jdbcTemplate.update("INSERT INTO item_task_flow (id, item_id, project_id, task_template_id, name, description) VALUES (1, 1, 1, 1, '任务流', '')");
+        jdbcTemplate.update("INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort) VALUES (1, 1, 1, 1, 1, '翻译', '[]', 1, 1)");
+        jdbcTemplate.update("INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, status) VALUES (1, 1, 1, 1, 1, 1)");
+
+        authRequest(token).get("/app/item/1/flow").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.hasSubmissionRecord", equalTo(false));
+
+        jdbcTemplate.update("INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, status) VALUES (1, 1, 1, 1, 1, 1, 1, 2)");
+        authRequest(token).get("/app/item/1/flow").then().statusCode(200)
+                .body("data.hasSubmissionRecord", equalTo(true));
+
+        jdbcTemplate.update("UPDATE task_submission SET status = 3 WHERE id = 1");
+        authRequest(token).get("/app/item/1/flow").then().statusCode(200)
+                .body("data.hasSubmissionRecord", equalTo(true));
+    }
+
 
     /** 模板里已写入的外组织原子任务不能在创建项目时把名称抄进节点。 */
     @Test

@@ -53,7 +53,7 @@ public interface ItemService {
     void reorderProjectItems(ItemReorderParamsBO params);
 
     /**
-     * 企划负责人直接软删除没有已提交任务的项目。
+     * 企划负责人直接软删除没有提交记录的项目。
      */
     void deleteProjectItem(ItemDeleteParamsBO params);
 
@@ -73,9 +73,9 @@ public interface ItemService {
     boolean hasProjectItems(Long projectId);
 
     /**
-     * 项目是否已有状态为已提交的任务。
+     * 项目是否存在提交记录。已打回、已重置的历史提交同样计入，只有从未提交过才能直接删除。
      */
-    boolean hasSubmittedTask(Long itemId);
+    boolean hasSubmissionRecord(Long itemId);
 
     /**
      * 确认项目属于该企划并返回项目名称。

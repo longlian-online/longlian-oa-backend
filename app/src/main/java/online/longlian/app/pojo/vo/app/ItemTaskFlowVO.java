@@ -24,6 +24,9 @@ public class ItemTaskFlowVO {
     @Schema(description = "任务流说明")
     private String description;
 
+    @Schema(description = "是否存在提交记录（含已打回、已重置），决定删除项目是直接删除还是提交删除申请")
+    private Boolean hasSubmissionRecord;
+
     @Schema(
         description = "节点列表（按 sort 升序；sort 相同的节点为并行节点，前端根据此结构渲染流程图分支）"
     )

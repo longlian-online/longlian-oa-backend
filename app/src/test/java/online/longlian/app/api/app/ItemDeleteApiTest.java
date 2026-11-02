@@ -4,6 +4,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.LocalDateTime;
 
@@ -14,11 +16,10 @@ import static org.hamcrest.Matchers.hasSize;
 public class ItemDeleteApiTest extends BaseApiTest {
 
     /**
-     * 企划负责人可直接删除没有已提交任务的项目，并级联软删任务流、节点、实例，递减模板引用、废弃任务附件。
-     * 已打回或已重置的历史提交不阻止删除，且提交记录本身保留。
+     * 企划负责人可直接删除从未提交过的项目，并级联软删任务流、节点、实例，递减模板引用、废弃任务附件。
      */
     @Test
-    void shouldDeleteItemWithoutSubmittedTaskAndCascade() {
+    void shouldDeleteItemWithoutSubmissionRecordAndCascade() {
         String token = creator();
         insertProject(1);
         insertItem(1L, "可删除项目", 1L);
@@ -26,9 +27,6 @@ public class ItemDeleteApiTest extends BaseApiTest {
         insertFlow(1L, 1L);
         insertNode(1L, 1L);
         insertInstance(1L, 1L, 2);
-        jdbcTemplate.update(
-                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, status) "
-                        + "VALUES (1, 1, 1, 1, 1, 1, 1, 2), (2, 1, 1, 1, 1, 1, 2, 3)");
         jdbcTemplate.update(
                 "INSERT INTO resource (id, org_id, storage_type, storage_key, file_name, file_ext, file_size, biz_type, biz_id, process_status, creator_id) "
                         + "VALUES (1, 1, 1, 'task_submit/1.png', '成果.png', 'png', 1, 'task_submit', 1, ?, 1)",
@@ -51,7 +49,7 @@ public class ItemDeleteApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 1", Integer.class))
                 .isEqualTo(FileProcessStatus.Deprecated.getCode());
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission WHERE deleted_at IS NULL", Integer.class))
-                .isEqualTo(2);
+                .isZero();
         authRequest(token)
                 .get("/app/projects/1/items")
                 .then()
@@ -62,23 +60,24 @@ public class ItemDeleteApiTest extends BaseApiTest {
     }
 
     /**
-     * 仍有已提交任务时拒绝直接删除，并提示改走删除申请。
+     * 只要项目有过提交记录（含已打回、已重置），就拒绝直接删除，并提示改走删除申请。
      */
-    @Test
-    void shouldRejectDeleteItemWhenSubmittedTaskExists() {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    void shouldRejectDeleteItemWhenSubmissionRecordExists(int status) {
         String token = creator();
         insertProject(1);
-        insertItem(1L, "有提交项目", 1L);
+        insertItem(1L, "有提交记录项目", 1L);
         jdbcTemplate.update(
                 "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, status) "
-                        + "VALUES (1, 1, 1, 1, 1, 1, 1, 1)");
+                        + "VALUES (1, 1, 1, 1, 1, 1, 1, ?)", status);
 
         authRequest(token)
                 .delete("/app/projects/1/items/1")
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,项目存在已提交任务，请提交删除申请"));
+                .body("msg", equalTo("参数错误,项目存在提交记录，请提交删除申请"));
 
         assertThat(deletedAt("item", 1L)).isNull();
         assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id = 1", Integer.class)).isEqualTo(1);
