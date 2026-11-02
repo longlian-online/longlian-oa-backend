@@ -21,6 +21,7 @@ public class OrgMemberInfoResultBO {
     private LocalDateTime joinedAt;
     private LocalDateTime lastSubmittedAt;
     private Integer submitCount;
+    private Integer claimedTaskCount;
     private String orgRole;
     private Status status;
 }

@@ -23,6 +23,8 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
@@ -39,6 +41,8 @@ import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.JoinInviteCodeVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberClaimedTaskItemVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgMemberClaimedTaskVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import org.springframework.beans.BeanUtils;
@@ -163,6 +167,51 @@ public class OrganizationMemberController {
                                 .baseTaskId(item.getBaseTaskId())
                                 .baseTaskName(item.getBaseTaskName())
                                 .submitCount(item.getSubmitCount())
+                                .build())
+                        .toList())
+                .build();
+    }
+
+    @Operation(
+            summary = "查询组员当前接取的任务",
+            description = "按进行中（前置阶段已全部完成）和等待中（存在未完成前置阶段）拆分，返回全部任务与各分组数量"
+    )
+    @Parameter(name = "memberId", description = "成员ID")
+    @GetMapping("/{memberId}/claimed-tasks")
+    @ResponseMessage("查询成功")
+    public OrgMemberClaimedTaskVO getMemberClaimedTasks(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long memberId) {
+        OrgMemberClaimedTaskResultBO resultBO = organizationMemberService.getMemberClaimedTasks(
+                OrgMemberClaimedTaskParamsBO.builder()
+                        .memberId(memberId)
+                        .orgId(sessionContext.orgId())
+                        .build()
+        );
+
+        return OrgMemberClaimedTaskVO.builder()
+                .memberId(resultBO.getMemberId())
+                .userId(resultBO.getUserId())
+                .totalCount(resultBO.getTotalCount())
+                .submittableCount(resultBO.getSubmittableCount())
+                .waitingCount(resultBO.getWaitingCount())
+                .list(resultBO.getList().stream()
+                        .map(task -> OrgMemberClaimedTaskItemVO.builder()
+                                .instanceId(task.getInstanceId())
+                                .itemId(task.getItemId())
+                                .projectId(task.getProjectId())
+                                .itemTitle(task.getItemTitle())
+                                .projectName(task.getProjectName())
+                                .nodeName(task.getNodeName())
+                                .slotIndex(task.getSlotIndex())
+                                .slotTotal(task.getSlotTotal())
+                                .serialStep(task.getSerialStep())
+                                .claimedAt(task.getClaimedAt())
+                                .bucket(task.getBucket())
+                                .waitingStageName(task.getWaitingStageName())
+                                .waitingSlotIndex(task.getWaitingSlotIndex())
+                                .waitingSlotTotal(task.getWaitingSlotTotal())
+                                .waitingSerialStep(task.getWaitingSerialStep())
                                 .build())
                         .toList())
                 .build();
