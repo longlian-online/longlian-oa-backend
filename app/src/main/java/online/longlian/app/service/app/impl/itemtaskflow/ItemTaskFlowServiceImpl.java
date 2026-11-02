@@ -18,6 +18,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
+import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ItemTaskFlowService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
     private final ItemTaskFlowAssembler itemTaskFlowAssembler;
     private final ProjectMapper projectMapper;
     private final ItemTaskFlowEditor itemTaskFlowEditor;
+    private final ItemService itemService;
 
     @Override
     public ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId) {
@@ -88,7 +90,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
                 .itemTitle(item.getTitle())
                 .name(flow.getName())
                 .description(flow.getDescription())
-                .hasSubmissionRecord(!submittedInstanceIds.isEmpty())
+                .hasSubmissionRecord(itemService.hasSubmissionRecord(itemId))
                 .nodes(itemTaskFlowAssembler.assembleNodes(nodes, instances, submittedInstanceIds))
                 .build();
     }
