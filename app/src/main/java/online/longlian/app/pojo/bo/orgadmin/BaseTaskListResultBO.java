@@ -20,6 +20,8 @@ public class BaseTaskListResultBO {
     private String description;
     private String icon;
     private List<TaskFormField> submitFields;
+    private String webhookUrl;
+    private Boolean webhookSecretConfigured;
     private Integer refCount;
     private Status status;
     private LocalDateTime createdAt;

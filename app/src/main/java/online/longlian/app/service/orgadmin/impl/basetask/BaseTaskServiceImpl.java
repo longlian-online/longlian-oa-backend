@@ -20,6 +20,7 @@ import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.service.app.impl.taskwebhook.WebhookEndpointPolicy;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class BaseTaskServiceImpl implements BaseTaskService {
     private final BaseTaskQueryBuilder baseTaskQueryBuilder;
     private final BaseTaskAssembler baseTaskAssembler;
     private final TaskFormService taskFormService;
+    private final WebhookEndpointPolicy webhookEndpointPolicy;
 
     @Override
     public List<PlazaTaskTypeOptionResultBO> listPlazaTaskTypes(Long orgId) {
@@ -79,12 +81,16 @@ public class BaseTaskServiceImpl implements BaseTaskService {
     @Transactional(rollbackFor = Exception.class)
     public void createBaseTask(BaseTaskCreateParamsBO params) {
         LocalDateTime now = LocalDateTime.now(clock);
+        WebhookEndpointPolicy.Endpoint endpoint = endpoint(
+                params.getWebhookUrl(), params.getWebhookSecret(), null);
         BaseTask task = BaseTask.builder()
                 .orgId(params.getOrgId())
                 .name(params.getName())
                 .description(params.getDescription())
                 .icon(params.getIcon())
                 .metaSchema(taskFormService.serializeFields(params.getSubmitFields()))
+                .webhookUrl(endpoint.url())
+                .webhookSecret(endpoint.secret())
                 .status(Status.ENABLED)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
@@ -148,6 +154,8 @@ public class BaseTaskServiceImpl implements BaseTaskService {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该任务");
         }
 
+        WebhookEndpointPolicy.Endpoint endpoint = endpoint(
+                params.getWebhookUrl(), params.getWebhookSecret(), task.getWebhookSecret());
         baseTaskMapper.update(null,
                 new LambdaUpdateWrapper<BaseTask>()
                         .eq(BaseTask::getId, params.getTaskId())
@@ -156,6 +164,8 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                         .set(BaseTask::getDescription, params.getDescription())
                         .set(BaseTask::getIcon, params.getIcon())
                         .set(BaseTask::getMetaSchema, taskFormService.serializeFields(params.getSubmitFields()))
+                        .set(BaseTask::getWebhookUrl, endpoint.url())
+                        .set(BaseTask::getWebhookSecret, endpoint.secret())
                         .set(BaseTask::getUpdatedAt, LocalDateTime.now(clock)));
     }
 
@@ -176,5 +186,9 @@ public class BaseTaskServiceImpl implements BaseTaskService {
                         .set(BaseTask::getStatus, params.getStatus())
                         .set(BaseTask::getUpdatedAt, LocalDateTime.now(clock))
         );
+    }
+
+    private WebhookEndpointPolicy.Endpoint endpoint(String url, String secret, String existingSecret) {
+        return webhookEndpointPolicy.resolve(url, secret, existingSecret);
     }
 }

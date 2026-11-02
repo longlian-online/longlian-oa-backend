@@ -86,13 +86,15 @@ public class BaseTaskController {
                         .description(baseTaskCreateDTO.getDescription())
                         .icon(baseTaskCreateDTO.getIcon())
                         .submitFields(baseTaskCreateDTO.getSubmitFields())
+                        .webhookUrl(baseTaskCreateDTO.getWebhookUrl())
+                        .webhookSecret(baseTaskCreateDTO.getWebhookSecret())
                         .build()
         );
     }
 
     @Operation(
             summary = "编辑原子任务",
-            description = "整体更新任务定义；简介和图标省略或传 null 表示清空，submitFields 必填，传空数组清空提交字段。关联模板和后续新建工作流使用新定义，已有工作流保留名称及字段快照，图标同步更新。启用/禁用状态不变"
+            description = "整体更新任务定义；简介和图标省略或传 null 表示清空，submitFields 必填，传空数组清空提交字段。webhook 地址为空则清空地址和密钥，密钥留空则保持原密钥。关联模板和后续新建工作流使用新定义，已有工作流保留名称、字段和 webhook 快照，图标同步更新。启用/禁用状态不变"
     )
     @PutMapping("/{taskId}")
     @ResponseMessage("修改成功")
@@ -106,6 +108,8 @@ public class BaseTaskController {
                 .description(dto.getDescription())
                 .icon(dto.getIcon())
                 .submitFields(dto.getSubmitFields())
+                .webhookUrl(dto.getWebhookUrl())
+                .webhookSecret(dto.getWebhookSecret())
                 .build());
     }
 

@@ -35,6 +35,7 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookOutboxWriter;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
@@ -91,6 +92,8 @@ class TaskInstanceServiceImplTest {
     private ProjectService projectService;
     @Mock
     private InboxNotificationService inboxNotificationService;
+    @Mock
+    private TaskWebhookOutboxWriter taskWebhookOutboxWriter;
 
     private TaskInstanceServiceImpl service;
 
@@ -101,7 +104,8 @@ class TaskInstanceServiceImplTest {
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,
-                inboxNotificationService, Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")));
+                inboxNotificationService, taskWebhookOutboxWriter,
+                Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")));
         lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))

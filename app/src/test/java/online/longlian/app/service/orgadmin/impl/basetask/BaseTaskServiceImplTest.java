@@ -8,6 +8,8 @@ import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
+import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookAddressGuard;
+import online.longlian.app.service.app.impl.taskwebhook.WebhookEndpointPolicy;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.app.service.orgadmin.BaseTaskService;
@@ -63,7 +65,8 @@ class BaseTaskServiceImplTest {
                 clock,
                 baseTaskQueryBuilder,
                 baseTaskAssembler,
-                new TaskFormService()
+                new TaskFormService(),
+                new WebhookEndpointPolicy(new TaskWebhookAddressGuard())
         );
     }
 

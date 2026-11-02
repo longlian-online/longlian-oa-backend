@@ -75,6 +75,20 @@ public class BaseTask implements Serializable {
     private String metaSchema;
 
     /**
+     * 提交 webhook 地址，空表示不投递
+     */
+    @TableField("webhook_url")
+    @ApiModelProperty("提交 webhook 地址，空表示不投递")
+    private String webhookUrl;
+
+    /**
+     * webhook HMAC 密钥
+     */
+    @TableField("webhook_secret")
+    @ApiModelProperty("webhook HMAC 密钥")
+    private String webhookSecret;
+
+    /**
      * 状态 1-启用 0-禁用
      */
     @TableField("status")

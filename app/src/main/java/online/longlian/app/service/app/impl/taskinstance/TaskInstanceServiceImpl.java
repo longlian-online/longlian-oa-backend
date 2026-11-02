@@ -44,6 +44,9 @@ import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.TaskInstanceService;
+import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookDispatch;
+import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookEvents;
+import online.longlian.app.service.app.impl.taskwebhook.TaskWebhookOutboxWriter;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
@@ -83,6 +86,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final PlatformTransactionManager transactionManager;
     private final ProjectService projectService;
     private final InboxNotificationService inboxNotificationService;
+    private final TaskWebhookOutboxWriter taskWebhookOutboxWriter;
     private final Clock clock;
 
     @Override
@@ -177,6 +181,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
             finishSubmission(instance, project, result, params.getUserId());
+            enqueueWebhook(project, instance, result.getSubmissionId(), TaskWebhookEvents.SUBMITTED,
+                    null, result.getTriggeredAt());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
             return null;
@@ -194,6 +200,8 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                     instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
                     params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
             finishSubmission(instance, project, result, params.getAssigneeId());
+            enqueueWebhook(project, instance, result.getSubmissionId(), TaskWebhookEvents.SUBMITTED,
+                    null, params.getSubmittedAt());
             Map<String, Object> audit = new LinkedHashMap<>();
             audit.put("action", "PROXY_SUBMIT");
             audit.put("instanceId", instance.getId());
@@ -210,6 +218,17 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private void finishSubmission(TaskInstance instance, Project project,
                                   TaskInstanceSubmitResultBO result, Long submitterId) {
         recordProgressNotifications(instance, project, result, submitterId);
+    }
+
+    private void enqueueWebhook(Project project, TaskInstance instance, Long submissionId, String event,
+                                String reason, LocalDateTime occurredAt) {
+        if (submissionId == null || instance.getItemTaskNodeId() == null) {
+            return;
+        }
+        taskWebhookOutboxWriter.enqueue(new TaskWebhookDispatch(
+                project.getOrgId(), event, instance.getId(), submissionId, instance.getItemTaskNodeId(),
+                instance.getRevision() + 1, occurredAt.format(SUBMITTED_AT_FORMAT), reason),
+                LocalDateTime.now(clock));
     }
 
     private void recordProgressNotifications(TaskInstance instance, Project project,
@@ -248,7 +267,11 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public void resetTask(TaskInstanceOperateParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
-            taskInstanceCommandHandler.reset(instance, params.getUserId());
+            Long submissionId = taskInstanceCommandHandler.reset(instance, params.getUserId());
+            if (submissionId != null) {
+                enqueueWebhook(project, instance, submissionId, TaskWebhookEvents.INVALIDATED,
+                        TaskWebhookEvents.RESET, LocalDateTime.now(clock));
+            }
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_RESET, params);
             return null;
@@ -259,8 +282,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     public void rejectTask(TaskInstanceRejectParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
             boolean projectCreator = params.getUserId().equals(project.getCreatorId());
-            taskInstanceCommandHandler.reject(instance, params.getUserId(), projectCreator,
+            Long submissionId = taskInstanceCommandHandler.reject(instance, params.getUserId(), projectCreator,
                     params.getExpectedRevision(), params.getReviewComment());
+            if (submissionId != null) {
+                enqueueWebhook(project, instance, submissionId, TaskWebhookEvents.INVALIDATED,
+                        TaskWebhookEvents.REJECTED, LocalDateTime.now(clock));
+            }
             if (projectCreator) {
                 logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), params.getReviewComment(),
                         UserOperationType.TASK_REJECT, "OWNER_REJECT");

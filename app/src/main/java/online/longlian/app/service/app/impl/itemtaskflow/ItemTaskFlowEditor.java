@@ -257,6 +257,8 @@ public class ItemTaskFlowEditor {
                 .baseTaskId(created.baseTaskId())
                 .name(name)
                 .metaSchema(baseTask.getMetaSchema())
+                .webhookUrl(baseTask.getWebhookUrl())
+                .webhookSecret(baseTask.getWebhookSecret())
                 .sort(created.sort())
                 .parallelSort(created.parallelSort())
                 .createdAt(now)

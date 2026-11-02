@@ -241,6 +241,8 @@ public class ItemServiceImpl implements ItemService {
                     .baseTaskId(templateNode.getBaseTaskId())
                     .name(baseTask != null ? baseTask.getName() : null)
                     .metaSchema(baseTask != null ? baseTask.getMetaSchema() : null)
+                    .webhookUrl(baseTask != null ? baseTask.getWebhookUrl() : null)
+                    .webhookSecret(baseTask != null ? baseTask.getWebhookSecret() : null)
                     .sort(templateNode.getSort())
                     .parallelSort(templateNode.getParallelSort())
                     .createdAt(now)
