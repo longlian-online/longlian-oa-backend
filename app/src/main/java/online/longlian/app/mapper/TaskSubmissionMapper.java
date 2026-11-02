@@ -20,6 +20,18 @@ import java.util.List;
 @Mapper
 public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
 
+    // 删除保护按“曾提交过”判断，必须包含软删记录；BaseMapper 的逻辑删除过滤无法表达该查询。
+    @Select("""
+            <script>
+            SELECT DISTINCT item_id FROM task_submission
+            WHERE item_id IN
+            <foreach collection="itemIds" item="itemId" open="(" separator="," close=")">
+                #{itemId}
+            </foreach>
+            </script>
+            """)
+    List<Long> selectItemIdsWithSubmissionHistory(@Param("itemIds") List<Long> itemIds);
+
     @Select("""
             <script>
             SELECT latest.project_id AS id,

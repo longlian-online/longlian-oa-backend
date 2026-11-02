@@ -104,17 +104,18 @@ public class ItemOrderApiTest extends BaseApiTest {
         authRequest(token).queryParam("status", "").queryParam("pageSize", 100)
                 .get("/app/projects/1/items").then()
                 .body("code", equalTo(0)).body("data.list.id", equalTo(INITIAL))
-                .body("data.list.hasSubmissionRecord", equalTo(List.of(false, true, true, false, true, false)));
+                .body("data.list.hasSubmissionRecord", equalTo(List.of(false, true, true, true, true, false)));
 
         save(token, INITIAL, REORDERED).then().body("code", equalTo(0));
         authRequest(token).queryParam("status", "").queryParam("pageSize", 100)
                 .get("/app/projects/1/items").then()
                 .body("code", equalTo(0)).body("data.list.id", equalTo(REORDERED))
-                .body("data.list.hasSubmissionRecord", equalTo(List.of(false, true, true, true, false, false)));
+                .body("data.list.hasSubmissionRecord", equalTo(List.of(false, true, true, true, true, false)));
     }
 
-    @Test
-    void shouldAcceptDeletionRequestForItemWithOnlyRejectedOrResetSubmissions() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldAcceptDeletionRequestForItemWithOnlyRejectedOrResetSubmissions(boolean deleted) {
         String token = seed();
         jdbcTemplate.update("""
                 INSERT INTO task_submission
@@ -123,6 +124,9 @@ public class ItemOrderApiTest extends BaseApiTest {
                 VALUES (102,1,2,102,102,1,1,2,NULL),
                        (103,1,2,103,103,1,2,3,NULL)
                 """);
+        if (deleted) {
+            jdbcTemplate.update("UPDATE task_submission SET deleted_at = NOW() WHERE item_id = 2");
+        }
         authRequest(token).body(Map.of("reason", "历史提交已作废"))
                 .post("/app/projects/1/items/2/deletion-requests").then()
                 .body("code", equalTo(0));
