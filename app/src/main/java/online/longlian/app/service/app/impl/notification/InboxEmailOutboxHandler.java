@@ -85,7 +85,8 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
         }
         NotificationSourceResultBO source = source(payload);
         String body = InboxEmailCopy.message(payload.kind(), source);
-        String href = InboxEmailLink.href(webOrigin, payload.kind(), payload.orgId(), source, payload.sourceId());
+        String href = InboxEmailLink.href(webOrigin, payload.kind(), payload.orgId(), source,
+                payload.sourceId(), payload.notificationId());
         String html = htmlTemplate.replace(InboxEmailLink.PLACEHOLDER, HtmlUtils.htmlEscape(href))
                 .replace("${message}", HtmlUtils.htmlEscape(body));
         mailUtil.send(new MailUtil.SendParam(fromEmail, email.trim(), displayName,
