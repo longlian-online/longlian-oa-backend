@@ -4,6 +4,7 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.service.app.ItemService;
@@ -154,7 +155,10 @@ public class ItemOrderApiTest extends BaseApiTest {
     @Test
     void shouldAppendNewItemsAndRejectAnObsoleteMembershipSnapshot() {
         String token = seed();
-        authRequest(token).body(Map.of("title", "G", "taskTemplateId", "1"))
+        authRequest(token).body(Map.of(
+                        "title", "G",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items").then().body("code", equalTo(0));
         assertThat(jdbcTemplate.queryForObject("SELECT sort FROM item WHERE title='G'", Long.class)).isEqualTo(7L);
         save(token, INITIAL, REORDERED).then().body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
@@ -326,7 +330,9 @@ public class ItemOrderApiTest extends BaseApiTest {
 
     private ItemCreateParamsBO createParams(String title) {
         return ItemCreateParamsBO.builder().projectId(1L).orgId(1L).creatorId(1L)
-                .title(title).taskTemplateId(1L).build();
+                .title(title).taskTemplateId(1L)
+                .nodes(List.of(ItemNodeCreateParamsBO.builder().baseTaskId(1L).sort(1).parallelSort(1).build()))
+                .build();
     }
 
     private ItemReorderParamsBO reorderParams() {
@@ -355,6 +361,7 @@ public class ItemOrderApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO project_type (id,org_id,name,creator_id) VALUES (1,1,'类型',1)");
         jdbcTemplate.update("INSERT INTO project (id,org_id,type_id,title,creator_id) VALUES (1,1,1,'排序企划',1)");
         jdbcTemplate.update("INSERT INTO task_template (id,org_id,name,scope,creator_id,ref_count) VALUES (1,1,'空模板',2,1,6)");
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '翻译', '[]', 1, 1)");
         for (int index = 1; index <= 6; index++) {
             jdbcTemplate.update("INSERT INTO item (id,project_id,title,sort,task_template_id,creator_id,created_at,updated_at) VALUES (?,1,?,?,1,1,?,?)",
                     index, String.valueOf((char) ('A' + index - 1)), index,

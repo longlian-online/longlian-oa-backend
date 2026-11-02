@@ -188,94 +188,10 @@ public class ItemServiceImpl implements ItemService {
                         .eq(TaskTemplateNode::getTaskTemplateId, params.getTaskTemplateId())
                         .orderByAsc(TaskTemplateNode::getSort)
                         .orderByAsc(TaskTemplateNode::getParallelSort));
-        if (params.getNodes() != null) {
-            createFromDraft(params, template, templateNodes);
-            return;
+        if (params.getNodes() == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "请至少添加一个任务节点");
         }
-
-        List<Long> baseTaskIds = templateNodes.stream()
-                .map(TaskTemplateNode::getBaseTaskId).filter(id -> id != null).distinct().sorted().toList();
-        List<BaseTask> baseTasks = baseTaskIds.isEmpty()
-                ? Collections.emptyList()
-                : baseTaskMapper.selectList(new LambdaQueryWrapper<BaseTask>()
-                        .in(BaseTask::getId, baseTaskIds)
-                        .orderByAsc(BaseTask::getId)
-                        .last("FOR UPDATE"));
-        if (baseTasks.size() != baseTaskIds.size()) {
-            throw new AppException(ResultCode.PARAM_ERROR, "任务不存在");
-        }
-        // 个人模板可跨组织复用，但节点快照只能来自模板所属组织，不能抄入其他组织的任务名。
-        if (baseTasks.stream().anyMatch(task -> !Objects.equals(task.getOrgId(), template.getOrgId()))) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权引用该任务");
-        }
-        Map<Long, BaseTask> baseTaskMap = baseTasks.stream()
-                .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
-
-        LocalDateTime now = LocalDateTime.now(clock);
-        Item lastItem = itemMapper.selectOne(new LambdaQueryWrapper<Item>()
-                .select(Item::getSort)
-                .eq(Item::getProjectId, params.getProjectId())
-                .orderByDesc(Item::getSort)
-                .last("LIMIT 1"));
-        long nextSort = lastItem == null ? 1L : lastItem.getSort() + 1L;
-
-        Item item = Item.builder()
-                .projectId(params.getProjectId())
-                .title(params.getTitle())
-                .sort(nextSort)
-                .taskTemplateId(params.getTaskTemplateId())
-                .creatorId(params.getCreatorId())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        itemMapper.insert(item);
-
-        // 项目引用了该任务模板，引用计数 +1
-        taskTemplateMapper.update(null,
-                new LambdaUpdateWrapper<TaskTemplate>()
-                        .eq(TaskTemplate::getId, params.getTaskTemplateId())
-                        .setSql("ref_count = ref_count + 1")
-                        .set(TaskTemplate::getUpdatedAt, now));
-
-        ItemTaskFlow flow = ItemTaskFlow.builder()
-                .itemId(item.getId())
-                .projectId(params.getProjectId())
-                .taskTemplateId(params.getTaskTemplateId())
-                .name(template.getName())
-                .description(template.getDescription())
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-        itemTaskFlowMapper.insert(flow);
-
-        for (TaskTemplateNode templateNode : templateNodes) {
-            BaseTask baseTask = baseTaskMap.get(templateNode.getBaseTaskId());
-            ItemTaskNode node = ItemTaskNode.builder()
-                    .itemTaskFlowId(flow.getId())
-                    .itemId(item.getId())
-                    .projectId(params.getProjectId())
-                    .baseTaskId(templateNode.getBaseTaskId())
-                    .name(baseTask != null ? baseTask.getName() : null)
-                    .metaSchema(baseTask != null ? baseTask.getMetaSchema() : null)
-                    .sort(templateNode.getSort())
-                    .parallelSort(templateNode.getParallelSort())
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            itemTaskNodeMapper.insert(node);
-
-            TaskInstance instance = TaskInstance.builder()
-                    .projectId(params.getProjectId())
-                    .itemId(item.getId())
-                    .itemTaskNodeId(node.getId())
-                    .taskFlowId(flow.getId())
-                    .status(TaskInstanceStatus.PENDING)
-                    .assigneeId(null)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            taskInstanceMapper.insert(instance);
-        }
+        createFromDraft(params, template, templateNodes);
     }
 
     @Override

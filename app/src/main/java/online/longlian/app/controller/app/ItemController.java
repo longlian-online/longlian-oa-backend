@@ -65,7 +65,7 @@ public class ItemController {
         return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
     }
 
-    @Operation(summary = "创建项目", description = "创建项目并关联流程模板。可同时提交调整后的步骤和执行人；不传步骤时按模板原样生成，任务均为待接取")
+    @Operation(summary = "创建项目", description = "创建项目并按请求中的步骤和执行人生成流程，不按模板补齐")
     @Parameter(name = "projectId", description = "企划ID")
     @PostMapping("")
     @ResponseMessage("创建成功")

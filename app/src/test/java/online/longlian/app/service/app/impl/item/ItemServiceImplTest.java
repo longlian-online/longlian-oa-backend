@@ -130,7 +130,12 @@ class ItemServiceImplTest {
                 BaseTask.builder().id(22L).orgId(1L).name("翻译").status(Status.ENABLED).metaSchema("[]").build()));
 
         service.createProjectItem(ItemCreateParamsBO.builder()
-                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(
+                        node(22L, 1, 1, null, null),
+                        node(21L, 2, 1, null, null),
+                        node(22L, 3, 1, null, null)))
+                .build());
 
         ArgumentCaptor<TaskInstance> captor = ArgumentCaptor.forClass(TaskInstance.class);
         verify(taskInstanceMapper, times(3)).insert(captor.capture());
@@ -156,7 +161,9 @@ class ItemServiceImplTest {
                 .thenReturn(List.of(BaseTask.builder().id(21L).name("绘制").status(Status.ENABLED).metaSchema("[]").build()));
 
         assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
-                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, null, null), node(21L, 2, 1, null, null)))
+                .build()))
                 .isInstanceOf(AppException.class)
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.PARAM_ERROR.getCode());
@@ -181,7 +188,9 @@ class ItemServiceImplTest {
                 BaseTask.builder().id(22L).orgId(1L).name("启用任务").status(Status.ENABLED).metaSchema("[]").build()));
 
         service.createProjectItem(ItemCreateParamsBO.builder()
-                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, null, null), node(21L, 2, 1, null, null)))
+                .build());
 
         ArgumentCaptor<ItemTaskNode> nodes = ArgumentCaptor.forClass(ItemTaskNode.class);
         verify(itemTaskNodeMapper, times(2)).insert(nodes.capture());
@@ -257,7 +266,9 @@ class ItemServiceImplTest {
         when(itemMapper.selectOne(any())).thenReturn(Item.builder().sort(40L).build());
 
         service.createProjectItem(ItemCreateParamsBO.builder()
-                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build());
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, null, null)))
+                .build());
 
         ArgumentCaptor<Item> created = ArgumentCaptor.forClass(Item.class);
         verify(itemMapper).insert(created.capture());
@@ -435,6 +446,10 @@ class ItemServiceImplTest {
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("请至少添加一个任务节点");
+        assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
                 .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
                 .nodes(List.of())
                 .build()))
@@ -473,7 +488,9 @@ class ItemServiceImplTest {
                 BaseTask.builder().id(22L).orgId(2L).name("组织B机密任务").status(Status.ENABLED).metaSchema("[{\"key\":\"secret\"}]").build()));
 
         assertThatThrownBy(() -> service.createProjectItem(ItemCreateParamsBO.builder()
-                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目").build()))
+                .projectId(1L).orgId(1L).creatorId(1L).taskTemplateId(1L).title("项目")
+                .nodes(List.of(node(22L, 1, 1, null, null), node(21L, 2, 1, null, null)))
+                .build()))
                 .isInstanceOf(AppException.class)
                 .extracting(error -> ((AppException) error).getCode())
                 .isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());

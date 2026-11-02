@@ -24,8 +24,9 @@ public class ProjectItemCreateDTO {
     @Schema(type = "string", description = "流程模板ID（任务模板ID）", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long taskTemplateId;
 
+    @NotNull(message = "请至少添加一个任务节点")
     @Valid
     @Size(min = 1, message = "请至少添加一个任务节点")
-    @Schema(description = "创建时调整后的步骤。不传则按模板原样生成，且全部待接取")
+    @Schema(description = "创建时的步骤和执行人。只按这些节点生成，不按模板补齐", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<ProjectItemNodeCreateDTO> nodes;
 }

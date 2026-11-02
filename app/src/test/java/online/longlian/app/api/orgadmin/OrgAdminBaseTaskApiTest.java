@@ -48,7 +48,10 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '类型', 1)");
         jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, alias, metadata, creator_id) "
                 + "VALUES (1, 1, 1, '企划', 'project', '{}', 1)");
-        authRequest(token).body(Map.of("title", "旧项目", "taskTemplateId", templateId))
+        authRequest(token).body(Map.of(
+                        "title", "旧项目",
+                        "taskTemplateId", templateId,
+                        "nodes", List.of(Map.of("baseTaskId", taskId, "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items").then().body("code", equalTo(0));
         String oldItemId = authRequest(token).get("/app/projects/1/items").jsonPath().getString("data.list[0].id");
         Response oldFlow = authRequest(token).get("/app/item/" + oldItemId + "/flow");
@@ -77,7 +80,10 @@ public class OrgAdminBaseTaskApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("values", Map.of("content", "原文交付")))
                 .post("/app/task/instance/" + instanceId + "/submit").then().body("code", equalTo(0));
 
-        authRequest(token).body(Map.of("title", "新项目", "taskTemplateId", templateId))
+        authRequest(token).body(Map.of(
+                        "title", "新项目",
+                        "taskTemplateId", templateId,
+                        "nodes", List.of(Map.of("baseTaskId", taskId, "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items").then().body("code", equalTo(0));
         String newItemId = authRequest(token).get("/app/projects/1/items").jsonPath()
                 .getString("data.list.find { it.title == '新项目' }.id");

@@ -73,11 +73,13 @@ public class ItemApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, "模板", "描述", 1, 1, 1L
         );
+        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '翻译', '[]', 1, 1)");
 
         Response response = authRequest(token)
                 .body(Map.of(
                         "title", "测试项目",
-                        "taskTemplateId", "1"
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))
                 ))
                 .post("/app/projects/1/items");
 
@@ -98,7 +100,13 @@ public class ItemApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '任务A', '[]', 1, 1), (2, 1, '启用任务', '[]', 1, 1)");
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 2, 0, 1), (2, 1, 1, 1, 1), (3, 1, 2, 2, 1)");
 
-        authRequest(token).body(Map.of("title", "批量快照项目", "taskTemplateId", "1"))
+        authRequest(token).body(Map.of(
+                        "title", "批量快照项目",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(
+                                Map.of("baseTaskId", "2", "sort", 1, "parallelSort", 1),
+                                Map.of("baseTaskId", "1", "sort", 2, "parallelSort", 1),
+                                Map.of("baseTaskId", "2", "sort", 3, "parallelSort", 1))))
                 .post("/app/projects/1/items").then()
                 .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         Long itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE title = '批量快照项目'", Long.class);
@@ -108,7 +116,12 @@ public class ItemApiTest extends BaseApiTest {
                 .body("data.nodes.name", equalTo(java.util.List.of("启用任务", "任务A", "启用任务")));
 
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (4, 1, 999, 3, 1)");
-        authRequest(token).body(Map.of("title", "缺失任务项目", "taskTemplateId", "1"))
+        authRequest(token).body(Map.of(
+                        "title", "缺失任务项目",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(
+                                Map.of("baseTaskId", "2", "sort", 1, "parallelSort", 1),
+                                Map.of("baseTaskId", "999", "sort", 2, "parallelSort", 1))))
                 .post("/app/projects/1/items").then()
                 .statusCode(200).body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
         assertThat(jdbcTemplate.queryForList("SELECT title FROM item", String.class)).containsExactly("批量快照项目");
@@ -130,7 +143,10 @@ public class ItemApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (1, 1, '停用后的最新任务', '[]', 0, 1)");
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 1, 1, 1)");
 
-        authRequest(token).body(Map.of("title", "停用任务项目", "taskTemplateId", "1"))
+        authRequest(token).body(Map.of(
+                        "title", "停用任务项目",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items").then()
                 .statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
         Long itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE title = '停用任务项目'", Long.class);
@@ -165,7 +181,10 @@ public class ItemApiTest extends BaseApiTest {
         jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, meta_schema, status, creator_id) VALUES (2, 2, '组织B机密任务', '[{\"key\":\"secret\"}]', 1, 1)");
         jdbcTemplate.update("INSERT INTO task_template_node (id, task_template_id, base_task_id, sort, parallel_sort) VALUES (1, 1, 2, 1, 1)");
 
-        authRequest(token).body(Map.of("title", "泄露项目", "taskTemplateId", "1"))
+        authRequest(token).body(Map.of(
+                        "title", "泄露项目",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "2", "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items").then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
@@ -361,7 +380,8 @@ public class ItemApiTest extends BaseApiTest {
         Response response = authRequest(token)
                 .body(Map.of(
                         "title", "测试项目",
-                        "taskTemplateId", "1"
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))
                 ))
                 .post("/app/projects/1/items");
 
@@ -514,7 +534,10 @@ public class ItemApiTest extends BaseApiTest {
         );
 
         Response response = authRequest(token)
-                .body(Map.of("title", "测试项目", "taskTemplateId", "1"))
+                .body(Map.of(
+                        "title", "测试项目",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items");
 
         response.then()
@@ -609,7 +632,10 @@ public class ItemApiTest extends BaseApiTest {
                 .queryParam("pageSize", 10)
                 .get("/app/projects/1/items"));
         assertProjectNotFound(authRequest(token)
-                .body(Map.of("title", "新项目", "taskTemplateId", "1"))
+                .body(Map.of(
+                        "title", "新项目",
+                        "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))))
                 .post("/app/projects/1/items"));
         assertProjectNotFound(authRequest(token).get("/app/item/1/flow"));
     }
