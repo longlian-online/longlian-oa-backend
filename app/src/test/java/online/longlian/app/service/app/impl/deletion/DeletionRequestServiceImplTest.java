@@ -75,7 +75,7 @@ class DeletionRequestServiceImplTest {
         when(projectService.requireCreatorProjectTitle(9L, 2L, 1L)).thenReturn("作品");
         when(itemService.hasProjectItems(9L)).thenReturn(true);
         when(itemService.requireItemTitle(9L, 8L)).thenReturn("第一章");
-        when(itemService.hasSubmittedTask(8L)).thenReturn(true);
+        when(itemService.hasSubmissionRecord(8L)).thenReturn(true);
         when(requestMapper.insert(any(DeletionRequest.class))).thenAnswer(invocation -> {
             DeletionRequest request = invocation.getArgument(0);
             request.setId(request.getTargetType() == DeletionTargetType.PROJECT ? 55L : 56L);

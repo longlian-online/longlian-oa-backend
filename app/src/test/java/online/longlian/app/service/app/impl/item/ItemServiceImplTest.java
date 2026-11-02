@@ -608,7 +608,7 @@ class ItemServiceImplTest {
     }
 
     @Test
-    void deleteProjectItem_withoutSubmittedTask_reusesSoftDeleteCascade() {
+    void deleteProjectItem_withoutSubmissionRecord_reusesSoftDeleteCascade() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskFlow.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
@@ -629,14 +629,14 @@ class ItemServiceImplTest {
     }
 
     @Test
-    void deleteProjectItem_withSubmittedTask_rejectsWithoutDeleting() {
+    void deleteProjectItem_withSubmissionRecord_rejectsWithoutDeleting() {
         when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).build());
         when(taskSubmissionMapper.selectCount(any())).thenReturn(1L);
 
         assertThatThrownBy(() -> service.deleteProjectItem(deleteParams(1L)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在已提交任务，请提交删除申请");
+                    assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在提交记录，请提交删除申请");
                 });
         verify(itemMapper, never()).update(isNull(), any());
         verifyNoInteractions(resourceService);

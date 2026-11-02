@@ -88,6 +88,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
                 .itemTitle(item.getTitle())
                 .name(flow.getName())
                 .description(flow.getDescription())
+                .hasSubmissionRecord(!submittedInstanceIds.isEmpty())
                 .nodes(itemTaskFlowAssembler.assembleNodes(nodes, instances, submittedInstanceIds))
                 .build();
     }

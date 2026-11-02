@@ -90,7 +90,7 @@ public class ItemOrderApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldExposeDeletionRequestEligibilityOnlyForCurrentSubmissions() {
+    void shouldExposeDeletionRequestEligibilityForAnySubmissionRecord() {
         String token = seed();
         jdbcTemplate.update("""
                 INSERT INTO task_submission
@@ -104,13 +104,30 @@ public class ItemOrderApiTest extends BaseApiTest {
         authRequest(token).queryParam("status", "").queryParam("pageSize", 100)
                 .get("/app/projects/1/items").then()
                 .body("code", equalTo(0)).body("data.list.id", equalTo(INITIAL))
-                .body("data.list.hasSubmittedTask", equalTo(List.of(false, true, false, false, false, false)));
+                .body("data.list.hasSubmissionRecord", equalTo(List.of(false, true, true, false, true, false)));
 
         save(token, INITIAL, REORDERED).then().body("code", equalTo(0));
         authRequest(token).queryParam("status", "").queryParam("pageSize", 100)
                 .get("/app/projects/1/items").then()
                 .body("code", equalTo(0)).body("data.list.id", equalTo(REORDERED))
-                .body("data.list.hasSubmittedTask", equalTo(List.of(false, false, true, false, false, false)));
+                .body("data.list.hasSubmissionRecord", equalTo(List.of(false, true, true, true, false, false)));
+    }
+
+    @Test
+    void shouldAcceptDeletionRequestForItemWithOnlyRejectedOrResetSubmissions() {
+        String token = seed();
+        jdbcTemplate.update("""
+                INSERT INTO task_submission
+                    (id, project_id, item_id, task_instance_id, item_task_node_id,
+                     submitter_id, version_no, status, deleted_at)
+                VALUES (102,1,2,102,102,1,1,2,NULL),
+                       (103,1,2,103,103,1,2,3,NULL)
+                """);
+        authRequest(token).body(Map.of("reason", "历史提交已作废"))
+                .post("/app/projects/1/items/2/deletion-requests").then()
+                .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM deletion_request WHERE target_type=2 AND target_id=2", Long.class)).isEqualTo(1L);
     }
 
     @Test
