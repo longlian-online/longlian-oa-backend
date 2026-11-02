@@ -48,7 +48,7 @@ public class ProductReleaseController {
         return new PageResultVO<>(list, page.getTotal());
     }
 
-    @Operation(summary = "当前已发布产品版本绑定的两端版本")
+    @Operation(summary = "当前已发布产品版本的信息")
     @GetMapping("/baseline")
     @ResponseMessage("ok")
     public ProductReleaseBaselineVO baseline() {
@@ -56,7 +56,11 @@ public class ProductReleaseController {
         if (baseline == null) {
             return null;
         }
-        return new ProductReleaseBaselineVO(baseline.getFrontendVersion(), baseline.getBackendVersion());
+        return new ProductReleaseBaselineVO(
+                baseline.getVersion(),
+                baseline.getFrontendVersion(),
+                baseline.getBackendVersion(),
+                baseline.getPublishedAt());
     }
 
     @Operation(summary = "产品版本详情")
