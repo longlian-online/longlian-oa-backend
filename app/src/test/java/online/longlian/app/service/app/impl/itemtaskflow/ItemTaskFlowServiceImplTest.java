@@ -13,6 +13,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
+import online.longlian.app.service.app.ItemService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,7 @@ class ItemTaskFlowServiceImplTest {
     @Mock private ItemTaskFlowAssembler itemTaskFlowAssembler;
     @Mock private ProjectMapper projectMapper;
     @Mock private ItemTaskFlowEditor itemTaskFlowEditor;
+    @Mock private ItemService itemService;
 
     private ItemTaskFlowServiceImpl service;
 
@@ -49,7 +51,7 @@ class ItemTaskFlowServiceImplTest {
     void setUp() {
         service = new ItemTaskFlowServiceImpl(itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskInstanceMapper, taskSubmissionMapper, itemTaskFlowAssembler, projectMapper,
-                itemTaskFlowEditor);
+                itemTaskFlowEditor, itemService);
     }
 
     @Test
@@ -117,7 +119,27 @@ class ItemTaskFlowServiceImplTest {
         assertThat(flowVO.getItemTitle()).isEqualTo("第3话");
         assertThat(flowVO.getName()).isEqualTo("漫画汉化流程");
         assertThat(flowVO.getDescription()).isEqualTo("流程说明");
+        assertThat(flowVO.getHasSubmissionRecord()).isFalse();
         assertThat(flowVO.getNodes()).hasSize(1);
         assertThat(flowVO.getNodes().getFirst().getName()).isEqualTo("翻译");
+    }
+
+    @Test
+    void getItemTaskFlow_usesItemSubmissionHistoryEvenWithoutActiveNodes() {
+        when(itemMapper.selectById(1L)).thenReturn(Item.builder()
+                .id(1L).projectId(2L).title("第3话").build());
+        when(projectMapper.selectById(2L)).thenReturn(Project.builder()
+                .id(2L).orgId(1L).resourceStatus(Status.ENABLED).build());
+        when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
+                .id(3L).itemId(1L).projectId(2L).name("漫画汉化流程").build());
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of());
+        when(itemService.hasSubmissionRecord(1L)).thenReturn(true);
+        when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of());
+
+        ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
+
+        assertThat(flowVO.getHasSubmissionRecord()).isTrue();
+        verify(itemService).hasSubmissionRecord(1L);
+        verify(taskInstanceMapper, never()).selectList(any());
     }
 }

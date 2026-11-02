@@ -2,11 +2,14 @@ package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ApplicationType;
 import org.springframework.stereotype.Component;
@@ -26,8 +29,9 @@ public class MemberAssembler {
 
     private final UserMapper userMapper;
     private final ResourceService resourceService;
+    private final ClaimedTaskLoadService claimedTaskLoadService;
 
-    public List<OrgMemberInfoResultBO> assembleMembers(List<OrganizationMember> members) {
+    public List<OrgMemberInfoResultBO> assembleMembers(Long orgId, List<OrganizationMember> members) {
         if (members.isEmpty()) {
             return Collections.emptyList();
         }
@@ -51,8 +55,14 @@ public class MemberAssembler {
                 .stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getUrl()));
 
+        // 当前接取任务数由任务域提供，批量取回后按接取人聚合，避免成员查询里再写任务统计 SQL
+        Map<Long, Long> claimedCountByUser = claimedTaskLoadService.listClaimedTasks(
+                        ClaimedTaskLoadParamsBO.builder().orgId(orgId).assigneeIds(userIds).build())
+                .stream()
+                .collect(Collectors.groupingBy(ClaimedTaskLoadResultBO::getAssigneeId, Collectors.counting()));
+
         return members.stream()
-                .map(member -> toMemberInfoResult(member, userMap, avatarUrlMap))
+                .map(member -> toMemberInfoResult(member, userMap, avatarUrlMap, claimedCountByUser))
                 .toList();
     }
 
@@ -88,7 +98,7 @@ public class MemberAssembler {
                 .toList();
     }
 
-    private OrgMemberInfoResultBO toMemberInfoResult(OrganizationMember member, Map<Long, User> userMap, Map<Long, String> avatarUrlMap) {
+    private OrgMemberInfoResultBO toMemberInfoResult(OrganizationMember member, Map<Long, User> userMap, Map<Long, String> avatarUrlMap, Map<Long, Long> claimedCountByUser) {
         User user = userMap.get(member.getUserId());
         return OrgMemberInfoResultBO.builder()
                 .id(member.getId())
@@ -99,6 +109,7 @@ public class MemberAssembler {
                 .joinedAt(member.getJoinedAt())
                 .lastSubmittedAt(member.getLastSubmittedAt())
                 .submitCount(member.getSubmitCount())
+                .claimedTaskCount(claimedCountByUser.getOrDefault(member.getUserId(), 0L).intValue())
                 .orgRole(member.getOrgRole())
                 .status(member.getStatus())
                 .build();

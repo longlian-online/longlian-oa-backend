@@ -7,9 +7,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.InviteConstants;
+import online.longlian.app.common.enumeration.MyTaskBucket;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.*;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
@@ -22,12 +25,15 @@ import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.*;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.orgadmin.OrganizationMemberService;
 import online.longlian.app.service.otp.OTPServiceFactory;
@@ -67,6 +73,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
     private final ApplicationReviewHandler applicationReviewHandler;
     private final MemberStatusHandler memberStatusHandler;
     private final MemberSubmissionHandler memberSubmissionHandler;
+    private final ClaimedTaskLoadService claimedTaskLoadService;
     private final LockService lockService;
     private final PlatformTransactionManager transactionManager;
 
@@ -106,7 +113,7 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
         if (members.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), memberPage.getTotal());
         }
-        return new PageResultBO<>(memberAssembler.assembleMembers(members), memberPage.getTotal());
+        return new PageResultBO<>(memberAssembler.assembleMembers(params.getOrgId(), members), memberPage.getTotal());
     }
 
     @Override
@@ -174,14 +181,43 @@ public class OrganizationMemberServiceImpl implements OrganizationMemberService 
 
     @Override
     public OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params) {
-        OrganizationMember member = organizationMemberMapper.selectById(params.getMemberId());
+        OrganizationMember member = requireMemberInOrg(params.getMemberId(), params.getOrgId());
+        return memberSubmissionHandler.getSubmitCounts(member);
+    }
+
+    @Override
+    public OrgMemberClaimedTaskResultBO getMemberClaimedTasks(OrgMemberClaimedTaskParamsBO params) {
+        OrganizationMember member = requireMemberInOrg(params.getMemberId(), params.getOrgId());
+        List<ClaimedTaskLoadResultBO> tasks = claimedTaskLoadService.listClaimedTasks(
+                ClaimedTaskLoadParamsBO.builder()
+                        .orgId(member.getOrgId())
+                        .assigneeIds(List.of(member.getUserId()))
+                        .build());
+        int waitingCount = (int) tasks.stream()
+                .filter(task -> task.getBucket() == MyTaskBucket.WAITING)
+                .count();
+        return OrgMemberClaimedTaskResultBO.builder()
+                .memberId(member.getId())
+                .userId(member.getUserId())
+                .totalCount(tasks.size())
+                .submittableCount(tasks.size() - waitingCount)
+                .waitingCount(waitingCount)
+                .list(tasks)
+                .build();
+    }
+
+    /**
+     * 成员必须属于操作者所在组织，否则不暴露其任务数据。
+     */
+    private OrganizationMember requireMemberInOrg(Long memberId, Long orgId) {
+        OrganizationMember member = organizationMemberMapper.selectById(memberId);
         if (member == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "成员不存在");
         }
-        if (!params.getOrgId().equals(member.getOrgId())) {
+        if (!orgId.equals(member.getOrgId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权操作该成员");
         }
-        return memberSubmissionHandler.getSubmitCounts(member);
+        return member;
     }
 
     @Override

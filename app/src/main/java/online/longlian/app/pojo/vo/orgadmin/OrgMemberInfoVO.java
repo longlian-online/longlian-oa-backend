@@ -38,6 +38,9 @@ public class OrgMemberInfoVO {
     @Schema(description = "任务提交总数")
     private Integer submitCount;
 
+    @Schema(description = "当前接取的任务数")
+    private Integer claimedTaskCount;
+
     @Schema(description = "组织内角色：ORG_OWNER-所有者，ORG_ADMIN-管理员，ORG_USER-普通组员")
     private String orgRole;
 

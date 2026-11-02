@@ -91,8 +91,7 @@ class ItemServiceImplTest {
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
                 taskSubmissionMapper, resourceService, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService,
                 organizationMembershipService, inboxNotificationService);
-        lenient().when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
-        lenient().when(taskSubmissionMapper.selectObjs(any())).thenReturn(List.of());
+        lenient().when(taskSubmissionMapper.selectItemIdsWithSubmissionHistory(any())).thenReturn(List.of());
         lenient().when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(1L));
     }
 
@@ -608,13 +607,13 @@ class ItemServiceImplTest {
     }
 
     @Test
-    void deleteProjectItem_withoutSubmittedTask_reusesSoftDeleteCascade() {
+    void deleteProjectItem_withoutSubmissionRecord_reusesSoftDeleteCascade() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskFlow.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskTemplate.class);
         when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).taskTemplateId(9L).build());
-        when(taskSubmissionMapper.selectCount(any())).thenReturn(0L);
+        when(taskSubmissionMapper.selectItemIdsWithSubmissionHistory(List.of(2L))).thenReturn(List.of());
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of(TaskInstance.builder().id(8L).itemId(2L).build()));
         when(itemMapper.update(isNull(), any())).thenReturn(1);
 
@@ -629,14 +628,14 @@ class ItemServiceImplTest {
     }
 
     @Test
-    void deleteProjectItem_withSubmittedTask_rejectsWithoutDeleting() {
+    void deleteProjectItem_withSubmissionRecord_rejectsWithoutDeleting() {
         when(itemMapper.selectById(2L)).thenReturn(Item.builder().id(2L).projectId(1L).build());
-        when(taskSubmissionMapper.selectCount(any())).thenReturn(1L);
+        when(taskSubmissionMapper.selectItemIdsWithSubmissionHistory(List.of(2L))).thenReturn(List.of(2L));
 
         assertThatThrownBy(() -> service.deleteProjectItem(deleteParams(1L)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在已提交任务，请提交删除申请");
+                    assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在提交记录，请提交删除申请");
                 });
         verify(itemMapper, never()).update(isNull(), any());
         verifyNoInteractions(resourceService);

@@ -122,7 +122,7 @@ public class ItemController {
                 .build());
     }
 
-    @Operation(summary = "删除项目", description = "仅企划负责人可删除。项目仍有已提交任务时请改为提交删除申请")
+    @Operation(summary = "删除项目", description = "仅企划负责人可删除从未提交过的项目。存在过提交记录（含已打回、已重置）时必须提交删除申请")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
     @DeleteMapping("/{itemId}")
@@ -139,7 +139,7 @@ public class ItemController {
                 .build());
     }
 
-    @Operation(summary = "提交项目删除申请", description = "项目存在已提交任务时，由企划负责人填写原因后提交，组织管理员审核通过后软删除")
+    @Operation(summary = "提交项目删除申请", description = "项目存在过提交记录（含已打回、已重置）时，由企划负责人填写原因后提交，组织管理员审核通过后软删除")
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")
     @PostMapping("/{itemId}/deletion-requests")

@@ -25,6 +25,7 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.OrganizationJoinOtp;
 import online.longlian.app.pojo.entity.OrganizationMember;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
 import online.longlian.app.service.common.LockService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.common.enumeration.OTPStatus;
@@ -73,6 +74,7 @@ class OrganizationMemberServiceImplTest {
     @Mock private ApplicationReviewHandler applicationReviewHandler;
     @Mock private MemberStatusHandler memberStatusHandler;
     @Mock private MemberSubmissionHandler memberSubmissionHandler;
+    @Mock private ClaimedTaskLoadService claimedTaskLoadService;
     @Mock private LockService lockService;
 
     private OrganizationMemberServiceImpl service;
@@ -88,7 +90,8 @@ class OrganizationMemberServiceImplTest {
         lenient().when(organizationMemberMapper.selectOne(any())).thenReturn(operator(InviteConstants.ROLE_ORG_OWNER, Status.ENABLED));
         service = new OrganizationMemberServiceImpl(clock, groupApplicationMapper, organizationMemberMapper,
                 organizationJoinOtpMapper, oneTimePasswordMapper, otpServiceFactory, memberQueryBuilder, memberAssembler,
-                applicationReviewHandler, memberStatusHandler, memberSubmissionHandler, lockService, transactions);
+                applicationReviewHandler, memberStatusHandler, memberSubmissionHandler, claimedTaskLoadService,
+                lockService, transactions);
     }
 
     @Test

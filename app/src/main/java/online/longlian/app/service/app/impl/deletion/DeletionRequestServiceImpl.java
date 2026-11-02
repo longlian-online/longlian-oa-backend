@@ -54,8 +54,8 @@ public class DeletionRequestServiceImpl implements DeletionRequestService {
     public void createItemRequest(Long projectId, Long itemId, Long userId, Long orgId, String reason) {
         projectService.requireCreatorProjectTitle(projectId, userId, orgId);
         String title = itemService.requireItemTitle(projectId, itemId);
-        if (!itemService.hasSubmittedTask(itemId)) {
-            throw new AppException(ResultCode.PARAM_ERROR, "项目没有已提交任务，不能提交删除申请");
+        if (!itemService.hasSubmissionRecord(itemId)) {
+            throw new AppException(ResultCode.PARAM_ERROR, "项目没有提交记录，不能提交删除申请");
         }
         insert(DeletionTargetType.ITEM, itemId, projectId, title, userId, orgId, reason);
     }
