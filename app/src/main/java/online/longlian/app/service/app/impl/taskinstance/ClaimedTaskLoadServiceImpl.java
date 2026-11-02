@@ -1,0 +1,73 @@
+package online.longlian.app.service.app.impl.taskinstance;
+
+import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.enumeration.MyTaskBucket;
+import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO;
+import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
+import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+/**
+ * 组员负载：SQL 只负责范围过滤（组织、指定接取人、CLAIMED）与按接取时间排序；
+ * 分组判定统一走 {@link StageUnlockPolicy}，与「我的待办」共用同一口径。
+ */
+@Service
+@RequiredArgsConstructor
+public class ClaimedTaskLoadServiceImpl implements ClaimedTaskLoadService {
+
+    private final TaskInstanceMapper taskInstanceMapper;
+
+    @Override
+    public List<ClaimedTaskLoadResultBO> listClaimedTasks(ClaimedTaskLoadParamsBO params) {
+        if (params.getAssigneeIds().isEmpty()) {
+            return List.of();
+        }
+        List<ClaimedTaskLoadRowBO> rows = taskInstanceMapper.selectClaimedTasksByAssignees(
+                params.getOrgId(), params.getAssigneeIds());
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        List<Long> itemIds = rows.stream().map(ClaimedTaskLoadRowBO::getItemId).distinct().toList();
+        Map<Long, List<ItemStageNodeStatusBO>> nodesByItem = taskInstanceMapper.selectItemStageNodeStatuses(itemIds)
+                .stream().collect(Collectors.groupingBy(ItemStageNodeStatusBO::getItemId));
+        return rows.stream()
+                .map(row -> toResult(row, nodesByItem.getOrDefault(row.getItemId(), Collections.emptyList())))
+                .toList();
+    }
+
+    private ClaimedTaskLoadResultBO toResult(ClaimedTaskLoadRowBO row, List<ItemStageNodeStatusBO> itemNodes) {
+        Optional<ItemStageNodeStatusBO> waiting = StageUnlockPolicy.nearestIncompletePredecessor(
+                row.getStageSort(), itemNodes);
+        SlotLabels.Position self = SlotLabels.of(row.getNodeId(), itemNodes);
+        SlotLabels.Position blocked = waiting
+                .map(node -> SlotLabels.of(node.getNodeId(), itemNodes))
+                .orElse(null);
+        return ClaimedTaskLoadResultBO.builder()
+                .assigneeId(row.getAssigneeId())
+                .instanceId(row.getInstanceId())
+                .itemId(row.getItemId())
+                .projectId(row.getProjectId())
+                .itemTitle(row.getItemTitle())
+                .projectName(row.getProjectName())
+                .nodeName(row.getNodeName())
+                .slotIndex(self.slotIndex())
+                .slotTotal(self.slotTotal())
+                .serialStep(self.serialStep())
+                .claimedAt(row.getClaimedAt())
+                .bucket(waiting.isPresent() ? MyTaskBucket.WAITING : MyTaskBucket.SUBMITTABLE)
+                .waitingStageName(waiting.map(ItemStageNodeStatusBO::getNodeName).orElse(null))
+                .waitingSlotIndex(blocked == null ? null : blocked.slotIndex())
+                .waitingSlotTotal(blocked == null ? null : blocked.slotTotal())
+                .waitingSerialStep(blocked == null ? null : blocked.serialStep())
+                .build();
+    }
+}

@@ -12,6 +12,8 @@ import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
@@ -77,6 +79,14 @@ public interface OrganizationMemberService {
      * @return 包含各基础任务提交数量的统计结果
      */
     OrgMemberBaseTaskSubmitCountResultBO getMemberBaseTaskSubmitCounts(OrgMemberBaseTaskSubmitCountParamsBO params);
+
+    /**
+     * 查询指定成员当前接取的任务，并按进行中（前置已全部完成）、等待中（存在未完成前置）拆分。
+     *
+     * @param params 包含成员 ID 和组织 ID 的查询参数
+     * @return 任务列表及三个分组的数量
+     */
+    OrgMemberClaimedTaskResultBO getMemberClaimedTasks(OrgMemberClaimedTaskParamsBO params);
 
     /**
      * 生成组织加入邀请码。

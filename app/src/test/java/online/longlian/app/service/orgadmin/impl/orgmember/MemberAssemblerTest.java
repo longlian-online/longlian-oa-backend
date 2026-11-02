@@ -1,12 +1,14 @@
 package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ApplicationType;
 import online.longlian.common.enumeration.Status;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
@@ -32,17 +35,19 @@ class MemberAssemblerTest {
     private UserMapper userMapper;
     @Mock
     private ResourceService resourceService;
+    @Mock
+    private ClaimedTaskLoadService claimedTaskLoadService;
 
     private MemberAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        assembler = new MemberAssembler(userMapper, resourceService);
+        assembler = new MemberAssembler(userMapper, resourceService, claimedTaskLoadService);
     }
 
     @Test
     void assembleMembers_emptyList_returnsEmpty() {
-        assertThat(assembler.assembleMembers(Collections.emptyList())).isEmpty();
+        assertThat(assembler.assembleMembers(100L, Collections.emptyList())).isEmpty();
     }
 
     @Test
@@ -55,13 +60,17 @@ class MemberAssemblerTest {
         when(userMapper.selectBatchIds(anyList())).thenReturn(List.of(user));
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(200L, new ResourceReadUrlGetResultBO("https://cdn/avatar.png", 100L, "avatar/200")));
+        when(claimedTaskLoadService.listClaimedTasks(any())).thenReturn(List.of(
+                ClaimedTaskLoadResultBO.builder().assigneeId(10L).instanceId(1L).build(),
+                ClaimedTaskLoadResultBO.builder().assigneeId(10L).instanceId(2L).build()));
 
-        List<OrgMemberInfoResultBO> result = assembler.assembleMembers(List.of(member));
+        List<OrgMemberInfoResultBO> result = assembler.assembleMembers(100L, List.of(member));
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNickname()).isEqualTo("Alice");
         assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://cdn/avatar.png");
         assertThat(result.get(0).getSubmitCount()).isEqualTo(5);
+        assertThat(result.get(0).getClaimedTaskCount()).isEqualTo(2);
     }
 
     @Test
@@ -72,12 +81,14 @@ class MemberAssemblerTest {
                 .build();
         when(userMapper.selectBatchIds(anyList())).thenReturn(Collections.emptyList());
         when(resourceService.getResourceReadUrls(anyList())).thenReturn(Collections.emptyMap());
+        when(claimedTaskLoadService.listClaimedTasks(any())).thenReturn(Collections.emptyList());
 
-        List<OrgMemberInfoResultBO> result = assembler.assembleMembers(List.of(member));
+        List<OrgMemberInfoResultBO> result = assembler.assembleMembers(100L, List.of(member));
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNickname()).isNull();
         assertThat(result.get(0).getAvatarUrl()).isNull();
+        assertThat(result.get(0).getClaimedTaskCount()).isZero();
     }
 
     @Test
