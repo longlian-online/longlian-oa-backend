@@ -1,0 +1,20 @@
+package online.longlian.app.pojo.vo.admin;
+
+import lombok.Builder;
+import lombok.Data;
+import online.longlian.common.enumeration.ProductReleaseStatus;
+
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+public class ProductReleaseListItemVO {
+    private Long id;
+    private String version;
+    private String frontendVersion;
+    private String backendVersion;
+    private String title;
+    private ProductReleaseStatus status;
+    private LocalDateTime publishedAt;
+    private LocalDateTime updatedAt;
+}

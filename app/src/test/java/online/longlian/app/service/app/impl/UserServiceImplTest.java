@@ -132,6 +132,20 @@ class UserServiceImplTest {
                 .email("user@example.com").config(config).build());
 
         assertThat(service.getEmailNotificationRecipient(1L).isEmailNotificationsEnabled()).isEqualTo(enabled);
+        assertThat(service.getEmailNotificationRecipient(1L).rejectsKind(online.longlian.common.enumeration.InboxNotificationKind.TASK_READY))
+                .isFalse();
+    }
+
+    @Test
+    void shouldReportKindRejectionSeparatelyFromTheEmailSwitch() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).email("user@example.com")
+                .config("{\"notificationKinds\":{\"TASK_READY\":false}}").build());
+
+        var recipient = service.getEmailNotificationRecipient(1L);
+
+        assertThat(recipient.isEmailNotificationsEnabled()).isTrue();
+        assertThat(recipient.rejectsKind(online.longlian.common.enumeration.InboxNotificationKind.TASK_READY)).isTrue();
+        assertThat(recipient.rejectsKind(online.longlian.common.enumeration.InboxNotificationKind.ITEM_COMPLETED)).isFalse();
     }
 
     @Test
