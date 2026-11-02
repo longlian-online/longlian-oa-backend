@@ -1,6 +1,7 @@
 package online.longlian.app.common.result;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.alibaba.fastjson2.JSONWriter;
+import com.alibaba.fastjson2.annotation.JSONType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 /**
@@ -9,6 +10,8 @@ import lombok.Data;
  */
 @Data
 @Schema(description = "通用返回结果")
+// 成功但无业务数据时也要输出 data:null，否则前端拿到的是 undefined 而不是 null。
+@JSONType(serializeFeatures = JSONWriter.Feature.WriteNulls)
 public class Result<T> {
     @Schema(description = "状态码：0 为成功，非0即异常")
     private int code;
@@ -17,7 +20,6 @@ public class Result<T> {
     private String msg;
 
     @Schema(description = "业务数据（成功时返回，失败时为null）")
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     private T data;
 
     private Result(int code, String msg, T data) {
