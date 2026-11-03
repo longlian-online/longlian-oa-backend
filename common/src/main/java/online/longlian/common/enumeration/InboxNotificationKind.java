@@ -12,7 +12,8 @@ public enum InboxNotificationKind implements CodeEnum {
     ITEM_COMPLETED(2, "项目完成"),
     TASK_ASSIGNED(3, "任务分配"),
     JOIN_APPLICATION(4, "入组申请"),
-    DELETION_REQUEST(5, "删除申请");
+    DELETION_REQUEST(5, "删除申请"),
+    TASK_REJECTED(6, "任务打回");
 
     private final Integer code;
     private final String desc;

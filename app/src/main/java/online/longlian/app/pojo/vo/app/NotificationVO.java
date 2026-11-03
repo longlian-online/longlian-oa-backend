@@ -15,7 +15,7 @@ public class NotificationVO {
     @JsonLongIdString
     @Schema(type = "string")
     private Long id;
-    @Schema(allowableValues = {"TASK_READY", "ITEM_COMPLETED", "TASK_ASSIGNED", "JOIN_APPLICATION", "DELETION_REQUEST"})
+    @Schema(allowableValues = {"TASK_READY", "ITEM_COMPLETED", "TASK_ASSIGNED", "JOIN_APPLICATION", "DELETION_REQUEST", "TASK_REJECTED"})
     private String kind;
     @JsonLongIdString
     @Schema(type = "string")

@@ -10,6 +10,7 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
@@ -271,8 +272,8 @@ public class TaskInstanceCommandHandler {
     }
 
     /** 当前有效提交精确打回一次；保留原接取人、接取时间及所有成果历史。 */
-    public void reject(TaskInstance instance, Long userId, boolean projectCreator,
-                       String expectedRevision, String reviewComment) {
+    public TaskInstanceRejectResultBO reject(TaskInstance instance, Long userId, boolean projectCreator,
+                                             String expectedRevision, String reviewComment) {
         requireRevision(instance, expectedRevision);
         if (instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可打回");
@@ -316,6 +317,7 @@ public class TaskInstanceCommandHandler {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前提交状态已变更，请刷新后重试");
         }
         memberSubmitCountHandler.revertSubmitCount(currentSubmission.getSubmitterId(), instance.getProjectId());
+        return new TaskInstanceRejectResultBO(currentSubmission.getId(), now);
     }
 
     private void requireRevision(TaskInstance instance, String expectedRevision) {
