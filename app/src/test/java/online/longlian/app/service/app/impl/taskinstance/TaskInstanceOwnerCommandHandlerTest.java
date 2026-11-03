@@ -105,8 +105,10 @@ class TaskInstanceOwnerCommandHandlerTest {
         when(taskInstanceMapper.update(isNull(), any())).thenReturn(1);
         when(taskSubmissionMapper.update(isNull(), any())).thenReturn(1);
 
-        handler.reject(instance, 20L, true, "7", REASON);
+        var result = handler.reject(instance, 20L, true, "7", REASON);
 
+        assertThat(result.getSubmissionId()).isEqualTo(41L);
+        assertThat(result.getTriggeredAt()).isEqualTo(NOW);
         LambdaUpdateWrapper<TaskInstance> update = capturedInstanceUpdate();
         assertTransition(update, TaskInstanceStatus.COMPLETED, TaskInstanceStatus.CLAIMED, 7L);
         assertThat(update.getSqlSet()).doesNotContain("assignee_id", "claimed_at");

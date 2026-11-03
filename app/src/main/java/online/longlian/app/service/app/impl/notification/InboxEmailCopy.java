@@ -16,7 +16,16 @@ final class InboxEmailCopy {
             case TASK_READY -> taskTitle(source) + "的前置步骤已完成，你接取的「" + slotLabel(source.getTaskSlot()) + "」可以开始了。";
             case TASK_ASSIGNED -> taskTitle(source) + "的「" + slotLabel(source.getTaskSlot()) + "」已分配给你，无需手动领取。";
             case ITEM_COMPLETED -> taskTitle(source) + "的全部任务已完成。";
+            case TASK_REJECTED -> rejectedCopy(source);
         };
+    }
+
+    private static String rejectedCopy(NotificationSourceResultBO source) {
+        String message = taskTitle(source) + "的「" + slotLabel(source.getTaskSlot()) + "」被打回，请修改后重新提交。";
+        if (source.getReviewComment() != null && !source.getReviewComment().isBlank()) {
+            message += "打回意见：" + source.getReviewComment();
+        }
+        return message;
     }
 
     private static String taskTitle(NotificationSourceResultBO source) {

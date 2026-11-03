@@ -381,6 +381,44 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 Arguments.of("reject", 1), Arguments.of("reject", 2));
     }
 
+    /** 打回后给原接取人发站内信和邮件，通知绑定被打回的那一版提交。 */
+    @Test
+    void shouldNotifyOriginalAssigneeWithRejectedSubmissionSource() {
+        Tokens tokens = createWorkflow();
+        assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
+        Long submissionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM task_submission WHERE task_instance_id = 1", Long.class);
+
+        assertCode(operate(tokens.owner(), "reject", "1", "第三页需要修改"), ResultCode.SUCCESS);
+
+        Map<String, Object> notification = jdbcTemplate.queryForMap(
+                "SELECT * FROM user_notification WHERE kind = 6");
+        assertThat(notification.get("recipient_user_id")).isEqualTo(2L);
+        assertThat(((Number) notification.get("kind")).intValue()).isEqualTo(6);
+        assertThat(notification.get("source_id")).isEqualTo(submissionId);
+        assertThat(notification.get("trigger_id")).isEqualTo(submissionId);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM outbox_message WHERE payload LIKE '%TASK_REJECTED%'", Integer.class)).isEqualTo(1);
+
+        authRequest(tokens.worker()).get("/app/notifications").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.kind", equalTo(List.of("TASK_REJECTED")))
+                .body("data.list.sourceId", equalTo(List.of(String.valueOf(submissionId))))
+                .body("data.list.source.itemTitle", equalTo(List.of("项目")))
+                .body("data.list.source.reviewComment", equalTo(List.of("第三页需要修改")));
+    }
+
+    /** 打回失败时不能留下站内信或邮件发件箱记录。 */
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    void shouldNotNotifyWhenRejectIsRejected(int status) {
+        Tokens tokens = createWorkflow();
+        jdbcTemplate.update("UPDATE task_instance SET status = ? WHERE id = 1", status);
+        assertCode(operate(tokens.owner(), "reject", "0", "非法状态"), ResultCode.OPERATION_FAIL);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_notification", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM outbox_message", Integer.class)).isZero();
+    }
+
     @ParameterizedTest
     @MethodSource("invalidStates")
     void shouldRejectInvalidSourceStateWithoutSideEffects(String action, int status) {

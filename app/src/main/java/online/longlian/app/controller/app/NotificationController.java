@@ -63,7 +63,8 @@ public class NotificationController {
             sourceVO = new NotificationSourceVO(source.getProjectId(), source.getProjectTitle(), source.getItemId(),
                     source.getItemTitle(), slot == null ? null : new NotificationTaskSlotVO(slot.getName(),
                     slot.getSlotIndex(), slot.getSlotTotal(), slot.getSerialStep()), source.getApplicantName(),
-                    source.getRequesterName(), source.getTargetType(), source.getTargetTitle());
+                    source.getRequesterName(), source.getTargetType(), source.getTargetTitle(),
+                    source.getTaskInstanceId(), source.getReviewComment());
         }
         return new NotificationVO(notification.getId(), notification.getKind().name(), notification.getSourceId(),
                 notification.getCreatedAt(), notification.getReadAt(), sourceVO, notification.getThumbnailUrl());
