@@ -18,6 +18,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class NotificationSourceResolverTest {
     @Mock TaskInstanceMapper tasks;
+    @Mock TaskSubmissionMapper submissions;
     @Mock ItemMapper items;
     @Mock ProjectMapper projects;
     @Mock GroupApplicationMapper applications;
@@ -27,7 +28,79 @@ class NotificationSourceResolverTest {
 
     @BeforeEach
     void setUp() {
-        resolver = new NotificationSourceResolver(tasks, items, projects, applications, deletions, users);
+        resolver = new NotificationSourceResolver(tasks, submissions, items, projects, applications, deletions, users);
+    }
+
+    @Test
+    void shouldResolveRejectedSubmissionToTaskInstanceWithItsOwnComment() {
+        when(submissions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                TaskSubmission.builder().id(501L).taskInstanceId(7L).status(TaskSubmissionStatus.REJECTED)
+                        .reviewComment("  第三页缺图  ").build()));
+        when(tasks.selectBatchIds(anyCollection())).thenReturn(List.of(TaskInstance.builder().id(7L)
+                .itemId(8L).projectId(9L).itemTaskNodeId(11L).status(TaskInstanceStatus.CLAIMED).assigneeId(20L).build()));
+        when(items.selectBatchIds(anyCollection())).thenReturn(List.of(
+                Item.builder().id(8L).projectId(9L).title("项目").build()));
+        when(projects.selectList(any())).thenReturn(List.of(
+                Project.builder().id(9L).orgId(1L).title("企划").thumbnailFileId(20L).coverFileId(21L).build()));
+        when(tasks.selectItemStageNodeStatuses(anyList())).thenReturn(List.of(
+                new ItemStageNodeStatusBO(8L, 11L, "翻译", 2, 1, false),
+                new ItemStageNodeStatusBO(8L, 12L, "翻译", 1, 1, false)));
+
+        Map<Long, NotificationResolvedSourceBO> result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.TASK_REJECTED, 501L))));
+
+        NotificationSourceResultBO source = result.get(1L).getSource();
+        assertThat(source.getTaskInstanceId()).isEqualTo(7L);
+        assertThat(source.getReviewComment()).isEqualTo("第三页缺图");
+        assertThat(source.getTaskSlot().getSerialStep()).isEqualTo(2);
+        assertThat(source.getItemId()).isEqualTo(8L);
+        assertThat(source.getProjectId()).isEqualTo(9L);
+        assertThat(result.get(1L).getImageResourceIds()).containsExactly(20L, 21L);
+        verify(tasks).selectBatchIds(List.of(7L));
+    }
+
+    /** 同一任务后续已有新提交时，旧打回通知仍读被绑定的那一版意见。 */
+    @Test
+    void shouldKeepCommentOfTheRejectedSubmissionVersion() {
+        when(submissions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                TaskSubmission.builder().id(501L).taskInstanceId(7L).status(TaskSubmissionStatus.REJECTED)
+                        .reviewComment("旧版意见").build()));
+        when(tasks.selectBatchIds(anyCollection())).thenReturn(List.of(TaskInstance.builder().id(7L)
+                .itemId(8L).projectId(9L).itemTaskNodeId(11L).build()));
+        when(items.selectBatchIds(anyCollection())).thenReturn(List.of(
+                Item.builder().id(8L).projectId(9L).title("项目").build()));
+        when(projects.selectList(any())).thenReturn(List.of(Project.builder().id(9L).orgId(1L).title("企划").build()));
+        when(tasks.selectItemStageNodeStatuses(anyList())).thenReturn(List.of(
+                new ItemStageNodeStatusBO(8L, 11L, "翻译", 1, 1, false)));
+
+        Map<Long, NotificationResolvedSourceBO> result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.TASK_REJECTED, 501L))));
+
+        assertThat(result.get(1L).getSource().getReviewComment()).isEqualTo("旧版意见");
+        verify(submissions).selectBatchIds(List.of(501L));
+    }
+
+    @Test
+    void shouldMarkRejectedSourceUnavailableWhenSubmissionNotRejectedOrRelationshipsMissing() {
+        when(submissions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                TaskSubmission.builder().id(501L).taskInstanceId(7L).status(TaskSubmissionStatus.SUBMITTED).build(),
+                TaskSubmission.builder().id(502L).taskInstanceId(7L).status(TaskSubmissionStatus.REJECTED).build(),
+                TaskSubmission.builder().id(503L).taskInstanceId(99L).status(TaskSubmissionStatus.REJECTED).build()));
+        when(tasks.selectBatchIds(anyCollection())).thenReturn(List.of(TaskInstance.builder().id(7L)
+                .itemId(8L).projectId(9L).itemTaskNodeId(11L).build()));
+        when(items.selectBatchIds(anyCollection())).thenReturn(List.of(
+                Item.builder().id(8L).projectId(9L).title("项目").build()));
+        when(projects.selectList(any())).thenReturn(List.of());
+
+        Map<Long, NotificationResolvedSourceBO> result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.TASK_REJECTED, 501L),
+                new NotificationSourceRefBO(2L, InboxNotificationKind.TASK_REJECTED, 502L),
+                new NotificationSourceRefBO(3L, InboxNotificationKind.TASK_REJECTED, 999L))));
+
+        for (long id : List.of(1L, 2L, 3L)) {
+            assertThat(result.get(id).getSource()).isNull();
+            assertThat(result.get(id).getImageResourceIds()).isEmpty();
+        }
     }
 
     @Test

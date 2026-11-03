@@ -321,16 +321,20 @@ class NotificationApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldNotNotifyForErrorsResetOrRejectItself() {
+    void shouldNotNotifyForErrorsOrResetButNotifyForReject() {
         assertThat(submit(next,201).jsonPath().getInt("code")).isNotZero();
         assertThat(submit(owner,101).jsonPath().getInt("code")).isNotZero();
         success(submit(worker,101));
         success(authRequest(worker,1).post("/app/task/instance/101/reset"));
         success(submit(worker,101));
         String revision=jdbcTemplate.queryForObject("SELECT revision FROM task_instance WHERE id=101",String.class);
+        assertThat(notifications()).isEmpty();
+        assertThat(outbox()).isEmpty();
         success(authRequest(owner,1).body(Map.of("expectedRevision",revision,"reviewComment","重新处理"))
                 .post("/app/task/instance/101/reject"));
-        assertThat(notifications()).isEmpty();
+        var rejected=notifications().stream().filter(row -> ((Number) row.get("kind")).intValue() == 6).toList();
+        assertThat(rejected).singleElement().satisfies(row -> assertThat(row.get("recipient_user_id")).isEqualTo(2L));
+        assertThat(outbox().stream().map(row -> payloadOf(row).getString("kind"))).contains("TASK_REJECTED");
     }
 
     @Test

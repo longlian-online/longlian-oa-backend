@@ -70,6 +70,12 @@ final class InboxEmailLink {
                 .queryParam("itemId", source.getItemId());
         if (kind == InboxNotificationKind.TASK_READY || kind == InboxNotificationKind.TASK_ASSIGNED) {
             builder.queryParam("taskInstanceId", sourceId);
+        } else if (kind == InboxNotificationKind.TASK_REJECTED) {
+            // 打回通知的 sourceId 是提交记录，跳转需要提交所属的任务实例。
+            if (source.getTaskInstanceId() == null) {
+                throw new IllegalStateException("来源不可用");
+            }
+            builder.queryParam("taskInstanceId", source.getTaskInstanceId());
         }
         return builder.queryParam("notificationId", notificationId).encode().build().toUriString();
     }

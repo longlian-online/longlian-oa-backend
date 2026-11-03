@@ -125,6 +125,65 @@ class InboxEmailOutboxHandlerTest {
     }
 
     @Test
+    void shouldSendRejectionCopyWithCommentAndTaskInstanceLink() throws Exception {
+        String rejected = "「企划 · 项目」的「翻译 · 2/2」被打回，请修改后重新提交。打回意见：第三页缺图";
+        NotificationSourceResultBO source = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目")
+                .taskSlot(new NotificationTaskSlotBO("翻译", 2, 2, null))
+                .taskInstanceId(303L).reviewComment("第三页缺图").build();
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(source, List.of())));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+
+        handler.deliver(message(InboxNotificationKind.TASK_REJECTED, 202L), EXECUTE_TIME);
+
+        assertThat(sent().content()).contains(HtmlUtils.htmlEscape(rejected));
+        assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
+                "https://oa.example/go?type=TASK_REJECTED&orgId=1&projectId=1&itemId=7&taskInstanceId=303&notificationId=9") + "\"");
+        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 任务打回");
+        assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_REJECTED, source)).isEqualTo(rejected);
+    }
+
+    @Test
+    void shouldOmitBlankRejectionCommentAndEscapeComment() throws Exception {
+        NotificationSourceResultBO blank = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目")
+                .taskSlot(new NotificationTaskSlotBO("翻译", 1, 1, null)).taskInstanceId(303L)
+                .reviewComment("  ").build();
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(blank, List.of())));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+        handler.deliver(message(InboxNotificationKind.TASK_REJECTED, 202L), EXECUTE_TIME);
+        assertThat(sent().content()).contains(HtmlUtils.htmlEscape("「企划 · 项目」的「翻译」被打回，请修改后重新提交。"));
+        assertThat(sent().content()).doesNotContain("打回意见");
+
+        NotificationSourceResultBO escaped = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目")
+                .taskSlot(new NotificationTaskSlotBO("翻译", 1, 1, null)).taskInstanceId(303L)
+                .reviewComment("<b>改</b>").build();
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(escaped, List.of())));
+        handler.deliver(message(InboxNotificationKind.TASK_REJECTED, 202L), EXECUTE_TIME);
+        assertThat(sent().content()).contains(HtmlUtils.htmlEscape("打回意见：<b>改</b>"));
+        assertThat(sent().content()).doesNotContain("<b>改</b>");
+    }
+
+    @Test
+    void shouldSkipRejectionWhenTaskInstanceOrSlotMissing() {
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+        NotificationSourceResultBO noInstance = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目")
+                .taskSlot(new NotificationTaskSlotBO("翻译", 1, 1, null)).build();
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(noInstance, List.of())));
+        assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_REJECTED, 202L), EXECUTE_TIME))
+                .isInstanceOf(OutboxSkipException.class).hasMessage("来源不可用");
+
+        NotificationSourceResultBO noSlot = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目").taskInstanceId(303L).build();
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(noSlot, List.of())));
+        assertThatThrownBy(() -> handler.deliver(message(InboxNotificationKind.TASK_REJECTED, 202L), EXECUTE_TIME))
+                .isInstanceOf(OutboxSkipException.class).hasMessage("来源不可用");
+        verifyNoInteractions(mailUtil);
+    }
+
+    @Test
     void shouldSendJoinAndDeletionReviewCopyToAdministrators() throws Exception {
         String joined = "「小周」申请加入组织。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(

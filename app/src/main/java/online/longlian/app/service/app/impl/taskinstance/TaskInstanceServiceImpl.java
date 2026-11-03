@@ -24,6 +24,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
@@ -259,8 +260,13 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     public void rejectTask(TaskInstanceRejectParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
             boolean projectCreator = params.getUserId().equals(project.getCreatorId());
-            taskInstanceCommandHandler.reject(instance, params.getUserId(), projectCreator,
-                    params.getExpectedRevision(), params.getReviewComment());
+            TaskInstanceRejectResultBO result = taskInstanceCommandHandler.reject(instance, params.getUserId(),
+                    projectCreator, params.getExpectedRevision(), params.getReviewComment());
+            if (instance.getAssigneeId() != null) {
+                inboxNotificationService.createBatch(new NotificationBatchCreateParamsBO(project.getOrgId(),
+                        List.of(new NotificationCreateBO(instance.getAssigneeId(), InboxNotificationKind.TASK_REJECTED,
+                                result.getSubmissionId(), result.getSubmissionId(), result.getTriggeredAt()))));
+            }
             if (projectCreator) {
                 logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), params.getReviewComment(),
                         UserOperationType.TASK_REJECT, "OWNER_REJECT");

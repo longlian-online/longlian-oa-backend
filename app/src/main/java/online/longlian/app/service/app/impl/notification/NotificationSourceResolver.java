@@ -7,6 +7,7 @@ import online.longlian.app.mapper.GroupApplicationMapper;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.app.*;
 import online.longlian.app.pojo.entity.DeletionRequest;
@@ -14,10 +15,12 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
+import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.app.impl.taskinstance.SlotLabels;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -33,6 +36,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class NotificationSourceResolver {
     private final TaskInstanceMapper taskInstanceMapper;
+    private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemMapper itemMapper;
     private final ProjectMapper projectMapper;
     private final GroupApplicationMapper groupApplicationMapper;
@@ -46,9 +50,18 @@ public class NotificationSourceResolver {
         Map<InboxNotificationKind, List<NotificationSourceRefBO>> groups = params.getSources().stream()
                 .collect(Collectors.groupingBy(NotificationSourceRefBO::getKind,
                         () -> new EnumMap<>(InboxNotificationKind.class), Collectors.toList()));
+        List<Long> rejectedSubmissionIds = sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_REJECTED, List.of()));
+        Map<Long, TaskSubmission> rejectedSubmissions = rejectedSubmissionIds.isEmpty() ? Map.of()
+                : taskSubmissionMapper.selectBatchIds(rejectedSubmissionIds).stream()
+                        .collect(Collectors.toMap(TaskSubmission::getId, Function.identity()));
+        List<Long> rejectedTaskIds = rejectedSubmissions.values().stream()
+                .filter(submission -> submission.getStatus() == TaskSubmissionStatus.REJECTED)
+                .map(TaskSubmission::getTaskInstanceId).filter(Objects::nonNull).distinct().toList();
         List<Long> taskIds = java.util.stream.Stream.concat(
-                        sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_READY, List.of())).stream(),
-                        sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_ASSIGNED, List.of())).stream())
+                        java.util.stream.Stream.concat(
+                                sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_READY, List.of())).stream(),
+                                sourceIds(groups.getOrDefault(InboxNotificationKind.TASK_ASSIGNED, List.of())).stream()),
+                        rejectedTaskIds.stream())
                 .distinct().toList();
         Map<Long, TaskInstance> tasks = taskIds.isEmpty() ? Map.of() : taskInstanceMapper.selectBatchIds(taskIds)
                 .stream().collect(Collectors.toMap(TaskInstance::getId, Function.identity()));
@@ -71,6 +84,8 @@ public class NotificationSourceResolver {
         for (var group : groups.entrySet()) {
             Map<Long, NotificationResolvedSourceBO> sources = switch (group.getKey()) {
                 case TASK_READY, TASK_ASSIGNED -> resolveTaskSources(sourceIds(group.getValue()), tasks, items, projects, nodes);
+                case TASK_REJECTED -> resolveRejectedSources(sourceIds(group.getValue()), rejectedSubmissions,
+                        tasks, items, projects, nodes);
                 case ITEM_COMPLETED -> resolveItemSources(sourceIds(group.getValue()), items, projects);
                 case JOIN_APPLICATION -> resolveJoinSources(params.getOrgId(), sourceIds(group.getValue()));
                 case DELETION_REQUEST -> resolveDeletionSources(params.getOrgId(), sourceIds(group.getValue()));
@@ -97,21 +112,67 @@ public class NotificationSourceResolver {
         Map<Long, NotificationResolvedSourceBO> sources = new HashMap<>();
         for (Long id : ids) {
             TaskInstance task = tasks.get(id);
-            List<ItemStageNodeStatusBO> itemNodes = task == null ? List.of() : nodes.getOrDefault(task.getItemId(), List.of());
-            ItemStageNodeStatusBO node = task == null ? null : itemNodes.stream()
-                    .filter(candidate -> task.getItemTaskNodeId().equals(candidate.getNodeId())).findFirst().orElse(null);
-            if (task == null || !visibleTask(task, items, projects) || node == null) {
+            NotificationTaskSlotBO slot = task == null ? null : taskSlot(task, nodes);
+            if (task == null || slot == null || !visibleTask(task, items, projects)) {
                 sources.put(id, unavailable());
                 continue;
             }
             Item item = items.get(task.getItemId());
             Project project = projects.get(item.getProjectId());
-            SlotLabels.Position position = SlotLabels.of(node.getNodeId(), itemNodes);
-            NotificationTaskSlotBO slot = new NotificationTaskSlotBO(node.getNodeName(), position.slotIndex(),
-                    position.slotTotal(), position.serialStep());
             sources.put(id, resolved(project, item, slot));
         }
         return sources;
+    }
+
+    /**
+     * 打回通知的来源ID是提交记录：只接受已打回提交，再合并其任务实例读视图。
+     * 打回意见取那一版提交的 review_comment，不读任务实例上的最新提交。
+     */
+    private Map<Long, NotificationResolvedSourceBO> resolveRejectedSources(List<Long> ids,
+            Map<Long, TaskSubmission> submissions, Map<Long, TaskInstance> tasks, Map<Long, Item> items,
+            Map<Long, Project> projects, Map<Long, List<ItemStageNodeStatusBO>> nodes) {
+        Map<Long, NotificationResolvedSourceBO> sources = new HashMap<>();
+        for (Long id : ids) {
+            TaskSubmission submission = submissions.get(id);
+            TaskInstance task = submission == null || submission.getTaskInstanceId() == null
+                    ? null : tasks.get(submission.getTaskInstanceId());
+            NotificationTaskSlotBO slot = task == null ? null : taskSlot(task, nodes);
+            if (submission == null || submission.getStatus() != TaskSubmissionStatus.REJECTED
+                    || task == null || slot == null || !visibleTask(task, items, projects)) {
+                sources.put(id, unavailable());
+                continue;
+            }
+            Item item = items.get(task.getItemId());
+            Project project = projects.get(item.getProjectId());
+            NotificationSourceResultBO source = NotificationSourceResultBO.builder()
+                    .projectId(project.getId()).projectTitle(project.getTitle())
+                    .itemId(item.getId()).itemTitle(item.getTitle())
+                    .taskSlot(slot)
+                    .taskInstanceId(task.getId())
+                    .reviewComment(reviewComment(submission.getReviewComment()))
+                    .build();
+            sources.put(id, new NotificationResolvedSourceBO(source, projectImages(project)));
+        }
+        return sources;
+    }
+
+    private NotificationTaskSlotBO taskSlot(TaskInstance task, Map<Long, List<ItemStageNodeStatusBO>> nodes) {
+        List<ItemStageNodeStatusBO> itemNodes = nodes.getOrDefault(task.getItemId(), List.of());
+        ItemStageNodeStatusBO node = itemNodes.stream()
+                .filter(candidate -> task.getItemTaskNodeId().equals(candidate.getNodeId())).findFirst().orElse(null);
+        if (node == null) {
+            return null;
+        }
+        SlotLabels.Position position = SlotLabels.of(node.getNodeId(), itemNodes);
+        return new NotificationTaskSlotBO(node.getNodeName(), position.slotIndex(), position.slotTotal(),
+                position.serialStep());
+    }
+
+    private String reviewComment(String comment) {
+        if (!StringUtils.hasText(comment)) {
+            return null;
+        }
+        return comment.trim();
     }
 
     private Map<Long, NotificationResolvedSourceBO> resolveItemSources(List<Long> ids, Map<Long, Item> items,
