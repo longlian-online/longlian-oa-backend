@@ -184,6 +184,26 @@ class InboxEmailOutboxHandlerTest {
     }
 
     @Test
+    void shouldRejectUnknownDeletionTargetAndMissingRejectedTaskInstanceLink() {
+        NotificationSourceResultBO unknownTarget = NotificationSourceResultBO.builder()
+                .requesterName("管理员").targetType("UNKNOWN").targetTitle("第一章").build();
+        assertThatThrownBy(() -> InboxEmailCopy.message(InboxNotificationKind.DELETION_REQUEST, unknownTarget))
+                .isInstanceOf(IllegalStateException.class).hasMessage("来源不可用");
+
+        NotificationSourceResultBO noInstance = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目")
+                .taskSlot(new NotificationTaskSlotBO("翻译", 1, 1, null)).build();
+        assertThatThrownBy(() -> InboxEmailLink.href("https://oa.example", InboxNotificationKind.TASK_REJECTED,
+                1L, noInstance, 202L, 9L)).isInstanceOf(IllegalStateException.class).hasMessage("来源不可用");
+
+        NotificationSourceResultBO nullComment = NotificationSourceResultBO.builder()
+                .projectId(1L).projectTitle("企划").itemId(7L).itemTitle("项目")
+                .taskSlot(new NotificationTaskSlotBO("翻译", 1, 1, null)).taskInstanceId(303L).build();
+        assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_REJECTED, nullComment))
+                .isEqualTo("「企划 · 项目」的「翻译」被打回，请修改后重新提交。");
+    }
+
+    @Test
     void shouldSendJoinAndDeletionReviewCopyToAdministrators() throws Exception {
         String joined = "「小周」申请加入组织。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(

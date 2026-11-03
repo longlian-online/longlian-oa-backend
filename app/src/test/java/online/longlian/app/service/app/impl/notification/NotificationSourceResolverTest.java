@@ -80,6 +80,27 @@ class NotificationSourceResolverTest {
         verify(submissions).selectBatchIds(List.of(501L));
     }
 
+    /** 打回意见为空时读视图返回 null，邮件与站内信都只显示固定文案。 */
+    @Test
+    void shouldResolveRejectedSubmissionWithoutCommentAsNull() {
+        when(submissions.selectBatchIds(anyCollection())).thenReturn(List.of(
+                TaskSubmission.builder().id(501L).taskInstanceId(7L).status(TaskSubmissionStatus.REJECTED)
+                        .reviewComment("   ").build()));
+        when(tasks.selectBatchIds(anyCollection())).thenReturn(List.of(TaskInstance.builder().id(7L)
+                .itemId(8L).projectId(9L).itemTaskNodeId(11L).build()));
+        when(items.selectBatchIds(anyCollection())).thenReturn(List.of(
+                Item.builder().id(8L).projectId(9L).title("项目").build()));
+        when(projects.selectList(any())).thenReturn(List.of(Project.builder().id(9L).orgId(1L).title("企划").build()));
+        when(tasks.selectItemStageNodeStatuses(anyList())).thenReturn(List.of(
+                new ItemStageNodeStatusBO(8L, 11L, "翻译", 1, 1, false)));
+
+        Map<Long, NotificationResolvedSourceBO> result = resolver.resolve(new NotificationSourceResolveParamsBO(1L, List.of(
+                new NotificationSourceRefBO(1L, InboxNotificationKind.TASK_REJECTED, 501L))));
+
+        assertThat(result.get(1L).getSource().getReviewComment()).isNull();
+        assertThat(result.get(1L).getSource().getTaskInstanceId()).isEqualTo(7L);
+    }
+
     @Test
     void shouldMarkRejectedSourceUnavailableWhenSubmissionNotRejectedOrRelationshipsMissing() {
         when(submissions.selectBatchIds(anyCollection())).thenReturn(List.of(
