@@ -306,6 +306,19 @@ CREATE TABLE `project_workshop` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_project_workshop_active` (`project_id`, `user_id`, `active_guard`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划-工坊关联表（用户添加企划）";
+-- Create "project_attachment" table
+CREATE TABLE `project_attachment` (
+  `id` bigint NOT NULL COMMENT "企划附件ID",
+  `project_id` bigint NOT NULL COMMENT "企划ID",
+  `file_id` bigint NOT NULL COMMENT "附件文件ID（resource.id）",
+  `uploader_id` bigint NOT NULL COMMENT "上传人ID",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_project_attachment_file` (`project_id`, `file_id`),
+  INDEX `idx_project_attachment_list` (`project_id`, `deleted_at`, `created_at`, `id`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "企划附件关联表（文件元信息复用 resource）";
 -- Create "resource" table
 CREATE TABLE `resource` (
   `id` bigint NOT NULL COMMENT "文件ID",
