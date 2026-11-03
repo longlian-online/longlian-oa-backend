@@ -133,7 +133,7 @@ class InboxEmailOutboxHandlerTest {
         handler.deliver(message(InboxNotificationKind.JOIN_APPLICATION, 77L), EXECUTE_TIME);
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(joined));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
-                "https://oa.example/go?type=JOIN_APPLICATION&orgId=1&applicationId=77") + "\"");
+                "https://oa.example/go?type=JOIN_APPLICATION&orgId=1&applicationId=77&notificationId=9") + "\"");
         assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 入组申请");
 
         String deleted = "「管理员」申请删除项目「第一章」。";
@@ -143,7 +143,7 @@ class InboxEmailOutboxHandlerTest {
         handler.deliver(message(InboxNotificationKind.DELETION_REQUEST, 56L), EXECUTE_TIME);
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(deleted));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
-                "https://oa.example/go?type=DELETION_REQUEST&orgId=1&requestId=56") + "\"");
+                "https://oa.example/go?type=DELETION_REQUEST&orgId=1&requestId=56&notificationId=9") + "\"");
         assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 删除申请");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.DELETION_REQUEST, NotificationSourceResultBO.builder()
                 .requesterName("管理员").targetType("PROJECT").targetTitle("作品").build()))
@@ -314,7 +314,7 @@ class InboxEmailOutboxHandlerTest {
 
     private static String link(InboxNotificationKind kind, long sourceId) {
         return InboxEmailLink.href("https://oa.example", kind, 1L,
-                new NotificationSourceResultBO(1L, "企划", 7L, "项目", null), sourceId);
+                new NotificationSourceResultBO(1L, "企划", 7L, "项目", null), sourceId, 9L);
     }
     private MailUtil.SendParam sent() {
         ArgumentCaptor<MailUtil.SendParam> captor = ArgumentCaptor.forClass(MailUtil.SendParam.class);
