@@ -57,9 +57,6 @@ public class ProjectAttachmentHandler {
     }
 
     private void abandonResources(List<Long> fileIds, Long orgId) {
-        if (fileIds.isEmpty()) {
-            return;
-        }
         resourceService.abandonBound(ResourceAbandonParamsBO.builder()
                 .orgId(orgId)
                 .resourceIds(fileIds)
