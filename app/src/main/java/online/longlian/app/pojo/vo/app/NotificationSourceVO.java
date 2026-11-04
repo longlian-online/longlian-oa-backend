@@ -29,4 +29,9 @@ public class NotificationSourceVO {
     private String targetType;
     @Schema(nullable = true, description = "删除目标提交时的名称")
     private String targetTitle;
+    @JsonLongIdString
+    @Schema(type = "string", nullable = true, description = "打回通知关联的任务实例ID；其他类型为 null")
+    private Long taskInstanceId;
+    @Schema(nullable = true, description = "打回意见；其他类型为 null")
+    private String reviewComment;
 }

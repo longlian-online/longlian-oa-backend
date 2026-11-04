@@ -4,6 +4,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileReadResult;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.service.resource.impl.LocalStorageService;
@@ -109,8 +110,32 @@ class LocalFileIngressTest {
         when(resourceService.loadActivated("file/1.png")).thenReturn(pendingLocal(1L, "image/png"));
         when(localStorageService.getResource("file/1.png")).thenReturn(mockResource);
 
-        assertThat(ingress.read(SIGNED)).isSameAs(mockResource);
+        LocalFileReadResult result = ingress.read(SIGNED);
 
+        assertThat(result.content()).isSameAs(mockResource);
+        assertThat(result.contentDisposition()).isNull();
+    }
+
+    /** 附件类业务在本地读取时由读取接口回写原文件名。 */
+    @Test
+    void read_attachmentBusiness_returnsContentDisposition() {
+        org.springframework.core.io.Resource mockResource = mock(org.springframework.core.io.Resource.class);
+        Resource attachment = Resource.builder()
+                .id(1L)
+                .fileSize(3L)
+                .fileMime("application/pdf")
+                .storageType(StorageType.LOCAL)
+                .bizType("project_attachment")
+                .fileName("企划说明.pdf")
+                .build();
+        when(resourceService.loadActivated("file/1.png")).thenReturn(attachment);
+        when(localStorageService.getResource("file/1.png")).thenReturn(mockResource);
+
+        LocalFileReadResult result = ingress.read(SIGNED);
+
+        assertThat(result.content()).isSameAs(mockResource);
+        assertThat(result.contentDisposition())
+                .contains("attachment; filename=", "filename*=UTF-8''%E4%BC%81%E5%88%92%E8%AF%B4%E6%98%8E.pdf");
     }
 
     @Test

@@ -19,6 +19,10 @@ public class NotificationSourceResultBO {
     private String requesterName;
     private String targetType;
     private String targetTitle;
+    /** 打回通知的来源是提交记录，额外携带被关联的任务实例ID用于跳转。 */
+    private Long taskInstanceId;
+    /** 打回意见，随被打回的那一版提交固定下来，不随后续提交变化。 */
+    private String reviewComment;
 
     public NotificationSourceResultBO(Long projectId, String projectTitle, Long itemId, String itemTitle,
                                       NotificationTaskSlotBO taskSlot) {

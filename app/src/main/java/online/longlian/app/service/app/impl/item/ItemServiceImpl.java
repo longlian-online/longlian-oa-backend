@@ -308,9 +308,7 @@ public class ItemServiceImpl implements ItemService {
                 || project.getResourceStatus() != Status.ENABLED) {
             throw new AppException(ResultCode.DATA_NOT_EXIT);
         }
-        if (!project.getCreatorId().equals(userId)) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
-        }
+        rejectUnlessManager(project.getCreatorId(), userId, orgId);
     }
 
     /**
@@ -524,7 +522,11 @@ public class ItemServiceImpl implements ItemService {
     private void lockProjectCreator(Long projectId, Long userId, Long orgId) {
         Long creatorId = projectService.lockEnabledProject(new ProjectAccessParamsBO(projectId, orgId))
                 .getCreatorId();
-        if (!creatorId.equals(userId)) {
+        rejectUnlessManager(creatorId, userId, orgId);
+    }
+
+    private void rejectUnlessManager(Long creatorId, Long userId, Long orgId) {
+        if (!creatorId.equals(userId) && !projectService.isPlanningManager(creatorId, userId, orgId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION);
         }
     }

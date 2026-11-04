@@ -3,6 +3,7 @@ package online.longlian.app.controller.common;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileReadResult;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
@@ -38,7 +39,7 @@ class FileStorageControllerTest {
     void shouldReturnResourceForSignedReadRequest() {
         ByteArrayResource resource = new ByteArrayResource(new byte[]{7});
         LocalFileReadDTO dto = signedDto();
-        when(ingress.read(anyParams())).thenReturn(resource);
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(resource, null));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, null);
 
@@ -56,7 +57,7 @@ class FileStorageControllerTest {
         storageProperties.setCdn(cdn);
         LocalFileReadDTO dto = signedDto();
         dto.setExpires(1_260L);
-        when(ingress.read(anyParams())).thenReturn(new ByteArrayResource(new byte[]{7}));
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(new ByteArrayResource(new byte[]{7}), null));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, 960L);
 
@@ -72,11 +73,24 @@ class FileStorageControllerTest {
         storageProperties.setCdn(cdn);
         LocalFileReadDTO dto = signedDto();
         dto.setExpires(1_260L);
-        when(ingress.read(anyParams())).thenReturn(new ByteArrayResource(new byte[]{7}));
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(new ByteArrayResource(new byte[]{7}), null));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, 700L);
 
         assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
+    }
+
+    /** 附件类资源读取时按原文件名回写 Content-Disposition。 */
+    @Test
+    void shouldSetContentDispositionWhenPresent() {
+        ByteArrayResource resource = new ByteArrayResource(new byte[]{7});
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(
+                resource, "attachment; filename=\"f.pdf\"; filename*=UTF-8''f.pdf"));
+
+        ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(signedDto(), null);
+
+        assertThat(response.getHeaders().getFirst("Content-Disposition"))
+                .isEqualTo("attachment; filename=\"f.pdf\"; filename*=UTF-8''f.pdf");
     }
 
     @Test

@@ -394,11 +394,11 @@ public class ItemApiTest extends BaseApiTest {
     // ========== 业务规则失败 ==========
 
     /**
-     * 非企划创建者创建项目应失败
+     * 非企划创建者的普通组员不能创建项目；组织管理者的成功路径另有覆盖。
      */
     @Test
     void shouldFailCreateItemNotProjectCreator() {
-        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_USER");
         String token = loginAs("orgadmin", "123456");
 
         jdbcTemplate.update(

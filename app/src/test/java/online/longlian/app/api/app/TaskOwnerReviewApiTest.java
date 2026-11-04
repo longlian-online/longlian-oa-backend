@@ -259,7 +259,7 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"abandon", "reject"})
-    void shouldDenyUnauthenticatedAndNonOwnerIncludingOrganizationAdmin(String action) {
+    void shouldDenyUnauthenticatedAndOrdinaryMemberButAllowOrganizationAdmin(String action) {
         Tokens tokens = createReadyWorkflow(action);
         createTestUser(3L, "unrelated", "123456", "unrelated@example.com");
         createOrganizationMember(3L, 1L, 3L, "ORG_USER");
@@ -268,12 +268,13 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
         assertCode(request().body(body(action, revision(), "理由")).post(path(action)), ResultCode.UNAUTHORIZED);
         assertCode(operate(unrelated, action, revision(), "非负责人或执行人"), ResultCode.UNAUTHORIZED_OPERATION);
         jdbcTemplate.update("UPDATE organization_member SET org_role = 'ORG_ADMIN' WHERE id = 3");
-        Snapshot promoted = snapshot();
-        assertCode(operate(unrelated, action, revision(), "管理员也无权"), ResultCode.UNAUTHORIZED_OPERATION);
-        assertThat(snapshot()).isEqualTo(promoted);
         assertThat(instances()).isEqualTo(before.instances());
         assertThat(submissions()).isEqualTo(before.submissions());
-        assertThat(ownerAudits()).isEmpty();
+        assertCode(operate(unrelated, action, revision(), "管理员审核"), ResultCode.SUCCESS);
+        assertInstance(1, action.equals("abandon") ? 1 : 2, action.equals("abandon") ? null : 2L,
+                action.equals("abandon") ? 1 : 2);
+        assertThat(ownerAudits()).hasSize(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id = 1", Long.class)).isEqualTo(1L);
     }
 
     @ParameterizedTest
@@ -288,6 +289,20 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
                 .post(path(action)), ResultCode.UNAUTHORIZED_OPERATION);
 
         assertThat(snapshot()).isEqualTo(before);
+    }
+
+    /** owner 角色同样可取消和打回他人企划任务，不依赖工作坊成员身份。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"abandon", "reject"})
+    void shouldAllowOrganizationOwnerToReviewAnotherCreatorsTask(String action) {
+        createReadyWorkflow(action);
+        createTestUser(3L, "orgowner", "123456", "orgowner@example.com");
+        createOrganizationMember(3L, 1L, 3L, "ORG_OWNER");
+        assertCode(operate(loginAs("orgowner", "123456"), action, revision(), "owner审核"), ResultCode.SUCCESS);
+        assertInstance(1, action.equals("abandon") ? 1 : 2, action.equals("abandon") ? null : 2L,
+                action.equals("abandon") ? 1 : 2);
+        assertThat(ownerAudits()).hasSize(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id = 1", Long.class)).isEqualTo(1L);
     }
 
     static Stream<Arguments> inactiveMemberships() {
@@ -379,6 +394,44 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
     static Stream<Arguments> invalidStates() {
         return Stream.of(Arguments.of("abandon", 1), Arguments.of("abandon", 3),
                 Arguments.of("reject", 1), Arguments.of("reject", 2));
+    }
+
+    /** 打回后给原接取人发站内信和邮件，通知绑定被打回的那一版提交。 */
+    @Test
+    void shouldNotifyOriginalAssigneeWithRejectedSubmissionSource() {
+        Tokens tokens = createWorkflow();
+        assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
+        Long submissionId = jdbcTemplate.queryForObject(
+                "SELECT id FROM task_submission WHERE task_instance_id = 1", Long.class);
+
+        assertCode(operate(tokens.owner(), "reject", "1", "第三页需要修改"), ResultCode.SUCCESS);
+
+        Map<String, Object> notification = jdbcTemplate.queryForMap(
+                "SELECT * FROM user_notification WHERE kind = 6");
+        assertThat(notification.get("recipient_user_id")).isEqualTo(2L);
+        assertThat(((Number) notification.get("kind")).intValue()).isEqualTo(6);
+        assertThat(notification.get("source_id")).isEqualTo(submissionId);
+        assertThat(notification.get("trigger_id")).isEqualTo(submissionId);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM outbox_message WHERE payload LIKE '%TASK_REJECTED%'", Integer.class)).isEqualTo(1);
+
+        authRequest(tokens.worker()).get("/app/notifications").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.list.kind", equalTo(List.of("TASK_REJECTED")))
+                .body("data.list.sourceId", equalTo(List.of(String.valueOf(submissionId))))
+                .body("data.list.source.itemTitle", equalTo(List.of("项目")))
+                .body("data.list.source.reviewComment", equalTo(List.of("第三页需要修改")));
+    }
+
+    /** 打回失败时不能留下站内信或邮件发件箱记录。 */
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    void shouldNotNotifyWhenRejectIsRejected(int status) {
+        Tokens tokens = createWorkflow();
+        jdbcTemplate.update("UPDATE task_instance SET status = ? WHERE id = 1", status);
+        assertCode(operate(tokens.owner(), "reject", "0", "非法状态"), ResultCode.OPERATION_FAIL);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_notification", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM outbox_message", Integer.class)).isZero();
     }
 
     @ParameterizedTest

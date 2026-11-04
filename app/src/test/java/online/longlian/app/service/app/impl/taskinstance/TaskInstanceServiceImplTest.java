@@ -17,6 +17,7 @@ import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
@@ -42,6 +43,8 @@ import online.longlian.common.enumeration.UserOperationType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -249,6 +252,18 @@ class TaskInstanceServiceImplTest {
                 .hasMessageContaining("仅企划负责人可分配任务");
         verify(taskInstanceCommandHandler, never()).assign(any(), anyLong(), any());
         verifyNoInteractions(inboxNotificationService);
+    }
+
+    @Test
+    void shouldAssignPendingTaskByOrgAdminWithoutBecomingCreator() {
+        TaskInstanceAssignParamsBO params = prepareAssign(99L);
+        when(organizationMembershipService.isEnabledAdministrator(99L, 10L)).thenReturn(true);
+        when(projectService.addToWorkshop(any())).thenReturn(new ProjectWorkshopAddResultBO(false));
+
+        service.assignTask(params);
+
+        verify(taskInstanceCommandHandler).assign(any(TaskInstance.class), eq(20L), eq("0"));
+        verify(projectMapper, never()).update(any(), any());
     }
 
     @Test
@@ -485,8 +500,9 @@ class TaskInstanceServiceImplTest {
         verify(taskInstanceCommandHandler).reset(instance, 1L);
     }
 
+    /** 下一阶段执行人打回后，通知固定发给原接取人，来源绑定被打回的提交。 */
     @Test
-    void rejectTask_validInstance_delegatesToHandler() {
+    void shouldNotifyOriginalAssigneeAfterNextStageExecutorRejectsTask() {
         TaskInstanceRejectParamsBO params = new TaskInstanceRejectParamsBO();
         params.setInstanceId(100L);
         params.setOrgId(10L);
@@ -495,10 +511,23 @@ class TaskInstanceServiceImplTest {
         params.setExpectedRevision("0");
 
         TaskInstance instance = prepareReviewInstance();
+        instance.setAssigneeId(20L);
+        LocalDateTime rejectedAt = LocalDateTime.of(2026, 10, 26, 1, 0);
+        when(taskInstanceCommandHandler.reject(instance, 2L, false, "0", "需要修改"))
+                .thenReturn(new TaskInstanceRejectResultBO(901L, rejectedAt));
 
         service.rejectTask(params);
 
         verify(taskInstanceCommandHandler).reject(instance, 2L, false, "0", "需要修改");
+        NotificationBatchCreateParamsBO batch = capturedNotifications();
+        assertThat(batch.getOrgId()).isEqualTo(10L);
+        assertThat(batch.getNotifications()).singleElement().satisfies(notification -> {
+            assertThat(notification.getRecipientUserId()).isEqualTo(20L);
+            assertThat(notification.getKind()).isEqualTo(InboxNotificationKind.TASK_REJECTED);
+            assertThat(notification.getSourceId()).isEqualTo(901L);
+            assertThat(notification.getTriggerId()).isEqualTo(901L);
+            assertThat(notification.getCreatedAt()).isEqualTo(rejectedAt);
+        });
     }
 
     @Test
@@ -506,15 +535,71 @@ class TaskInstanceServiceImplTest {
         TaskInstance instance = prepareReviewInstance();
         when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(10L)
                 .creatorId(1L).resourceStatus(Status.ENABLED).build());
+        instance.setAssigneeId(20L);
         TaskInstanceRejectParamsBO params = TaskInstanceRejectParamsBO.builder()
                 .instanceId(100L).orgId(10L).userId(1L).expectedRevision("0").reviewComment("修改").build();
+        when(taskInstanceCommandHandler.reject(instance, 1L, true, "0", "修改"))
+                .thenReturn(new TaskInstanceRejectResultBO(902L, LocalDateTime.of(2026, 10, 26, 1, 0)));
         service.rejectTask(params);
-        var order = inOrder(organizationMembershipService, taskInstanceCommandHandler, operationLogService, transactionManager);
+        var order = inOrder(organizationMembershipService, taskInstanceCommandHandler, inboxNotificationService,
+                operationLogService, transactionManager);
         order.verify(organizationMembershipService).requireEnabledMember(1L, 10L);
         order.verify(taskInstanceCommandHandler).reject(instance, 1L, true, "0", "修改");
+        order.verify(inboxNotificationService).createBatch(argThat(batch -> batch.getNotifications().size() == 1
+                && batch.getNotifications().getFirst().getRecipientUserId().equals(20L)));
         order.verify(operationLogService).logSynchronously(eq(1L), eq(2L), eq(1L), any(), any());
         order.verify(transactionManager).commit(any());
         verify(operationLogService, never()).log(any(), any(), any(), any(), any());
+    }
+
+    /** 状态或权限校验失败时，不能产生站内信或邮件发件箱。 */
+    @ParameterizedTest
+    @EnumSource(value = ResultCode.class, names = {"OPERATION_FAIL", "UNAUTHORIZED_OPERATION"})
+    void shouldNotNotifyWhenRejectCommandFails(ResultCode code) {
+        TaskInstance instance = prepareReviewInstance();
+        TaskInstanceRejectParamsBO params = TaskInstanceRejectParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(2L).expectedRevision("0").reviewComment("修改").build();
+        when(taskInstanceCommandHandler.reject(instance, 2L, false, "0", "修改"))
+                .thenThrow(new AppException(code));
+
+        assertThatThrownBy(() -> service.rejectTask(params)).isInstanceOf(AppException.class);
+
+        verifyNoInteractions(inboxNotificationService, operationLogService);
+        verify(transactionManager).rollback(any());
+        verify(transactionManager, never()).commit(any());
+    }
+
+    /** 收件箱/发件箱写入失败必须沿用任务变更事务回滚。 */
+    @Test
+    void shouldRollbackRejectWhenNotificationWriteFails() {
+        TaskInstance instance = prepareReviewInstance();
+        instance.setAssigneeId(20L);
+        TaskInstanceRejectParamsBO params = TaskInstanceRejectParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(2L).expectedRevision("0").reviewComment("修改").build();
+        when(taskInstanceCommandHandler.reject(instance, 2L, false, "0", "修改"))
+                .thenReturn(new TaskInstanceRejectResultBO(901L, LocalDateTime.of(2026, 10, 26, 1, 0)));
+        doThrow(new IllegalStateException("notification write failed")).when(inboxNotificationService).createBatch(any());
+
+        assertThatThrownBy(() -> service.rejectTask(params)).isInstanceOf(IllegalStateException.class);
+
+        verify(transactionManager).rollback(any());
+        verify(transactionManager, never()).commit(any());
+        verifyNoInteractions(operationLogService);
+    }
+
+    /** 原接取人缺失时（历史脏数据）不能写入收件人为空的通知。 */
+    @Test
+    void shouldSkipRejectNotificationWhenAssigneeMissing() {
+        TaskInstance instance = prepareReviewInstance();
+        TaskInstanceRejectParamsBO params = TaskInstanceRejectParamsBO.builder()
+                .instanceId(100L).orgId(10L).userId(2L).expectedRevision("0").reviewComment("修改").build();
+        when(taskInstanceCommandHandler.reject(instance, 2L, false, "0", "修改"))
+                .thenReturn(new TaskInstanceRejectResultBO(901L, LocalDateTime.of(2026, 10, 26, 1, 0)));
+
+        service.rejectTask(params);
+
+        verifyNoInteractions(inboxNotificationService);
+        verify(transactionManager).commit(any());
     }
 
     @Test

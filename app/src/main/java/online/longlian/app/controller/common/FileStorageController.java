@@ -13,6 +13,7 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
+import online.longlian.app.pojo.bo.common.LocalFileReadResult;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
@@ -21,6 +22,7 @@ import online.longlian.app.service.resource.LocalFileIngress;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -90,12 +92,16 @@ public class FileStorageController {
     public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
                                                   @RequestParam(value = "t", required = false) Long cdnTimestamp) {
         ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        LocalFileReadResult result = localFileIngress.read(
+                new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature()));
+        if (result.contentDisposition() != null) {
+            response.header(HttpHeaders.CONTENT_DISPOSITION, result.contentDisposition());
+        }
         CacheControl cacheControl = browserCacheControl(dto, cdnTimestamp);
         if (cacheControl != null) {
             response.cacheControl(cacheControl);
         }
-        return response.body(localFileIngress.read(
-                new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature())));
+        return response.body(result.content());
     }
 
     private CacheControl browserCacheControl(LocalFileReadDTO dto, Long cdnTimestamp) {

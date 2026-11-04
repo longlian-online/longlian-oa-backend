@@ -50,13 +50,14 @@ final class InboxEmailLink {
     }
 
     static String href(String origin, InboxNotificationKind kind, long orgId,
-                       NotificationSourceResultBO source, long sourceId) {
+                       NotificationSourceResultBO source, long sourceId, long notificationId) {
         if (kind == InboxNotificationKind.JOIN_APPLICATION || kind == InboxNotificationKind.DELETION_REQUEST) {
             String idName = kind == InboxNotificationKind.JOIN_APPLICATION ? "applicationId" : "requestId";
             return UriComponentsBuilder.fromUriString(origin + "/go")
                     .queryParam("type", kind.name())
                     .queryParam("orgId", orgId)
                     .queryParam(idName, sourceId)
+                    .queryParam("notificationId", notificationId)
                     .encode().build().toUriString();
         }
         if (source.getProjectId() == null || source.getItemId() == null) {
@@ -69,7 +70,13 @@ final class InboxEmailLink {
                 .queryParam("itemId", source.getItemId());
         if (kind == InboxNotificationKind.TASK_READY || kind == InboxNotificationKind.TASK_ASSIGNED) {
             builder.queryParam("taskInstanceId", sourceId);
+        } else if (kind == InboxNotificationKind.TASK_REJECTED) {
+            // 打回通知的 sourceId 是提交记录，跳转需要提交所属的任务实例。
+            if (source.getTaskInstanceId() == null) {
+                throw new IllegalStateException("来源不可用");
+            }
+            builder.queryParam("taskInstanceId", source.getTaskInstanceId());
         }
-        return builder.encode().build().toUriString();
+        return builder.queryParam("notificationId", notificationId).encode().build().toUriString();
     }
 }

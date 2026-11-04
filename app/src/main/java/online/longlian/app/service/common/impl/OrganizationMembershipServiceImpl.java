@@ -13,6 +13,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.app.service.common.OrganizationMemberProfile;
+import online.longlian.app.service.common.OrganizationMemberDetails;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -123,6 +124,42 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
                 .distinct()
                 .sorted()
                 .toList();
+    }
+
+    @Override
+    public List<OrganizationMemberDetails> listMemberProfiles(Long orgId, List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> memberIds = organizationMemberMapper.selectList(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .in(OrganizationMember::getUserId, userIds))
+                .stream().map(OrganizationMember::getUserId).distinct().toList();
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return userMapper.selectBatchIds(memberIds).stream()
+                .map(user -> new OrganizationMemberDetails(user.getId(), displayName(user), user.getAvatarFileId()))
+                .sorted(Comparator.comparing(OrganizationMemberDetails::userId))
+                .toList();
+    }
+
+    @Override
+    public boolean isEnabledAdministrator(Long userId, Long orgId) {
+        if (userId == null || orgId == null || orgId <= 0) {
+            return false;
+        }
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() != Status.ENABLED) {
+            return false;
+        }
+        return organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getUserId, userId)
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getStatus, Status.ENABLED)
+                .in(OrganizationMember::getOrgRole,
+                        InviteConstants.ROLE_ORG_OWNER, InviteConstants.ROLE_ORG_ADMIN)) > 0;
     }
 
     private String displayName(User user) {

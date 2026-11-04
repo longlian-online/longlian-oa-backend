@@ -27,6 +27,7 @@ public class ProjectDetailResultBO {
     private Integer pendingTaskCount;
     private Boolean inWorkshop;
     private Boolean isCreator;
+    private Boolean canManage;
     private Boolean hasItems;
     private LocalDateTime createdAt;
 }

@@ -85,7 +85,8 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
         }
         NotificationSourceResultBO source = source(payload);
         String body = InboxEmailCopy.message(payload.kind(), source);
-        String href = InboxEmailLink.href(webOrigin, payload.kind(), payload.orgId(), source, payload.sourceId());
+        String href = InboxEmailLink.href(webOrigin, payload.kind(), payload.orgId(), source,
+                payload.sourceId(), payload.notificationId());
         String html = htmlTemplate.replace(InboxEmailLink.PLACEHOLDER, HtmlUtils.htmlEscape(href))
                 .replace("${message}", HtmlUtils.htmlEscape(body));
         mailUtil.send(new MailUtil.SendParam(fromEmail, email.trim(), displayName,
@@ -97,8 +98,11 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
                 List.of(new NotificationSourceRefBO(payload.notificationId(), payload.kind(), payload.sourceId()))));
         var match = resolved.get(payload.notificationId());
         NotificationSourceResultBO source = match == null ? null : match.getSource();
-        if (source == null || ((payload.kind() == InboxNotificationKind.TASK_READY
-                || payload.kind() == InboxNotificationKind.TASK_ASSIGNED) && source.getTaskSlot() == null)) {
+        boolean taskKind = payload.kind() == InboxNotificationKind.TASK_READY
+                || payload.kind() == InboxNotificationKind.TASK_ASSIGNED
+                || payload.kind() == InboxNotificationKind.TASK_REJECTED;
+        if (source == null || (taskKind && source.getTaskSlot() == null)
+                || (payload.kind() == InboxNotificationKind.TASK_REJECTED && source.getTaskInstanceId() == null)) {
             throw new OutboxSkipException("来源不可用");
         }
         return source;

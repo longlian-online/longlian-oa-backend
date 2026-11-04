@@ -8,6 +8,8 @@ import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
@@ -30,6 +32,9 @@ import java.util.List;
  * </ol>
  */
 public interface ProjectService {
+
+    /** 当前企划未退出成员，过滤已删除的组织成员和用户后按用户 ID 升序分页。 */
+    PageResultBO<ProjectMemberResultBO> getProjectMembers(ProjectMemberListParamsBO params);
 
     /**
      * 分页查询企划列表，支持关键词搜索、类型筛选和排序。
@@ -68,7 +73,7 @@ public interface ProjectService {
     void createProject(ProjectCreateParamsBO params);
 
     /**
-     * 更新企划，仅创建者可操作。
+     * 更新企划。创建者，或本组织启用中的组织所有者、组织管理员可操作。不改变创建者。
      *
      * @param params 包含企划 ID、编辑者 ID 及更新字段的参数
      */
@@ -92,19 +97,32 @@ public interface ProjectService {
 
 
     /**
-     * 删除企划。仅创建者可操作；企划下仍有项目时拒绝。
+     * 删除企划。创建者，或本组织启用中的组织所有者、组织管理员可操作；企划下仍有项目时拒绝，须改走审核。
      *
      * @param params 包含企划 ID、操作人 ID 和组织 ID 的删除参数
      */
     void deleteProject(ProjectDeleteParamsBO params);
 
     /**
-     * 确认当前用户是启用企划的负责人，并返回企划名称。
+     * 确认当前用户可管理该启用企划，并返回企划名称。
+     * 创建者、本组织启用中的组织所有者和组织管理员可以。不改变创建者。
      */
     String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId);
 
+    /**
+     * 创建者，或本组织启用中的组织所有者、组织管理员。
+     * 只判断操作权，不把操作者变成企划负责人。
+     */
+    boolean isPlanningManager(Long creatorId, Long userId, Long orgId);
+
     /** 锁定启用企划，供调用方事务中的项目写入共用。 */
     ProjectAccessResultBO lockEnabledProject(ProjectAccessParamsBO params);
+
+    /**
+     * 确认企划在当前组织可见（启用且归属组织），并返回其负责人 ID。
+     * <p>只读访问，不参与调用方事务，供附件等需要详情可见性但不写入的读取路径使用。
+     */
+    ProjectAccessResultBO requireVisibleProject(ProjectAccessParamsBO params);
 
     /**
      * 审核通过后软删除企划。调用方须已处理其下项目。
