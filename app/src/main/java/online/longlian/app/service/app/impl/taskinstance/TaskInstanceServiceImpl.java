@@ -135,7 +135,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public TaskClaimResultBO assignTask(TaskInstanceAssignParamsBO params) {
         return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
-            if (!params.getUserId().equals(project.getCreatorId())) {
+            if (!managesPlanning(project, params.getUserId())) {
                 throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可分配任务");
             }
             organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
@@ -158,7 +158,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public void abandonTask(TaskInstanceAbandonParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
-            boolean projectCreator = params.getUserId().equals(project.getCreatorId());
+            boolean projectCreator = managesPlanning(project, params.getUserId());
             taskInstanceCommandHandler.abandon(instance, params.getUserId(), projectCreator,
                     params.getExpectedRevision());
             if (projectCreator && !params.getUserId().equals(instance.getAssigneeId())) {
@@ -187,7 +187,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public void proxySubmitTask(TaskInstanceProxySubmitParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
-            if (!params.getUserId().equals(project.getCreatorId())) {
+            if (!managesPlanning(project, params.getUserId())) {
                 throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可代提交");
             }
             organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
@@ -259,7 +259,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public void rejectTask(TaskInstanceRejectParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
-            boolean projectCreator = params.getUserId().equals(project.getCreatorId());
+            boolean projectCreator = managesPlanning(project, params.getUserId());
             TaskInstanceRejectResultBO result = taskInstanceCommandHandler.reject(instance, params.getUserId(),
                     projectCreator, params.getExpectedRevision(), params.getReviewComment());
             if (instance.getAssigneeId() != null) {
@@ -302,6 +302,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
      * 每个 item 的任务流唯一；先锁任务流行，避免阻塞项目本身的普通字段更新。
      * 锁随事务结束释放；排队期间目标版本发生变化的请求不作用于新一轮接取或提交。
      */
+    /** 创建者，或本组织启用中的组织所有者、组织管理员。不改变企划创建者。 */
+    private boolean managesPlanning(Project project, Long userId) {
+        return java.util.Objects.equals(userId, project.getCreatorId())
+                || organizationMembershipService.isEnabledAdministrator(userId, project.getOrgId());
+    }
+
     private <T> T mutateTask(Long instanceId, Long orgId, Long validatedUserId,
                              BiFunction<TaskInstance, Project, T> mutation) {
         TaskInstance locator = taskInstanceMapper.selectById(instanceId);

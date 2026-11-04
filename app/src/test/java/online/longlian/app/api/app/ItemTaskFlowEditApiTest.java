@@ -4,6 +4,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -118,6 +120,27 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
         )).put("/app/item/" + itemId + "/flow").then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+    }
+
+    /** 管理员可编辑他人企划的工作流，普通组员拒绝用例独立保留。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"ORG_ADMIN", "ORG_OWNER"})
+    void shouldAllowOrganizationAdministratorToEditFlow(String role) {
+        String creator = prepareCreator();
+        Long itemId = createItem(creator);
+        List<Map<String, Object>> nodes = flowNodes(creator, itemId);
+        createTestUser(2L, "editor", "123456", "editor@example.com");
+        createOrganizationMember(2L, 1L, 2L, role);
+        String editor = loginAs("editor", "123456");
+        authRequest(editor, 1L).body(Map.of("nodes", List.of(
+                        node(stringField(nodes.get(0), "id"), "1", 1, 1, "管理员编辑")),
+                        "removed", List.of(Map.of("id", stringField(nodes.get(1), "id"), "revision", "0"))))
+                .put("/app/item/" + itemId + "/flow").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        authRequest(editor, 1L).get("/app/item/" + itemId + "/flow").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.nodes", hasSize(1)).body("data.nodes[0].name", equalTo("管理员编辑"));
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id=1", Long.class)).isEqualTo(1L);
     }
 
     @Test

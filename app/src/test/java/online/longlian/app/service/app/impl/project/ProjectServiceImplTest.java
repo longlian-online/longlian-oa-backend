@@ -31,6 +31,7 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
@@ -81,6 +82,8 @@ class ProjectServiceImplTest {
     private ProjectTypeCustomFormService projectTypeCustomFormService;
     @Mock
     private ProjectAttachmentHandler projectAttachmentHandler;
+    @Mock
+    private OrganizationMembershipService organizationMembershipService;
 
     private ProjectServiceImpl service;
 
@@ -101,8 +104,10 @@ class ProjectServiceImplTest {
                 projectProgressHandler,
                 projectTypeCustomFormService,
                 projectAttachmentHandler,
+                organizationMembershipService,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
+        lenient().when(organizationMembershipService.isEnabledAdministrator(any(), any())).thenReturn(false);
         lenient().when(itemMapper.selectCount(any())).thenReturn(0L);
         lenient().when(projectTypeCustomFormService.requiredFieldNames(any(), any())).thenReturn(List.of());
     }
@@ -656,6 +661,43 @@ class ProjectServiceImplTest {
                 });
         verify(projectMapper, never()).deleteById(any());
         verify(resourceService, never()).abandonBound(any());
+    }
+
+    @Test
+    void deleteProject_orgAdmin_softDeletesWithoutBecomingCreator() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(3L));
+        when(organizationMembershipService.isEnabledAdministrator(2L, 1L)).thenReturn(true);
+
+        service.deleteProject(deleteParams(2L));
+
+        verify(projectMapper).deleteById(100L);
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void deleteProject_orgAdminStillSubmitsReviewWhenItemsExist() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(3L));
+        when(organizationMembershipService.isEnabledAdministrator(2L, 1L)).thenReturn(true);
+        when(itemMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
+                .isInstanceOfSatisfying(AppException.class, ex ->
+                        assertThat(ex.getMsg()).isEqualTo("参数错误,企划已存在项目，请提交删除申请"));
+        verify(projectMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void getProjectDetail_orgAdminCanManageWithoutBeingCreator() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(3L));
+        when(organizationMembershipService.isEnabledAdministrator(2L, 1L)).thenReturn(true);
+        when(projectProgressHandler.computeProgress(100L)).thenReturn(ProjectProgressBO.builder()
+                .progressPercent(0).claimedTaskCount(0).pendingTaskCount(0).build());
+        when(projectWorkshopMapper.selectCount(any())).thenReturn(0L);
+
+        ProjectDetailResultBO detail = service.getProjectDetail(100L, 2L, 1L);
+
+        assertThat(detail.getIsCreator()).isFalse();
+        assertThat(detail.getCanManage()).isTrue();
     }
 
     @Test

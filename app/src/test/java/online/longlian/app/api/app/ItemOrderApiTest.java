@@ -239,10 +239,10 @@ public class ItemOrderApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldRestrictOrderManagementToTheParentCreator() {
+    void shouldRestrictOrderManagementToCreatorOrEnabledOrganizationAdministrator() {
         String token = seed();
         createTestUser(2L, "admin-member", "123456", "admin-member@example.com");
-        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
         jdbcTemplate.update("UPDATE user SET default_org_id=1 WHERE id=2");
         String member = loginAs("admin-member", "123456");
         authRequest(member).get("/app/projects/1/items/order").then().body("code", equalTo(3));
@@ -260,6 +260,27 @@ public class ItemOrderApiTest extends BaseApiTest {
         authRequest(token).get("/app/projects/1/items/order").then().body("code", equalTo(6));
         save(token, INITIAL, REORDERED).then().body("code", equalTo(6));
         assertThat(databaseOrder()).containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
+    }
+
+    /** 非创建者的 owner/admin 可共享排序并创建项目，企划创建者保持不变。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"ORG_ADMIN", "ORG_OWNER"})
+    void shouldAllowOrganizationAdministratorToReorderAndCreateItems(String role) {
+        seed();
+        createTestUser(2L, "editor", "123456", "editor@example.com");
+        createOrganizationMember(2L, 1L, 2L, role);
+        String editor = loginAs("editor", "123456");
+        authRequest(editor, 1L).get("/app/projects/1/items/order").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode())).body("data.id", equalTo(INITIAL));
+        save(editor, INITIAL, REORDERED).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(databaseOrder()).containsExactly(1L, 5L, 2L, 3L, 4L, 6L);
+        authRequest(editor, 1L).body(Map.of("title", "管理员项目", "taskTemplateId", "1",
+                        "nodes", List.of(Map.of("baseTaskId", "1", "sort", 1, "parallelSort", 1))))
+                .post("/app/projects/1/items").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT sort FROM item WHERE title='管理员项目'", Long.class)).isEqualTo(7L);
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id=1", Long.class)).isEqualTo(1L);
     }
 
     @Test

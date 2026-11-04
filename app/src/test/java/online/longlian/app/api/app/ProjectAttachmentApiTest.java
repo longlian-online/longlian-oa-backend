@@ -8,6 +8,8 @@ import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
@@ -148,7 +150,30 @@ class ProjectAttachmentApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
-    /** 只有企划负责人能编辑附件。 */
+    /** 本组织管理员可绑定并删除他人企划附件，不改变企划归属。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"ORG_ADMIN", "ORG_OWNER"})
+    void shouldAllowOrganizationAdministratorToManageAttachments(String role) throws IOException {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_USER");
+        createProject(1L, 1L, 1L, 1L, "企划一");
+        createTestUser(2L, "editor", "123456", "editor@example.com");
+        createOrganizationMember(2L, 1L, 2L, role);
+        String token = loginAs("editor", "123456");
+        String fileId = uploadAttachment(token, 1L, "管理员.pdf", "pdf", "application/pdf",
+                "admin".getBytes(StandardCharsets.UTF_8));
+        bind(token, 1L, fileId);
+        Response list = authRequest(token, 1L).get(ATTACHMENTS.formatted(1L));
+        list.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data", hasSize(1)).body("data[0].fileId", equalTo(fileId));
+        String attachmentId = list.path("data[0].id").toString();
+        authRequest(token, 1L).delete(ATTACHMENTS.formatted(1L) + "/" + attachmentId).then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT deleted_at FROM project_attachment WHERE id=?",
+                Object.class, Long.valueOf(attachmentId))).isNotNull();
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id=1", Long.class)).isEqualTo(1L);
+    }
+
+    /** 普通组员不能编辑其他创建者的企划附件。 */
     @Test
     void shouldRejectBindForNonCreator() throws IOException {
         createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_ADMIN");

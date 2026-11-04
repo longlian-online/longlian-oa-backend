@@ -51,8 +51,11 @@ public class ProjectDetailInfoVO {
 
     @Schema(description = "当前用户是否已将该企划添加到工坊")
     private Boolean inWorkshop;
-    @Schema(description = "当前用户是否是该企划的创建者")
+    @Schema(description = "当前用户是否是该企划的创建者。为 true 时界面标为负责人")
     private Boolean isCreator;
+
+    @Schema(description = "当前用户是否可执行该企划负责人的操作。创建者，以及本组织启用中的组织所有者和组织管理员为 true；不表示该用户是创建者")
+    private Boolean canManage;
 
     @Schema(description = "企划下是否仍有项目。为 true 时负责人不能删除该企划")
     private Boolean hasItems;

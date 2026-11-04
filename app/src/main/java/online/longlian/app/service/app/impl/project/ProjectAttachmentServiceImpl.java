@@ -132,10 +132,10 @@ public class ProjectAttachmentServiceImpl implements ProjectAttachmentService {
         return attachment;
     }
 
-    /** 附件属于企划编辑范围，仅负责人可增删；加锁保证与企划删除互斥。 */
+    /** 附件属于企划编辑范围；加锁保证与企划删除互斥。创建者和本组织管理者可增删。 */
     private void requireProjectCreator(Long projectId, Long userId, Long orgId) {
         Long creatorId = projectService.lockEnabledProject(new ProjectAccessParamsBO(projectId, orgId)).getCreatorId();
-        if (!creatorId.equals(userId)) {
+        if (!creatorId.equals(userId) && !projectService.isPlanningManager(creatorId, userId, orgId)) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可编辑附件");
         }
     }
