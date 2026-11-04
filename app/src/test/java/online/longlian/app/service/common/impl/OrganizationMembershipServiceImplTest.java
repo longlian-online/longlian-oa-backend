@@ -165,6 +165,44 @@ class OrganizationMembershipServiceImplTest {
     }
 
     @Test
+    void shouldRejectAssignableMemberWhenOrganizationIsMissingOrDisabled() {
+        when(organizationMapper.selectById(10L)).thenReturn(null,
+                Organization.builder().id(10L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.requireAssignableMember(2L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组织不可用");
+        assertThatThrownBy(() -> service.requireAssignableMember(2L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组织不可用");
+        verifyNoInteractions(organizationMemberMapper, userMapper);
+    }
+
+    @Test
+    void shouldRejectNonPositiveAssignableUserIdsWithoutQueryingOrganization() {
+        assertThatThrownBy(() -> service.requireAssignableMember(0L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组员不能为空");
+        assertThatThrownBy(() -> service.requireAssignableMember(-1L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组员不能为空");
+        verifyNoInteractions(organizationMapper, organizationMemberMapper, userMapper);
+    }
+
+    @Test
+    void shouldReturnEnabledAssignableMember() {
+        when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
+        OrganizationMember member = member(100L, 10L, Status.ENABLED, "ORG_USER");
+        when(organizationMemberMapper.selectOne(any())).thenReturn(member);
+
+        assertThat(service.requireAssignableMember(1L, 10L)).isSameAs(member);
+    }
+
+    @Test
+    void shouldReturnEmptyMembersWithoutLoadingUsers() {
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(service.listEnabledMembers(10L)).isEmpty();
+        verifyNoInteractions(userMapper, organizationMapper);
+    }
+
+    @Test
     void shouldListEnabledMembersByDisplayNameAndSkipMissingUsers() {
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
                 OrganizationMember.builder().id(1L).orgId(10L).userId(2L).status(Status.ENABLED).build(),
