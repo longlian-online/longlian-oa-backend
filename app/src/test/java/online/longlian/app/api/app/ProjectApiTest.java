@@ -1272,6 +1272,101 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldLetOrgAdminManageAnotherMembersProjectWithoutTakingOwnership() {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_USER");
+        createTestUser(2L, "orgadmin", "123456", "orgadmin@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
+        insertProject(1L, 1L, "成员企划");
+        String adminToken = loginAs("orgadmin", "123456");
+
+        authRequest(adminToken)
+                .get("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.isCreator", equalTo(false))
+                .body("data.canManage", equalTo(true));
+
+        authRequest(adminToken)
+                .body(Map.of(
+                        "title", "管理员修改",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "仍由原创建者负责"
+                ))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT creator_id FROM `project` WHERE id = 1", Long.class)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT title FROM `project` WHERE id = 1", String.class)).isEqualTo("管理员修改");
+
+        authRequest(adminToken)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isZero();
+    }
+
+    @Test
+    void shouldLetOrgOwnerManageAndKeepDeletionReview() {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_USER");
+        createTestUser(2L, "owner", "123456", "owner@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_OWNER");
+        insertProject(1L, 1L, "有项目企划");
+        jdbcTemplate.update(
+                "INSERT INTO `item` (id, project_id, title, task_template_id, creator_id) VALUES (?, ?, ?, ?, ?)",
+                1L, 1L, "第一章", 1L, 1L);
+        String ownerToken = loginAs("owner", "123456");
+
+        authRequest(ownerToken)
+                .delete("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", equalTo("参数错误,企划已存在项目，请提交删除申请"));
+        authRequest(ownerToken)
+                .body(Map.of("reason", "由所有者提交"))
+                .post("/app/projects/1/deletion-requests")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM deletion_request WHERE status = 0", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectDisabledOrgAdminManagingProject() {
+        createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_USER");
+        createTestUser(2L, "orgadmin", "123456", "orgadmin@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_ADMIN");
+        jdbcTemplate.update("UPDATE organization_member SET status = 0 WHERE user_id = 2");
+        insertProject(1L, 1L, "成员企划");
+
+        authRequest(loginAs("orgadmin", "123456"))
+                .body(Map.of(
+                        "title", "不该成功",
+                        "alias", "alias",
+                        "metadata", "{\"tags\":[]}",
+                        "description", "禁用管理员"
+                ))
+                .put("/app/projects/1")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,您在该组织中的成员状态已被禁用"));
+    }
+
+    @Test
     void shouldRejectDeleteProjectByNonCreator() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createTestUser(2L, "member", "123456", "member@example.com");

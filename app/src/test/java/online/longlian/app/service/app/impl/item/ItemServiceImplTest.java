@@ -642,6 +642,17 @@ class ItemServiceImplTest {
     }
 
     @Test
+    void deleteProjectItem_orgAdmin_passesCreatorCheck() {
+        when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(9L));
+        when(projectService.isPlanningManager(9L, 1L, 1L)).thenReturn(true);
+        when(itemMapper.selectById(2L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.deleteProjectItem(deleteParams(1L)))
+                .isInstanceOf(AppException.class);
+        verify(projectService).isPlanningManager(9L, 1L, 1L);
+    }
+
+    @Test
     void deleteProjectItem_nonCreator_rejects() {
         when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(9L));
 

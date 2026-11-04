@@ -125,6 +125,23 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
                 .toList();
     }
 
+    @Override
+    public boolean isEnabledAdministrator(Long userId, Long orgId) {
+        if (userId == null || orgId == null || orgId <= 0) {
+            return false;
+        }
+        Organization organization = organizationMapper.selectById(orgId);
+        if (organization == null || organization.getStatus() != Status.ENABLED) {
+            return false;
+        }
+        return organizationMemberMapper.selectCount(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getUserId, userId)
+                .eq(OrganizationMember::getOrgId, orgId)
+                .eq(OrganizationMember::getStatus, Status.ENABLED)
+                .in(OrganizationMember::getOrgRole,
+                        InviteConstants.ROLE_ORG_OWNER, InviteConstants.ROLE_ORG_ADMIN)) > 0;
+    }
+
     private String displayName(User user) {
         if (StringUtils.hasText(user.getNickname())) {
             return user.getNickname().trim();
