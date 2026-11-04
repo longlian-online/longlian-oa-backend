@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -121,6 +122,29 @@ public class ResourceServiceTest {
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
                 });
+        Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "clip.mp4, mp4, video/mp4, task_submit",
+            "clip.webm, webm, video/webm, project_attachment"
+    })
+    void create_videoAtFiftyMegabytes_createsResource(String fileName, String fileExt, String fileMime, String bizType) {
+        allowCreate();
+
+        resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, fileName, fileExt, 50L * 1024 * 1024, fileMime, bizType));
+
+        Mockito.verify(resourceMapper).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_avatarVideo_rejected() {
+        assertThatThrownBy(() -> resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "avatar.mp4", "mp4", 100L, "video/mp4", "avatar")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("只能上传图片");
         Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
     }
 

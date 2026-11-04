@@ -480,6 +480,48 @@ class LocalFileReadApiTest extends BaseApiTest {
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "clip.mp4, mp4, video/mp4, task_submit",
+            "clip.webm, webm, video/webm, project_attachment"
+    })
+    void shouldAcceptVideoAttachmentAtFiftyMegabytes(String fileName, String ext, String mime, String bizType) {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO video = new CreateFileReqDTO(
+                fileName, ext, 50L * 1024 * 1024, mime, bizType);
+
+        authRequest(token).body(video).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldRejectUnsupportedVideoContainerWithoutCreatingResource() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO video = new CreateFileReqDTO(
+                "clip.mov", "mov", 1024L, "video/quicktime", "task_submit");
+
+        authRequest(token).body(video).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", containsString("不支持的文件类型"));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
+    }
+
+    @Test
+    void shouldRejectAvatarVideoWithoutCreatingResource() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
+        String token = loginAs("user", "123456");
+        CreateFileReqDTO video = new CreateFileReqDTO(
+                "avatar.mp4", "mp4", 1024L, "video/mp4", "avatar");
+
+        authRequest(token).body(video).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", containsString("只能上传图片"));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();
+    }
+
     @Test
     void shouldAcceptArchiveAboveOrdinaryLimit() {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
