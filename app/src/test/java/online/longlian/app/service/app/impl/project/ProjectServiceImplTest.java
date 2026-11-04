@@ -79,6 +79,8 @@ class ProjectServiceImplTest {
     private ProjectProgressHandler projectProgressHandler;
     @Mock
     private ProjectTypeCustomFormService projectTypeCustomFormService;
+    @Mock
+    private ProjectAttachmentHandler projectAttachmentHandler;
 
     private ProjectServiceImpl service;
 
@@ -98,6 +100,7 @@ class ProjectServiceImplTest {
                 projectAssembler,
                 projectProgressHandler,
                 projectTypeCustomFormService,
+                projectAttachmentHandler,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
         lenient().when(itemMapper.selectCount(any())).thenReturn(0L);
@@ -691,6 +694,7 @@ class ProjectServiceImplTest {
         verify(resourceService).abandonBound(abandoned.capture());
         assertThat(abandoned.getValue().getOrgId()).isEqualTo(1L);
         assertThat(abandoned.getValue().getResourceIds()).containsExactly(11L, 12L);
+        verify(projectAttachmentHandler).abandonProjectAttachments(100L, 1L);
         verify(projectMapper).deleteById(100L);
     }
 
@@ -703,7 +707,25 @@ class ProjectServiceImplTest {
         service.deleteProjectForReview(100L, 1L);
 
         verify(resourceService).abandonBound(any());
+        verify(projectAttachmentHandler).abandonProjectAttachments(100L, 1L);
         verify(projectMapper).deleteById(100L);
+    }
+
+    @Test
+    void requireVisibleProject_returnsCreatorForEnabledProject() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+
+        assertThat(service.requireVisibleProject(new ProjectAccessParamsBO(100L, 1L)).getCreatorId())
+                .isEqualTo(2L);
+    }
+
+    @Test
+    void requireVisibleProject_rejectsForeignOrganization() {
+        when(projectMapper.selectById(100L)).thenReturn(enabledProject(2L));
+
+        assertThatThrownBy(() -> service.requireVisibleProject(new ProjectAccessParamsBO(100L, 99L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     @Test

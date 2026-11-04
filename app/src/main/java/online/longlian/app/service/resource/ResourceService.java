@@ -86,9 +86,9 @@ public class ResourceService {
                 .updatedAt(LocalDateTime.now(clock))
                 .build();
 
-        // 4. 获取上传链接；任务附件把原文件名写进对象头，下载时由存储/CDN 透传还原名称。
+        // 4. 获取上传链接；附件类业务把原文件名写进对象头，下载时由存储/CDN 透传还原名称。
         StorageService storageService = storageFactory.get(file.getStorageType());
-        String contentDisposition = "task_submit".equals(params.getBizType())
+        String contentDisposition = isAttachmentBusiness(params.getBizType())
                 ? ContentDispositionUtil.attachment(params.getFileName())
                 : null;
         PresignedUploadUrlResultBO uploadBO = storageService.generatePresignedUploadUrl(
@@ -146,9 +146,9 @@ public class ResourceService {
 
     private String getCdnReadUrl(Resource resource, long cdnTimestamp) {
         if (!isCdnEnabled()) {
-            // CDN 关闭时读取走存储原生 URL；任务附件带原文件名覆盖响应头，下载名即原文件名。
+            // CDN 关闭时读取走存储原生 URL；附件类业务带原文件名覆盖响应头，下载名即原文件名。
             StorageService storageService = storageFactory.get(resource.getStorageType());
-            if (!"task_submit".equals(resource.getBizType())) {
+            if (!isAttachmentBusiness(resource.getBizType())) {
                 return storageService.getResourceReadUrl(resource.getStorageKey());
             }
             return storageService.getResourceReadUrl(resource.getStorageKey(),
@@ -225,6 +225,35 @@ public class ResourceService {
                     getCdnReadUrl(resource, timestamp), expiresAt));
         }
         return reads;
+    }
+
+    /**
+     * 为调用方已经授权的单个已激活资源按原文件名签发下载链接，每次调用重新签发。
+     * <p>CDN 关闭时回退存储原生链接（对象存储携带原文件名响应头，本地由读取接口回写），
+     * 有效期按预签名 TTL 估算。
+     */
+    public ActivatedResourceRead signDownload(ActivatedResource resource) {
+        if (isCdnEnabled()) {
+            long timestamp = currentCdnTimestamp();
+            long expiresAt = Math.addExact(timestamp, storageProperties.getCdn().getAuthTtlSeconds());
+            Resource forUrl = Resource.builder()
+                    .storageType(resource.storageType())
+                    .storageKey(resource.storageKey())
+                    .build();
+            return new ActivatedResourceRead(resource.id(), resource.fileName(), resource.fileSize(),
+                    resource.fileMime(), getCdnReadUrl(forUrl, timestamp), expiresAt);
+        }
+        long expiresAt = Math.addExact(clock.instant().getEpochSecond(),
+                storageProperties.getPresignedUrlTtlSeconds());
+        String readUrl = storageFactory.get(resource.storageType())
+                .getResourceReadUrl(resource.storageKey(), ContentDispositionUtil.attachment(resource.fileName()));
+        return new ActivatedResourceRead(resource.id(), resource.fileName(), resource.fileSize(),
+                resource.fileMime(), readUrl, expiresAt);
+    }
+
+    /** 需要原文件名下载的业务类型：上传时写入对象头，读取时还原。 */
+    public static boolean isAttachmentBusiness(String bizType) {
+        return "task_submit".equals(bizType) || "project_attachment".equals(bizType);
     }
 
     /**

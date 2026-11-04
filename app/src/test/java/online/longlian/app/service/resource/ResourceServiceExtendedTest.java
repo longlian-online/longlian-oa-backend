@@ -6,6 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
+import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -30,6 +31,8 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
@@ -411,6 +414,55 @@ class ResourceServiceExtendedTest {
     @Test
     void signActivated_empty_returnsEmpty() {
         assertThat(resourceService.signActivated(List.<ActivatedResource>of())).isEmpty();
+    }
+
+    /** CDN 开启时按复用窗口时间戳签发下载链接，到期时间为鉴权期上限。 */
+    @Test
+    void signDownload_cdnEnabled_returnsCdnUrlAndExpiry() {
+        ActivatedResource resource = activatedResource(1L, StorageType.OSS, "avatar/1.png", "企划说明.pdf");
+
+        ActivatedResourceRead read = resourceService.signDownload(resource);
+
+        assertThat(read.readUrl())
+                .matches("https://cdn.example/avatar/1.png\\?token=[0-9a-f]{32}&t=1721029680");
+        assertThat(read.expiresAt()).isEqualTo(1721029980L);
+        assertThat(read.fileName()).isEqualTo("企划说明.pdf");
+    }
+
+    /** CDN 关闭时回退存储原生链接，并按预签名 TTL 给出到期时间。 */
+    @Test
+    void signDownload_cdnDisabled_returnsNativeUrlAndPresignedExpiry() {
+        StorageProperties props = new StorageProperties();
+        props.setType(StorageType.OSS);
+        StorageProperties.CdnConfig cdn = new StorageProperties.CdnConfig();
+        cdn.setEnabled(false);
+        props.setCdn(cdn);
+        ResourceService plain = new ResourceService(resourceMapper, storageFactory,
+                new CdnUrlSigner("https://cdn.example", "test-secret", CLOCK),
+                new LocalFileUrlSigner("test-local-signing-secret-32-bytes", props, CLOCK), props, CLOCK);
+        when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
+        when(storageService.getResourceReadUrl(eq("avatar/1.png"), any()))
+                .thenReturn("https://cos.example/avatar/1.png?sign=native");
+
+        ActivatedResourceRead read = plain.signDownload(
+                activatedResource(1L, StorageType.OSS, "avatar/1.png", "企划说明.pdf"));
+
+        assertThat(read.readUrl()).isEqualTo("https://cos.example/avatar/1.png?sign=native");
+        assertThat(read.expiresAt()).isEqualTo(1721029907L + 300);
+        verify(storageService).getResourceReadUrl(eq("avatar/1.png"),
+                argThat(value -> value.contains("attachment; filename=")));
+    }
+
+    @Test
+    void isAttachmentBusiness_recognizesDownloadBusinessTypes() {
+        assertThat(ResourceService.isAttachmentBusiness("task_submit")).isTrue();
+        assertThat(ResourceService.isAttachmentBusiness("project_attachment")).isTrue();
+        assertThat(ResourceService.isAttachmentBusiness("cover")).isFalse();
+        assertThat(ResourceService.isAttachmentBusiness(null)).isFalse();
+    }
+
+    private ActivatedResource activatedResource(Long id, StorageType storageType, String key, String fileName) {
+        return new ActivatedResource(id, fileName, 3L, "application/pdf", storageType, key, 1L);
     }
 
     @Test

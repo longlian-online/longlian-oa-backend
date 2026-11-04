@@ -107,6 +107,12 @@ public interface ProjectService {
     ProjectAccessResultBO lockEnabledProject(ProjectAccessParamsBO params);
 
     /**
+     * 确认企划在当前组织可见（启用且归属组织），并返回其负责人 ID。
+     * <p>只读访问，不参与调用方事务，供附件等需要详情可见性但不写入的读取路径使用。
+     */
+    ProjectAccessResultBO requireVisibleProject(ProjectAccessParamsBO params);
+
+    /**
      * 审核通过后软删除企划。调用方须已处理其下项目。
      */
     void deleteProjectForReview(Long projectId, Long orgId);

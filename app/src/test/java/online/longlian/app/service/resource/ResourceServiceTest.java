@@ -24,6 +24,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -189,6 +190,34 @@ public class ResourceServiceTest {
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("封面和缩略图不能超过10MB");
         Mockito.verify(resourceMapper, Mockito.never()).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_fileSizeUnknown_skipsSizeCheck() {
+        allowCreate();
+
+        resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "notes.txt", "txt", null, "text/plain", "task_submit"));
+
+        Mockito.verify(resourceMapper).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void create_fileExtMissing_skipsArchiveCheck() {
+        allowCreate();
+
+        resourceService.create(new ResourceCreateParamsBO(
+                1L, 1L, "notes", null, 100L, "text/plain", "task_submit"));
+
+        Mockito.verify(resourceMapper).insert(Mockito.any(Resource.class));
+    }
+
+    @Test
+    void summarizeUsage_emptyOrgIds_returnsEmptyWithoutQuery() {
+        assertThat(resourceService.summarizeUsage(List.of())).isEmpty();
+        assertThat(resourceService.summarizeUsage(null)).isEmpty();
+
+        Mockito.verify(resourceMapper, Mockito.never()).summarizeUsage(Mockito.anyList());
     }
 
     private void allowCreate() {

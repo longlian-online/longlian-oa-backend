@@ -64,6 +64,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectAssembler projectAssembler;
     private final ProjectProgressHandler projectProgressHandler;
     private final ProjectTypeCustomFormService projectTypeCustomFormService;
+    private final ProjectAttachmentHandler projectAttachmentHandler;
     private final Clock clock;
 
     @Override
@@ -337,6 +338,7 @@ public class ProjectServiceImpl implements ProjectService {
             throw new AppException(ResultCode.PARAM_ERROR, "企划已存在项目，请提交删除申请");
         }
         abandonCurrentImages(project);
+        projectAttachmentHandler.abandonProjectAttachments(params.getProjectId(), params.getOrgId());
         projectMapper.deleteById(params.getProjectId());
     }
 
@@ -363,10 +365,16 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    public ProjectAccessResultBO requireVisibleProject(ProjectAccessParamsBO params) {
+        return new ProjectAccessResultBO(getVisibleProject(params.getProjectId(), params.getOrgId()).getCreatorId());
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectForReview(Long projectId, Long orgId) {
         Project project = getVisibleProject(projectId, orgId);
         abandonCurrentImages(project);
+        projectAttachmentHandler.abandonProjectAttachments(projectId, orgId);
         projectMapper.deleteById(project.getId());
     }
 
