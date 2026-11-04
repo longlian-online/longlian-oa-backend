@@ -13,6 +13,11 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectProgressBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.common.OrganizationMemberDetails;
 import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
@@ -66,6 +71,28 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectTypeCustomFormService projectTypeCustomFormService;
     private final ProjectAttachmentHandler projectAttachmentHandler;
     private final Clock clock;
+    private final OrganizationMembershipService organizationMembershipService;
+
+    @Override
+    public PageResultBO<ProjectMemberResultBO> getProjectMembers(ProjectMemberListParamsBO params) {
+        Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
+        List<Long> userIds = projectWorkshopMapper.selectList(new LambdaQueryWrapper<ProjectWorkshop>()
+                        .eq(ProjectWorkshop::getProjectId, params.getProjectId()))
+                .stream().map(ProjectWorkshop::getUserId).distinct().toList();
+        // 先过滤已删除的组织成员及用户，再分页，确保 total 和页内条数都基于当前成员。
+        List<OrganizationMemberDetails> members = organizationMembershipService.listMemberProfiles(params.getOrgId(), userIds);
+        long offset = ((long) params.getPage().getPageNum() - 1) * params.getPage().getPageSize();
+        List<OrganizationMemberDetails> page = members.stream().skip(offset).limit(params.getPage().getPageSize()).toList();
+        List<Long> avatarIds = page.stream().map(OrganizationMemberDetails::avatarFileId)
+                .filter(id -> id != null && id > 0).distinct().toList();
+        Map<Long, ResourceReadUrlGetResultBO> avatars = resourceService.getResourceReadUrls(avatarIds);
+        List<ProjectMemberResultBO> results = page.stream().map(member -> {
+            ResourceReadUrlGetResultBO avatar = member.avatarFileId() == null ? null : avatars.get(member.avatarFileId());
+            return new ProjectMemberResultBO(member.userId(), member.nickname(),
+                    avatar == null ? null : avatar.getUrl(), project.getCreatorId().equals(member.userId()));
+        }).toList();
+        return new PageResultBO<>(results, (long) members.size());
+    }
 
     @Override
     public List<ProjectTypeInfoVO> getProjectTypes(Long orgId) {

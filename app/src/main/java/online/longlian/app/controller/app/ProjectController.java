@@ -11,6 +11,10 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
+import online.longlian.app.pojo.dto.common.PageRequestDTO;
+import online.longlian.app.pojo.vo.app.ProjectMemberVO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
@@ -88,6 +92,25 @@ public class ProjectController {
         ProjectDetailInfoVO vo = new ProjectDetailInfoVO();
         BeanUtils.copyProperties(resultBO, vo);
         return vo;
+    }
+
+    @Operation(summary = "分页查询企划当前成员", description = "仅返回未退出成员，按用户 ID 升序；建议 pageSize=12")
+    @GetMapping("/{projectId}/members")
+    @ResponseMessage("查询成功")
+    public PageResultVO<ProjectMemberVO> getProjectMembers(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @ModelAttribute @Valid PageRequestDTO page) {
+        PageResultBO<ProjectMemberResultBO> result = projectService.getProjectMembers(ProjectMemberListParamsBO.builder()
+                .projectId(projectId)
+                .orgId(sessionContext.orgId())
+                .page(new PageParamsBO(page.getPageNum(), page.getPageSize()))
+                .build());
+        return new PageResultVO<>(result.getList().stream().map(member -> {
+            ProjectMemberVO vo = new ProjectMemberVO();
+            BeanUtils.copyProperties(member, vo);
+            return vo;
+        }).toList(), result.getTotal());
     }
 
     @Operation(summary = "获取企划类型列表", description = "仅返回启用状态的类型，按优先级降序，同优先级按 ID 升序；优先级不影响其他列表排序")

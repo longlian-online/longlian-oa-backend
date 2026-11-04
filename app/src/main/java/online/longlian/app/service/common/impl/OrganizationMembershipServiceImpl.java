@@ -13,6 +13,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.DefaultOrganization;
 import online.longlian.app.service.common.OrganizationMemberProfile;
+import online.longlian.app.service.common.OrganizationMemberDetails;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -122,6 +123,25 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
                 .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
+                .toList();
+    }
+
+    @Override
+    public List<OrganizationMemberDetails> listMemberProfiles(Long orgId, List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> memberIds = organizationMemberMapper.selectList(
+                new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getOrgId, orgId)
+                        .in(OrganizationMember::getUserId, userIds))
+                .stream().map(OrganizationMember::getUserId).distinct().toList();
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return userMapper.selectBatchIds(memberIds).stream()
+                .map(user -> new OrganizationMemberDetails(user.getId(), displayName(user), user.getAvatarFileId()))
+                .sorted(Comparator.comparing(OrganizationMemberDetails::userId))
                 .toList();
     }
 

@@ -82,6 +82,9 @@ class ProjectServiceImplTest {
     @Mock
     private ProjectAttachmentHandler projectAttachmentHandler;
 
+    @Mock
+    private online.longlian.app.service.common.OrganizationMembershipService organizationMembershipService;
+
     private ProjectServiceImpl service;
 
     @BeforeEach
@@ -101,7 +104,8 @@ class ProjectServiceImplTest {
                 projectProgressHandler,
                 projectTypeCustomFormService,
                 projectAttachmentHandler,
-                Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
+                Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC),
+                organizationMembershipService
         );
         lenient().when(itemMapper.selectCount(any())).thenReturn(0L);
         lenient().when(projectTypeCustomFormService.requiredFieldNames(any(), any())).thenReturn(List.of());

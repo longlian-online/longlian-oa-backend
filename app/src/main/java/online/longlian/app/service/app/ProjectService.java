@@ -8,6 +8,8 @@ import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
 import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
@@ -30,6 +32,9 @@ import java.util.List;
  * </ol>
  */
 public interface ProjectService {
+
+    /** 当前企划未退出成员，过滤已删除的组织成员和用户后按用户 ID 升序分页。 */
+    PageResultBO<ProjectMemberResultBO> getProjectMembers(ProjectMemberListParamsBO params);
 
     /**
      * 分页查询企划列表，支持关键词搜索、类型筛选和排序。
