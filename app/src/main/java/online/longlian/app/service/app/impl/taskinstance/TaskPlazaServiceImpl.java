@@ -3,6 +3,7 @@ package online.longlian.app.service.app.impl.taskinstance;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.PlazaSortBy;
+import online.longlian.app.common.util.ImageResizeUrl;
 import online.longlian.common.enumeration.Status;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -147,6 +148,6 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
     }
 
     private static String resizeThumbnailUrl(String url) {
-        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
+        return ImageResizeUrl.append(url, THUMBNAIL_RESIZE_PARAM);
     }
 }

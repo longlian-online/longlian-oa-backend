@@ -2,6 +2,7 @@ package online.longlian.app.service.app.impl.project;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.util.ImageResizeUrl;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.UserMapper;
@@ -94,6 +95,6 @@ public class ProjectAssembler {
         if (url == null) {
             return null;
         }
-        return url + (url.contains("?") ? "&" : "?") + COVER_RESIZE_PARAM;
+        return ImageResizeUrl.append(url, COVER_RESIZE_PARAM);
     }
 }

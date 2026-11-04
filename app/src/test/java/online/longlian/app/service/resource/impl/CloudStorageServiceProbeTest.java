@@ -1,6 +1,7 @@
 package online.longlian.app.service.resource.impl;
 
 import com.qcloud.cos.COSClient;
+import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.ObjectMetadata;
 import online.longlian.app.common.exception.AppException;
@@ -174,6 +175,26 @@ class CloudStorageServiceProbeTest {
     }
 
     @Test
+    void shouldReadContentLengthAndTreatMissingObjectsAsEmpty() {
+        for (CloudStorage cloud : cloudStorageServices()) {
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentLength(9L);
+            when(cloud.client().getObjectMetadata(cloud.bucket(), "cover/9.png")).thenReturn(metadata);
+            CosServiceException missing = new CosServiceException("missing");
+            missing.setStatusCode(404);
+            when(cloud.client().getObjectMetadata(cloud.bucket(), "cover/missing.png")).thenThrow(missing);
+            CosServiceException denied = new CosServiceException("denied");
+            denied.setStatusCode(403);
+            when(cloud.client().getObjectMetadata(cloud.bucket(), "cover/denied.png")).thenThrow(denied);
+
+            assertThat(cloud.storage().findContentLength("cover/9.png")).hasValue(9L);
+            assertThat(cloud.storage().findContentLength("cover/missing.png")).isEmpty();
+            assertThatThrownBy(() -> cloud.storage().findContentLength("cover/denied.png"))
+                    .isSameAs(denied);
+        }
+    }
+
+    @Test
     void shouldRejectCloudProbeWhenObjectStoreFails() {
         for (CloudStorage cloud : cloudStorageServices()) {
             when(cloud.client().getObjectMetadata(cloud.bucket(), PROBE.storageKey()))
@@ -193,13 +214,13 @@ class CloudStorageServiceProbeTest {
         properties.setCos(cosConfig);
         CosStorageService cosStorage = new CosStorageService(properties);
         COSClient cosClient = mock(COSClient.class);
-        ReflectionTestUtils.setField(cosStorage, "cosClient", cosClient);
+        ReflectionTestUtils.setField(ReflectionTestUtils.getField(cosStorage, "client"), "cosClient", cosClient);
 
         StorageProperties.OssConfig ossConfig = storageConfig(new StorageProperties.OssConfig());
         properties.setOss(ossConfig);
         OssStorageService ossStorage = new OssStorageService(properties);
         COSClient ossClient = mock(COSClient.class);
-        ReflectionTestUtils.setField(ossStorage, "cosClient", ossClient);
+        ReflectionTestUtils.setField(ReflectionTestUtils.getField(ossStorage, "client"), "cosClient", ossClient);
 
         return List.of(
                 new CloudStorage(cosStorage, cosClient, cosConfig.getBucket()),

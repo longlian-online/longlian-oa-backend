@@ -2,6 +2,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.util.ImageResizeUrl;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
@@ -96,7 +97,7 @@ public class WorkshopAssembler {
         if (url == null) {
             return null;
         }
-        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
+        return ImageResizeUrl.append(url, THUMBNAIL_RESIZE_PARAM);
     }
 
     public List<WorkshopTaskTemplateVO> assembleTemplateList(List<TaskTemplate> templates, Long currentUserId) {
