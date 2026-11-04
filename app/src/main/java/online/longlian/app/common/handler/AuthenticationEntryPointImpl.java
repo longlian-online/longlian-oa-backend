@@ -10,6 +10,7 @@ import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.RequestAuthenticationException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -29,11 +30,19 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
 
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
 
+    @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
+    private String mcpEndpoint = "/mcp";
+
     @Override
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException, ServletException {
 
+        // MCP 使用 functional route，不在 RequestMappingHandlerMapping 中，也不使用 REST Result。
+        if (request.getServletPath().equals(mcpEndpoint)) {
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            return;
+        }
 
         try {
             HandlerExecutionChain handlerExecutionChain = requestMappingHandlerMapping.getHandler(request);

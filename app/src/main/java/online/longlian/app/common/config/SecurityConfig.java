@@ -1,5 +1,6 @@
 package online.longlian.app.common.config;
 
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
@@ -43,6 +44,9 @@ public class SecurityConfig {
     @Value("${springdoc.api-docs.enabled:false}")
     private boolean springdocApiDocsEnabled;
 
+    @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
+    private String mcpEndpoint;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -56,6 +60,9 @@ public class SecurityConfig {
                 )
                 //请求授权配置
                 .authorizeHttpRequests(auth -> auth
+                        // MCP 的 SSE 响应会异步派发；初始请求已经过 JWT 认证，不在回写时重新鉴权。
+                        .requestMatchers(request -> request.getDispatcherType() == DispatcherType.ASYNC
+                                && request.getServletPath().equals(mcpEndpoint)).permitAll()
                         // 预检请求统一放行，避免被鉴权逻辑拦截，CORS 头仍由 CorsFilter 写入
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SecurityConstants.getPermitAllMatchers(springdocApiDocsEnabled).toArray(new RequestMatcher[0])).permitAll()
