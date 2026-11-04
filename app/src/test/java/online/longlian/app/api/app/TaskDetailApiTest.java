@@ -273,16 +273,20 @@ class TaskDetailApiTest extends BaseApiTest {
                 .body("data.submission.fields[0].file.name", equalTo("成果101.pdf"))
                 .body("data.submission.fields[0].file.sizeText", not(isEmptyOrNullString()))
                 .body("data.submission.fields[0].file.mediaType", equalTo("document"))
-                .body("data.submission.fields[0].file.availability", equalTo("available"));
-        String path = "data.submission.fields[0].file";
-        URI uri = URI.create(response.jsonPath().getString(path + ".readUrl"));
+                .body("data.submission.fields[0].file.availability", equalTo("available"))
+                .body("data.submission.fields[0].file.readUrl", nullValue())
+                .body("data.submission.fields[0].file.expiresAt", nullValue());
+        assertThat(response.asString()).doesNotContain("token=");
+        Response download = authRequest(token).get("/app/task/instance/1/attachments/101/download");
+        download.then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        URI uri = URI.create(download.jsonPath().getString("data.readUrl"));
         String timestamp = queryValue(uri.getRawQuery(), "t");
         assertThat(uri.getScheme()).isEqualTo("https");
         assertThat(uri.getHost()).isEqualTo("static.example.com");
         assertThat(uri.getRawPath()).isEqualTo("/task_submit/101.pdf");
         assertThat(queryValue(uri.getRawQuery(), "token"))
                 .isEqualTo(md5("test-cdn-key" + uri.getRawPath() + timestamp));
-        assertThat(response.jsonPath().getLong(path + ".expiresAt"))
+        assertThat(download.jsonPath().getLong("data.expireAt"))
                 .isEqualTo(Long.parseLong(timestamp) + 300L);
         assertThat(Long.parseLong(timestamp) % 240L).isZero();
         String storedValues = jdbcTemplate.queryForObject(
@@ -321,9 +325,7 @@ class TaskDetailApiTest extends BaseApiTest {
             response.then()
                     .body(attachmentPath + ".id", equalTo(Long.toString(101L + index)))
                     .body(attachmentPath + ".name", not(isEmptyOrNullString()))
-                    .body(attachmentPath + ".availability", equalTo("unavailable"))
-                    .body(attachmentPath + ".readUrl", nullValue())
-                    .body(attachmentPath + ".expiresAt", nullValue());
+                    .body(attachmentPath + ".availability", equalTo("unavailable"));
         }
     }
 

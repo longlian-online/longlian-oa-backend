@@ -177,8 +177,6 @@ class TaskResourceServiceTest {
         assertThat(attachment.getSizeText()).isEqualTo("2.0 KB");
         assertThat(attachment.getMediaType()).isEqualTo("document");
         assertThat(attachment.getAvailability()).isEqualTo("available");
-        assertThat(attachment.getReadUrl()).matches("https://cdn.example/task_submit/1.pdf\\?token=[0-9a-f]{32}&t=960");
-        assertThat(attachment.getExpiresAt()).isEqualTo(1260L);
         assertThat(first.get(2L).getMediaType()).isEqualTo("image");
         assertThat(first.get(2L).getSizeText()).isEqualTo("512 B");
         assertThat(first.get(3L).getMediaType()).isEqualTo("archive");
@@ -189,12 +187,15 @@ class TaskResourceServiceTest {
         verify(resourceMapper, never()).selectOne(any());
         verifyNoInteractions(storageFactory);
 
-        TaskAttachmentVO reused = present(serviceAt(1_100L), List.of(1L)).get(1L);
-        TaskAttachmentVO refreshed = present(serviceAt(1_200L), List.of(1L)).get(1L);
-        assertThat(reused.getReadUrl()).isEqualTo(attachment.getReadUrl());
-        assertThat(reused.getExpiresAt()).isEqualTo(1260L);
-        assertThat(refreshed.getReadUrl()).isNotEqualTo(attachment.getReadUrl()).endsWith("&t=1200");
-        assertThat(refreshed.getExpiresAt()).isEqualTo(1500L);
+        var firstDownload = download(service, 1L);
+        var reused = download(serviceAt(1_100L), 1L);
+        var refreshed = download(serviceAt(1_200L), 1L);
+        assertThat(firstDownload.getReadUrl()).matches("https://cdn.example/task_submit/1.pdf\\?token=[0-9a-f]{32}&t=960");
+        assertThat(firstDownload.getExpireAt()).isEqualTo(1260L);
+        assertThat(reused.getReadUrl()).isEqualTo(firstDownload.getReadUrl());
+        assertThat(reused.getExpireAt()).isEqualTo(1260L);
+        assertThat(refreshed.getReadUrl()).isNotEqualTo(firstDownload.getReadUrl()).endsWith("&t=1200");
+        assertThat(refreshed.getExpireAt()).isEqualTo(1500L);
     }
 
     @Test
@@ -203,11 +204,11 @@ class TaskResourceServiceTest {
         local.setStorageType(StorageType.LOCAL);
         when(resourceMapper.selectList(any())).thenReturn(List.of(local));
 
-        TaskAttachmentVO attachment = present(service, List.of(1L)).get(1L);
+        var download = download(service, 1L);
 
-        assertThat(attachment.getReadUrl()).matches("https://cdn.example/common/file/local\\?key=task_submit/1.pdf"
+        assertThat(download.getReadUrl()).matches("https://cdn.example/common/file/local\\?key=task_submit/1.pdf"
                 + "&expires=1260&signature=[0-9a-f]{64}&token=[0-9a-f]{32}&t=960");
-        assertThat(attachment.getExpiresAt()).isEqualTo(1260L);
+        assertThat(download.getExpireAt()).isEqualTo(1260L);
         verifyNoInteractions(storageFactory);
     }
 
@@ -238,8 +239,6 @@ class TaskResourceServiceTest {
         assertThat(attachments).hasSize(8);
         for (TaskAttachmentVO attachment : attachments.values()) {
             assertThat(attachment.getAvailability()).isEqualTo("unavailable");
-            assertThat(attachment.getReadUrl()).isNull();
-            assertThat(attachment.getExpiresAt()).isNull();
             assertThat(attachment.getSizeText()).isNull();
             assertThat(attachment.getMediaType()).isNull();
         }
@@ -255,12 +254,10 @@ class TaskResourceServiceTest {
         when(resourceMapper.selectList(any())).thenReturn(List.of(activated(1L)));
         properties.getCdn().setEnabled(false);
 
-        assertThatThrownBy(() -> present(service, List.of(1L)))
-                .isInstanceOf(IllegalStateException.class);
+        assertThat(present(service, List.of(1L)).get(1L).getAvailability()).isEqualTo("available");
         properties.setCdn(null);
         service = serviceAt(1_000L);
-        assertThatThrownBy(() -> present(service, List.of(1L)))
-                .isInstanceOf(IllegalStateException.class);
+        assertThat(present(service, List.of(1L)).get(1L).getAvailability()).isEqualTo("available");
         verifyNoInteractions(storageFactory);
     }
 
@@ -269,7 +266,8 @@ class TaskResourceServiceTest {
         when(resourceMapper.selectList(any())).thenReturn(List.of(activated(1L)));
         properties.getCdn().setUrlReusePercent(100);
 
-        assertThatThrownBy(() -> present(service, List.of(1L)))
+        assertThat(present(service, List.of(1L)).get(1L).getName()).isNotBlank();
+        assertThatThrownBy(() -> download(service, 1L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("配置无效");
         verifyNoInteractions(storageFactory);
     }
@@ -280,12 +278,12 @@ class TaskResourceServiceTest {
         properties.getCdn().setAuthKey("");
         service = serviceAt(1_000L);
 
-        assertThatThrownBy(() -> present(service, List.of(1L)))
+        assertThatThrownBy(() -> download(service, 1L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("鉴权密钥必须配置");
         properties.getCdn().setAuthKey("test-secret");
         properties.getCdn().setUrlPrefix("https://cdn.example?query=invalid");
         service = serviceAt(1_000L);
-        assertThatThrownBy(() -> present(service, List.of(1L)))
+        assertThatThrownBy(() -> download(service, 1L))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("绝对 URL");
         verifyNoInteractions(storageFactory);
     }
@@ -302,6 +300,11 @@ class TaskResourceServiceTest {
 
     private Map<Long, TaskAttachmentVO> present(ResourceService resourceService, List<Long> resourceIds) {
         return new TaskAttachmentPresenter(resourceService).present(TASK_ID, ORG_ID, resourceIds);
+    }
+
+    private online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO download(
+            ResourceService resourceService, Long resourceId) {
+        return new TaskAttachmentPresenter(resourceService).download(TASK_ID, ORG_ID, resourceId);
     }
 
     private Resource uploaded(Long id) {

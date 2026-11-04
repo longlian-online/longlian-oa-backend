@@ -10,6 +10,8 @@ import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
@@ -63,6 +65,11 @@ public interface TaskInstanceService {
      * @return 版本列表；未提交过时为空列表
      */
     List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params);
+
+    /**
+     * 为当前可见任务上的一个已绑定附件签发读取链接。详情本身不带链接。
+     */
+    ProjectAttachmentDownloadResultBO getTaskAttachmentDownload(TaskAttachmentDownloadParamsBO params);
 
     /**
      * 查询指定项目下所有任务实例及其节点信息。
