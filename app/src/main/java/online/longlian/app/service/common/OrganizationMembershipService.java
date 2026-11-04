@@ -40,4 +40,7 @@ public interface OrganizationMembershipService {
      * 默认组织已禁用或用户不是启用成员时仍返回已保存的组织 ID，角色为空，不改用其他组织。
      */
     DefaultOrganization findDefault(Long userId);
+
+    /** 批量读取当前组织未删除的成员及用户档案，缺失或已删除的记录不返回。 */
+    java.util.List<OrganizationMemberDetails> listMemberProfiles(Long orgId, java.util.List<Long> userIds);
 }

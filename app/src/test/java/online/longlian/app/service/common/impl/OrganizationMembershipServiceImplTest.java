@@ -50,6 +50,44 @@ class OrganizationMembershipServiceImplTest {
         service = new OrganizationMembershipServiceImpl(organizationMapper, organizationMemberMapper, userMapper);
     }
 
+    /** 空 ID 列表不触发成员和用户查询。 */
+    @Test
+    void shouldSkipEmptyMemberProfileLookup() {
+        assertThat(service.listMemberProfiles(1L, List.of())).isEmpty();
+        verifyNoInteractions(organizationMemberMapper, userMapper);
+    }
+
+    /** 档案按组织和关联 ID 筛选，批量查用户，忽略已删除用户并回退空白昵称。 */
+    @Test
+    void shouldBatchLoadScopedMemberProfiles() {
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().orgId(1L).userId(3L).build(),
+                OrganizationMember.builder().orgId(1L).userId(2L).build(),
+                OrganizationMember.builder().orgId(1L).userId(4L).build()));
+        when(userMapper.selectBatchIds(List.of(3L, 2L, 4L))).thenReturn(List.of(
+                User.builder().id(3L).nickname("  昵称  ").username("third").avatarFileId(30L).build(),
+                User.builder().id(2L).nickname("  ").username("second").build()));
+
+        var profiles = service.listMemberProfiles(1L, List.of(2L, 3L, 4L));
+        assertThat(profiles).extracting(online.longlian.app.service.common.OrganizationMemberDetails::userId)
+                .containsExactly(2L, 3L);
+        assertThat(profiles).extracting(online.longlian.app.service.common.OrganizationMemberDetails::nickname)
+                .containsExactly("second", "昵称");
+        assertThat(profiles.get(1).avatarFileId()).isEqualTo(30L);
+        ArgumentCaptor<LambdaQueryWrapper<OrganizationMember>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(organizationMemberMapper).selectList(captor.capture());
+        assertThat(captor.getValue().getSqlSegment()).contains("org_id", "user_id");
+        assertThat(captor.getValue().getParamNameValuePairs().values()).contains(1L, 2L, 3L, 4L);
+    }
+
+    /** 没有匹配组织成员时不查询用户。 */
+    @Test
+    void shouldSkipUsersWhenNoOrganizationMembersMatch() {
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
+        assertThat(service.listMemberProfiles(1L, List.of(2L))).isEmpty();
+        verifyNoInteractions(userMapper);
+    }
+
     @Test
     void shouldRequireEnabledMember() {
         when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
