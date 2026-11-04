@@ -8,6 +8,8 @@ import online.longlian.app.common.util.MailUtil;
 import online.longlian.app.service.outbox.OutboxDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
@@ -131,6 +133,19 @@ public class TaskAssignApiTest extends BaseApiTest {
         assertCode(assign(member, 1L, "0"), ResultCode.UNAUTHORIZED_OPERATION);
         assertPending();
         assertThat(notifications()).isZero();
+    }
+
+    /** 管理员可分配他人企划任务，但不能改变企划创建者。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"ORG_ADMIN", "ORG_OWNER"})
+    void shouldAllowOrganizationAdministratorToAssignTask(String role) {
+        createTestUser(3L, "assignadmin", "123456", "assignadmin@example.com");
+        createOrganizationMember(3L, 1L, 3L, role);
+        assertCode(assign(loginAs("assignadmin", "123456"), 2L, "0"), ResultCode.SUCCESS);
+        assertThat(status(1L)).isEqualTo(2);
+        assertThat(assignee(1L)).isEqualTo(2L);
+        assertThat(notifications()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id=1", Long.class)).isEqualTo(1L);
     }
 
     @Test

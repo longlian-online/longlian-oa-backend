@@ -4,6 +4,8 @@ import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Map;
 
@@ -82,18 +84,34 @@ public class TaskProxySubmitApiTest extends BaseApiTest {
         assertThat(timestamp("task_submission", "created_at", 1L)).isEqualTo(SUBMITTED_AT);
     }
 
-    @Test
-    void shouldRejectProxySubmitFromNonCreatorEvenIfOrgAdmin() {
+    /** 本组织管理员和 owner 无需成为创建者即可代提交，且不转移企划归属。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"ORG_ADMIN", "ORG_OWNER"})
+    void shouldAllowProxySubmitFromNonCreatorOrganizationAdministrator(String role) {
         seedPendingTask("[]");
-        String token = loginAs("admin", "123456");
+        jdbcTemplate.update("UPDATE organization_member SET org_role = ? WHERE user_id = 3", role);
+        authRequest(loginAs("admin", "123456"))
+                .body(proxyBody(2L, SUBMITTED_AT, "0", Map.of()))
+                .post("/app/task/instance/1/proxy-submit").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id = 1", Integer.class))
+                .isEqualTo(3);
+        assertThat(jdbcTemplate.queryForObject("SELECT submitter_id FROM task_submission", Long.class)).isEqualTo(2L);
+        assertThat(jdbcTemplate.queryForObject("SELECT creator_id FROM project WHERE id = 1", Long.class)).isEqualTo(1L);
+    }
+
+    /** 普通组员即使属于本组织仍不能代提交。 */
+    @Test
+    void shouldRejectProxySubmitFromOrdinaryMember() {
+        seedPendingTask("[]");
+        String token = loginAs("member", "123456");
 
         authRequest(token)
                 .body(proxyBody(2L, SUBMITTED_AT, "0", Map.of()))
                 .post("/app/task/instance/1/proxy-submit")
                 .then()
                 .statusCode(200)
-                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", containsString("仅企划负责人可代提交"));
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
 
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id = 1", Integer.class))
                 .isEqualTo(1);
@@ -257,6 +275,24 @@ public class TaskProxySubmitApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+    }
+
+    /** 管理员的权限不跨组织，也不能在成员停用后继续使用。 */
+    @Test
+    void shouldRejectAdministratorProxySubmitAcrossOrganizationsOrAfterMembershipDisabled() {
+        seedPendingTask("[]");
+        String token = loginAs("admin", "123456");
+        createOrganization(2L, "另一组织");
+        createOrganizationMember(6L, 2L, 3L, "ORG_OWNER");
+        authRequest(token, 2L).body(proxyBody(2L, SUBMITTED_AT, "0", Map.of()))
+                .post("/app/task/instance/1/proxy-submit").then().statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        jdbcTemplate.update("UPDATE organization_member SET status = 0 WHERE id = 3");
+        authRequest(token, 1L).body(proxyBody(2L, SUBMITTED_AT, "0", Map.of()))
+                .post("/app/task/instance/1/proxy-submit").then().statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id = 1", Integer.class)).isEqualTo(1);
     }
 
     private void seedPendingTask(String metaSchema) {

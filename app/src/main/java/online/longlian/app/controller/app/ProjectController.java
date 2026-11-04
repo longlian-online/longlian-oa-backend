@@ -79,7 +79,8 @@ public class ProjectController {
         summary = "获取企划详情",
         description = """
                 返回企划详细信息、进度统计及当前用户权限标记。
-                isCreator=true 时前端展示「编辑+删除+分享」按钮；存在项目时删除按钮禁用。false 时展示「添加到工坊+分享」按钮
+                isCreator 只表示创建者身份；canManage 表示可执行负责人操作（创建者或本组织启用中的所有者、管理员）。
+                删除企划在有项目时仍须提交审核。加入、退出工坊按创建者身份处理。
                 """
     )
     @Parameter(name = "projectId", description = "企划ID")

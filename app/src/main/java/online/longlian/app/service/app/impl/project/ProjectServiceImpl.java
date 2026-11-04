@@ -16,7 +16,6 @@ import online.longlian.app.pojo.bo.app.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
-import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.common.OrganizationMemberDetails;
 import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
@@ -40,6 +39,7 @@ import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
 import online.longlian.app.pojo.vo.app.ProjectTypeCustomFieldVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
@@ -70,8 +70,8 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectProgressHandler projectProgressHandler;
     private final ProjectTypeCustomFormService projectTypeCustomFormService;
     private final ProjectAttachmentHandler projectAttachmentHandler;
-    private final Clock clock;
     private final OrganizationMembershipService organizationMembershipService;
+    private final Clock clock;
 
     @Override
     public PageResultBO<ProjectMemberResultBO> getProjectMembers(ProjectMemberListParamsBO params) {
@@ -226,6 +226,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .pendingTaskCount(progress.getPendingTaskCount())
                 .inWorkshop(inWorkshop)
                 .isCreator(isCreator)
+                .canManage(isPlanningManager(project.getCreatorId(), userId, orgId))
                 .hasItems(hasItems)
                 .createdAt(project.getCreatedAt())
                 .build();
@@ -282,9 +283,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(rollbackFor = Exception.class)
     public void updateProject(ProjectUpdateParamsBO params) {
         Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
-        if (!project.getCreatorId().equals(params.getUserId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅创建者可编辑企划");
-        }
+        requirePlanningManager(project.getCreatorId(), params.getUserId(), params.getOrgId(), "仅创建者可编辑企划");
         ProjectMetadataValidator.validate(params.getMetadata());
         if (params.getStatus() == ProjectStatus.ARCHIVED) {
             throw new AppException(ResultCode.PARAM_ERROR, "不允许将企划修改为已归档状态");
@@ -357,9 +356,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteProject(ProjectDeleteParamsBO params) {
         Project project = getVisibleProject(params.getProjectId(), params.getOrgId());
-        if (!project.getCreatorId().equals(params.getUserId())) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可删除企划");
-        }
+        requirePlanningManager(project.getCreatorId(), params.getUserId(), params.getOrgId(), "仅企划负责人可删除企划");
         if (itemMapper.selectCount(new LambdaQueryWrapper<Item>()
                 .eq(Item::getProjectId, params.getProjectId())) > 0) {
             throw new AppException(ResultCode.PARAM_ERROR, "企划已存在项目，请提交删除申请");
@@ -372,10 +369,22 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId) {
         Project project = getVisibleProject(projectId, orgId);
-        if (!project.getCreatorId().equals(userId)) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可删除企划");
-        }
+        requirePlanningManager(project.getCreatorId(), userId, orgId, "仅企划负责人可删除企划");
         return project.getTitle();
+    }
+
+    @Override
+    public boolean isPlanningManager(Long creatorId, Long userId, Long orgId) {
+        if (creatorId != null && creatorId.equals(userId)) {
+            return true;
+        }
+        return organizationMembershipService.isEnabledAdministrator(userId, orgId);
+    }
+
+    private void requirePlanningManager(Long creatorId, Long userId, Long orgId, String deniedMessage) {
+        if (!isPlanningManager(creatorId, userId, orgId)) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, deniedMessage);
+        }
     }
 
     @Override

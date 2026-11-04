@@ -65,10 +65,11 @@ public class ItemTaskFlowEditor {
         if (item == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
         }
-        // 锁住企划，只允许负责人改这条工作流。
+        // 锁住企划。创建者和本组织管理者都能改这条工作流，创建者不变。
         ProjectAccessResultBO project = projectService.lockEnabledProject(
                 new ProjectAccessParamsBO(item.getProjectId(), params.getOrgId()));
-        if (!Objects.equals(project.getCreatorId(), params.getOperatorId())) {
+        if (!Objects.equals(project.getCreatorId(), params.getOperatorId())
+                && !projectService.isPlanningManager(project.getCreatorId(), params.getOperatorId(), params.getOrgId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可编辑项目工作流");
         }
 

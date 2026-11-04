@@ -255,6 +255,18 @@ class TaskInstanceServiceImplTest {
     }
 
     @Test
+    void shouldAssignPendingTaskByOrgAdminWithoutBecomingCreator() {
+        TaskInstanceAssignParamsBO params = prepareAssign(99L);
+        when(organizationMembershipService.isEnabledAdministrator(99L, 10L)).thenReturn(true);
+        when(projectService.addToWorkshop(any())).thenReturn(new ProjectWorkshopAddResultBO(false));
+
+        service.assignTask(params);
+
+        verify(taskInstanceCommandHandler).assign(any(TaskInstance.class), eq(20L), eq("0"));
+        verify(projectMapper, never()).update(any(), any());
+    }
+
+    @Test
     void shouldRejectAssignmentOutsideOrganization() {
         TaskInstanceAssignParamsBO params = prepareAssign(1L);
         doThrow(new AppException(ResultCode.PARAM_ERROR, "所选组员不是当前组织成员"))

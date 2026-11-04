@@ -30,6 +30,12 @@ public interface OrganizationMembershipService {
     java.util.List<Long> listEnabledAdministratorIds(Long orgId);
 
     /**
+     * 用户是指定组织的启用成员，且角色为组织所有者或组织管理员。
+     * 组织或成员不可用时返回 false，不抛异常。
+     */
+    boolean isEnabledAdministrator(Long userId, Long orgId);
+
+    /**
      * 读取用户默认组织。没有默认组织时组织 ID 为空。
      * 默认组织已禁用或用户不是启用成员时仍返回已保存的组织 ID，角色为空，不改用其他组织。
      */

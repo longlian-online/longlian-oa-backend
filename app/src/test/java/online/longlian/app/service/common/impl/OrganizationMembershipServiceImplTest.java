@@ -203,6 +203,44 @@ class OrganizationMembershipServiceImplTest {
     }
 
     @Test
+    void shouldRejectAssignableMemberWhenOrganizationIsMissingOrDisabled() {
+        when(organizationMapper.selectById(10L)).thenReturn(null,
+                Organization.builder().id(10L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.requireAssignableMember(2L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组织不可用");
+        assertThatThrownBy(() -> service.requireAssignableMember(2L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组织不可用");
+        verifyNoInteractions(organizationMemberMapper, userMapper);
+    }
+
+    @Test
+    void shouldRejectNonPositiveAssignableUserIdsWithoutQueryingOrganization() {
+        assertThatThrownBy(() -> service.requireAssignableMember(0L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组员不能为空");
+        assertThatThrownBy(() -> service.requireAssignableMember(-1L, 10L))
+                .isInstanceOf(AppException.class).hasMessage("组员不能为空");
+        verifyNoInteractions(organizationMapper, organizationMemberMapper, userMapper);
+    }
+
+    @Test
+    void shouldReturnEnabledAssignableMember() {
+        when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
+        OrganizationMember member = member(100L, 10L, Status.ENABLED, "ORG_USER");
+        when(organizationMemberMapper.selectOne(any())).thenReturn(member);
+
+        assertThat(service.requireAssignableMember(1L, 10L)).isSameAs(member);
+    }
+
+    @Test
+    void shouldReturnEmptyMembersWithoutLoadingUsers() {
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(service.listEnabledMembers(10L)).isEmpty();
+        verifyNoInteractions(userMapper, organizationMapper);
+    }
+
+    @Test
     void shouldListEnabledMembersByDisplayNameAndSkipMissingUsers() {
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
                 OrganizationMember.builder().id(1L).orgId(10L).userId(2L).status(Status.ENABLED).build(),
@@ -233,6 +271,52 @@ class OrganizationMembershipServiceImplTest {
         verify(organizationMemberMapper).selectList(query.capture());
         assertThat(query.getValue().getSqlSegment()).contains("org_role");
         assertThat(query.getValue().getSqlSegment()).contains("status");
+    }
+
+    /** 缺失身份或非法组织不能触发管理员查询。 */
+    @Test
+    void shouldReturnFalseForAdministratorCheckWithoutValidIdentity() {
+        assertThat(service.isEnabledAdministrator(null, 10L)).isFalse();
+        assertThat(service.isEnabledAdministrator(1L, null)).isFalse();
+        assertThat(service.isEnabledAdministrator(1L, 0L)).isFalse();
+        assertThat(service.isEnabledAdministrator(1L, -1L)).isFalse();
+        verifyNoInteractions(organizationMapper, organizationMemberMapper, userMapper);
+    }
+
+    /** 组织不存在或停用时，即使有成员记录也不能获得管理员权限。 */
+    @Test
+    void shouldReturnFalseForAdministratorOfUnavailableOrganization() {
+        when(organizationMapper.selectById(10L)).thenReturn(null,
+                Organization.builder().id(10L).status(Status.DISABLED).build());
+        assertThat(service.isEnabledAdministrator(1L, 10L)).isFalse();
+        assertThat(service.isEnabledAdministrator(1L, 10L)).isFalse();
+        verifyNoInteractions(organizationMemberMapper, userMapper);
+    }
+
+    /** 管理员查询必须同时约束用户、当前组织、启用状态和 owner/admin 角色。 */
+    @Test
+    void shouldScopeEnabledAdministratorCheckToCurrentUserOrganizationStatusAndRoles() {
+        when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
+        when(organizationMemberMapper.selectCount(any())).thenReturn(1L);
+        assertThat(service.isEnabledAdministrator(7L, 10L)).isTrue();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<OrganizationMember>> query =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(organizationMemberMapper).selectCount(query.capture());
+        LambdaQueryWrapper<OrganizationMember> wrapper = query.getValue();
+        assertThat(wrapper.getSqlSegment()).contains("user_id", "org_id", "status", "org_role");
+        assertThat(wrapper.getParamNameValuePairs().values()).containsExactlyInAnyOrder(
+                7L, 10L, Status.ENABLED, "ORG_OWNER", "ORG_ADMIN");
+        verifyNoInteractions(userMapper);
+    }
+
+    /** 普通成员、停用成员或跨组织管理员均不能匹配当前组织的管理员查询。 */
+    @Test
+    void shouldReturnFalseWhenNoEnabledAdministratorMatches() {
+        when(organizationMapper.selectById(10L)).thenReturn(enabledOrg(10L));
+        when(organizationMemberMapper.selectCount(any())).thenReturn(0L);
+        assertThat(service.isEnabledAdministrator(7L, 10L)).isFalse();
     }
 
     private Organization enabledOrg(long orgId) {

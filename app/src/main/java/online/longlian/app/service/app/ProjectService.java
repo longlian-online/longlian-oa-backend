@@ -73,7 +73,7 @@ public interface ProjectService {
     void createProject(ProjectCreateParamsBO params);
 
     /**
-     * 更新企划，仅创建者可操作。
+     * 更新企划。创建者，或本组织启用中的组织所有者、组织管理员可操作。不改变创建者。
      *
      * @param params 包含企划 ID、编辑者 ID 及更新字段的参数
      */
@@ -97,16 +97,23 @@ public interface ProjectService {
 
 
     /**
-     * 删除企划。仅创建者可操作；企划下仍有项目时拒绝。
+     * 删除企划。创建者，或本组织启用中的组织所有者、组织管理员可操作；企划下仍有项目时拒绝，须改走审核。
      *
      * @param params 包含企划 ID、操作人 ID 和组织 ID 的删除参数
      */
     void deleteProject(ProjectDeleteParamsBO params);
 
     /**
-     * 确认当前用户是启用企划的负责人，并返回企划名称。
+     * 确认当前用户可管理该启用企划，并返回企划名称。
+     * 创建者、本组织启用中的组织所有者和组织管理员可以。不改变创建者。
      */
     String requireCreatorProjectTitle(Long projectId, Long userId, Long orgId);
+
+    /**
+     * 创建者，或本组织启用中的组织所有者、组织管理员。
+     * 只判断操作权，不把操作者变成企划负责人。
+     */
+    boolean isPlanningManager(Long creatorId, Long userId, Long orgId);
 
     /** 锁定启用企划，供调用方事务中的项目写入共用。 */
     ProjectAccessResultBO lockEnabledProject(ProjectAccessParamsBO params);
