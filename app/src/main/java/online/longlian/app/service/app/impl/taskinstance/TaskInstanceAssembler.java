@@ -8,6 +8,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.TaskFormField;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
@@ -36,6 +37,10 @@ public class TaskInstanceAssembler {
     private final ResourceService resourceService;
     private final TaskFormService taskFormService;
     private final TaskAttachmentPresenter taskAttachmentPresenter;
+
+    public ProjectAttachmentDownloadResultBO downloadAttachment(Long taskId, Long orgId, Long fileId) {
+        return taskAttachmentPresenter.download(taskId, orgId, fileId);
+    }
 
     public List<ItemTaskInstanceVO> assembleInstances(List<TaskInstance> instances, Map<Long, ItemTaskNode> nodeMap) {
         if (instances.isEmpty()) {

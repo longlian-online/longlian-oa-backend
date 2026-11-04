@@ -25,6 +25,8 @@ import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
 
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
@@ -338,17 +340,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public TaskInstanceDetailVO getTaskInstanceDetail(TaskInstanceDetailParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
-
-        Item item = itemMapper.selectById(instance.getItemId());
-        Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
-        if (project == null || !project.getOrgId().equals(params.getOrgId())
-                || project.getResourceStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+        TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
 
         TaskSubmission submission = taskSubmissionMapper.selectOne(
                 new LambdaQueryWrapper<TaskSubmission>()
@@ -365,18 +357,14 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     @Override
-    public List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params) {
-        TaskInstance instance = taskInstanceMapper.selectById(params.getInstanceId());
-        if (instance == null) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+    public ProjectAttachmentDownloadResultBO getTaskAttachmentDownload(TaskAttachmentDownloadParamsBO params) {
+        TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
+        return taskInstanceAssembler.downloadAttachment(instance.getId(), params.getOrgId(), params.getFileId());
+    }
 
-        Item item = itemMapper.selectById(instance.getItemId());
-        Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
-        if (project == null || !project.getOrgId().equals(params.getOrgId())
-                || project.getResourceStatus() != Status.ENABLED) {
-            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
-        }
+    @Override
+    public List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params) {
+        TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
 
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
         if (node == null) {
@@ -389,6 +377,20 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                         .orderByDesc(TaskSubmission::getVersionNo));
 
         return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());
+    }
+
+    private TaskInstance requireVisibleInstance(Long instanceId, Long orgId) {
+        TaskInstance instance = taskInstanceMapper.selectById(instanceId);
+        if (instance == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+        Item item = itemMapper.selectById(instance.getItemId());
+        Project project = item != null ? projectMapper.selectById(item.getProjectId()) : null;
+        if (project == null || !project.getOrgId().equals(orgId)
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务实例不存在");
+        }
+        return instance;
     }
 
     private Project getAndValidateProject(TaskInstance instance, ItemTaskFlow flow, Long orgId, Long validatedUserId) {

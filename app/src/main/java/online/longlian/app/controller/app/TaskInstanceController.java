@@ -35,6 +35,9 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
 import online.longlian.app.pojo.vo.app.TaskClaimResultVO;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.vo.app.ProjectAttachmentDownloadVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
@@ -142,6 +145,27 @@ public class TaskInstanceController {
                         .instanceId(instanceId)
                         .orgId(sessionContext.orgId())
                         .build());
+    }
+
+    @Operation(summary = "获取任务附件读取链接", description = "点击预览或下载时新取签名，详情和版本列表不返回读取地址")
+    @Parameter(name = "instanceId", description = "任务实例ID")
+    @Parameter(name = "fileId", description = "文件ID")
+    @GetMapping("/{instanceId}/attachments/{fileId}/download")
+    @ResponseMessage("获取成功")
+    public ProjectAttachmentDownloadVO getTaskAttachmentDownload(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long instanceId,
+            @PathVariable Long fileId) {
+        ProjectAttachmentDownloadResultBO result = taskInstanceService.getTaskAttachmentDownload(
+                TaskAttachmentDownloadParamsBO.builder()
+                        .instanceId(instanceId)
+                        .fileId(fileId)
+                        .orgId(sessionContext.orgId())
+                        .build());
+        ProjectAttachmentDownloadVO vo = new ProjectAttachmentDownloadVO();
+        vo.setReadUrl(result.getReadUrl());
+        vo.setExpireAt(result.getExpireAt());
+        return vo;
     }
 
     @Operation(
