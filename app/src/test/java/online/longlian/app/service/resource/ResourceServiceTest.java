@@ -128,9 +128,11 @@ public class ResourceServiceTest {
     @ParameterizedTest
     @CsvSource({
             "clip.mp4, mp4, video/mp4, task_submit",
-            "clip.webm, webm, video/webm, project_attachment"
+            "clip.webm, webm, video/webm, project_attachment",
+            "voice.mp3, mp3, audio/mpeg, task_submit",
+            "voice.m4a, m4a, audio/mp4, project_attachment"
     })
-    void create_videoAtFiftyMegabytes_createsResource(String fileName, String fileExt, String fileMime, String bizType) {
+    void create_mediaAtFiftyMegabytes_createsResource(String fileName, String fileExt, String fileMime, String bizType) {
         allowCreate();
 
         resourceService.create(new ResourceCreateParamsBO(

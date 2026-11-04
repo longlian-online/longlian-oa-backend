@@ -483,7 +483,10 @@ class LocalFileReadApiTest extends BaseApiTest {
     @ParameterizedTest
     @CsvSource({
             "clip.mp4, mp4, video/mp4, task_submit",
-            "clip.webm, webm, video/webm, project_attachment"
+            "clip.webm, webm, video/webm, project_attachment",
+            "voice.mp3, mp3, audio/mpeg, task_submit",
+            "voice.wav, wav, audio/wav, project_attachment",
+            "voice.m4a, m4a, audio/mp4, task_submit"
     })
     void shouldAcceptVideoAttachmentAtFiftyMegabytes(String fileName, String ext, String mime, String bizType) {
         createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_USER");
@@ -504,6 +507,12 @@ class LocalFileReadApiTest extends BaseApiTest {
                 "clip.mov", "mov", 1024L, "video/quicktime", "task_submit");
 
         authRequest(token).body(video).post("/common/file/upload").then()
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
+                .body("msg", containsString("不支持的文件类型"));
+        CreateFileReqDTO midi = new CreateFileReqDTO(
+                "score.mid", "mid", 1024L, "audio/midi", "task_submit");
+
+        authRequest(token).body(midi).post("/common/file/upload").then()
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
                 .body("msg", containsString("不支持的文件类型"));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Long.class)).isZero();

@@ -18,13 +18,19 @@ class FileTypePatternTest {
         assertThat(FILE_EXT.matcher("WEBM").matches()).isTrue();
         assertThat(FILE_MIME.matcher("video/mp4").matches()).isTrue();
         assertThat(FILE_MIME.matcher("video/webm").matches()).isTrue();
+        assertThat(FILE_EXT.matcher("mp3").matches()).isTrue();
+        assertThat(FILE_EXT.matcher("m4a").matches()).isTrue();
+        assertThat(FILE_MIME.matcher("audio/mpeg").matches()).isTrue();
+        assertThat(FILE_MIME.matcher("audio/mp4").matches()).isTrue();
     }
 
     @Test
     void rejectsVideoContainersTheBrowserCannotPreview() {
         assertThat(FILE_EXT.matcher("mov").matches()).isFalse();
         assertThat(FILE_EXT.matcher("mkv").matches()).isFalse();
+        assertThat(FILE_EXT.matcher("mid").matches()).isFalse();
         assertThat(FILE_MIME.matcher("video/quicktime").matches()).isFalse();
         assertThat(FILE_MIME.matcher("video/x-matroska").matches()).isFalse();
+        assertThat(FILE_MIME.matcher("audio/midi").matches()).isFalse();
     }
 }
