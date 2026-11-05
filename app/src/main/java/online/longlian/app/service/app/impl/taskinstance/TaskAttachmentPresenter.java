@@ -1,6 +1,9 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
 import lombok.RequiredArgsConstructor;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
@@ -27,26 +30,36 @@ public class TaskAttachmentPresenter {
             return attachments;
         }
         Map<Long, ActivatedResource> matched = resourceService.findActivated(TASK_SUBMIT, taskId, orgId, resourceIds);
-        Map<Long, ActivatedResourceRead> signed = matched.isEmpty()
-                ? Map.of()
-                : resourceService.signActivated(matched.values());
         for (Long resourceId : resourceIds) {
-            ActivatedResourceRead read = signed.get(resourceId);
+            ActivatedResource resource = matched.get(resourceId);
             TaskAttachmentVO attachment = new TaskAttachmentVO();
             attachment.setId(resourceId.toString());
             attachment.setAvailability("unavailable");
             attachment.setName("附件不可用");
-            if (read != null) {
-                attachment.setName(read.fileName());
-                attachment.setReadUrl(read.readUrl());
-                attachment.setExpiresAt(read.expiresAt());
-                attachment.setSizeText(sizeText(read.fileSize()));
-                attachment.setMediaType(mediaType(read.fileMime()));
+            if (resource != null) {
+                attachment.setName(resource.fileName());
+                attachment.setSizeText(sizeText(resource.fileSize()));
+                attachment.setMediaType(mediaType(resource.fileMime()));
                 attachment.setAvailability("available");
             }
             attachments.put(resourceId, attachment);
         }
         return attachments;
+    }
+
+    /** 点击预览或下载时签发。详情和版本列表不带读取链接。 */
+    public ProjectAttachmentDownloadResultBO download(Long taskId, Long orgId, Long resourceId) {
+        ActivatedResource resource = resourceService
+                .findActivated(TASK_SUBMIT, taskId, orgId, List.of(resourceId))
+                .get(resourceId);
+        if (resource == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
+        }
+        ActivatedResourceRead read = resourceService.signDownload(resource);
+        return ProjectAttachmentDownloadResultBO.builder()
+                .readUrl(read.readUrl())
+                .expireAt(read.expiresAt())
+                .build();
     }
 
     private String sizeText(long bytes) {
