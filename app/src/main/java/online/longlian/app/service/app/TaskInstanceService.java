@@ -16,6 +16,12 @@ import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 
+import online.longlian.app.pojo.bo.app.TaskDraftGetParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftResultBO;
+import online.longlian.app.pojo.bo.app.TaskDraftSaveParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftSubmitResultBO;
+
 import java.util.List;
 
 /**
@@ -46,6 +52,16 @@ import java.util.List;
  * </ul>
  */
 public interface TaskInstanceService {
+
+    /** 返回当前接取人的草稿及任务、草稿修订号。 */
+    TaskDraftResultBO getTaskDraft(TaskDraftGetParamsBO params);
+
+    /** 暂存允许不完整的表单；附件生成不可被旧上传链接覆盖的快照。 */
+    TaskDraftResultBO saveTaskDraft(TaskDraftSaveParamsBO params);
+
+    /** 按修订号提交已暂存内容；重复请求返回同一提交结果。 */
+    TaskDraftSubmitResultBO submitTaskDraft(TaskDraftSubmitParamsBO params);
+
 
     /**
      * 获取任务实例详情，包含最近一次提交的内容数据。

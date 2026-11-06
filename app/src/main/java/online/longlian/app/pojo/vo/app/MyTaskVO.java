@@ -16,6 +16,12 @@ import java.time.LocalDateTime;
 @Schema(description = "我的待办条目")
 public class MyTaskVO {
 
+    @Schema(description = "是否存在当前接取人的有效草稿")
+    private boolean hasDraft;
+
+    @Schema(description = "草稿最近暂存时间；无有效草稿时为 null")
+    private LocalDateTime draftUpdatedAt;
+
     @JsonLongIdString
     @Schema(type = "string", description = "任务实例ID")
     private Long instanceId;

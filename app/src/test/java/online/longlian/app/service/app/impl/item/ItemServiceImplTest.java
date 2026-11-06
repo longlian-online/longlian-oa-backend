@@ -48,6 +48,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import online.longlian.app.service.app.TaskDraftRecordService;
+
 import java.time.Clock;
 import java.util.List;
 
@@ -83,11 +85,13 @@ class ItemServiceImplTest {
 
     private ItemServiceImpl service;
 
+    @Mock private TaskDraftRecordService taskDraftRecordService;
+
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskSubmission.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
-        service = new ItemServiceImpl(projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
+        service = new ItemServiceImpl(taskDraftRecordService, projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
                 taskSubmissionMapper, resourceService, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService,
                 organizationMembershipService, inboxNotificationService);

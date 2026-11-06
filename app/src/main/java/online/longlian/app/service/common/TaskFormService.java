@@ -114,6 +114,14 @@ public class TaskFormService {
         }
     }
 
+    /** 草稿允许缺少必填项，其余字段类型和文件 ID 仍沿用正式提交校验。 */
+    public ValidatedValues validateDraftValues(List<TaskFormField> fields, Map<String, Object> values) {
+        List<TaskFormField> optionalFields = fields.stream()
+                .map(field -> new TaskFormField(field.key(), field.label(), field.type(), false, field.options()))
+                .toList();
+        return validateValues(optionalFields, values);
+    }
+
     /** Checks submitted values against the server-owned definition and collects authorized file candidates. */
     public ValidatedValues validateValues(List<TaskFormField> fields, Map<String, Object> values) {
         Set<String> keys = new HashSet<>();

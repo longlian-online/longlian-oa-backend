@@ -29,6 +29,10 @@ import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriUtils;
 
+import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.time.Clock;
@@ -253,7 +257,8 @@ public class ResourceService {
 
     /** 需要原文件名下载的业务类型：上传时写入对象头，读取时还原。 */
     public static boolean isAttachmentBusiness(String bizType) {
-        return "task_submit".equals(bizType) || "project_attachment".equals(bizType);
+        return "task_submit".equals(bizType) || "task_draft".equals(bizType)
+                || "project_attachment".equals(bizType);
     }
 
     /**
@@ -319,6 +324,7 @@ public class ResourceService {
         if (resource == null || !Objects.equals(resource.getCreatorId(), scope.creatorId())
                 || (scope.orgId() != null && !Objects.equals(resource.getOrgId(), scope.orgId()))
                 || !Objects.equals(resource.getBizType(), scope.bizType())
+                || resource.getDraftSealToken() != null
                 || !Objects.equals(resource.getBizId(), 0L)
                 || (resource.getProcessStatus() != FileProcessStatus.Pending
                     && resource.getProcessStatus() != FileProcessStatus.Uploaded)) {
@@ -354,7 +360,46 @@ public class ResourceService {
                 .eq(scope.orgId() != null, Resource::getOrgId, scope.orgId())
                 .eq(Resource::getCreatorId, scope.creatorId())
                 .eq(Resource::getBizType, scope.bizType())
-                .eq(Resource::getBizId, 0L);
+                .eq(Resource::getBizId, 0L)
+                .isNull(Resource::getDraftSealToken);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void promoteTaskDraftFiles(TaskDraftFilePromoteParamsBO params) {
+        List<Long> fileIds = params.getFileIds().stream().distinct().sorted().toList();
+        if (fileIds.isEmpty()) {
+            return;
+        }
+        List<Resource> resources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
+                .in(Resource::getId, fileIds)
+                .orderByAsc(Resource::getId)
+                .last("FOR UPDATE"));
+        if (resources.size() != fileIds.size()) {
+            throw unauthorized();
+        }
+        for (Resource resource : resources) {
+            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
+                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || !"task_draft".equals(resource.getBizType())
+                    || !Objects.equals(resource.getBizId(), params.getDraftId())
+                    || resource.getProcessStatus() != FileProcessStatus.Activated
+                    || resource.getStorageCleanedAt() != null) {
+                throw unauthorized();
+            }
+            storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                    resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+            int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                    .eq(Resource::getId, resource.getId())
+                    .eq(Resource::getBizType, "task_draft")
+                    .eq(Resource::getBizId, params.getDraftId())
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                    .isNull(Resource::getStorageCleanedAt)
+                    .set(Resource::getBizType, "task_submit")
+                    .set(Resource::getBizId, params.getInstanceId()));
+            if (updated != 1) {
+                throw unauthorized();
+            }
+        }
     }
 
     private record BindScope(String bizType, Long bizId, Long creatorId, Long orgId) {

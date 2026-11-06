@@ -11,6 +11,9 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
+import online.longlian.app.pojo.bo.app.TaskDraftGetParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftRecordResultBO;
+import online.longlian.app.pojo.bo.app.TaskDraftResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
@@ -50,6 +53,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+
+import online.longlian.app.service.app.TaskDraftRecordService;
+
+import online.longlian.app.service.common.TaskFormService;
+import online.longlian.common.enumeration.TaskDraftStatus;
+import online.longlian.app.service.resource.TaskDraftResourceService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -97,6 +106,10 @@ class TaskInstanceServiceImplTest {
 
     private TaskInstanceServiceImpl service;
 
+    @Mock private TaskDraftResourceService taskDraftResourceService;
+    @Mock private TaskFormService taskFormService;
+    @Mock private TaskDraftRecordService taskDraftRecordService;
+
     @BeforeEach
     void setUp() {
         service = new TaskInstanceServiceImpl(taskInstanceMapper,
@@ -104,7 +117,8 @@ class TaskInstanceServiceImplTest {
                 itemMapper, projectMapper, itemTaskNodeMapper,
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,
-                inboxNotificationService, Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")));
+                inboxNotificationService, Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")),
+                taskDraftRecordService, taskDraftResourceService, taskFormService);
         lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))
@@ -864,6 +878,39 @@ class TaskInstanceServiceImplTest {
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemMapper.selectById(1L)).thenReturn(writableItem());
         return params;
+    }
+
+    @ParameterizedTest
+    @EnumSource(TaskDraftStatus.class)
+    void shouldUseDraftLifecycleRatherThanTaskRevisionForVisibility(TaskDraftStatus status) {
+        TaskInstance instance = prepareReviewInstance();
+        instance.setStatus(TaskInstanceStatus.CLAIMED);
+        instance.setAssigneeId(1L);
+        instance.setRevision(7L);
+        when(itemTaskNodeMapper.selectById(5L)).thenReturn(ItemTaskNode.builder()
+                .id(5L).projectId(2L).itemId(1L).itemTaskFlowId(6L).sort(1).build());
+        when(itemTaskFlowMapper.selectById(6L)).thenReturn(ItemTaskFlow.builder()
+                .id(6L).itemId(1L).projectId(2L).build());
+        when(taskFormService.parseFields(isNull())).thenReturn(List.of());
+        when(taskDraftRecordService.getTaskDraftRecord(any())).thenReturn(TaskDraftRecordResultBO.builder()
+                .id(44L).taskInstanceId(100L).orgId(10L).ownerId(1L)
+                .taskRevision(0L).revision(2L).status(status).metadata("{\"notes\":\"已暂存的内容\"}").build());
+        if (status == TaskDraftStatus.ACTIVE) {
+            when(taskFormService.validateDraftValues(anyList(), anyMap()))
+                    .thenReturn(new TaskFormService.ValidatedValues(Map.of("notes", "已暂存的内容"), List.of()));
+        }
+
+        TaskDraftResultBO result = service.getTaskDraft(new TaskDraftGetParamsBO(100L, 1L, 10L));
+
+        assertThat(result.getTaskRevision()).isEqualTo("7");
+        assertThat(result.getDraftRevision()).isEqualTo("2");
+        if (status == TaskDraftStatus.ACTIVE) {
+            assertThat(result.getDraft().getValues()).containsEntry("notes", "已暂存的内容");
+            verify(taskDraftResourceService).getTaskDraftFiles(any());
+        } else {
+            assertThat(result.getDraft()).isNull();
+            verifyNoInteractions(taskDraftResourceService);
+        }
     }
 
     private TaskInstance prepareReviewInstance() {

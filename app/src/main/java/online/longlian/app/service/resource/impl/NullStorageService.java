@@ -3,6 +3,7 @@ package online.longlian.app.service.resource.impl;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceCopyParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
@@ -45,6 +46,11 @@ public class NullStorageService implements StorageService {
     @Override
     public void probe(ResourceProbeParamsBO params) {
         throw new AppException(ResultCode.OPERATION_FAIL, "当前存储不支持文件上传");
+    }
+
+    @Override
+    public void copyResource(ResourceCopyParamsBO params) {
+        throw new AppException(ResultCode.OPERATION_FAIL, "当前存储不支持文件暂存");
     }
 
     @Override

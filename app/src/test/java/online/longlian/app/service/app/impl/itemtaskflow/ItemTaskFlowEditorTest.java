@@ -35,6 +35,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import online.longlian.app.service.app.TaskDraftRecordService;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -65,13 +67,16 @@ class ItemTaskFlowEditorTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
     private ItemTaskFlowEditor editor;
 
+    @Mock private TaskDraftRecordService taskDraftRecordService;
+
     @BeforeEach
     void setUp() {
         for (Class<?> entity : List.of(ItemTaskFlow.class, ItemTaskNode.class, TaskInstance.class, TaskSubmission.class)) {
             TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), entity);
         }
         editor = new ItemTaskFlowEditor(projectService, baseTaskService, itemMapper, flowMapper,
-                nodeMapper, instanceMapper, submissionMapper, baseTaskMapper, resourceService, clock);
+                nodeMapper, instanceMapper, submissionMapper, baseTaskMapper, resourceService, clock,
+                taskDraftRecordService);
     }
 
     @Test

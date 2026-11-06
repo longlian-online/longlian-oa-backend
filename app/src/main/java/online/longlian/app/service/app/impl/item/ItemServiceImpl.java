@@ -28,6 +28,7 @@ import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftDiscardParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
@@ -41,6 +42,7 @@ import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.InboxNotificationKind;
@@ -71,6 +73,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ItemServiceImpl implements ItemService {
 
+    private final TaskDraftRecordService taskDraftRecordService;
     private final ProjectMapper projectMapper;
     private final ItemMapper itemMapper;
     private final ItemTaskFlowMapper itemTaskFlowMapper;
@@ -255,12 +258,18 @@ public class ItemServiceImpl implements ItemService {
     }
 
     private void softDeleteItem(Item item, Long orgId) {
+        itemTaskFlowMapper.selectOne(new LambdaQueryWrapper<ItemTaskFlow>()
+                .eq(ItemTaskFlow::getItemId, item.getId())
+                .last("FOR UPDATE"));
         List<Long> instanceIds = taskInstanceMapper.selectList(new LambdaQueryWrapper<TaskInstance>()
                         .select(TaskInstance::getId)
-                        .eq(TaskInstance::getItemId, item.getId()))
+                        .eq(TaskInstance::getItemId, item.getId())
+                        .orderByAsc(TaskInstance::getId)
+                        .last("FOR UPDATE"))
                 .stream()
                 .map(TaskInstance::getId)
                 .toList();
+        taskDraftRecordService.discardTaskDrafts(new TaskDraftDiscardParamsBO(instanceIds, orgId));
         LocalDateTime now = LocalDateTime.now(clock);
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()

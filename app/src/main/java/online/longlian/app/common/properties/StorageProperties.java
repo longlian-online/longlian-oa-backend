@@ -9,6 +9,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "storage")
 @Data
 public class StorageProperties {
+    private java.time.Duration draftSealLease = java.time.Duration.ofMinutes(10);
     private StorageType type;
     private long presignedUrlTtlSeconds = 300;
     private Duration unboundResourceRetention = Duration.ofHours(24);

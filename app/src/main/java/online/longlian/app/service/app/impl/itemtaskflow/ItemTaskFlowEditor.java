@@ -14,6 +14,7 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.app.TaskDraftDiscardParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
@@ -22,6 +23,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.orgadmin.BaseTaskService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -56,6 +58,7 @@ public class ItemTaskFlowEditor {
     private final BaseTaskMapper baseTaskMapper;
     private final ResourceService resourceService;
     private final Clock clock;
+    private final TaskDraftRecordService taskDraftRecordService;
 
     /**
      * 保存项目工作流。入参形状已由调用方校验，这里负责权限、加锁和落库。
@@ -213,6 +216,8 @@ public class ItemTaskFlowEditor {
         if (deleted.isEmpty()) {
             return;
         }
+        taskDraftRecordService.discardTaskDrafts(new TaskDraftDiscardParamsBO(
+                deleted.stream().map(ItemTaskFlowEditPlanner.Deleted::instanceId).toList(), orgId));
         resourceService.abandonBound(ResourceAbandonParamsBO.builder()
                 .orgId(orgId)
                 .bizType("task_submit")

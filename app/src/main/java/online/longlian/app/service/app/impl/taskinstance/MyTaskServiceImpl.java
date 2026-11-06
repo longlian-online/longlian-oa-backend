@@ -7,9 +7,12 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
 import online.longlian.app.pojo.bo.app.MyTaskRowBO;
+import online.longlian.app.pojo.bo.app.TaskDraftSummaryParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftSummaryResultBO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.MyTaskService;
+import online.longlian.app.service.app.TaskDraftRecordService;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 public class MyTaskServiceImpl implements MyTaskService {
 
     private final TaskInstanceMapper taskInstanceMapper;
+    private final TaskDraftRecordService taskDraftRecordService;
 
     @Override
     public PageResultVO<MyTaskVO> listMyTasks(MyTaskParamsBO params) {
@@ -51,7 +55,18 @@ public class MyTaskServiceImpl implements MyTaskService {
         int pageSize = params.getPage().getPageSize();
         int from = Math.min((pageNum - 1) * pageSize, bucket.size());
         int to = Math.min(from + pageSize, bucket.size());
-        return new PageResultVO<>(bucket.subList(from, to), (long) bucket.size());
+        List<MyTaskVO> page = bucket.subList(from, to);
+        Map<Long, TaskDraftSummaryResultBO> draftSummaries = taskDraftRecordService.getTaskDraftSummaries(
+                new TaskDraftSummaryParamsBO(page.stream().map(MyTaskVO::getInstanceId).toList(),
+                        params.getOrgId(), params.getUserId()));
+        for (MyTaskVO task : page) {
+            TaskDraftSummaryResultBO draft = draftSummaries.get(task.getInstanceId());
+            task.setHasDraft(draft != null);
+            if (draft != null) {
+                task.setDraftUpdatedAt(draft.getUpdatedAt());
+            }
+        }
+        return new PageResultVO<>(page, (long) bucket.size());
     }
 
     private MyTaskVO toVO(MyTaskRowBO row, List<ItemStageNodeStatusBO> itemNodes) {

@@ -21,6 +21,8 @@ import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Component;
 
+import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -117,7 +119,20 @@ public class TaskInstanceCommandHandler {
         List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
         LocalDateTime now = LocalDateTime.now(clock);
         return completeSubmission(instance, node, beforeNodes, userId, userId, orgId, values,
-                now, now, TaskInstanceStatus.CLAIMED, false);
+                now, now, TaskInstanceStatus.CLAIMED, false, null);
+    }
+
+    public TaskInstanceSubmitResultBO submitFromDraft(TaskInstance instance, Long userId, Long orgId,
+                                                      Long draftId, Map<String, Object> values) {
+        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
+        }
+        requireAssignee(instance, userId, "仅接取人可提交任务");
+        ItemTaskNode node = requireNode(instance);
+        List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
+        LocalDateTime now = LocalDateTime.now(clock);
+        return completeSubmission(instance, node, beforeNodes, userId, userId, orgId, values,
+                now, now, TaskInstanceStatus.CLAIMED, false, draftId);
     }
 
     /**
@@ -141,11 +156,11 @@ public class TaskInstanceCommandHandler {
         ItemTaskNode node = requireNode(instance);
         List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
         return completeSubmission(instance, node, beforeNodes, assigneeId, operatorId, orgId, values,
-                submittedAt, now, TaskInstanceStatus.PENDING, true);
+                submittedAt, now, TaskInstanceStatus.PENDING, true, null);
     }
 
     /**
-     * 两条提交入口共用的完成动作：校验表单、绑定附件、推进状态、写入提交记录并累加计数。
+     * 各提交入口共用的完成动作：校验表单、绑定附件、推进状态、写入提交记录并累加计数。
      * 代提交额外把执行人改成归属组员，并把接取时间写成设定的提交时间。
      */
     private TaskInstanceSubmitResultBO completeSubmission(TaskInstance instance, ItemTaskNode node,
@@ -153,16 +168,21 @@ public class TaskInstanceCommandHandler {
                                                           Long submitterId, Long resourceOwnerId, Long orgId,
                                                           Map<String, Object> values, LocalDateTime submittedAt,
                                                           LocalDateTime updatedAt, TaskInstanceStatus requiredStatus,
-                                                          boolean claimAndAssign) {
+                                                          boolean claimAndAssign, Long draftId) {
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
-        resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
-                .resourceIds(validated.resourceIds())
-                .bizType("task_submit")
-                .bizId(instance.getId())
-                .orgId(orgId)
-                .creatorId(resourceOwnerId)
-                .build());
+        if (draftId != null) {
+            resourceService.promoteTaskDraftFiles(new TaskDraftFilePromoteParamsBO(
+                    resourceOwnerId, orgId, draftId, instance.getId(), validated.resourceIds()));
+        } else {
+            resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
+                    .resourceIds(validated.resourceIds())
+                    .bizType("task_submit")
+                    .bizId(instance.getId())
+                    .orgId(orgId)
+                    .creatorId(resourceOwnerId)
+                    .build());
+        }
 
         LambdaUpdateWrapper<TaskInstance> update = new LambdaUpdateWrapper<TaskInstance>()
                 .eq(TaskInstance::getId, instance.getId())

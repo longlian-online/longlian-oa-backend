@@ -15,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import online.longlian.app.service.app.TaskDraftRecordService;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,9 +32,11 @@ class MyTaskServiceImplTest {
 
     private MyTaskServiceImpl service;
 
+    @Mock private TaskDraftRecordService taskDraftRecordService;
+
     @BeforeEach
     void setUp() {
-        service = new MyTaskServiceImpl(taskInstanceMapper);
+        service = new MyTaskServiceImpl(taskInstanceMapper, taskDraftRecordService);
     }
 
     private static MyTaskRowBO row(long instanceId, long itemId, String nodeName, int sort, int minute) {
