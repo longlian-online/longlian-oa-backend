@@ -64,6 +64,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -163,7 +164,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             boolean projectCreator = managesPlanning(project, params.getUserId());
             taskInstanceCommandHandler.abandon(instance, params.getUserId(), projectCreator,
                     params.getExpectedRevision());
-            taskInstanceCommandHandler.discardDraft(instance.getId(), params.getOrgId());
+            taskInstanceCommandHandler.discardDraft(instance, params.getOrgId());
             if (projectCreator && !params.getUserId().equals(instance.getAssigneeId())) {
                 logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), null,
                         UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
@@ -177,14 +178,11 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public void submitTask(TaskInstanceSubmitParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
-            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
-                    instance, params.getUserId(), params.getOrgId(), params.getValues());
-            finishSubmission(instance, project, result, params.getUserId());
-            operationLogService.log(params.getUserId(), instance.getProjectId(),
-                    instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
-            return null;
-        });
+        submitAndRecord(params.getInstanceId(), params.getOrgId(), null, params.getUserId(),
+                (instance, project) -> taskInstanceCommandHandler.submit(
+                        instance, params.getUserId(), params.getOrgId(), params.getValues()),
+                (instance, result) -> operationLogService.log(params.getUserId(), instance.getProjectId(),
+                        instance.getItemId(), UserOperationType.TASK_SUBMIT, params));
     }
 
     @Override
@@ -193,7 +191,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (!java.util.Objects.equals(instance.getAssigneeId(), params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人可查看暂存");
         }
-        return taskInstanceCommandHandler.readDraftValues(instance.getId());
+        return taskInstanceCommandHandler.readDraftValues(instance);
     }
 
     @Override
@@ -204,36 +202,49 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public void submitTaskDraft(TaskInstanceOperateParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
-            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submitDraft(
-                    instance, params.getUserId(), params.getOrgId());
-            finishSubmission(instance, project, result, params.getUserId());
-            operationLogService.log(params.getUserId(), instance.getProjectId(),
-                    instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
-            return null;
-        });
+        submitAndRecord(params.getInstanceId(), params.getOrgId(), params.getUserId(), params.getUserId(),
+                (instance, project) -> taskInstanceCommandHandler.submitDraft(
+                        instance, params.getUserId(), params.getOrgId()),
+                (instance, result) -> operationLogService.log(params.getUserId(), instance.getProjectId(),
+                        instance.getItemId(), UserOperationType.TASK_SUBMIT, params));
     }
 
     @Override
     public void proxySubmitTask(TaskInstanceProxySubmitParamsBO params) {
-        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
-            if (!managesPlanning(project, params.getUserId())) {
-                throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可代提交");
-            }
-            organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
-            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.proxySubmit(
-                    instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
-                    params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
-            finishSubmission(instance, project, result, params.getAssigneeId());
-            Map<String, Object> audit = new LinkedHashMap<>();
-            audit.put("action", "PROXY_SUBMIT");
-            audit.put("instanceId", instance.getId());
-            audit.put("assigneeId", params.getAssigneeId());
-            audit.put("submittedAt", params.getSubmittedAt().format(SUBMITTED_AT_FORMAT));
-            audit.put("expectedRevision", params.getExpectedRevision());
-            audit.put("revision", Long.toString(instance.getRevision() + 1));
-            operationLogService.logSynchronously(params.getUserId(), instance.getProjectId(),
-                    instance.getItemId(), UserOperationType.TASK_SUBMIT, audit);
+        submitAndRecord(params.getInstanceId(), params.getOrgId(), params.getUserId(), params.getAssigneeId(),
+                (instance, project) -> {
+                    if (!managesPlanning(project, params.getUserId())) {
+                        throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅企划负责人可代提交");
+                    }
+                    organizationMembershipService.requireAssignableMember(params.getAssigneeId(), params.getOrgId());
+                    return taskInstanceCommandHandler.proxySubmit(
+                            instance, params.getAssigneeId(), params.getOrgId(), params.getUserId(),
+                            params.getValues(), params.getSubmittedAt(), params.getExpectedRevision());
+                },
+                (instance, result) -> {
+                    Map<String, Object> audit = new LinkedHashMap<>();
+                    audit.put("action", "PROXY_SUBMIT");
+                    audit.put("instanceId", instance.getId());
+                    audit.put("assigneeId", params.getAssigneeId());
+                    audit.put("submittedAt", params.getSubmittedAt().format(SUBMITTED_AT_FORMAT));
+                    audit.put("expectedRevision", params.getExpectedRevision());
+                    audit.put("revision", Long.toString(instance.getRevision() + 1));
+                    operationLogService.logSynchronously(params.getUserId(), instance.getProjectId(),
+                            instance.getItemId(), UserOperationType.TASK_SUBMIT, audit);
+                });
+    }
+
+    /**
+     * 三种正式提交的共同流程：先完成各自的提交写入，再发进度通知并记录操作日志。
+     * 直接提交、提交暂存和代提交只提供写入与审计方式。
+     */
+    private void submitAndRecord(Long instanceId, Long orgId, Long validatedUserId, Long notifiedUserId,
+                                 BiFunction<TaskInstance, Project, TaskInstanceSubmitResultBO> submit,
+                                 BiConsumer<TaskInstance, TaskInstanceSubmitResultBO> record) {
+        mutateTask(instanceId, orgId, validatedUserId, (instance, project) -> {
+            TaskInstanceSubmitResultBO result = submit.apply(instance, project);
+            finishSubmission(instance, project, result, notifiedUserId);
+            record.accept(instance, result);
             return null;
         });
     }
@@ -381,7 +392,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (node == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
         }
-        return taskInstanceAssembler.assembleDetail(instance, node, submission, params.getOrgId());
+        TaskInstanceDetailVO detail = taskInstanceAssembler.assembleDetail(
+                instance, node, submission, params.getOrgId());
+        if (params.getUserId() != null && java.util.Objects.equals(instance.getAssigneeId(), params.getUserId())) {
+            detail.setDraft(taskInstanceAssembler.assembleDraft(node, instance, params.getOrgId()));
+        }
+        return detail;
     }
 
     @Override
@@ -402,7 +418,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         List<TaskSubmission> submissions = taskSubmissionMapper.selectList(
                 new LambdaQueryWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
-                        .ne(TaskSubmission::getStatus, online.longlian.common.enumeration.TaskSubmissionStatus.DRAFT)
                         .orderByDesc(TaskSubmission::getVersionNo));
 
         return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());

@@ -8,7 +8,6 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
-import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.ItemTaskNode;
@@ -59,8 +58,6 @@ class TaskInstanceOwnerCommandHandlerTest {
     @Mock
     private TaskSubmissionMapper taskSubmissionMapper;
     @Mock
-    private ResourceMapper resourceMapper;
-    @Mock
     private ItemTaskNodeMapper itemTaskNodeMapper;
     @Mock
     private MemberSubmitCountHandler memberSubmitCountHandler;
@@ -75,7 +72,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), TaskInstance.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), TaskSubmission.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), ItemTaskNode.class);
-        handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper, resourceMapper,
+        handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper,
                 itemTaskNodeMapper,
                 memberSubmitCountHandler, Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC),
                 new TaskFormService(), resourceService);

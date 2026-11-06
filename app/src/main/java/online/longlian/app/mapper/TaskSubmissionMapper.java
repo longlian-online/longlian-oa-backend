@@ -24,7 +24,7 @@ public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
     @Select("""
             <script>
             SELECT DISTINCT item_id FROM task_submission
-            WHERE status != 4 AND item_id IN
+            WHERE item_id IN
             <foreach collection="itemIds" item="itemId" open="(" separator="," close=")">
                 #{itemId}
             </foreach>

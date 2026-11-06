@@ -6,11 +6,8 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
-import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.entity.Resource;
-import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
@@ -27,8 +24,10 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 任务实例状态流转的处理器。
@@ -41,7 +40,6 @@ public class TaskInstanceCommandHandler {
 
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
-    private final ResourceMapper resourceMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final MemberSubmitCountHandler memberSubmitCountHandler;
     private final Clock clock;
@@ -125,7 +123,7 @@ public class TaskInstanceCommandHandler {
                 now, now, TaskInstanceStatus.CLAIMED, false);
     }
 
-    /** 每个任务只保留一条暂存提交。再次暂存覆盖内容，不产生新版本。 */
+    /** 暂存写在任务实例上。再次暂存覆盖内容，不产生提交版本。附件直接属于该任务。 */
     public Long saveDraft(TaskInstance instance, Long userId, Long orgId, Map<String, Object> values) {
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可暂存");
@@ -134,43 +132,27 @@ public class TaskInstanceCommandHandler {
         ItemTaskNode node = requireNode(instance);
         TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
-        TaskSubmission draft = currentDraft(instance.getId());
-        List<Long> previousFileIds = draft == null ? List.of() : referencedFileIds(draft.getMetadata());
+        List<Long> previousFileIds = referencedFileIds(instance.getDraftMetadata());
         LocalDateTime now = LocalDateTime.now(clock);
-        if (draft == null) {
-            draft = TaskSubmission.builder()
-                    .projectId(instance.getProjectId())
-                    .itemId(instance.getItemId())
-                    .taskInstanceId(instance.getId())
-                    .itemTaskNodeId(instance.getItemTaskNodeId())
-                    .submitterId(userId)
-                    .metadata(validated.serialize())
-                    .status(TaskSubmissionStatus.DRAFT)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            taskSubmissionMapper.insert(draft);
-        } else {
-            taskSubmissionMapper.update(null, new LambdaUpdateWrapper<TaskSubmission>()
-                    .eq(TaskSubmission::getId, draft.getId())
-                    .eq(TaskSubmission::getStatus, TaskSubmissionStatus.DRAFT)
-                    .set(TaskSubmission::getMetadata, validated.serialize())
-                    .set(TaskSubmission::getUpdatedAt, now));
-        }
+        requireUpdated(taskInstanceMapper.update(null, new LambdaUpdateWrapper<TaskInstance>()
+                .eq(TaskInstance::getId, instance.getId())
+                .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                .eq(TaskInstance::getAssigneeId, userId)
+                .set(TaskInstance::getDraftMetadata, validated.serialize())
+                .set(TaskInstance::getDraftUpdatedAt, now)));
         List<Long> nextFileIds = validated.resourceIds();
         List<Long> addedFileIds = nextFileIds.stream().filter(id -> !previousFileIds.contains(id)).toList();
-        List<Long> removedFileIds = previousFileIds.stream().filter(id -> !nextFileIds.contains(id)).toList();
+        Set<Long> keptFileIds = new HashSet<>(nextFileIds);
+        keptFileIds.addAll(submittedFileIds(instance.getId()));
+        List<Long> removedFileIds = previousFileIds.stream().filter(id -> !keptFileIds.contains(id)).toList();
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
-                .resourceIds(addedFileIds).bizType("task_submit").bizId(draft.getId())
+                .resourceIds(addedFileIds).bizType("task_submit").bizId(instance.getId())
                 .orgId(orgId).creatorId(userId).build());
-        if (!removedFileIds.isEmpty()) {
-            resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
-                    .orgId(orgId).resourceIds(removedFileIds).build());
-        }
-        return draft.getId();
+        abandonDraftFiles(orgId, removedFileIds);
+        return instance.getId();
     }
 
-    /** 把当前暂存提交转为正式提交，附件改绑到任务实例。 */
+    /** 用任务实例上的暂存新建一条正式提交，然后清空暂存。附件已经挂在任务上。 */
     public TaskInstanceSubmitResultBO submitDraft(TaskInstance instance, Long userId, Long orgId) {
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
@@ -178,67 +160,22 @@ public class TaskInstanceCommandHandler {
         requireAssignee(instance, userId, "仅接取人可提交任务");
         ItemTaskNode node = requireNode(instance);
         List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
-        TaskSubmission draft = currentDraft(instance.getId());
-        if (draft == null) {
+        if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
             throw new AppException(ResultCode.OPERATION_FAIL, "没有可提交的暂存");
         }
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()),
-                com.alibaba.fastjson2.JSON.parseObject(draft.getMetadata()));
-        publishDraftFiles(draft.getId(), instance.getId(), orgId, validated.resourceIds());
+                com.alibaba.fastjson2.JSON.parseObject(instance.getDraftMetadata()));
         LocalDateTime now = LocalDateTime.now(clock);
-        requireUpdated(taskInstanceMapper.update(null, new LambdaUpdateWrapper<TaskInstance>()
-                .eq(TaskInstance::getId, instance.getId())
-                .eq(TaskInstance::getRevision, instance.getRevision())
-                .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
-                .eq(TaskInstance::getAssigneeId, userId)
-                .setSql("revision = revision + 1")
-                .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
-                .set(TaskInstance::getSubmittedAt, now)
-                .set(TaskInstance::getCompletedAt, now)
-                .set(TaskInstance::getUpdatedAt, now)));
-        int promoted = taskSubmissionMapper.update(null, new LambdaUpdateWrapper<TaskSubmission>()
-                .eq(TaskSubmission::getId, draft.getId())
-                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.DRAFT)
-                .set(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
-                .set(TaskSubmission::getVersionNo, nextVersionNo(instance.getId()))
-                .set(TaskSubmission::getMetadata, validated.serialize())
-                .set(TaskSubmission::getUpdatedAt, now));
-        if (promoted != 1) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "没有可提交的暂存");
-        }
+        markSubmitted(instance, userId, now, now, TaskInstanceStatus.CLAIMED, false);
+        TaskSubmission submission = insertSubmission(instance, userId, validated.serialize(), now, now);
+        clearDraft(instance, orgId, validated.resourceIds());
         memberSubmitCountHandler.incrementSubmitCount(userId, instance.getProjectId());
-        return new TaskInstanceSubmitResultBO(draft.getId(), now, beforeNodes);
+        return new TaskInstanceSubmitResultBO(submission.getId(), now, beforeNodes);
     }
 
-    /** 正式提交时把暂存附件从暂存提交改挂到任务实例，类型仍是 task_submit。 */
-    private void publishDraftFiles(Long draftSubmissionId, Long taskInstanceId, Long orgId, List<Long> resourceIds) {
-        if (resourceIds == null || resourceIds.isEmpty()) {
-            return;
-        }
-        List<Long> ids = resourceIds.stream().distinct().sorted().toList();
-        int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                .in(Resource::getId, ids)
-                .eq(Resource::getOrgId, orgId)
-                .eq(Resource::getBizType, "task_submit")
-                .eq(Resource::getBizId, draftSubmissionId)
-                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .isNull(Resource::getStorageCleanedAt)
-                .set(Resource::getBizId, taskInstanceId)
-                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-        if (updated != ids.size()) {
-            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
-        }
-    }
-
-    public void discardDraft(Long taskInstanceId, Long orgId) {
-        TaskSubmission draft = currentDraft(taskInstanceId);
-        if (draft == null) {
-            return;
-        }
-        resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
-                .orgId(orgId).bizType("task_submit").bizIds(List.of(draft.getId())).build());
-        taskSubmissionMapper.deleteById(draft.getId());
+    public void discardDraft(TaskInstance instance, Long orgId) {
+        clearDraft(instance, orgId, List.of());
     }
 
     private List<Long> referencedFileIds(String metadata) {
@@ -262,20 +199,46 @@ public class TaskInstanceCommandHandler {
         map.values().forEach(child -> collectFileIds(child, ids));
     }
 
-    public Map<String, Object> readDraftValues(Long taskInstanceId) {
-        TaskSubmission draft = currentDraft(taskInstanceId);
-        if (draft == null || draft.getMetadata() == null || draft.getMetadata().isBlank()) {
+    public Map<String, Object> readDraftValues(TaskInstance instance) {
+        if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
             return Map.of();
         }
-        com.alibaba.fastjson2.JSONObject values = com.alibaba.fastjson2.JSON.parseObject(draft.getMetadata());
+        com.alibaba.fastjson2.JSONObject values = com.alibaba.fastjson2.JSON.parseObject(instance.getDraftMetadata());
         return values == null ? Map.of() : values;
     }
 
-    public TaskSubmission currentDraft(Long taskInstanceId) {
-        return taskSubmissionMapper.selectOne(new LambdaQueryWrapper<TaskSubmission>()
-                .eq(TaskSubmission::getTaskInstanceId, taskInstanceId)
-                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.DRAFT)
-                .isNull(TaskSubmission::getVersionNo));
+    /** 正式提交后清掉任务上的暂存。仍被提交版本引用的附件保留。 */
+    private void clearDraft(TaskInstance instance, Long orgId, List<Long> retainedFileIds) {
+        String metadata = instance.getDraftMetadata();
+        if (metadata != null && !metadata.isBlank()) {
+            Set<Long> kept = new HashSet<>(retainedFileIds);
+            kept.addAll(submittedFileIds(instance.getId()));
+            abandonDraftFiles(orgId, referencedFileIds(metadata).stream().filter(id -> !kept.contains(id)).toList());
+        }
+        if ((metadata == null || metadata.isBlank()) && instance.getDraftUpdatedAt() == null) {
+            return;
+        }
+        taskInstanceMapper.update(null, new LambdaUpdateWrapper<TaskInstance>()
+                .eq(TaskInstance::getId, instance.getId())
+                .set(TaskInstance::getDraftMetadata, null)
+                .set(TaskInstance::getDraftUpdatedAt, null));
+    }
+
+    private void abandonDraftFiles(Long orgId, List<Long> resourceIds) {
+        if (resourceIds.isEmpty()) {
+            return;
+        }
+        resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
+                .orgId(orgId).resourceIds(resourceIds).build());
+    }
+
+    private Set<Long> submittedFileIds(Long taskInstanceId) {
+        Set<Long> ids = new HashSet<>();
+        taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
+                        .eq(TaskSubmission::getTaskInstanceId, taskInstanceId)
+                        .select(TaskSubmission::getMetadata))
+                .forEach(submission -> ids.addAll(referencedFileIds(submission.getMetadata())));
+        return ids;
     }
 
     /**
@@ -321,7 +284,41 @@ public class TaskInstanceCommandHandler {
                 .orgId(orgId)
                 .creatorId(resourceOwnerId)
                 .build());
+        markSubmitted(instance, submitterId, submittedAt, updatedAt, requiredStatus, claimAndAssign);
+        TaskSubmission submission = insertSubmission(
+                instance, submitterId, validated.serialize(), submittedAt, updatedAt);
+        clearDraft(instance, orgId, validated.resourceIds());
+        if (claimAndAssign) {
+            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId(), submittedAt);
+        } else {
+            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId());
+        }
+        return new TaskInstanceSubmitResultBO(submission.getId(),
+                claimAndAssign ? updatedAt : submission.getCreatedAt(), beforeNodes);
+    }
 
+    private TaskSubmission insertSubmission(TaskInstance instance, Long submitterId, String metadata,
+                                            LocalDateTime submittedAt, LocalDateTime updatedAt) {
+        TaskSubmission submission = TaskSubmission.builder()
+                .projectId(instance.getProjectId())
+                .itemId(instance.getItemId())
+                .taskInstanceId(instance.getId())
+                .itemTaskNodeId(instance.getItemTaskNodeId())
+                .submitterId(submitterId)
+                .versionNo(nextVersionNo(instance.getId()))
+                .metadata(metadata)
+                .status(TaskSubmissionStatus.SUBMITTED)
+                .createdAt(submittedAt)
+                .updatedAt(updatedAt)
+                .build();
+        taskSubmissionMapper.insert(submission);
+        return submission;
+    }
+
+    /** 把任务推进到已提交。代提交同时写入归属组员和接取时间。 */
+    private void markSubmitted(TaskInstance instance, Long submitterId, LocalDateTime submittedAt,
+                               LocalDateTime updatedAt, TaskInstanceStatus requiredStatus,
+                               boolean claimAndAssign) {
         LambdaUpdateWrapper<TaskInstance> update = new LambdaUpdateWrapper<TaskInstance>()
                 .eq(TaskInstance::getId, instance.getId())
                 .eq(TaskInstance::getRevision, instance.getRevision())
@@ -339,27 +336,6 @@ public class TaskInstanceCommandHandler {
                     .set(TaskInstance::getClaimedAt, submittedAt);
         }
         requireUpdated(taskInstanceMapper.update(null, update));
-
-        TaskSubmission submission = TaskSubmission.builder()
-                .projectId(instance.getProjectId())
-                .itemId(instance.getItemId())
-                .taskInstanceId(instance.getId())
-                .itemTaskNodeId(instance.getItemTaskNodeId())
-                .submitterId(submitterId)
-                .versionNo(nextVersionNo(instance.getId()))
-                .metadata(validated.serialize())
-                .status(TaskSubmissionStatus.SUBMITTED)
-                .createdAt(submittedAt)
-                .updatedAt(updatedAt)
-                .build();
-        taskSubmissionMapper.insert(submission);
-        if (claimAndAssign) {
-            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId(), submittedAt);
-        } else {
-            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId());
-        }
-        return new TaskInstanceSubmitResultBO(submission.getId(),
-                claimAndAssign ? updatedAt : submission.getCreatedAt(), beforeNodes);
     }
 
     private ItemTaskNode requireNode(TaskInstance instance) {

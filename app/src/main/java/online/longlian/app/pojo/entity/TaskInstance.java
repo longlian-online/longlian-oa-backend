@@ -105,6 +105,15 @@ public class TaskInstance implements Serializable {
     @TableField("completed_at")
     private LocalDateTime completedAt;
 
+    /** 接取人暂存的提交内容，仅本人可见；正式提交或放弃后清空。 */
+    @TableField("draft_metadata")
+    @ApiModelProperty("接取人暂存的提交内容")
+    private String draftMetadata;
+
+    @TableField("draft_updated_at")
+    @ApiModelProperty("暂存更新时间")
+    private LocalDateTime draftUpdatedAt;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 

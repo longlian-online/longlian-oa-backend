@@ -144,6 +144,7 @@ public class TaskInstanceController {
                 TaskInstanceDetailParamsBO.builder()
                         .instanceId(instanceId)
                         .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
                         .build());
     }
 
