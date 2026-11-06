@@ -44,11 +44,14 @@ public class OrgFileController {
     public OrgFileEntriesVO list(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @Parameter(description = "企划 ID") @RequestParam(required = false) Long projectId,
-            @Parameter(description = "项目 ID") @RequestParam(required = false) Long itemId) {
+            @Parameter(description = "项目 ID") @RequestParam(required = false) Long itemId,
+            @Parameter(description = "页码，从 1 开始") @RequestParam(required = false) Integer pageNum) {
         OrgFileEntriesResultBO result = orgFileService.list(OrgFileListParamsBO.builder()
                 .orgId(sessionContext.orgId())
                 .projectId(projectId)
                 .itemId(itemId)
+                .pageNum(pageNum == null || pageNum < 1 ? 1 : pageNum)
+                .pageSize(OrgFileService.PAGE_SIZE)
                 .build());
         OrgFileEntriesVO vo = new OrgFileEntriesVO();
         BeanUtils.copyProperties(result, vo);

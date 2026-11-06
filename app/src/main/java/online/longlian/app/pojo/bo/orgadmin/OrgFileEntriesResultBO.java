@@ -12,5 +12,6 @@ public class OrgFileEntriesResultBO {
     private String projectTitle;
     private Long itemId;
     private String itemTitle;
+    private Long total;
     private List<OrgFileEntryResultBO> entries;
 }

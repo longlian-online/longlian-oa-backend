@@ -44,18 +44,21 @@ public class OrgFileApiTest extends BaseApiTest {
 
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
                 .body("data.entries.name", equalTo(java.util.List.of("阿企划", "白企划", "停用企划")))
                 .body("data.entries.kind", equalTo(java.util.List.of("FOLDER", "FOLDER", "FOLDER")));
 
         authRequest(token).queryParam("projectId", 2).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.projectTitle", equalTo("阿企划"))
+                .body("data.total", equalTo(2))
                 .body("data.entries.name", equalTo(java.util.List.of("第一话", "第二话")));
 
         authRequest(token).queryParam("projectId", 2).queryParam("itemId", 10).get("/orgadmin/files")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.itemTitle", equalTo("第一话"))
+                .body("data.total", equalTo(1))
                 .body("data.entries", hasSize(1))
                 .body("data.entries[0].kind", equalTo("FILE"))
                 .body("data.entries[0].name", equalTo("成果101.pdf"))
@@ -208,6 +211,7 @@ public class OrgFileApiTest extends BaseApiTest {
         String token = admin();
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(0))
                 .body("data.entries", hasSize(0))
                 .body("data.projectId", nullValue());
     }

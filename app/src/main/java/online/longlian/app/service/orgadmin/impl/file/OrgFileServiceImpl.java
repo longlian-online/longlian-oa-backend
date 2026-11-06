@@ -72,13 +72,15 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     @Override
     public OrgFileEntriesResultBO list(OrgFileListParamsBO params) {
+        OrgFileEntriesResultBO result;
         if (params.getItemId() != null) {
-            return listFiles(params);
+            result = listFiles(params);
+        } else if (params.getProjectId() != null) {
+            result = listItems(params);
+        } else {
+            result = listProjects(params.getOrgId());
         }
-        if (params.getProjectId() != null) {
-            return listItems(params);
-        }
-        return listProjects(params.getOrgId());
+        return page(result, params.getPageNum(), params.getPageSize());
     }
 
     @Override
@@ -133,6 +135,15 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (!deprecated) {
             throw new AppException(ResultCode.OPERATION_FAIL, "文件仍被其他资料使用，不能删除");
         }
+    }
+
+    private OrgFileEntriesResultBO page(OrgFileEntriesResultBO result, int pageNum, int pageSize) {
+        List<OrgFileEntryResultBO> all = result.getEntries() == null ? List.of() : result.getEntries();
+        int from = (pageNum - 1) * pageSize;
+        int to = Math.min(from + pageSize, all.size());
+        result.setTotal((long) all.size());
+        result.setEntries(from >= all.size() ? List.of() : new ArrayList<>(all.subList(from, to)));
+        return result;
     }
 
     private OrgFileEntriesResultBO listProjects(Long orgId) {

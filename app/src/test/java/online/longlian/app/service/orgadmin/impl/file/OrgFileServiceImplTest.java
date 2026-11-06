@@ -20,6 +20,7 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.orgadmin.OrgFileService;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceDeprecationService;
 import online.longlian.app.service.resource.ResourceService;
@@ -92,8 +93,10 @@ class OrgFileServiceImplTest {
                 project(2L, "白企划"),
                 project(1L, "阿企划")));
 
-        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder().orgId(1L).build());
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
+        assertThat(result.getTotal()).isEqualTo(2);
         assertThat(result.getEntries()).extracting("name").containsExactly("阿企划", "白企划");
         assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FOLDER);
         assertThat(result.getProjectId()).isNull();
@@ -125,7 +128,7 @@ class OrgFileServiceImplTest {
                 .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).projectId(1L).itemId(3L).build());
+                .orgId(1L).projectId(1L).itemId(3L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getProjectTitle()).isEqualTo("阿企划");
         assertThat(result.getItemTitle()).isEqualTo("第一话");
@@ -152,7 +155,7 @@ class OrgFileServiceImplTest {
                 submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}")));
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).itemId(3L).build());
+                .orgId(1L).itemId(3L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getEntries()).isEmpty();
     }
@@ -215,7 +218,7 @@ class OrgFileServiceImplTest {
         when(resourceDeprecationService.deprecatedIds(List.of(101L))).thenReturn(java.util.Set.of(101L));
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).projectId(1L).itemId(3L).build());
+                .orgId(1L).projectId(1L).itemId(3L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getEntries()).isEmpty();
     }
@@ -254,6 +257,21 @@ class OrgFileServiceImplTest {
                 .isInstanceOf(AppException.class)
                 .extracting("code")
                 .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+    }
+
+    @Test
+    void shouldReturnTheSecondPageOfFolders() {
+        List<Project> projects = new java.util.ArrayList<>();
+        for (int index = 1; index <= 51; index++) {
+            projects.add(project((long) index, String.format("%03d", index)));
+        }
+        when(projectMapper.selectList(any())).thenReturn(projects);
+
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).pageNum(2).pageSize(OrgFileService.PAGE_SIZE).build());
+
+        assertThat(result.getTotal()).isEqualTo(51);
+        assertThat(result.getEntries()).extracting("name").containsExactly("051");
     }
 
     private Project project(Long id, String title) {

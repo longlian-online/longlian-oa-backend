@@ -23,6 +23,9 @@ public class OrgFileEntriesVO {
     @Schema(description = "当前项目名称")
     private String itemTitle;
 
-    @Schema(description = "当前文件夹中的条目")
+    @Schema(description = "当前文件夹的条目总数")
+    private Long total;
+
+    @Schema(description = "当前页的条目")
     private List<OrgFileEntryVO> entries;
 }
