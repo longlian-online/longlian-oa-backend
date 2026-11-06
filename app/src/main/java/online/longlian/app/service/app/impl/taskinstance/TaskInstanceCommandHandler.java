@@ -152,7 +152,7 @@ public class TaskInstanceCommandHandler {
                     .set(TaskSubmission::getUpdatedAt, now));
         }
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
-                .resourceIds(validated.resourceIds()).bizType("task_draft").bizId(draft.getId())
+                .resourceIds(validated.resourceIds()).bizType("task_submit").bizId(draft.getId())
                 .orgId(orgId).creatorId(userId).build());
         return draft.getId();
     }
@@ -204,7 +204,7 @@ public class TaskInstanceCommandHandler {
             return;
         }
         resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
-                .orgId(orgId).bizType("task_draft").bizIds(List.of(draft.getId())).build());
+                .orgId(orgId).bizType("task_submit").bizIds(List.of(draft.getId())).build());
         taskSubmissionMapper.deleteById(draft.getId());
     }
 
