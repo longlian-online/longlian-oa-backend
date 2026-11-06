@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
@@ -46,6 +47,8 @@ class TaskInstanceCommandHandlerTest {
     @Mock
     private TaskSubmissionMapper taskSubmissionMapper;
     @Mock
+    private ResourceMapper resourceMapper;
+    @Mock
     private ItemTaskNodeMapper itemTaskNodeMapper;
     @Mock
     private MemberSubmitCountHandler memberSubmitCountHandler;
@@ -60,7 +63,7 @@ class TaskInstanceCommandHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskSubmission.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
-        handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper,
+        handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper, resourceMapper,
                 itemTaskNodeMapper, memberSubmitCountHandler, clock, new TaskFormService(), resourceService);
         lenient().when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of());
     }

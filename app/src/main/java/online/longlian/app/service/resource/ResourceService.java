@@ -361,28 +361,6 @@ public class ResourceService {
     }
 
     /**
-     * 正式提交暂存时，只把附件的业务 ID 从暂存提交改为任务实例。类型仍是 task_submit。
-     */
-    public void publishDraftFiles(Long draftSubmissionId, Long taskInstanceId, Long orgId, List<Long> resourceIds) {
-        if (resourceIds == null || resourceIds.isEmpty()) {
-            return;
-        }
-        List<Long> ids = resourceIds.stream().distinct().sorted().toList();
-        int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                .in(Resource::getId, ids)
-                .eq(Resource::getOrgId, orgId)
-                .eq(Resource::getBizType, "task_submit")
-                .eq(Resource::getBizId, draftSubmissionId)
-                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .isNull(Resource::getStorageCleanedAt)
-                .set(Resource::getBizId, taskInstanceId)
-                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-        if (updated != ids.size()) {
-            throw unauthorized();
-        }
-    }
-
-    /**
      * 汇总仍在库中的封面、缩略图和任务附件。头像不计入。
      */
     public List<ResourceUsageSummaryBO> summarizeUsage(List<Long> orgIds) {

@@ -6,8 +6,11 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
+import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
+import online.longlian.app.pojo.entity.Resource;
+import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
@@ -38,6 +41,7 @@ public class TaskInstanceCommandHandler {
 
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
+    private final ResourceMapper resourceMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final MemberSubmitCountHandler memberSubmitCountHandler;
     private final Clock clock;
@@ -181,7 +185,7 @@ public class TaskInstanceCommandHandler {
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()),
                 com.alibaba.fastjson2.JSON.parseObject(draft.getMetadata()));
-        resourceService.publishDraftFiles(draft.getId(), instance.getId(), orgId, validated.resourceIds());
+        publishDraftFiles(draft.getId(), instance.getId(), orgId, validated.resourceIds());
         LocalDateTime now = LocalDateTime.now(clock);
         requireUpdated(taskInstanceMapper.update(null, new LambdaUpdateWrapper<TaskInstance>()
                 .eq(TaskInstance::getId, instance.getId())
@@ -205,6 +209,26 @@ public class TaskInstanceCommandHandler {
         }
         memberSubmitCountHandler.incrementSubmitCount(userId, instance.getProjectId());
         return new TaskInstanceSubmitResultBO(draft.getId(), now, beforeNodes);
+    }
+
+    /** 正式提交时把暂存附件从暂存提交改挂到任务实例，类型仍是 task_submit。 */
+    private void publishDraftFiles(Long draftSubmissionId, Long taskInstanceId, Long orgId, List<Long> resourceIds) {
+        if (resourceIds == null || resourceIds.isEmpty()) {
+            return;
+        }
+        List<Long> ids = resourceIds.stream().distinct().sorted().toList();
+        int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                .in(Resource::getId, ids)
+                .eq(Resource::getOrgId, orgId)
+                .eq(Resource::getBizType, "task_submit")
+                .eq(Resource::getBizId, draftSubmissionId)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .isNull(Resource::getStorageCleanedAt)
+                .set(Resource::getBizId, taskInstanceId)
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+        if (updated != ids.size()) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
+        }
     }
 
     public void discardDraft(Long taskInstanceId, Long orgId) {
