@@ -52,15 +52,17 @@ public class StorageStatsServiceImpl implements StorageStatsService {
         StorageCategoryStatsVO cover = category(byType.get("cover"));
         StorageCategoryStatsVO thumbnail = category(byType.get("thumbnail"));
         StorageCategoryStatsVO taskSubmit = category(byType.get("task_submit"));
+        StorageCategoryStatsVO taskDraft = category(byType.get("task_draft"));
         return new StorageStatsVO(
                 organization.getId(),
                 organization.getName(),
                 organization.getStatus(),
-                occupied(cover) + occupied(thumbnail) + occupied(taskSubmit),
-                reclaimed(cover) + reclaimed(thumbnail) + reclaimed(taskSubmit),
+                occupied(cover) + occupied(thumbnail) + occupied(taskSubmit) + occupied(taskDraft),
+                reclaimed(cover) + reclaimed(thumbnail) + reclaimed(taskSubmit) + reclaimed(taskDraft),
                 cover,
                 thumbnail,
-                taskSubmit);
+                taskSubmit,
+                taskDraft);
     }
 
     private StorageCategoryStatsVO category(Map<String, ResourceUsageSummaryBO> byState) {

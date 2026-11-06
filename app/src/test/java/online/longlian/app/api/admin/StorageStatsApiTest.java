@@ -23,6 +23,7 @@ public class StorageStatsApiTest extends BaseApiTest {
         insertResource(4L, 1L, "cover", 0L, 0, 5L, null, null);
         insertResource(5L, 1L, "thumbnail", 13L, 1, 20L, null, null);
         insertResource(6L, 1L, "task_submit", 14L, 1, 30L, null, null);
+        insertResource(9L, 1L, "task_draft", 44L, 1, 15L, null, null);
         insertResource(7L, 1L, "avatar", 15L, 1, 999L, null, null);
         insertResource(8L, 2L, "cover", 16L, 1, 1L, null, null);
 
@@ -36,7 +37,7 @@ public class StorageStatsApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1))
                 .body("data.list[0].name", equalTo("甲组"))
-                .body("data.list[0].occupiedBytes", equalTo(195))
+                .body("data.list[0].occupiedBytes", equalTo(210))
                 .body("data.list[0].reclaimedBytes", equalTo(7))
                 .body("data.list[0].cover.unbound.count", equalTo(1))
                 .body("data.list[0].cover.unbound.bytes", equalTo(5))
@@ -49,6 +50,8 @@ public class StorageStatsApiTest extends BaseApiTest {
                 .body("data.list[0].thumbnail.active.bytes", equalTo(20))
                 .body("data.list[0].thumbnail.retention.count", equalTo(0))
                 .body("data.list[0].taskSubmit.active.bytes", equalTo(30))
+                .body("data.list[0].taskDraft.active.bytes", equalTo(15))
+                .body("data.list[0].taskDraft.active.count", equalTo(1))
                 .body("data.list[0].avatar", nullValue());
     }
 

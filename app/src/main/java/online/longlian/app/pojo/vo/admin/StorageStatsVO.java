@@ -31,4 +31,5 @@ public class StorageStatsVO {
     private StorageCategoryStatsVO cover;
     private StorageCategoryStatsVO thumbnail;
     private StorageCategoryStatsVO taskSubmit;
+    private StorageCategoryStatsVO taskDraft;
 }

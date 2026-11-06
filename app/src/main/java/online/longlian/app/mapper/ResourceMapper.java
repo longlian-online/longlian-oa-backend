@@ -25,7 +25,7 @@ public interface ResourceMapper extends BaseMapper<Resource> {
     @Select("""
             <script>
             SELECT org_id AS orgId,
-                   CASE WHEN biz_type = 'task_draft' THEN 'task_submit' ELSE biz_type END AS bizType,
+                   biz_type AS bizType,
                    CASE
                      WHEN storage_cleaned_at IS NOT NULL THEN 'recycled'
                      WHEN process_status = 1 THEN 'active'
@@ -39,7 +39,7 @@ public interface ResourceMapper extends BaseMapper<Resource> {
               AND biz_type IN ('cover', 'thumbnail', 'task_submit', 'task_draft')
               AND org_id IN
               <foreach collection="orgIds" item="orgId" open="(" separator="," close=")">#{orgId}</foreach>
-            GROUP BY org_id, CASE WHEN biz_type = 'task_draft' THEN 'task_submit' ELSE biz_type END, state
+            GROUP BY org_id, biz_type, state
             </script>
             """)
     List<ResourceUsageSummaryBO> summarizeUsage(@Param("orgIds") List<Long> orgIds);
