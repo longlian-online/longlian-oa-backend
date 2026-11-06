@@ -273,6 +273,43 @@ class TaskInstanceAssemblerTest {
     }
 
     @Test
+    void assembleDraft_showsFilledFieldsWhenRequiredOnesAreEmpty() {
+        TaskFormService forms = new TaskFormService();
+        List<TaskFormField> fields = List.of(
+                new TaskFormField("notes", "说明", "textarea", true, List.of()),
+                new TaskFormField("count", "数量", "number", true, List.of()));
+        ItemTaskNode node = ItemTaskNode.builder().metaSchema(forms.serializeFields(fields)).build();
+        LocalDateTime updatedAt = LocalDateTime.of(2026, 11, 7, 1, 2);
+        TaskInstance instance = TaskInstance.builder()
+                .id(1L)
+                .draftMetadata("{\"notes\":\"已写\",\"count\":\"\"}")
+                .draftUpdatedAt(updatedAt)
+                .build();
+        when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
+
+        TaskInstanceDetailVO.Draft draft = assembler.assembleDraft(node, instance, 10L);
+
+        assertFalse(draft.unreadable());
+        assertEquals(updatedAt, draft.updatedAt());
+        assertEquals(List.of(
+                new TaskInstanceDetailVO.TextField("notes", "说明", "multiline", "已写"),
+                new TaskInstanceDetailVO.TextField("count", "数量", "text", "未填写")), draft.fields());
+    }
+
+    @Test
+    void assembleDraft_marksCorruptContentUnreadable() {
+        TaskFormService forms = new TaskFormService();
+        List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()));
+        ItemTaskNode node = ItemTaskNode.builder().metaSchema(forms.serializeFields(fields)).build();
+        TaskInstance instance = TaskInstance.builder().id(1L).draftMetadata("{").build();
+
+        TaskInstanceDetailVO.Draft draft = assembler.assembleDraft(node, instance, 10L);
+
+        assertTrue(draft.unreadable());
+        assertTrue(draft.fields().isEmpty());
+    }
+
+    @Test
     void shouldIsolateCorruptedLegacyVersionWithoutBlockingOthers() {
         TaskFormService forms = new TaskFormService();
         List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()));
