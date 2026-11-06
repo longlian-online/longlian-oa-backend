@@ -24,12 +24,11 @@ import online.longlian.app.pojo.bo.app.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.TaskDraftDiscardParamsBO;
 import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.InboxNotificationKind;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -76,7 +75,6 @@ class ItemServiceImplTest {
     @Mock private BaseTaskMapper baseTaskMapper;
     @Mock private TaskInstanceMapper taskInstanceMapper;
     @Mock private TaskSubmissionMapper taskSubmissionMapper;
-    @Mock private ResourceService resourceService;
     @Mock private ItemQueryBuilder itemQueryBuilder;
     @Mock private ItemAssembler itemAssembler;
     @Mock private ProjectService projectService;
@@ -93,7 +91,7 @@ class ItemServiceImplTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new ItemServiceImpl(taskDraftRecordService, projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper,
                 taskTemplateMapper, taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper,
-                taskSubmissionMapper, resourceService, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService,
+                taskSubmissionMapper, Clock.systemUTC(), itemQueryBuilder, itemAssembler, projectService,
                 organizationMembershipService, inboxNotificationService);
         lenient().when(taskSubmissionMapper.selectItemIdsWithSubmissionHistory(any())).thenReturn(List.of());
         lenient().when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(1L));
@@ -519,7 +517,7 @@ class ItemServiceImplTest {
         verify(itemTaskNodeMapper, never()).update(isNull(), any());
         verify(taskInstanceMapper, never()).update(isNull(), any());
         verify(taskTemplateMapper, never()).update(isNull(), any());
-        verify(resourceService, never()).abandonBound(any());
+        verify(taskDraftRecordService, never()).abandonTaskInstanceResources(any());
     }
 
     @Test
@@ -547,11 +545,10 @@ class ItemServiceImplTest {
         verify(itemTaskNodeMapper).update(isNull(), any());
         verify(taskInstanceMapper).update(isNull(), any());
         verify(taskTemplateMapper).update(isNull(), any());
-        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
-        verify(resourceService).abandonBound(abandoned.capture());
+        ArgumentCaptor<TaskDraftDiscardParamsBO> abandoned = ArgumentCaptor.forClass(TaskDraftDiscardParamsBO.class);
+        verify(taskDraftRecordService).abandonTaskInstanceResources(abandoned.capture());
         assertThat(abandoned.getValue().getOrgId()).isEqualTo(1L);
-        assertThat(abandoned.getValue().getBizType()).isEqualTo("task_submit");
-        assertThat(abandoned.getValue().getBizIds()).containsExactly(8L, 9L);
+        assertThat(abandoned.getValue().getInstanceIds()).containsExactly(8L, 9L);
     }
 
 
@@ -628,7 +625,7 @@ class ItemServiceImplTest {
         verify(itemTaskNodeMapper).update(isNull(), any());
         verify(taskInstanceMapper).update(isNull(), any());
         verify(taskTemplateMapper).update(isNull(), any());
-        verify(resourceService).abandonBound(any());
+        verify(taskDraftRecordService).abandonTaskInstanceResources(any());
     }
 
     @Test
@@ -642,7 +639,7 @@ class ItemServiceImplTest {
                     assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在提交记录，请提交删除申请");
                 });
         verify(itemMapper, never()).update(isNull(), any());
-        verifyNoInteractions(resourceService);
+        verifyNoInteractions(taskDraftRecordService);
     }
 
     @Test

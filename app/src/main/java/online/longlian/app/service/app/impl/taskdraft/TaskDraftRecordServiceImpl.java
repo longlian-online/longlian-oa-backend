@@ -143,6 +143,20 @@ public class TaskDraftRecordServiceImpl extends ServiceImpl<TaskDraftMapper, Tas
         }
     }
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void abandonTaskInstanceResources(TaskDraftDiscardParamsBO params) {
+        if (params.getInstanceIds().isEmpty()) {
+            return;
+        }
+        discardTaskDrafts(params);
+        resourceService.abandonBound(ResourceAbandonParamsBO.builder()
+                .orgId(params.getOrgId())
+                .bizType("task_submit")
+                .bizIds(params.getInstanceIds())
+                .build());
+    }
+
     private TaskDraftRecordResultBO toResult(TaskDraft draft) {
         if (draft == null) {
             return null;

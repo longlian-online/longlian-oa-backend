@@ -15,7 +15,6 @@ import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
 import online.longlian.app.pojo.bo.app.TaskDraftDiscardParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -25,7 +24,6 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.orgadmin.BaseTaskService;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.springframework.stereotype.Component;
 
@@ -56,7 +54,6 @@ public class ItemTaskFlowEditor {
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final BaseTaskMapper baseTaskMapper;
-    private final ResourceService resourceService;
     private final Clock clock;
     private final TaskDraftRecordService taskDraftRecordService;
 
@@ -209,20 +206,15 @@ public class ItemTaskFlowEditor {
     }
 
     /**
-     * 被删节点上仍在使用的任务附件进入保留期，和删除项目同一口径。
+     * 被删节点上的草稿和仍在使用的任务附件一起进入保留期，和删除项目同一口径。
      * 没有删除时不查资源；乐观锁失败会先抛错，已做的软删和外层事务一起回滚。
      */
     private void abandonDeletedTaskResources(Long orgId, List<ItemTaskFlowEditPlanner.Deleted> deleted) {
         if (deleted.isEmpty()) {
             return;
         }
-        taskDraftRecordService.discardTaskDrafts(new TaskDraftDiscardParamsBO(
+        taskDraftRecordService.abandonTaskInstanceResources(new TaskDraftDiscardParamsBO(
                 deleted.stream().map(ItemTaskFlowEditPlanner.Deleted::instanceId).toList(), orgId));
-        resourceService.abandonBound(ResourceAbandonParamsBO.builder()
-                .orgId(orgId)
-                .bizType("task_submit")
-                .bizIds(deleted.stream().map(ItemTaskFlowEditPlanner.Deleted::instanceId).toList())
-                .build());
     }
 
     /**

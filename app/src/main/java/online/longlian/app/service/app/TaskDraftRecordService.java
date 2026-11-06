@@ -24,5 +24,8 @@ public interface TaskDraftRecordService {
 
     void discardTaskDrafts(TaskDraftDiscardParamsBO params);
 
+    /** 删除任务实例时，同时弃置这些实例的草稿和正式提交附件。放弃接取只弃置草稿，不走这里。 */
+    void abandonTaskInstanceResources(TaskDraftDiscardParamsBO params);
+
     Map<Long, TaskDraftSummaryResultBO> getTaskDraftSummaries(TaskDraftSummaryParamsBO params);
 }

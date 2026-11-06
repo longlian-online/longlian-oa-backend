@@ -111,6 +111,32 @@ class TaskDraftRecordServiceImplTest {
     }
 
     @Test
+    void shouldAbandonDraftsAndSubmissionsForTheSameInstances() {
+        TaskDraft draft = TaskDraft.builder().id(10L).taskInstanceId(1L).orgId(2L)
+                .status(TaskDraftStatus.ACTIVE).build();
+        when(mapper.selectList(any())).thenReturn(List.of(draft));
+        service.abandonTaskInstanceResources(new TaskDraftDiscardParamsBO(List.of(1L), 2L));
+        verify(resources).abandonBound(argThat(params -> params.getBizType().equals("task_draft")
+                && params.getBizIds().equals(List.of(10L))));
+        verify(resources).abandonBound(argThat(params -> params.getBizType().equals("task_submit")
+                && params.getBizIds().equals(List.of(1L)) && params.getOrgId().equals(2L)));
+    }
+
+    @Test
+    void shouldAbandonSubmissionsWhenTheInstanceHasNoDraft() {
+        service.abandonTaskInstanceResources(new TaskDraftDiscardParamsBO(List.of(1L), 2L));
+        verify(resources).abandonBound(argThat(params -> params.getBizType().equals("task_submit")
+                && params.getBizIds().equals(List.of(1L))));
+        verify(resources, never()).abandonBound(argThat(params -> params.getBizType().equals("task_draft")));
+    }
+
+    @Test
+    void shouldSkipAbandonWhenThereIsNoInstance() {
+        service.abandonTaskInstanceResources(new TaskDraftDiscardParamsBO(List.of(), 2L));
+        verifyNoInteractions(resources, mapper);
+    }
+
+    @Test
     void shouldRequireActiveSnapshotWhenConsuming() {
         assertThatThrownBy(() -> service.consumeTaskDraftRecord(new TaskDraftConsumeParamsBO(10L, 20L)))
                 .isInstanceOf(AppException.class);
