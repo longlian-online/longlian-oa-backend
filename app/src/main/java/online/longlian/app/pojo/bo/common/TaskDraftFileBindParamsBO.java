@@ -5,17 +5,18 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Map;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskDraftFileCommitParamsBO {
+public class TaskDraftFileBindParamsBO {
 
     private Long userId;
     private Long orgId;
     private Long draftId;
-    private String operationToken;
-    private Map<Long, Long> fileIdMappings;
+    /** 上一份仍有效的草稿。保留的附件从这里改绑到新草稿，不在这里废弃。 */
+    private Long previousDraftId;
+    private List<Long> fileIds;
 }

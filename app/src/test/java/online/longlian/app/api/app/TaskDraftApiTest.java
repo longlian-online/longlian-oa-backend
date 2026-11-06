@@ -147,11 +147,12 @@ public class TaskDraftApiTest extends BaseApiTest {
         authRequest(token).body(createDraftSaveRequest("1", "1", Map.of("text", "继续完善的成果")))
                 .put(API_PATH).then().body("code", equalTo(0))
                 .body("data.task.revision", equalTo("1"))
-                .body("data.draft.id", equalTo(draftId))
+                .body("data.draft.id", not(equalTo(draftId)))
                 .body("data.draftRevision", equalTo("2"))
                 .body("data.draft.values.text", equalTo("继续完善的成果"));
-        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT task_revision FROM task_draft", Long.class)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT task_revision FROM task_draft ORDER BY revision DESC LIMIT 1", Long.class)).isEqualTo(1L);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id=1", Integer.class)).isEqualTo(2);
     }
 
@@ -318,29 +319,26 @@ public class TaskDraftApiTest extends BaseApiTest {
                 .body(createDraftSaveRequest("0", "0", Map.of("file", Map.of("fileId", "5001"))))
                 .put(API_PATH);
         saved.then().body("code", equalTo(0));
-        String snapshotFileId = saved.jsonPath().getString("data.draft.values.file.fileId");
-        assertThat(snapshotFileId).isNotEqualTo("5001");
-        Files.writeString(source, "modified");
-        String snapshotKey = jdbcTemplate.queryForObject("SELECT storage_key FROM resource WHERE id=?",
-                String.class, Long.valueOf(snapshotFileId));
-        assertThat(Files.readString(folder.resolve(snapshotKey))).isEqualTo("original");
+        assertThat(saved.jsonPath().getString("data.draft.values.file.fileId")).isEqualTo("5001");
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_type FROM resource WHERE id=5001", String.class))
+                .isEqualTo("task_draft");
         authRequest(token)
-                .body(createDraftSaveRequest("0", "1", Map.of("file", Map.of("fileId", snapshotFileId))))
+                .body(createDraftSaveRequest("0", "1", Map.of("file", Map.of("fileId", "5001"))))
                 .put(API_PATH)
                 .then()
                 .body("code", equalTo(0))
-                .body("data.draft.values.file.fileId", equalTo(snapshotFileId));
+                .body("data.draft.values.file.fileId", equalTo("5001"));
         authRequest(token)
                 .body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "2"))
                 .post(API_PATH + "/submit")
                 .then()
                 .body("code", equalTo(0));
-        assertThat(jdbcTemplate.queryForObject("SELECT biz_type FROM resource WHERE id=?",
-                String.class, Long.valueOf(snapshotFileId)))
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_type FROM resource WHERE id=5001", String.class))
                 .isEqualTo("task_submit");
-        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=?",
-                Long.class, Long.valueOf(snapshotFileId)))
-                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=5001", Long.class))
+                .isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT storage_key FROM resource WHERE id=5001", String.class))
+                .isEqualTo("task_submit/5001.txt");
     }
 
     @Test

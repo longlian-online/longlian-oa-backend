@@ -34,63 +34,9 @@ public class UnboundResourceCleanupService {
     // 删除对象不可回滚，取得删除权的条件更新必须在删除前独立提交。
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void cleanup(LocalDateTime executeTime) {
-        recoverDraftSeals(executeTime);
         cleanupUnbound(executeTime);
         cleanupAbandoned(executeTime);
         reconcileSizes(executeTime);
-    }
-
-    private void recoverDraftSeals(LocalDateTime executeTime) {
-        List<Resource> expiredResources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
-                .isNotNull(Resource::getDraftSealToken)
-                .le(Resource::getDraftSealExpiresAt, executeTime)
-                .and(wrapper -> wrapper.isNull(Resource::getCleanupNextAt)
-                        .or().le(Resource::getCleanupNextAt, executeTime))
-                .orderByAsc(Resource::getId)
-                .last("LIMIT 100"));
-        for (Resource resource : expiredResources) {
-            if (resource.getDraftSealSourceId() == null) {
-                resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                        .eq(Resource::getId, resource.getId())
-                        .eq(Resource::getDraftSealToken, resource.getDraftSealToken())
-                        .le(Resource::getDraftSealExpiresAt, executeTime)
-                        .set(Resource::getDraftSealToken, null)
-                        .set(Resource::getDraftSealExpiresAt, null));
-            } else {
-                cleanupExpiredDraftSnapshot(resource, executeTime);
-            }
-        }
-    }
-
-    private void cleanupExpiredDraftSnapshot(Resource resource, LocalDateTime executeTime) {
-        // 与暂存绑定竞争同一行；绑定事务先成功时，等待锁后重新检查条件，绝不删除已绑定对象。
-        int claimed = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                .eq(Resource::getId, resource.getId())
-                .eq(Resource::getBizType, "task_draft")
-                .eq(Resource::getBizId, 0L)
-                .eq(Resource::getDraftSealToken, resource.getDraftSealToken())
-                .isNotNull(Resource::getDraftSealSourceId)
-                .le(Resource::getDraftSealExpiresAt, executeTime)
-                .in(Resource::getProcessStatus, List.of(FileProcessStatus.Pending, FileProcessStatus.Deprecated))
-                .set(Resource::getProcessStatus, FileProcessStatus.Deprecated)
-                .set(Resource::getUpdatedAt, executeTime));
-        if (claimed != 1) {
-            return;
-        }
-        // 超时的远程复制可能在首次删除后才完成，保留标记并延迟重试删除。
-        try {
-            storageFactory.get(resource.getStorageType()).delete(resource.getStorageKey());
-            resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                    .eq(Resource::getId, resource.getId())
-                    .eq(Resource::getBizId, 0L)
-                    .eq(Resource::getDraftSealToken, resource.getDraftSealToken())
-                    .eq(Resource::getProcessStatus, FileProcessStatus.Deprecated)
-                    .set(Resource::getProcessStatus, FileProcessStatus.Deprecated)
-                    .set(Resource::getStorageCleanedAt, executeTime)
-                    .set(Resource::getCleanupNextAt, executeTime.plusHours(24)));
-        } catch (RuntimeException exception) {
-            recordFailure(resource, executeTime, exception, true);
-        }
     }
 
     private void cleanupUnbound(LocalDateTime executeTime) {
@@ -99,7 +45,6 @@ public class UnboundResourceCleanupService {
         LocalDateTime cutoff = executeTime.minusSeconds(retentionSeconds);
         List<Resource> candidates = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
                 .eq(Resource::getBizId, 0L)
-                .isNull(Resource::getDraftSealToken)
                 .in(Resource::getProcessStatus, UNBOUND_STATUSES)
                 .le(Resource::getCreatedAt, cutoff)
                 .isNull(Resource::getStorageCleanedAt)
@@ -135,7 +80,6 @@ public class UnboundResourceCleanupService {
         int claimed = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
                 .eq(Resource::getId, resource.getId())
                 .eq(Resource::getBizId, 0L)
-                .isNull(Resource::getDraftSealToken)
                 .in(Resource::getProcessStatus, UNBOUND_STATUSES)
                 .le(Resource::getCreatedAt, cutoff)
                 .isNull(Resource::getStorageCleanedAt)

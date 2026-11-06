@@ -29,6 +29,7 @@ import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriUtils;
 
+import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
 import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -324,7 +325,6 @@ public class ResourceService {
         if (resource == null || !Objects.equals(resource.getCreatorId(), scope.creatorId())
                 || (scope.orgId() != null && !Objects.equals(resource.getOrgId(), scope.orgId()))
                 || !Objects.equals(resource.getBizType(), scope.bizType())
-                || resource.getDraftSealToken() != null
                 || !Objects.equals(resource.getBizId(), 0L)
                 || (resource.getProcessStatus() != FileProcessStatus.Pending
                     && resource.getProcessStatus() != FileProcessStatus.Uploaded)) {
@@ -360,8 +360,97 @@ public class ResourceService {
                 .eq(scope.orgId() != null, Resource::getOrgId, scope.orgId())
                 .eq(Resource::getCreatorId, scope.creatorId())
                 .eq(Resource::getBizType, scope.bizType())
+                .eq(Resource::getBizId, 0L);
+    }
+
+    /**
+     * 把本次暂存引用的上传绑到新草稿。
+     * 未绑定的任务上传在同一事务里激活；上一份草稿仍保留的附件只改绑，不复制、不废弃。
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bindTaskDraftFiles(TaskDraftFileBindParamsBO params) {
+        List<Long> fileIds = params.getFileIds().stream().distinct().sorted().toList();
+        if (fileIds.isEmpty()) {
+            return;
+        }
+        List<Resource> resources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
+                .in(Resource::getId, fileIds)
+                .orderByAsc(Resource::getId)
+                .last("FOR UPDATE"));
+        if (resources.size() != fileIds.size()) {
+            throw unauthorized();
+        }
+        for (Resource resource : resources) {
+            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
+                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || resource.getStorageCleanedAt() != null) {
+                throw unauthorized();
+            }
+            if (isUnboundTaskUpload(resource)) {
+                bindUnboundUploadToDraft(resource, params);
+            } else if (isRetainedDraftFile(resource, params.getPreviousDraftId())) {
+                int moved = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                        .eq(Resource::getId, resource.getId())
+                        .eq(Resource::getBizType, "task_draft")
+                        .eq(Resource::getBizId, params.getPreviousDraftId())
+                        .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                        .isNull(Resource::getStorageCleanedAt)
+                        .set(Resource::getBizId, params.getDraftId())
+                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+                if (moved != 1) {
+                    throw unauthorized();
+                }
+            } else {
+                throw unauthorized();
+            }
+        }
+    }
+
+    private boolean isUnboundTaskUpload(Resource resource) {
+        return "task_submit".equals(resource.getBizType())
+                && Objects.equals(resource.getBizId(), 0L)
+                && (resource.getProcessStatus() == FileProcessStatus.Pending
+                        || resource.getProcessStatus() == FileProcessStatus.Uploaded);
+    }
+
+    private boolean isRetainedDraftFile(Resource resource, Long previousDraftId) {
+        return previousDraftId != null
+                && "task_draft".equals(resource.getBizType())
+                && Objects.equals(resource.getBizId(), previousDraftId)
+                && resource.getProcessStatus() == FileProcessStatus.Activated;
+    }
+
+    private void bindUnboundUploadToDraft(Resource resource, TaskDraftFileBindParamsBO params) {
+        if (resource.getProcessStatus() == FileProcessStatus.Pending) {
+            storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                    resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+            int uploaded = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                    .eq(Resource::getId, resource.getId())
+                    .eq(Resource::getOrgId, params.getOrgId())
+                    .eq(Resource::getCreatorId, params.getUserId())
+                    .eq(Resource::getBizType, "task_submit")
+                    .eq(Resource::getBizId, 0L)
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Pending)
+                    .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                    .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+            if (uploaded != 1) {
+                throw unauthorized();
+            }
+        }
+        int activated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, resource.getId())
+                .eq(Resource::getOrgId, params.getOrgId())
+                .eq(Resource::getCreatorId, params.getUserId())
+                .eq(Resource::getBizType, "task_submit")
                 .eq(Resource::getBizId, 0L)
-                .isNull(Resource::getDraftSealToken);
+                .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                .set(Resource::getBizType, "task_draft")
+                .set(Resource::getBizId, params.getDraftId())
+                .set(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+        if (activated != 1) {
+            throw unauthorized();
+        }
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

@@ -43,11 +43,8 @@ import online.longlian.app.pojo.bo.app.TaskDraftResultBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSaveParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSubmitResultBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFileCancelParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFileCommitParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
 import online.longlian.app.pojo.bo.common.TaskDraftFileListParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFilePrepareParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFilePrepareResultBO;
 import online.longlian.app.pojo.bo.common.TaskFormField;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
@@ -67,6 +64,7 @@ import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.TaskInstanceService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.app.TaskDraftRecordService;
+import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.Status;
@@ -113,6 +111,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final TaskDraftRecordService taskDraftRecordService;
     private final TaskDraftResourceService taskDraftResourceService;
     private final TaskFormService taskFormService;
+    private final ResourceService resourceService;
 
     @Override
     public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
@@ -405,26 +404,11 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         }
         TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
                 initial.getSubmitFields(), params.getValues());
-        Long draftId = initial.getDraft() == null ? null : Long.valueOf(initial.getDraft().getId());
-        TaskDraftFilePrepareResultBO prepared = taskDraftResourceService.prepareTaskDraftFiles(
-                new TaskDraftFilePrepareParamsBO(params.getUserId(), params.getOrgId(),
-                        draftId, validated.resourceIds()));
-        try {
-            return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(),
-                    (instance, project) -> persistTaskDraft(instance, params, prepared));
-        } catch (RuntimeException exception) {
-            try {
-                taskDraftResourceService.cancelTaskDraftFilePreparation(
-                        new TaskDraftFileCancelParamsBO(prepared.getOperationToken()));
-            } catch (RuntimeException cleanupFailure) {
-                exception.addSuppressed(cleanupFailure);
-            }
-            throw exception;
-        }
+        return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(),
+                (instance, project) -> persistTaskDraft(instance, params));
     }
 
-    private TaskDraftResultBO persistTaskDraft(TaskInstance instance, TaskDraftSaveParamsBO params,
-                                               TaskDraftFilePrepareResultBO prepared) {
+    private TaskDraftResultBO persistTaskDraft(TaskInstance instance, TaskDraftSaveParamsBO params) {
         requireDraftOwner(instance, params.getUserId());
         if (!instance.getRevision().toString().equals(params.getExpectedTaskRevision())) {
             throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
@@ -432,34 +416,26 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
         List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
         TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(fields, params.getValues());
-        Map<String, Object> values = replaceDraftFileIds(fields, validated.values(), prepared.getFileIdMappings());
+        TaskDraftRecordResultBO current = taskDraftRecordService.getTaskDraftRecord(
+                new TaskDraftRecordGetParamsBO(instance.getId(), params.getOrgId()));
+        Long previousDraftId = current != null && current.getStatus() == TaskDraftStatus.ACTIVE
+                ? current.getId() : null;
         TaskDraftRecordResultBO draft = taskDraftRecordService.saveTaskDraftRecord(TaskDraftRecordSaveParamsBO.builder()
                 .instanceId(params.getInstanceId())
                 .userId(params.getUserId())
                 .orgId(params.getOrgId())
                 .expectedTaskRevision(params.getExpectedTaskRevision())
                 .expectedDraftRevision(params.getExpectedDraftRevision())
-                .metadata(JSON.toJSONString(values))
+                .metadata(JSON.toJSONString(validated.values()))
                 .build());
-        taskDraftResourceService.commitTaskDraftFiles(new TaskDraftFileCommitParamsBO(params.getUserId(),
-                params.getOrgId(), draft.getId(), prepared.getOperationToken(), prepared.getFileIdMappings()));
+        resourceService.bindTaskDraftFiles(TaskDraftFileBindParamsBO.builder()
+                .userId(params.getUserId())
+                .orgId(params.getOrgId())
+                .draftId(draft.getId())
+                .previousDraftId(previousDraftId)
+                .fileIds(validated.resourceIds())
+                .build());
         return assembleTaskDraftResult(instance, params.getUserId(), params.getOrgId());
-    }
-
-    private Map<String, Object> replaceDraftFileIds(List<TaskFormField> fields, Map<String, Object> values,
-                                                    Map<Long, Long> fileIdMappings) {
-        Map<String, Object> replacedValues = new LinkedHashMap<>(values);
-        for (TaskFormField field : fields) {
-            if ("file".equals(field.type()) && values.get(field.key()) instanceof Map<?, ?> file) {
-                Long sourceId = taskFormService.parseFileId((String) file.get("fileId"));
-                Long snapshotId = fileIdMappings.get(sourceId);
-                if (snapshotId == null) {
-                    throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
-                }
-                replacedValues.put(field.key(), Map.of("fileId", snapshotId.toString()));
-            }
-        }
-        return replacedValues;
     }
 
     @Override

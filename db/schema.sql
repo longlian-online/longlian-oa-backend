@@ -338,9 +338,6 @@ CREATE TABLE `resource` (
   `cleanup_next_at` datetime NULL COMMENT "存储清理下次重试时间",
   `cleanup_error` varchar(1000) NULL COMMENT "最近一次存储清理失败信息",
   `size_checked_at` datetime NULL COMMENT "最近一次与对象实际大小核对的时间",
-  `draft_seal_token` varchar(64) NULL COMMENT "草稿附件封存操作标识",
-  `draft_seal_expires_at` datetime NULL COMMENT "草稿附件封存租约期限",
-  `draft_seal_source_id` bigint NULL COMMENT "封存候选的原上传资源ID",
   `creator_id` bigint NOT NULL COMMENT "上传人ID",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -350,8 +347,7 @@ CREATE TABLE `resource` (
   INDEX `idx_resource_cleanup` (`process_status`, `storage_cleaned_at`, `cleanup_next_at`),
   INDEX `idx_resource_retention` (`process_status`, `storage_cleaned_at`, `deprecated_at`),
   INDEX `idx_resource_org_usage` (`org_id`, `biz_type`, `process_status`, `storage_cleaned_at`),
-  INDEX `idx_resource_size_check` (`storage_cleaned_at`, `size_checked_at`),
-  INDEX `idx_resource_draft_seal` (`draft_seal_expires_at`, `id`)
+  INDEX `idx_resource_size_check` (`storage_cleaned_at`, `size_checked_at`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "通用文件存储表";
 -- Create "role" table
 CREATE TABLE `role` (
@@ -429,8 +425,8 @@ CREATE TABLE `task_draft` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT "创建时间",
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT "更新时间",
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_task_draft_instance` (`task_instance_id`) COMMENT "每个任务实例仅保留一条最新草稿记录"
-) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务最新草稿";
+  UNIQUE KEY `uk_task_draft_revision` (`task_instance_id`, `revision`) COMMENT "同一任务实例的草稿修订号唯一，每次暂存新增一行"
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "任务草稿";
 -- Create "task_submission" table
 CREATE TABLE `task_submission` (
   `id` bigint NOT NULL,

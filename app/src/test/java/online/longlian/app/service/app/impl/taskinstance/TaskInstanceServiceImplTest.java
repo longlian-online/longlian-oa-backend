@@ -109,6 +109,7 @@ class TaskInstanceServiceImplTest {
     @Mock private TaskDraftResourceService taskDraftResourceService;
     @Mock private TaskFormService taskFormService;
     @Mock private TaskDraftRecordService taskDraftRecordService;
+    @Mock private online.longlian.app.service.resource.ResourceService resourceService;
 
     @BeforeEach
     void setUp() {
@@ -118,7 +119,7 @@ class TaskInstanceServiceImplTest {
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,
                 inboxNotificationService, Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")),
-                taskDraftRecordService, taskDraftResourceService, taskFormService);
+                taskDraftRecordService, taskDraftResourceService, taskFormService, resourceService);
         lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))

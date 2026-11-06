@@ -21,15 +21,17 @@ import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskDraftStatus;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,10 +43,7 @@ public class TaskDraftRecordServiceImpl extends ServiceImpl<TaskDraftMapper, Tas
 
     @Override
     public TaskDraftRecordResultBO getTaskDraftRecord(TaskDraftRecordGetParamsBO params) {
-        TaskDraft draft = getOne(new LambdaQueryWrapper<TaskDraft>()
-                .eq(TaskDraft::getTaskInstanceId, params.getInstanceId())
-                .eq(TaskDraft::getOrgId, params.getOrgId()));
-        return toResult(draft);
+        return toResult(latestDraft(params.getInstanceId(), params.getOrgId()));
     }
 
     @Override
@@ -52,52 +51,45 @@ public class TaskDraftRecordServiceImpl extends ServiceImpl<TaskDraftMapper, Tas
         if (params.getInstanceIds().isEmpty()) {
             return Map.of();
         }
-        return list(new LambdaQueryWrapper<TaskDraft>()
-                .select(TaskDraft::getTaskInstanceId, TaskDraft::getUpdatedAt)
+        Map<Long, TaskDraft> latestByInstance = new HashMap<>();
+        for (TaskDraft draft : list(new LambdaQueryWrapper<TaskDraft>()
                 .in(TaskDraft::getTaskInstanceId, params.getInstanceIds())
                 .eq(TaskDraft::getOrgId, params.getOrgId())
-                .eq(TaskDraft::getOwnerId, params.getUserId())
-                .eq(TaskDraft::getStatus, TaskDraftStatus.ACTIVE)).stream()
-                .collect(Collectors.toMap(TaskDraft::getTaskInstanceId,
-                        draft -> new TaskDraftSummaryResultBO(draft.getUpdatedAt())));
+                .eq(TaskDraft::getOwnerId, params.getUserId()))) {
+            latestByInstance.merge(draft.getTaskInstanceId(), draft, (current, candidate) ->
+                    current.getRevision() >= candidate.getRevision() ? current : candidate);
+        }
+        Map<Long, TaskDraftSummaryResultBO> summaries = new HashMap<>();
+        latestByInstance.forEach((instanceId, draft) -> {
+            if (draft.getStatus() == TaskDraftStatus.ACTIVE) {
+                summaries.put(instanceId, new TaskDraftSummaryResultBO(draft.getUpdatedAt()));
+            }
+        });
+        return summaries;
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public TaskDraftRecordResultBO saveTaskDraftRecord(TaskDraftRecordSaveParamsBO params) {
-        TaskDraft draft = getOne(new LambdaQueryWrapper<TaskDraft>()
-                .eq(TaskDraft::getTaskInstanceId, params.getInstanceId())
-                .eq(TaskDraft::getOrgId, params.getOrgId()));
-        TaskDraftRevisionPolicy.requireMatchingRevision(toResult(draft), params.getExpectedDraftRevision());
+        TaskDraft current = latestDraft(params.getInstanceId(), params.getOrgId());
+        TaskDraftRevisionPolicy.requireMatchingRevision(toResult(current), params.getExpectedDraftRevision());
         LocalDateTime now = LocalDateTime.now(clock);
-        if (draft == null) {
-            draft = TaskDraft.builder()
-                    .taskInstanceId(params.getInstanceId())
-                    .revision(0L)
-                    .createdAt(now)
-                    .build();
-        }
-        draft.setOrgId(params.getOrgId());
-        draft.setOwnerId(params.getUserId());
-        draft.setMetadata(params.getMetadata());
-        draft.setRevision(Math.addExact(draft.getRevision(), 1));
-        draft.setTaskRevision(Long.valueOf(params.getExpectedTaskRevision()));
-        draft.setStatus(TaskDraftStatus.ACTIVE);
-        draft.setSubmittedSubmissionId(null);
-        draft.setUpdatedAt(now);
-        if (draft.getId() == null) {
+        // 每次暂存新插入一行。上一份记录先留着，是否废弃附件由业务另决定。
+        TaskDraft draft = TaskDraft.builder()
+                .taskInstanceId(params.getInstanceId())
+                .orgId(params.getOrgId())
+                .ownerId(params.getUserId())
+                .metadata(params.getMetadata())
+                .revision(current == null ? 1L : Math.addExact(current.getRevision(), 1))
+                .taskRevision(Long.valueOf(params.getExpectedTaskRevision()))
+                .status(TaskDraftStatus.ACTIVE)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        try {
             save(draft);
-        } else {
-            // Wrapper 显式写入 null，清除上一轮提交记录的关联。
-            update(new LambdaUpdateWrapper<TaskDraft>()
-                    .eq(TaskDraft::getId, draft.getId())
-                    .set(TaskDraft::getOwnerId, draft.getOwnerId())
-                    .set(TaskDraft::getMetadata, draft.getMetadata())
-                    .set(TaskDraft::getRevision, draft.getRevision())
-                    .set(TaskDraft::getTaskRevision, draft.getTaskRevision())
-                    .set(TaskDraft::getStatus, TaskDraftStatus.ACTIVE)
-                    .set(TaskDraft::getSubmittedSubmissionId, null)
-                    .set(TaskDraft::getUpdatedAt, now));
+        } catch (DuplicateKeyException exception) {
+            throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
         }
         return toResult(draft);
     }
@@ -133,19 +125,33 @@ public class TaskDraftRecordServiceImpl extends ServiceImpl<TaskDraftMapper, Tas
                 .eq(TaskDraft::getStatus, TaskDraftStatus.ACTIVE)
                 .orderByAsc(TaskDraft::getId)
                 .last("FOR UPDATE"));
+        TaskDraft latest = drafts.stream().max(Comparator.comparing(TaskDraft::getRevision)).orElseThrow();
+        LocalDateTime now = LocalDateTime.now(clock);
         for (TaskDraft draft : drafts) {
             resourceService.abandonBound(ResourceAbandonParamsBO.builder()
                     .orgId(params.getOrgId())
                     .bizType("task_draft")
                     .bizIds(List.of(draft.getId()))
                     .build());
-            update(new LambdaUpdateWrapper<TaskDraft>()
+            LambdaUpdateWrapper<TaskDraft> update = new LambdaUpdateWrapper<TaskDraft>()
                     .eq(TaskDraft::getId, draft.getId())
                     .set(TaskDraft::getMetadata, null)
                     .set(TaskDraft::getStatus, TaskDraftStatus.DISCARDED)
-                    .set(TaskDraft::getRevision, Math.addExact(draft.getRevision(), 1))
-                    .set(TaskDraft::getUpdatedAt, LocalDateTime.now(clock)));
+                    .set(TaskDraft::getUpdatedAt, now);
+            // 只推进最新修订号，避免多行同时加一撞上唯一索引。
+            if (draft.getId().equals(latest.getId())) {
+                update.set(TaskDraft::getRevision, Math.addExact(draft.getRevision(), 1));
+            }
+            update(update);
         }
+    }
+
+    private TaskDraft latestDraft(Long instanceId, Long orgId) {
+        return getOne(new LambdaQueryWrapper<TaskDraft>()
+                .eq(TaskDraft::getTaskInstanceId, instanceId)
+                .eq(TaskDraft::getOrgId, orgId)
+                .orderByDesc(TaskDraft::getRevision)
+                .last("LIMIT 1"));
     }
 
     private TaskDraftRecordResultBO toResult(TaskDraft draft) {
