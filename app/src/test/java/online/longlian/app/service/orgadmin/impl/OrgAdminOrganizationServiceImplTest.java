@@ -72,9 +72,6 @@ class OrgAdminOrganizationServiceImplTest {
 
     @Test
     void updateOrganizationInfo_withoutAvatarFileId_preservesAvatar() {
-        when(organizationMapper.selectById(1L)).thenReturn(
-                Organization.builder().id(1L).avatarFileId(12345L).build());
-
         service.updateOrganizationInfo(updateParams(null));
 
         verifyNoInteractions(resourceService);
@@ -86,17 +83,9 @@ class OrgAdminOrganizationServiceImplTest {
 
     @Test
     void updateOrganizationInfo_withZeroAvatarFileId_clearsAvatar() {
-        when(organizationMapper.selectById(1L)).thenReturn(
-                Organization.builder().id(1L).avatarFileId(12345L).build());
-
         service.updateOrganizationInfo(updateParams(0L));
 
-        verify(resourceService).bindBizResource(org.mockito.ArgumentMatchers.argThat(resource ->
-                resource.getResourceId().equals(0L)
-                        && resource.getReplacedResourceId().equals(12345L)
-                        && resource.getBizId().equals(1L)
-                        && "avatar".equals(resource.getBizType())
-                        && resource.getOrgId().equals(1L)));
+        verifyNoInteractions(resourceService);
         @SuppressWarnings("rawtypes")
         ArgumentCaptor<LambdaUpdateWrapper> wrapperCaptor = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
         verify(organizationMapper).update(isNull(), wrapperCaptor.capture());

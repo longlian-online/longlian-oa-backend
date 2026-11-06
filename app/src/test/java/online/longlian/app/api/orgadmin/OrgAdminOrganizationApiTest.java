@@ -68,7 +68,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 1", Integer.class))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
                 .isEqualTo(FileProcessStatus.Activated.getCode());
@@ -298,7 +298,7 @@ public class OrgAdminOrganizationApiTest extends BaseApiTest {
                 "SELECT avatar_file_id FROM organization WHERE id = 1", Long.class)).isNull();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 12345", Integer.class))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     /**

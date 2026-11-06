@@ -26,7 +26,6 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
@@ -347,7 +346,6 @@ class ProjectServiceImplTest {
         ArgumentCaptor<ResourceBindParamsBO> bindCaptor = ArgumentCaptor.forClass(ResourceBindParamsBO.class);
         verify(resourceService).bindBizResource(bindCaptor.capture());
         assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(21L);
-        assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(20L);
     }
 
     @Test
@@ -406,7 +404,6 @@ class ProjectServiceImplTest {
         verify(resourceService).bindBizResource(bindCaptor.capture());
         assertThat(bindCaptor.getValue().getBizType()).isEqualTo("thumbnail");
         assertThat(bindCaptor.getValue().getResourceId()).isEqualTo(31L);
-        assertThat(bindCaptor.getValue().getReplacedResourceId()).isEqualTo(30L);
     }
 
     @Test
@@ -645,7 +642,6 @@ class ProjectServiceImplTest {
         service.deleteProject(deleteParams(2L));
 
         verify(projectMapper).deleteById(100L);
-        verify(resourceService, never()).abandonBound(any());
     }
 
     @Test
@@ -660,7 +656,6 @@ class ProjectServiceImplTest {
                             "参数错误,企划已存在项目，请提交删除申请");
                 });
         verify(projectMapper, never()).deleteById(any());
-        verify(resourceService, never()).abandonBound(any());
     }
 
     @Test
@@ -724,7 +719,7 @@ class ProjectServiceImplTest {
     }
 
     @Test
-    void deleteProject_withoutItems_abandonsCoverAndThumbnail() {
+    void deleteProject_withoutItems_deletesAttachmentsAndProject() {
         Project project = enabledProject(2L);
         project.setCoverFileId(11L);
         project.setThumbnailFileId(12L);
@@ -732,24 +727,19 @@ class ProjectServiceImplTest {
 
         service.deleteProject(deleteParams(2L));
 
-        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
-        verify(resourceService).abandonBound(abandoned.capture());
-        assertThat(abandoned.getValue().getOrgId()).isEqualTo(1L);
-        assertThat(abandoned.getValue().getResourceIds()).containsExactly(11L, 12L);
-        verify(projectAttachmentHandler).abandonProjectAttachments(100L, 1L);
+        verify(projectAttachmentHandler).deleteProjectAttachments(100L);
         verify(projectMapper).deleteById(100L);
     }
 
     @Test
-    void deleteProjectForReview_abandonsCurrentImages() {
+    void deleteProjectForReview_deletesAttachmentsAndProject() {
         Project project = enabledProject(2L);
         project.setCoverFileId(11L);
         when(projectMapper.selectById(100L)).thenReturn(project);
 
         service.deleteProjectForReview(100L, 1L);
 
-        verify(resourceService).abandonBound(any());
-        verify(projectAttachmentHandler).abandonProjectAttachments(100L, 1L);
+        verify(projectAttachmentHandler).deleteProjectAttachments(100L);
         verify(projectMapper).deleteById(100L);
     }
 

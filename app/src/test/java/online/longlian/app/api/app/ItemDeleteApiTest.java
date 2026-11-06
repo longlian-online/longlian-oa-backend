@@ -56,7 +56,7 @@ public class ItemDeleteApiTest extends BaseApiTest {
         assertThat(activeCount("project", 1L)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id = 1", Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 1", Integer.class))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission WHERE deleted_at IS NULL", Integer.class))
                 .isZero();
         authRequest(token)

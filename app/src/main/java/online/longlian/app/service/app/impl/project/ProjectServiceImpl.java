@@ -30,7 +30,6 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
@@ -54,7 +53,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 @Service("appProjectService")
 @RequiredArgsConstructor
@@ -310,7 +308,6 @@ public class ProjectServiceImpl implements ProjectService {
         if (params.getCoverFileId() != null) {
             resourceService.bindBizResource(ResourceBindParamsBO.builder()
                     .resourceId(params.getCoverFileId())
-                    .replacedResourceId(project.getCoverFileId())
                     .bizType("cover")
                     .bizId(params.getProjectId())
                     .creatorId(params.getUserId())
@@ -320,7 +317,6 @@ public class ProjectServiceImpl implements ProjectService {
         if (params.getThumbnailFileId() != null) {
             resourceService.bindBizResource(ResourceBindParamsBO.builder()
                     .resourceId(params.getThumbnailFileId())
-                    .replacedResourceId(project.getThumbnailFileId())
                     .bizType("thumbnail")
                     .bizId(params.getProjectId())
                     .creatorId(params.getUserId())
@@ -361,8 +357,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .eq(Item::getProjectId, params.getProjectId())) > 0) {
             throw new AppException(ResultCode.PARAM_ERROR, "企划已存在项目，请提交删除申请");
         }
-        abandonCurrentImages(project);
-        projectAttachmentHandler.abandonProjectAttachments(params.getProjectId(), params.getOrgId());
+        projectAttachmentHandler.deleteProjectAttachments(params.getProjectId());
         projectMapper.deleteById(params.getProjectId());
     }
 
@@ -409,23 +404,8 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteProjectForReview(Long projectId, Long orgId) {
         Project project = getVisibleProject(projectId, orgId);
-        abandonCurrentImages(project);
-        projectAttachmentHandler.abandonProjectAttachments(projectId, orgId);
+        projectAttachmentHandler.deleteProjectAttachments(projectId);
         projectMapper.deleteById(project.getId());
-    }
-
-    private void abandonCurrentImages(Project project) {
-        List<Long> resourceIds = Stream.of(project.getCoverFileId(), project.getThumbnailFileId())
-                .filter(id -> id != null && id > 0)
-                .distinct()
-                .toList();
-        if (resourceIds.isEmpty()) {
-            return;
-        }
-        resourceService.abandonBound(ResourceAbandonParamsBO.builder()
-                .orgId(project.getOrgId())
-                .resourceIds(resourceIds)
-                .build());
     }
 
     private Project getVisibleProject(Long projectId, Long orgId) {

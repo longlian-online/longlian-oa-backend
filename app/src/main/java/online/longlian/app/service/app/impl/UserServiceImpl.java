@@ -302,18 +302,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<User>()
                 .eq(User::getId, params.getUserId())
                 .set(User::getNickname, params.getNickname());
-        // 只改昵称时不传头像，不能把现有头像写成空并废弃资源。
-        Long oldAvatarFileId = null;
+        // 只改昵称时不传头像，不能把现有头像写成空。旧头像是否弃置由资源弃置任务判断。
         if (params.getAvatarFileId() != null) {
-            User user = userMapper.selectById(params.getUserId());
-            oldAvatarFileId = user.getAvatarFileId();
             updateWrapper.set(User::getAvatarFileId, params.getAvatarFileId());
         }
         userMapper.update(null, updateWrapper);
-        if (params.getAvatarFileId() != null) {
+        if (params.getAvatarFileId() != null && params.getAvatarFileId() > 0) {
             resourceService.bindBizResource(ResourceBindParamsBO.builder()
                     .resourceId(params.getAvatarFileId())
-                    .replacedResourceId(oldAvatarFileId)
                     .bizType("avatar")
                     .bizId(params.getUserId())
                     .creatorId(params.getUserId())

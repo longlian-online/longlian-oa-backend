@@ -12,7 +12,6 @@ import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
@@ -257,25 +256,17 @@ public class ResourceService {
     }
 
     /**
-     * 将业务对象的单个资源更新为指定资源。
+     * 把未绑定的上传绑定到业务对象并激活。
      * <p>
-     * 新资源在同一调用中绑定并激活；与新资源不同的旧资源进入保留期，保留文件和业务关联。
-     * {@code resourceId} 为 {@code null} 或非正数时表示清空业务对象资源。
+     * 不处理旧资源。业务不再引用的已激活资源由弃置任务标记。
+     * 已经绑定到同一业务对象的资源直接返回，便于表单原样保存。
+     * {@code resourceId} 为 {@code null} 或非正数时不绑定。
      */
     public void bindBizResource(ResourceBindParamsBO params) {
-        if (params.getBizId() == null) {
+        if (params.getBizId() == null || !isResourceId(params.getResourceId())) {
             return;
         }
-        if (isResourceId(params.getResourceId())
-                && Objects.equals(params.getResourceId(), params.getReplacedResourceId())) {
-            return;
-        }
-        if (isResourceId(params.getResourceId())) {
-            bindResources(List.of(params.getResourceId()), scope(params));
-        }
-        if (!Objects.equals(params.getResourceId(), params.getReplacedResourceId())) {
-            deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
-        }
+        bindResources(List.of(params.getResourceId()), scope(params));
     }
 
     /**
@@ -307,12 +298,26 @@ public class ResourceService {
             throw unauthorized();
         }
         Map<Long, Resource> resources = loadResources(resourceIds);
+        List<Resource> pendingBind = new ArrayList<>();
         for (Long resourceId : resourceIds) {
-            validateBind(resources.get(resourceId), scope);
+            Resource resource = resources.get(resourceId);
+            if (alreadyBound(resource, scope)) {
+                continue;
+            }
+            validateBind(resource, scope);
+            pendingBind.add(resource);
         }
-        for (Long resourceId : resourceIds) {
-            activateBound(resources.get(resourceId), scope);
+        for (Resource resource : pendingBind) {
+            activateBound(resource, scope);
         }
+    }
+
+    private boolean alreadyBound(Resource resource, BindScope scope) {
+        return resource != null
+                && resource.getProcessStatus() == FileProcessStatus.Activated
+                && Objects.equals(resource.getBizType(), scope.bizType())
+                && Objects.equals(resource.getBizId(), scope.bizId())
+                && (scope.orgId() == null || Objects.equals(resource.getOrgId(), scope.orgId()));
     }
 
     private void validateBind(Resource resource, BindScope scope) {
@@ -368,49 +373,6 @@ public class ResourceService {
             return List.of();
         }
         return resourceMapper.summarizeUsage(orgIds);
-    }
-
-    /**
-     * 把仍在使用的资源送进保留期。已经废弃的行保持原来的 deprecated_at。
-     */
-    public void abandonBound(ResourceAbandonParamsBO params) {
-        LocalDateTime now = LocalDateTime.now(clock);
-        if (params.getResourceIds() != null && !params.getResourceIds().isEmpty()) {
-            abandonActivated(new LambdaUpdateWrapper<Resource>().in(Resource::getId, params.getResourceIds()),
-                    params.getOrgId(), now);
-        }
-        if (params.getBizType() != null && params.getBizIds() != null && !params.getBizIds().isEmpty()) {
-            abandonActivated(new LambdaUpdateWrapper<Resource>()
-                            .eq(Resource::getBizType, params.getBizType())
-                            .in(Resource::getBizId, params.getBizIds()),
-                    params.getOrgId(), now);
-        }
-    }
-
-    private void abandonActivated(LambdaUpdateWrapper<Resource> wrapper, Long orgId, LocalDateTime now) {
-        resourceMapper.update(null, wrapper
-                .eq(Resource::getOrgId, orgId)
-                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .isNull(Resource::getStorageCleanedAt)
-                .set(Resource::getProcessStatus, FileProcessStatus.Deprecated)
-                .set(Resource::getDeprecatedAt, now)
-                .set(Resource::getUpdatedAt, now));
-    }
-
-    private void deprecateReplacedResource(Long resourceId, Long bizId, Long orgId) {
-        if (!isResourceId(resourceId)) {
-            return;
-        }
-        // 保留 bizId，保留期从这一次替换开始，满期后才物理删除。
-        LocalDateTime now = LocalDateTime.now(clock);
-        resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                .eq(Resource::getId, resourceId)
-                .eq(Resource::getBizId, bizId)
-                .eq(orgId != null, Resource::getOrgId, orgId)
-                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
-                .set(Resource::getProcessStatus, FileProcessStatus.Deprecated)
-                .set(Resource::getDeprecatedAt, now)
-                .set(Resource::getUpdatedAt, now));
     }
 
     private Map<Long, Resource> loadResources(List<Long> resourceIds) {

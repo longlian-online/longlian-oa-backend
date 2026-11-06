@@ -300,7 +300,7 @@ class LocalFileReadApiTest extends BaseApiTest {
                 "SELECT process_status FROM resource WHERE storage_key = ?", Integer.class, replacement.key());
         Long replacementBizId = jdbcTemplate.queryForObject(
                 "SELECT biz_id FROM resource WHERE storage_key = ?", Long.class, replacement.key());
-        assertThat(oldStatus).isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(oldStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementStatus).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(replacementBizId).isEqualTo(1L);
         jdbcTemplate.update("UPDATE resource SET created_at = ? WHERE id IN (?, ?)",
