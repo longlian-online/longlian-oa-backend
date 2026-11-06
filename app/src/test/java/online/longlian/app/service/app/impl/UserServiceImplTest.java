@@ -425,6 +425,7 @@ class UserServiceImplTest {
 
     @Test
     void shouldBindReplacementAvatarWithoutDeprecatingPrevious() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
         UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
                 .userId(1L).nickname("user").avatarFileId(20L).build();
 
@@ -438,12 +439,12 @@ class UserServiceImplTest {
 
     @Test
     void shouldKeepCurrentAvatarWhenFileIdIsUnchanged() {
+        when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).avatarFileId(10L).build());
         UserUpdateMyInfoParamsBO params = UserUpdateMyInfoParamsBO.builder()
                 .userId(1L).nickname("user").avatarFileId(10L).build();
 
         service.updateMyInfo(params);
-        verify(resourceService).bindBizResource(argThat(resource -> resource.getResourceId().equals(10L)
-                && resource.getBizId().equals(1L)));
+        verify(resourceService, never()).bindBizResource(any());
     }
 
     /** 只更新昵称时不传头像，不能清空或重新绑定现有头像。 */

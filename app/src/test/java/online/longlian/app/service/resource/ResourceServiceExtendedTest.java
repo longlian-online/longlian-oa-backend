@@ -284,14 +284,16 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void bindBizResource_alreadyActivatedForSameBusinessDoesNothing() {
+    void bindBizResource_alreadyActivatedResourceIsRejected() {
         Resource activated = pendingResource(1L);
         activated.setBizId(2L);
         activated.setProcessStatus(FileProcessStatus.Activated);
         when(resourceMapper.selectList(any())).thenReturn(List.of(activated));
 
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(1L).bizType("avatar").bizId(2L).creatorId(9L).orgId(1L).build());
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizType("avatar").bizId(2L).creatorId(9L).orgId(1L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权使用该文件");
 
         verify(resourceMapper, never()).update(isNull(), any());
         verifyNoInteractions(storageFactory);

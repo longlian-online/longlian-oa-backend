@@ -305,7 +305,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .set(params.getStatus() != null, Project::getStatus, params.getStatus())
                         .set(Project::getUpdatedAt, LocalDateTime.now(clock))
         );
-        if (params.getCoverFileId() != null) {
+        if (params.getCoverFileId() != null && !params.getCoverFileId().equals(project.getCoverFileId())) {
             resourceService.bindBizResource(ResourceBindParamsBO.builder()
                     .resourceId(params.getCoverFileId())
                     .bizType("cover")
@@ -314,7 +314,8 @@ public class ProjectServiceImpl implements ProjectService {
                     .orgId(params.getOrgId())
                     .build());
         }
-        if (params.getThumbnailFileId() != null) {
+        if (params.getThumbnailFileId() != null
+                && !params.getThumbnailFileId().equals(project.getThumbnailFileId())) {
             resourceService.bindBizResource(ResourceBindParamsBO.builder()
                     .resourceId(params.getThumbnailFileId())
                     .bizType("thumbnail")

@@ -51,13 +51,16 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
 
         if (params.getAvatarFileId() != null) {
             if (params.getAvatarFileId() > 0) {
-                resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                        .resourceId(params.getAvatarFileId())
-                        .bizType("avatar")
-                        .bizId(params.getOrgId())
-                        .creatorId(params.getUserId())
-                        .orgId(params.getOrgId())
-                        .build());
+                Organization organization = organizationMapper.selectById(params.getOrgId());
+                if (!params.getAvatarFileId().equals(organization.getAvatarFileId())) {
+                    resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                            .resourceId(params.getAvatarFileId())
+                            .bizType("avatar")
+                            .bizId(params.getOrgId())
+                            .creatorId(params.getUserId())
+                            .orgId(params.getOrgId())
+                            .build());
+                }
             }
             updateWrapper.set(Organization::getAvatarFileId,
                     params.getAvatarFileId() > 0 ? params.getAvatarFileId() : null);

@@ -259,7 +259,7 @@ public class ResourceService {
      * 把未绑定的上传绑定到业务对象并激活。
      * <p>
      * 不处理旧资源。业务不再引用的已激活资源由弃置任务标记。
-     * 已经绑定到同一业务对象的资源直接返回，便于表单原样保存。
+     * 已经绑定过的资源不能再次绑定。表单原样保存同一个编号时，由调用方跳过本次绑定。
      * {@code resourceId} 为 {@code null} 或非正数时不绑定。
      */
     public void bindBizResource(ResourceBindParamsBO params) {
@@ -298,26 +298,12 @@ public class ResourceService {
             throw unauthorized();
         }
         Map<Long, Resource> resources = loadResources(resourceIds);
-        List<Resource> pendingBind = new ArrayList<>();
         for (Long resourceId : resourceIds) {
-            Resource resource = resources.get(resourceId);
-            if (alreadyBound(resource, scope)) {
-                continue;
-            }
-            validateBind(resource, scope);
-            pendingBind.add(resource);
+            validateBind(resources.get(resourceId), scope);
         }
-        for (Resource resource : pendingBind) {
-            activateBound(resource, scope);
+        for (Long resourceId : resourceIds) {
+            activateBound(resources.get(resourceId), scope);
         }
-    }
-
-    private boolean alreadyBound(Resource resource, BindScope scope) {
-        return resource != null
-                && resource.getProcessStatus() == FileProcessStatus.Activated
-                && Objects.equals(resource.getBizType(), scope.bizType())
-                && Objects.equals(resource.getBizId(), scope.bizId())
-                && (scope.orgId() == null || Objects.equals(resource.getOrgId(), scope.orgId()));
     }
 
     private void validateBind(Resource resource, BindScope scope) {
