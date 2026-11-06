@@ -6,14 +6,11 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectAttachmentMapper;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.entity.ProjectAttachment;
-import online.longlian.app.service.resource.ResourceService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,7 +25,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,8 +32,6 @@ class ProjectAttachmentHandlerTest {
 
     @Mock
     private ProjectAttachmentMapper projectAttachmentMapper;
-    @Mock
-    private ResourceService resourceService;
 
     private ProjectAttachmentHandler handler;
 
@@ -45,57 +39,48 @@ class ProjectAttachmentHandlerTest {
     void setUp() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), ProjectAttachment.class);
-        handler = new ProjectAttachmentHandler(projectAttachmentMapper, resourceService,
+        handler = new ProjectAttachmentHandler(projectAttachmentMapper,
                 Clock.fixed(Instant.parse("2026-05-01T02:00:00Z"), ZoneOffset.UTC));
     }
 
     @Test
-    void abandonAttachment_softDeletesAssociationAndSendsFileToRetention() {
+    void deleteAttachment_softDeletesAssociation() {
         when(projectAttachmentMapper.update(isNull(), any())).thenReturn(1);
 
-        handler.abandonAttachment(attachment(200L, 20L), 1L);
+        handler.deleteAttachment(attachment(200L, 20L));
 
         verify(projectAttachmentMapper).update(isNull(), any());
-        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
-        verify(resourceService).abandonBound(abandoned.capture());
-        assertThat(abandoned.getValue().getOrgId()).isEqualTo(1L);
-        assertThat(abandoned.getValue().getResourceIds()).containsExactly(20L);
     }
 
     @Test
-    void abandonAttachment_alreadyDeletedThrowsWithoutTouchingResource() {
+    void deleteAttachment_alreadyDeletedThrows() {
         when(projectAttachmentMapper.update(isNull(), any())).thenReturn(0);
 
-        assertThatThrownBy(() -> handler.abandonAttachment(attachment(200L, 20L), 1L))
+        assertThatThrownBy(() -> handler.deleteAttachment(attachment(200L, 20L)))
                 .isInstanceOfSatisfying(AppException.class,
                         error -> assertThat(error.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode()));
-
-        verifyNoInteractions(resourceService);
     }
 
     @Test
-    void abandonProjectAttachments_withoutAttachmentsDoesNothing() {
+    void deleteProjectAttachments_withoutAttachmentsDoesNothing() {
         when(projectAttachmentMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
 
-        handler.abandonProjectAttachments(100L, 1L);
+        handler.deleteProjectAttachments(100L);
 
         verify(projectAttachmentMapper, never()).update(isNull(), any());
-        verifyNoInteractions(resourceService);
     }
 
     @Test
-    void abandonProjectAttachments_softDeletesAllAndAbandonsDistinctFiles() {
+    void deleteProjectAttachments_softDeletesAll() {
         when(projectAttachmentMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(
                 attachment(200L, 20L),
                 attachment(201L, 20L),
                 attachment(202L, 21L)));
         when(projectAttachmentMapper.update(isNull(), any())).thenReturn(3);
 
-        handler.abandonProjectAttachments(100L, 1L);
+        handler.deleteProjectAttachments(100L);
 
-        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
-        verify(resourceService).abandonBound(abandoned.capture());
-        assertThat(abandoned.getValue().getResourceIds()).containsExactly(20L, 21L);
+        verify(projectAttachmentMapper).update(isNull(), any());
     }
 
     private ProjectAttachment attachment(Long id, Long fileId) {

@@ -492,7 +492,7 @@ public class ProjectApiTest extends BaseApiTest {
                 "SELECT cover_file_id FROM project WHERE id = ?", Long.class, projectId)).isEqualTo(1L);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 2", Integer.class))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 3", Integer.class))
                 .isEqualTo(FileProcessStatus.Activated.getCode());
@@ -540,7 +540,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 1", Integer.class))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = 2", Integer.class))
                 .isEqualTo(FileProcessStatus.Activated.getCode());

@@ -98,7 +98,7 @@ class ProjectAttachmentApiTest extends BaseApiTest {
                 .isNotNull();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = ?", Integer.class, Long.valueOf(fileId)))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     /** 列表按上传时间新到旧，同一时间戳按附件 ID 倒序。 */
@@ -269,7 +269,7 @@ class ProjectAttachmentApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
-    /** 企划整体删除时，附件关联逻辑删除，文件进入资源保留期。 */
+    /** 企划整体删除时，附件关联逻辑删除，文件仍保持已激活，交给弃置任务判断。 */
     @Test
     void shouldAbandonAttachmentsWhenProjectDeleted() throws IOException {
         createUserWithOrganization(1L, "creator", "123456", "creator@example.com", 1L, 1L, "ORG_ADMIN");
@@ -286,7 +286,7 @@ class ProjectAttachmentApiTest extends BaseApiTest {
                 "SELECT COUNT(*) FROM project_attachment WHERE deleted_at IS NULL", Long.class)).isZero();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT process_status FROM resource WHERE id = ?", Integer.class, Long.valueOf(fileId)))
-                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+                .isEqualTo(FileProcessStatus.Activated.getCode());
     }
 
     /** 上传预签名文件并返回文件 ID，供绑定使用。 */
