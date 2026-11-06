@@ -13,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,7 +27,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class ResourceDeprecationServiceTest {
 
     @Mock
@@ -82,7 +84,29 @@ class ResourceDeprecationServiceTest {
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }
 
+    @Test
+    void deprecateUnreferenced_logsOnlyResourcesThatWereDeprecated(CapturedOutput output) {
+        LocalDateTime executeTime = LocalDateTime.of(2026, 11, 7, 3, 4, 5);
+        when(resourceMapper.selectList(any())).thenReturn(List.of(
+                resource(4L, "cover", 20L, 1L), resource(9L, "avatar", 3L, 1L)));
+        when(resourceMapper.deprecateIfUnreferenced(org.mockito.ArgumentMatchers.eq(4L), org.mockito.ArgumentMatchers.eq(executeTime),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(1);
+        when(resourceMapper.deprecateIfUnreferenced(org.mockito.ArgumentMatchers.eq(9L), org.mockito.ArgumentMatchers.eq(executeTime),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(0);
+
+        service.deprecateUnreferenced(executeTime);
+
+        assertThat(output).contains("资源弃置: id=4, bizType=cover, bizId=20, orgId=1, executeTime=2026-11-07T03:04:05")
+                .contains("资源弃置本轮完成: count=1, executeTime=2026-11-07T03:04:05")
+                .doesNotContain("id=9");
+    }
+
     private Resource resource(long id) {
-        return Resource.builder().id(id).processStatus(FileProcessStatus.Activated).build();
+        return resource(id, "cover", id, 1L);
+    }
+
+    private Resource resource(long id, String bizType, long bizId, long orgId) {
+        return Resource.builder().id(id).bizType(bizType).bizId(bizId).orgId(orgId)
+                .processStatus(FileProcessStatus.Activated).build();
     }
 }
