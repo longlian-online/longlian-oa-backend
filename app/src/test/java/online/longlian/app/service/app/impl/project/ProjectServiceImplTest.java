@@ -349,6 +349,21 @@ class ProjectServiceImplTest {
     }
 
     @Test
+    void updateProject_sameCoverAndThumbnailDoNotBindAgain() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(2L)
+                .coverFileId(20L).thumbnailFileId(30L).resourceStatus(Status.ENABLED).build());
+
+        service.updateProject(ProjectUpdateParamsBO.builder()
+                .projectId(100L).orgId(1L).userId(2L)
+                .title("新标题").alias("new_alias")
+                .metadata("{\"tags\":[]}").description("新描述")
+                .coverFileId(20L).thumbnailFileId(30L).build());
+
+        verify(resourceService, never()).bindBizResource(any());
+    }
+
+    @Test
     void createProject_withThumbnail_bindsThumbnailSeparatelyFromCover() {
         when(projectTypeMapper.selectById(10L)).thenReturn(
                 ProjectType.builder().id(10L).orgId(1L).status(Status.ENABLED).build());

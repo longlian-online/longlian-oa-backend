@@ -82,6 +82,16 @@ class OrgAdminOrganizationServiceImplTest {
     }
 
     @Test
+    void updateOrganizationInfo_sameAvatarDoesNotBindAgain() {
+        when(organizationMapper.selectById(1L)).thenReturn(
+                Organization.builder().id(1L).avatarFileId(5L).build());
+
+        service.updateOrganizationInfo(updateParams(5L));
+
+        verifyNoInteractions(resourceService);
+    }
+
+    @Test
     void updateOrganizationInfo_withZeroAvatarFileId_clearsAvatar() {
         service.updateOrganizationInfo(updateParams(0L));
 
