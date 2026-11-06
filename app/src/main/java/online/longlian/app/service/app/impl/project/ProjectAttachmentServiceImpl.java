@@ -102,7 +102,7 @@ public class ProjectAttachmentServiceImpl implements ProjectAttachmentService {
     public void deleteProjectAttachment(ProjectAttachmentDeleteParamsBO params) {
         requireProjectCreator(params.getProjectId(), params.getUserId(), params.getOrgId());
         ProjectAttachment attachment = requireAttachment(params.getProjectId(), params.getAttachmentId());
-        projectAttachmentHandler.abandonAttachment(attachment, params.getOrgId());
+        projectAttachmentHandler.deleteAttachment(attachment);
     }
 
     @Override

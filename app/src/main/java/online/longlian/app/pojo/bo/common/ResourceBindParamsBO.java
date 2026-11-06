@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResourceBindParamsBO {
     private Long resourceId;
-    private Long replacedResourceId;
     /** 必须与创建文件时写入的业务类型一致。 */
     private String bizType;
     private Long bizId;
