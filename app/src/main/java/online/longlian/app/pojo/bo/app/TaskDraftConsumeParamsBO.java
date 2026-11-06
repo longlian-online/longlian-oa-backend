@@ -12,7 +12,5 @@ import lombok.NoArgsConstructor;
 public class TaskDraftConsumeParamsBO {
 
     private Long draftId;
-    private Long expectedRevision;
     private Long submissionId;
-    private Long taskRevision;
 }

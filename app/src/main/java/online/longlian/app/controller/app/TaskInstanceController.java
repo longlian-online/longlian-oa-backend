@@ -161,6 +161,7 @@ public class TaskInstanceController {
                         .instanceId(instanceId)
                         .fileId(fileId)
                         .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
                         .build());
         ProjectAttachmentDownloadVO vo = new ProjectAttachmentDownloadVO();
         vo.setReadUrl(result.getReadUrl());

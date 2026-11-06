@@ -17,6 +17,6 @@ public class TaskDraftSaveParamsBO {
     private Long userId;
     private Long orgId;
     private String expectedTaskRevision;
-    private String expectedDraftRevision;
+    private String expectedDraftId;
     private Map<String, Object> values;
 }

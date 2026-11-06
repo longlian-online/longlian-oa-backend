@@ -58,7 +58,7 @@ public class TaskDraftController {
         return toDetailVO(result);
     }
 
-    @Operation(summary = "暂存任务草稿", description = "允许暂存未完成的表单；任务和草稿修订号须与当前版本一致")
+    @Operation(summary = "暂存任务草稿", description = "允许暂存未完成的表单；任务版本和草稿ID须与当前版本一致")
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PutMapping
     @ResponseMessage("暂存成功")
@@ -74,7 +74,7 @@ public class TaskDraftController {
         return toDetailVO(taskInstanceService.saveTaskDraft(params));
     }
 
-    @Operation(summary = "正式提交任务草稿", description = "只提交指定修订号的已暂存内容，同一版本重复提交返回原结果")
+    @Operation(summary = "正式提交任务草稿", description = "只提交指定ID的已暂存草稿，同一草稿重复提交返回原结果")
     @Parameter(name = "instanceId", description = "任务实例ID")
     @PostMapping("/submit")
     @ResponseMessage("提交成功")

@@ -1,7 +1,6 @@
 package online.longlian.app.service.resource;
 
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceCopyParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.common.enumeration.StorageType;
@@ -66,9 +65,6 @@ public interface StorageService {
      * 确认文件已由存储后端完整保存。
      */
     void probe(ResourceProbeParamsBO params);
-
-    /** 复制到独立对象，后续修改源对象不会改变副本。 */
-    void copyResource(ResourceCopyParamsBO params);
 
     /**
      * 删除精确存储 key 对应的实际文件或对象。

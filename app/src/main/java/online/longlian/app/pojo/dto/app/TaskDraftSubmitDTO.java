@@ -16,9 +16,9 @@ public class TaskDraftSubmitDTO {
     @Schema(description = "读取草稿时返回的任务修订号", requiredMode = Schema.RequiredMode.REQUIRED)
     private String expectedTaskRevision;
 
-    @NotBlank(message = "草稿修订号不能为空")
-    @Pattern(regexp = "0|[1-9][0-9]{0,18}", message = "草稿修订号必须为非负整数字符串")
-    @DecimalMax(value = "9223372036854775806", message = "草稿修订号超出范围")
-    @Schema(description = "读取草稿时返回的草稿修订号", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String expectedDraftRevision;
+    @NotBlank(message = "草稿ID不能为空")
+    @Pattern(regexp = "[1-9][0-9]{0,18}", message = "草稿ID必须为正整数字符串")
+    @DecimalMax(value = "9223372036854775807", message = "草稿ID超出范围")
+    @Schema(description = "正式提交的草稿ID")
+    private String draftId;
 }

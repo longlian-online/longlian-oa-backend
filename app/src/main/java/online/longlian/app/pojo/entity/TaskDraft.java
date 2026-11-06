@@ -16,18 +16,18 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 任务最新草稿
+ * 任务暂存成果快照
  * </p>
  *
  * @author longlian
- * @since
+ * @since 2026-11-06
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @TableName("task_draft")
-@ApiModel(value = "TaskDraft对象", description = "任务最新草稿")
+@ApiModel(value = "TaskDraft对象", description = "任务暂存成果快照")
 public class TaskDraft implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -61,31 +61,31 @@ public class TaskDraft implements Serializable {
     private Long ownerId;
 
     /**
-     * 草稿元数据(JSON对象，按节点 meta_schema 组织；提交或废弃后清空)
+     * 本次暂存的成果快照(JSON对象，按节点 meta_schema 组织)
      */
     @TableField("metadata")
-    @ApiModelProperty("草稿元数据(JSON对象，按节点 meta_schema 组织；提交或废弃后清空)")
+    @ApiModelProperty("本次暂存的成果快照(JSON对象，按节点 meta_schema 组织)")
     private String metadata;
 
     /**
-     * 草稿修订号（暂存或废弃时递增，复用记录时不重置）
+     * 旧草稿修订号（兼容已有数据库，不再使用）
      */
     @TableField("revision")
-    @ApiModelProperty("草稿修订号（暂存或废弃时递增，复用记录时不重置）")
+    @ApiModelProperty("旧草稿修订号（兼容已有数据库，不再使用）")
     private Long revision;
 
     /**
-     * 暂存时的任务状态修订号（正式提交时须与任务当前 revision 一致）
+     * 旧任务修订号（兼容已有数据库，不再使用）
      */
     @TableField("task_revision")
-    @ApiModelProperty("暂存时的任务状态修订号（正式提交时须与任务当前 revision 一致）")
+    @ApiModelProperty("旧任务修订号（兼容已有数据库，不再使用）")
     private Long taskRevision;
 
     /**
-     * 草稿状态 1-ACTIVE(有效) 2-CONSUMED(已提交) 3-DISCARDED(已废弃)
+     * 草稿状态 1-ACTIVE(有效) 2-CONSUMED(已提交) 3-DISCARDED(已废弃) 4-REPLACED(已替换)
      */
     @TableField("status")
-    @ApiModelProperty("草稿状态 1-ACTIVE(有效) 2-CONSUMED(已提交) 3-DISCARDED(已废弃)")
+    @ApiModelProperty("草稿状态 1-ACTIVE(有效) 2-CONSUMED(已提交) 3-DISCARDED(已废弃) 4-REPLACED(已替换)")
     private TaskDraftStatus status;
 
     /**

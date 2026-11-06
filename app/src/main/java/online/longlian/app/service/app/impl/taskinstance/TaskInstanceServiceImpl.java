@@ -43,11 +43,6 @@ import online.longlian.app.pojo.bo.app.TaskDraftResultBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSaveParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSubmitResultBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFileCancelParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFileCommitParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFileListParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFilePrepareParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFilePrepareResultBO;
 import online.longlian.app.pojo.bo.common.TaskFormField;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
@@ -60,8 +55,10 @@ import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.InboxNotificationService;
-import online.longlian.app.service.app.impl.taskdraft.TaskDraftRevisionPolicy;
-import online.longlian.app.service.resource.TaskDraftResourceService;
+import online.longlian.app.service.resource.ResourceService;
+import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFileResultBO;
+import online.longlian.app.pojo.bo.app.TaskDraftRecordGetByIdParamsBO;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.TaskInstanceService;
@@ -111,7 +108,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final InboxNotificationService inboxNotificationService;
     private final Clock clock;
     private final TaskDraftRecordService taskDraftRecordService;
-    private final TaskDraftResourceService taskDraftResourceService;
+    private final ResourceService resourceService;
     private final TaskFormService taskFormService;
 
     @Override
@@ -358,7 +355,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         });
     }
 
-    /** 先锁任务流行，所有任务写入共用同一把锁；存储复制在进入此事务前完成。 */
+    /** 先锁任务流行，所有任务写入共用同一把锁。 */
     private <T> T withLockedTask(TaskInstance locator, Long orgId, Long validatedUserId,
                                  BiFunction<TaskInstance, Project, T> mutation) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -397,69 +394,22 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     @Override
     public TaskDraftResultBO saveTaskDraft(TaskDraftSaveParamsBO params) {
-        TaskDraftResultBO initial = getTaskDraft(new TaskDraftGetParamsBO(
-                params.getInstanceId(), params.getUserId(), params.getOrgId()));
-        if (!initial.getTaskRevision().equals(params.getExpectedTaskRevision())
-                || !initial.getDraftRevision().equals(params.getExpectedDraftRevision())) {
-            throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
-        }
-        TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
-                initial.getSubmitFields(), params.getValues());
-        Long draftId = initial.getDraft() == null ? null : Long.valueOf(initial.getDraft().getId());
-        TaskDraftFilePrepareResultBO prepared = taskDraftResourceService.prepareTaskDraftFiles(
-                new TaskDraftFilePrepareParamsBO(params.getUserId(), params.getOrgId(),
-                        draftId, validated.resourceIds()));
-        try {
-            return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(),
-                    (instance, project) -> persistTaskDraft(instance, params, prepared));
-        } catch (RuntimeException exception) {
-            try {
-                taskDraftResourceService.cancelTaskDraftFilePreparation(
-                        new TaskDraftFileCancelParamsBO(prepared.getOperationToken()));
-            } catch (RuntimeException cleanupFailure) {
-                exception.addSuppressed(cleanupFailure);
+        return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            requireDraftOwner(instance, params.getUserId());
+            if (!instance.getRevision().toString().equals(params.getExpectedTaskRevision())) {
+                throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
             }
-            throw exception;
-        }
-    }
-
-    private TaskDraftResultBO persistTaskDraft(TaskInstance instance, TaskDraftSaveParamsBO params,
-                                               TaskDraftFilePrepareResultBO prepared) {
-        requireDraftOwner(instance, params.getUserId());
-        if (!instance.getRevision().toString().equals(params.getExpectedTaskRevision())) {
-            throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
-        }
-        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(fields, params.getValues());
-        Map<String, Object> values = replaceDraftFileIds(fields, validated.values(), prepared.getFileIdMappings());
-        TaskDraftRecordResultBO draft = taskDraftRecordService.saveTaskDraftRecord(TaskDraftRecordSaveParamsBO.builder()
-                .instanceId(params.getInstanceId())
-                .userId(params.getUserId())
-                .orgId(params.getOrgId())
-                .expectedTaskRevision(params.getExpectedTaskRevision())
-                .expectedDraftRevision(params.getExpectedDraftRevision())
-                .metadata(JSON.toJSONString(values))
-                .build());
-        taskDraftResourceService.commitTaskDraftFiles(new TaskDraftFileCommitParamsBO(params.getUserId(),
-                params.getOrgId(), draft.getId(), prepared.getOperationToken(), prepared.getFileIdMappings()));
-        return assembleTaskDraftResult(instance, params.getUserId(), params.getOrgId());
-    }
-
-    private Map<String, Object> replaceDraftFileIds(List<TaskFormField> fields, Map<String, Object> values,
-                                                    Map<Long, Long> fileIdMappings) {
-        Map<String, Object> replacedValues = new LinkedHashMap<>(values);
-        for (TaskFormField field : fields) {
-            if ("file".equals(field.type()) && values.get(field.key()) instanceof Map<?, ?> file) {
-                Long sourceId = taskFormService.parseFileId((String) file.get("fileId"));
-                Long snapshotId = fileIdMappings.get(sourceId);
-                if (snapshotId == null) {
-                    throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
-                }
-                replacedValues.put(field.key(), Map.of("fileId", snapshotId.toString()));
-            }
-        }
-        return replacedValues;
+            ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+            TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
+                    taskFormService.parseFields(node.getMetaSchema()), params.getValues());
+            resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
+                    .resourceIds(validated.resourceIds()).bizType("task_submit").bizId(instance.getId())
+                    .creatorId(params.getUserId()).orgId(params.getOrgId()).reuseBound(true).build());
+            taskDraftRecordService.saveTaskDraftRecord(TaskDraftRecordSaveParamsBO.builder()
+                    .instanceId(instance.getId()).userId(params.getUserId()).orgId(params.getOrgId())
+                    .expectedDraftId(params.getExpectedDraftId()).metadata(validated.serialize()).build());
+            return assembleTaskDraftResult(instance, params.getUserId(), params.getOrgId());
+        });
     }
 
     @Override
@@ -471,9 +421,12 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 
     private TaskDraftSubmitResultBO completeTaskDraft(TaskInstance instance, Project project,
                                                       TaskDraftSubmitParamsBO params) {
-        TaskDraftRecordResultBO draft = taskDraftRecordService.getTaskDraftRecord(
-                new TaskDraftRecordGetParamsBO(instance.getId(), params.getOrgId()));
-        TaskDraftRevisionPolicy.requireMatchingRevision(draft, params.getExpectedDraftRevision());
+        TaskDraftRecordResultBO draft = taskDraftRecordService.getTaskDraftRecordById(
+                new TaskDraftRecordGetByIdParamsBO(Long.valueOf(params.getDraftId()), params.getOrgId()));
+        if (draft == null || !Objects.equals(draft.getTaskInstanceId(), instance.getId())
+                || !Objects.equals(draft.getOwnerId(), params.getUserId())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
+        }
         TaskDraftSubmitResultBO previousResult = findPreviousDraftSubmission(instance, draft, params);
         if (previousResult != null) {
             return previousResult;
@@ -483,14 +436,13 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                 || !isActiveDraft(draft, instance, params.getUserId())) {
             throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
         }
-        TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submitFromDraft(instance,
-                params.getUserId(), params.getOrgId(), draft.getId(), JSON.parseObject(draft.getMetadata()));
+        TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(instance,
+                params.getUserId(), params.getOrgId(), JSON.parseObject(draft.getMetadata()), true);
         taskDraftRecordService.consumeTaskDraftRecord(new TaskDraftConsumeParamsBO(
-                draft.getId(), draft.getRevision(), result.getSubmissionId(), instance.getRevision()));
+                draft.getId(), result.getSubmissionId()));
         finishSubmission(instance, project, result, params.getUserId());
         operationLogService.log(params.getUserId(), instance.getProjectId(), instance.getItemId(),
-                UserOperationType.TASK_SUBMIT, Map.of("draftId", draft.getId().toString(),
-                        "draftRevision", draft.getRevision().toString()));
+                UserOperationType.TASK_SUBMIT, Map.of("draftId", draft.getId().toString()));
         return new TaskDraftSubmitResultBO(instance.getId().toString(),
                 Long.toString(instance.getRevision() + 1), result.getSubmissionId().toString(), "COMPLETED");
     }
@@ -500,8 +452,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
                                                                TaskDraftSubmitParamsBO params) {
         if (draft == null || draft.getStatus() != TaskDraftStatus.CONSUMED
                 || !Objects.equals(draft.getOwnerId(), params.getUserId())
-                || !draft.getTaskRevision().toString().equals(params.getExpectedTaskRevision())
-                || instance.getRevision() != Math.addExact(draft.getTaskRevision(), 1)
+                || !Objects.equals(instance.getAssigneeId(), params.getUserId())
                 || instance.getStatus() != TaskInstanceStatus.COMPLETED) {
             return null;
         }
@@ -523,13 +474,26 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (isActiveDraft(draft, instance, userId)) {
             TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
                     fields, JSON.parseObject(draft.getMetadata()));
-            content = new TaskDraftContentResultBO(draft.getId().toString(), draft.getRevision().toString(),
-                    draft.getUpdatedAt(), validated.values(), taskDraftResourceService.getTaskDraftFiles(
-                            new TaskDraftFileListParamsBO(orgId, draft.getId(), validated.resourceIds())));
+            content = new TaskDraftContentResultBO(draft.getId().toString(),
+                    draft.getUpdatedAt(), validated.values(), getDraftFiles(instance.getId(), orgId, validated.resourceIds()));
         }
         return new TaskDraftResultBO(instance.getId().toString(), instance.getItemId().toString(),
                 instance.getRevision().toString(), StageUnlockPolicy.isUnlocked(node.getSort(), stages),
-                fields, draft == null ? "0" : draft.getRevision().toString(), content);
+                fields, content);
+    }
+
+    private Map<String, TaskDraftFileResultBO> getDraftFiles(Long instanceId, Long orgId, List<Long> fileIds) {
+        var resources = resourceService.findActivated("task_submit", instanceId, orgId, fileIds);
+        Map<String, TaskDraftFileResultBO> files = new LinkedHashMap<>();
+        for (Long id : fileIds) {
+            var resource = resources.get(id);
+            files.put(id.toString(), resource == null
+                    ? TaskDraftFileResultBO.builder().fileId(id.toString()).fileName("附件不可用")
+                            .availability("unavailable").build()
+                    : TaskDraftFileResultBO.builder().fileId(id.toString()).fileName(resource.fileName())
+                            .fileSize(resource.fileSize()).fileMime(resource.fileMime()).availability("available").build());
+        }
+        return files;
     }
 
     private boolean isActiveDraft(TaskDraftRecordResultBO draft, TaskInstance instance, Long userId) {
@@ -566,6 +530,33 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public ProjectAttachmentDownloadResultBO getTaskAttachmentDownload(TaskAttachmentDownloadParamsBO params) {
         TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
+        boolean referenced = false;
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        var fields = taskFormService.parseFields(node.getMetaSchema());
+        if (instance.getStatus() == TaskInstanceStatus.CLAIMED
+                && Objects.equals(instance.getAssigneeId(), params.getUserId())) {
+            TaskDraftRecordResultBO draft = taskDraftRecordService.getTaskDraftRecord(
+                    new TaskDraftRecordGetParamsBO(instance.getId(), params.getOrgId()));
+            referenced = isActiveDraft(draft, instance, params.getUserId())
+                    && taskFormService.validateDraftValues(fields, JSON.parseObject(draft.getMetadata()))
+                            .resourceIds().contains(params.getFileId());
+        }
+        if (!referenced) {
+            referenced = taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
+                    .eq(TaskSubmission::getTaskInstanceId, instance.getId())).stream()
+                    .anyMatch(submission -> {
+                        try {
+                            return taskFormService.parseValues(fields, submission.getMetadata())
+                                    .resourceIds().contains(params.getFileId());
+                        } catch (AppException exception) {
+                            // 不可读的历史版本不授予下载权限，也不阻断其他有效版本。
+                            return false;
+                        }
+                    });
+        }
+        if (!referenced) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
+        }
         return taskInstanceAssembler.downloadAttachment(instance.getId(), params.getOrgId(), params.getFileId());
     }
 

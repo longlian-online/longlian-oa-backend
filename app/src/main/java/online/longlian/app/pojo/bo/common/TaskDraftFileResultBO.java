@@ -17,6 +17,4 @@ public class TaskDraftFileResultBO {
     private Long fileSize;
     private String fileMime;
     private String availability;
-    private String readUrl;
-    private Long expiresAt;
 }

@@ -53,7 +53,7 @@ class UnboundResourceCleanupServiceTest {
 
     @Test
     void shouldNotDeleteWhenConcurrentBindingWinsTheClaim() {
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(unboundResource(1L, 0)), List.of(), List.of());
+        when(resourceMapper.selectList(any())).thenReturn(List.of(unboundResource(1L, 0)), List.of(), List.of());
         when(resourceMapper.update(isNull(), any())).thenReturn(0);
 
         cleanupService.cleanup(EXECUTE_TIME);
@@ -65,7 +65,7 @@ class UnboundResourceCleanupServiceTest {
     @CsvSource({"0,5", "1,15", "2,60", "3,360", "4,1440"})
     void shouldBackOffFailedDeletionBeforeRetrying(int previousAttempts, long delayMinutes) {
         Resource resource = unboundResource(1L, previousAttempts);
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(resource), List.of(), List.of());
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource), List.of(), List.of());
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
         doThrow(new IllegalStateException("storage unavailable")).when(storageService).delete(resource.getStorageKey());
@@ -81,7 +81,7 @@ class UnboundResourceCleanupServiceTest {
     @Test
     void shouldBoundPersistedFailureDetailsToTheDatabaseColumn() {
         Resource resource = unboundResource(1L, 0);
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(resource), List.of(), List.of());
+        when(resourceMapper.selectList(any())).thenReturn(List.of(resource), List.of(), List.of());
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
         doThrow(new IllegalStateException("x".repeat(1_001))).when(storageService).delete(resource.getStorageKey());
@@ -98,7 +98,7 @@ class UnboundResourceCleanupServiceTest {
     void shouldContinueOtherResourcesWhenFailureStateCannotBePersisted() {
         Resource failed = unboundResource(1L, 0);
         Resource succeeding = unboundResource(2L, 0);
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(failed, succeeding), List.of(), List.of());
+        when(resourceMapper.selectList(any())).thenReturn(List.of(failed, succeeding), List.of(), List.of());
         when(resourceMapper.update(isNull(), any())).thenReturn(1)
                 .thenThrow(new IllegalStateException("database unavailable"))
                 .thenReturn(1, 1);
@@ -120,7 +120,7 @@ class UnboundResourceCleanupServiceTest {
                 .processStatus(FileProcessStatus.Deprecated)
                 .deprecatedAt(EXECUTE_TIME.minusDays(31))
                 .build();
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(), List.of(abandoned), List.of());
+        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(abandoned), List.of());
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
 
@@ -128,9 +128,9 @@ class UnboundResourceCleanupServiceTest {
 
         verify(storageService).delete("cover/3.png");
         ArgumentCaptor<LambdaQueryWrapper<Resource>> queries = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
-        verify(resourceMapper, times(4)).selectList(queries.capture());
-        assertThat(queries.getAllValues().get(2).getSqlSegment()).contains("deprecated_at");
-        assertThat(queries.getAllValues().get(2).getParamNameValuePairs().values())
+        verify(resourceMapper, times(3)).selectList(queries.capture());
+        assertThat(queries.getAllValues().get(1).getSqlSegment()).contains("deprecated_at");
+        assertThat(queries.getAllValues().get(1).getParamNameValuePairs().values())
                 .contains(EXECUTE_TIME.minusDays(30));
     }
 
@@ -145,7 +145,7 @@ class UnboundResourceCleanupServiceTest {
                 .processStatus(FileProcessStatus.Activated)
                 .createdAt(EXECUTE_TIME.minusDays(2))
                 .build();
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(), List.of(), List.of(active));
+        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(), List.of(active));
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
         when(storageService.findContentLength("cover/4.png")).thenReturn(OptionalLong.of(25));
         when(resourceMapper.update(isNull(), any())).thenReturn(1);
@@ -168,7 +168,7 @@ class UnboundResourceCleanupServiceTest {
                 .processStatus(FileProcessStatus.Activated)
                 .createdAt(EXECUTE_TIME.minusDays(2))
                 .build();
-        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(), List.of(), List.of(active));
+        when(resourceMapper.selectList(any())).thenReturn(List.of(), List.of(), List.of(active));
         when(storageFactory.get(StorageType.LOCAL)).thenReturn(storageService);
         when(storageService.findContentLength("cover/4.png")).thenReturn(OptionalLong.empty());
         when(resourceMapper.update(isNull(), any())).thenReturn(1);

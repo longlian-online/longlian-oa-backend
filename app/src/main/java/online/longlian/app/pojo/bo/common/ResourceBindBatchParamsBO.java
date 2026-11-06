@@ -19,4 +19,6 @@ public class ResourceBindBatchParamsBO {
     private Long bizId;
     private Long creatorId;
     private Long orgId;
+    /** 暂存后提交允许复用精确归属的附件；原提交入口仍只接受新上传。 */
+    private boolean reuseBound;
 }

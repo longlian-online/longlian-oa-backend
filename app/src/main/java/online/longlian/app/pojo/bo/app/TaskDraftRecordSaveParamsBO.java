@@ -15,7 +15,6 @@ public class TaskDraftRecordSaveParamsBO {
     private Long instanceId;
     private Long userId;
     private Long orgId;
-    private String expectedTaskRevision;
-    private String expectedDraftRevision;
+    private String expectedDraftId;
     private String metadata;
 }

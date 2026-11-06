@@ -61,8 +61,12 @@ public class TaskDraftApiTest extends BaseApiTest {
     }
 
     private Map<String, Object> createDraftSaveRequest(
-            String taskRevision, String draftRevision, Map<String, Object> values) {
-        return Map.of("expectedTaskRevision", taskRevision, "expectedDraftRevision", draftRevision, "values", values);
+            String taskRevision, String draftId, Map<String, Object> values) {
+        var body = new java.util.HashMap<String, Object>();
+        body.put("expectedTaskRevision", taskRevision);
+        body.put("expectedDraftId", draftId);
+        body.put("values", values);
+        return body;
     }
 
     private void addParallelTask() {
@@ -83,185 +87,153 @@ public class TaskDraftApiTest extends BaseApiTest {
                 .put("/app/item/1/flow").then().body("code", equalTo(0));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"rename", "reorder", "unchanged"})
-    void shouldRetainSavedDraftAndFilesAfterTaskFlowSave(String change) throws Exception {
-        String schema = JSON.toJSONString(List.of(
-                Map.of("key", "text", "label", "说明", "type", "text", "required", true, "options", List.of()),
-                Map.of("key", "file", "label", "附件", "type", "file", "required", false, "options", List.of())));
-        String token = createWorkflow(schema);
-        addParallelTask();
-        Path upload = Path.of(System.getProperty("java.io.tmpdir"), "oa-task-draft-tests/task_submit/5002.txt");
-        Files.createDirectories(upload.getParent());
-        Files.writeString(upload, "data");
+    private static final String SCHEMA = "[{\"key\":\"text\",\"label\":\"说明\",\"type\":\"text\",\"required\":true,\"options\":[]},{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":false,\"options\":[]}]";
+
+    private String save(String token, String taskRevision, String previousId, Map<String, Object> values) {
+        var response = authRequest(token).body(createDraftSaveRequest(taskRevision, previousId, values)).put(API_PATH);
+        response.then().body("code", equalTo(0));
+        return response.jsonPath().getString("data.draft.id");
+    }
+
+    private Map<String, Object> submit(String taskRevision, String draftId) {
+        return Map.of("expectedTaskRevision", taskRevision, "draftId", draftId);
+    }
+
+    private String upload(long id, long ownerId, long orgId) throws Exception {
+        Path file = Path.of(System.getProperty("java.io.tmpdir"), "oa-task-draft-tests", "task_submit/" + id + ".txt");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "original");
         jdbcTemplate.update("INSERT INTO resource(id,org_id,storage_type,storage_key,file_name,file_ext,file_size,file_mime,biz_type,biz_id,process_status,creator_id)"
-                + " VALUES(5002,1,1,'task_submit/5002.txt','成果.txt','txt',4,'text/plain','task_submit',0,0,1)");
-        var saved = authRequest(token).body(createDraftSaveRequest("0", "0",
-                Map.of("text", "必须保留的成果", "file", Map.of("fileId", "5002")))).put(API_PATH);
-        saved.then().body("code", equalTo(0));
-        String draftId = saved.jsonPath().getString("data.draft.id");
-        String snapshotId = saved.jsonPath().getString("data.draft.values.file.fileId");
-
-        saveTaskFlow(token, change);
-        authRequest(token).get(API_PATH).then().body("code", equalTo(0))
-                .body("data.task.revision", equalTo("1"))
-                .body("data.draft.id", equalTo(draftId))
-                .body("data.draftRevision", equalTo("1"))
-                .body("data.draft.values.text", equalTo("必须保留的成果"))
-                .body("data.draft.values.file.fileId", equalTo(snapshotId))
-                .body("data.draft.files['" + snapshotId + "'].availability", equalTo("available"));
-        authRequest(token).body(createDraftSaveRequest("0", "1", Map.of("text", "旧页面覆盖")))
-                .put(API_PATH).then().body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
-        authRequest(token).body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "1"))
-                .post(API_PATH + "/submit").then().body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
-
-        // 只重新读取即可提交已保存内容，不强迫成员改动字段或再暂存一次。
-        var submitRequest = Map.of("expectedTaskRevision", "1", "expectedDraftRevision", "1");
-        var submitted = authRequest(token).body(submitRequest).post(API_PATH + "/submit");
-        submitted.then().body("code", equalTo(0));
-        String submissionId = submitted.jsonPath().getString("data.submissionId");
-        authRequest(token).body(submitRequest).post(API_PATH + "/submit").then()
-                .body("code", equalTo(0)).body("data.submissionId", equalTo(submissionId));
-        authRequest(token).body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "1"))
-                .post(API_PATH + "/submit").then().body("code", not(equalTo(0)));
-        assertThat(jdbcTemplate.queryForObject("SELECT task_revision FROM task_draft", Long.class)).isEqualTo(1L);
-        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM task_submission WHERE id=?",
-                String.class, Long.valueOf(submissionId))).contains("必须保留的成果", snapshotId);
-        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission WHERE task_instance_id=1",
-                Integer.class)).isEqualTo(1);
+                + " VALUES(?,?,1,?,'成果.txt','txt',8,'text/plain','task_submit',0,0,?)",
+                id, orgId, "task_submit/" + id + ".txt", ownerId);
+        return Long.toString(id);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"rename", "reorder", "unchanged"})
-    void shouldAllowSavingRetainedDraftAfterTaskFlowSave(String change) {
-        String token = createWorkflow("[{\"key\":\"text\",\"label\":\"说明\",\"type\":\"text\",\"required\":true,\"options\":[]}]");
+    void shouldRetainDraftAndFilesAcrossFlowEditsAndSubmitWithoutCopying(String change) throws Exception {
+        String token = createWorkflow(SCHEMA);
         addParallelTask();
-        var saved = authRequest(token).body(createDraftSaveRequest("0", "0", Map.of("text", "原有成果")))
-                .put(API_PATH);
-        saved.then().body("code", equalTo(0));
-        String draftId = saved.jsonPath().getString("data.draft.id");
-
+        String fileId = upload(5001L, 1L, 1L);
+        String id = save(token, "0", null, Map.of("text", "成果", "file", Map.of("fileId", fileId)));
         saveTaskFlow(token, change);
         authRequest(token).get(API_PATH).then().body("code", equalTo(0))
-                .body("data.draft.values.text", equalTo("原有成果"));
-        authRequest(token).body(createDraftSaveRequest("1", "1", Map.of("text", "继续完善的成果")))
-                .put(API_PATH).then().body("code", equalTo(0))
-                .body("data.task.revision", equalTo("1"))
-                .body("data.draft.id", equalTo(draftId))
-                .body("data.draftRevision", equalTo("2"))
-                .body("data.draft.values.text", equalTo("继续完善的成果"));
-        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT task_revision FROM task_draft", Long.class)).isEqualTo(1L);
-        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id=1", Integer.class)).isEqualTo(2);
+                .body("data.draft.id", equalTo(id)).body("data.draft.values.file.fileId", equalTo(fileId));
+        authRequest(token).body(createDraftSaveRequest("0", id, Map.of())).put(API_PATH)
+                .then().body("code", equalTo(5));
+        authRequest(token).body(submit("0", id)).post(API_PATH + "/submit").then().body("code", equalTo(5));
+        var response = authRequest(token).body(submit("1", id)).post(API_PATH + "/submit");
+        response.then().body("code", equalTo(0));
+        authRequest(token).body(submit("1", id)).post(API_PATH + "/submit").then().body("code", equalTo(0))
+                .body("data.submissionId", equalTo(response.jsonPath().getString("data.submissionId")));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM task_draft WHERE id=?", String.class, id)).contains("成果", fileId);
     }
 
     @Test
-    void shouldNotRestoreDraftWhenTheSameMemberReclaimsAfterTaskFlowSave() {
-        String token = createWorkflow("[]");
-        addParallelTask();
-        authRequest(token).body(createDraftSaveRequest("0", "0", Map.of())).put(API_PATH)
-                .then().body("code", equalTo(0));
-        saveTaskFlow(token, "rename");
-        authRequest(token).body(Map.of("expectedRevision", "1"))
-                .post("/app/task/instance/1/abandon").then().body("code", equalTo(0));
+    void shouldCreateNewSnapshotAndPreserveOldContent() {
+        String token = createWorkflow(SCHEMA);
+        String first = save(token, "0", null, Map.of("text", "第一稿"));
+        String second = save(token, "0", first, Map.of("text", "第二稿"));
+        assertThat(first).isNotEqualTo(second);
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM task_draft WHERE id=?", String.class, first)).contains("第一稿");
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_draft WHERE id=?", Integer.class, first)).isEqualTo(4);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft WHERE status=1", Integer.class)).isEqualTo(1);
+        authRequest(token).body(createDraftSaveRequest("0", first, Map.of())).put(API_PATH).then().body("code", equalTo(5));
+        authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(5));
+        authRequest(token).get(API_PATH).then().body("data.draft.id", equalTo(second));
+        assertThat(jdbcTemplate.queryForObject("SELECT revision FROM task_instance WHERE id=1", Long.class)).isZero();
+    }
+
+    @Test
+    void shouldAllowPartialSaveAndRequireCompleteSavedContentForSubmission() {
+        String token = createWorkflow(SCHEMA);
+        String first = save(token, "0", null, Map.of());
+        authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(2));
+        authRequest(token).get(API_PATH).then().body("data.draft.id", equalTo(first));
+        String second = save(token, "0", first, Map.of("text", "完整成果"));
+        authRequest(token).body(Map.of("values", Map.of("text", "绕过草稿")))
+                .post("/app/task/instance/1/submit").then().body("code", equalTo(5));
+        authRequest(token).body(submit("0", second)).post(API_PATH + "/submit").then().body("code", equalTo(0));
+    }
+
+    @Test
+    void shouldReuseBoundFileAndRecycleOnlyRemovedFile() throws Exception {
+        String token = createWorkflow(SCHEMA);
+        String fileId = upload(5001L, 1L, 1L);
+        String first = save(token, "0", null, Map.of("file", Map.of("fileId", fileId)));
+        String second = save(token, "0", first, Map.of("file", Map.of("fileId", fileId), "text", "补充说明"));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=5001", Long.class)).isEqualTo(1L);
+        save(token, "0", second, Map.of("text", "移除附件"));
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT deprecated_at FROM resource WHERE id=5001", java.sql.Timestamp.class)).isNotNull();
+    }
+
+    @Test
+    void shouldKeepFormalHistoryAttachmentWhenRemovedFromNewDraft() throws Exception {
+        String token = createWorkflow(SCHEMA);
+        String fileId = upload(5001L, 1L, 1L);
+        String first = save(token, "0", null, Map.of("text", "成果", "file", Map.of("fileId", fileId)));
+        authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(0));
+        authRequest(token).post("/app/task/instance/1/reset").then().body("code", equalTo(0));
+        String next = save(token, "2", null, Map.of("text", "修订稿", "file", Map.of("fileId", fileId)));
+        save(token, "2", next, Map.of("text", "移除附件"));
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(1);
+        authRequest(token).get("/app/task/instance/1/attachments/5001/download").then().body("code", equalTo(0));
+        authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(5));
+    }
+
+    @Test
+    void shouldKeepDraftPrivateUntilItIsFormallySubmitted() throws Exception {
+        String token = createWorkflow(SCHEMA);
+        String fileId = upload(5001L, 1L, 1L);
+        String id = save(token, "0", null, Map.of("text", "成果", "file", Map.of("fileId", fileId)));
+        createTestUser(2L, "draft_viewer", "123456", "viewer@example.com");
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String viewer = loginAs("draft_viewer", "123456");
+        authRequest(viewer).get(API_PATH).then().body("code", not(equalTo(0)));
+        authRequest(viewer).get("/app/task/instance/1/attachments/5001/download").then().body("code", not(equalTo(0)));
+        authRequest(token).get("/app/task/instance/1/attachments/5001/download").then().body("code", equalTo(0));
+        authRequest(token).body(submit("0", id)).post(API_PATH + "/submit").then().body("code", equalTo(0));
+        authRequest(viewer).get("/app/task/instance/1/attachments/5001/download").then().body("code", equalTo(0));
+    }
+
+    @Test
+    void shouldDiscardDraftOnAbandonAndNotRestoreItOnReclaim() throws Exception {
+        String token = createWorkflow(SCHEMA);
+        String fileId = upload(5001L, 1L, 1L);
+        String id = save(token, "0", null, Map.of("file", Map.of("fileId", fileId)));
+        authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon").then().body("code", equalTo(0));
         authRequest(token).post("/app/task/instance/1/claim").then().body("code", equalTo(0));
-        authRequest(token).get(API_PATH).then().body("code", equalTo(0))
-                .body("data.task.revision", equalTo("3"))
-                .body("data.draftRevision", equalTo("2"))
-                .body("data.draft", equalTo(null));
+        authRequest(token).get(API_PATH).then().body("data.draft", equalTo(null));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_draft WHERE id=?", Integer.class, id)).isEqualTo(3);
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(2);
+        save(token, "2", null, Map.of());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"owner", "org", "task", "deprecated"})
+    void shouldRejectForeignOrUnavailableUploadsAndRollback(String scope) throws Exception {
+        String token = createWorkflow(SCHEMA);
+        String fileId = upload(5001L, scope.equals("owner") ? 2L : 1L, scope.equals("org") ? 2L : 1L);
+        if (scope.equals("task")) jdbcTemplate.update("UPDATE resource SET biz_id=2,process_status=1 WHERE id=5001");
+        if (scope.equals("deprecated")) jdbcTemplate.update("UPDATE resource SET process_status=2 WHERE id=5001");
+        authRequest(token).body(createDraftSaveRequest("0", null, Map.of("file", Map.of("fileId", fileId))))
+                .put(API_PATH).then().body("code", not(equalTo(0)));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft", Integer.class)).isZero();
     }
 
     @Test
-    void shouldSavePartialDraftAndSubmitOnlyTheReviewedVersion() {
-        String token = createWorkflow("[{\"key\":\"text\",\"label\":\"文本\",\"type\":\"text\",\"required\":true,\"options\":[]}]");
-        authRequest(token)
-                .get(API_PATH)
-                .then()
-                .body("code", equalTo(0))
-                .body("data.draftRevision", equalTo("0"));
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0))
-                .body("data.draft.revision", equalTo("1"));
-        authRequest(token)
-                .body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "1"))
-                .post(API_PATH + "/submit")
-                .then()
-                .body("code", equalTo(2));
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "1", Map.of("text", "成果")))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0));
-        authRequest(token)
-                .body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "1"))
-                .post(API_PATH + "/submit")
-                .then()
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo(ResultCode.OPERATION_FAIL.getMsg() + "," + TaskDraftConstants.CONFLICT_MESSAGE));
-        var request = Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "2");
-        authRequest(token)
-                .body(request)
-                .post(API_PATH + "/submit")
-                .then()
-                .body("code", equalTo(0))
-                .body("data.status", equalTo("COMPLETED"));
-        authRequest(token).body(request).post(API_PATH + "/submit").then().body("code", equalTo(0));
-        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class))
-                .isEqualTo(1);
-    }
-
-    @Test
-    void shouldRejectStaleSaveAndDirectSubmitAndRetainRevisionAfterAbandon() {
-        String token = createWorkflow("[]");
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0));
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo(ResultCode.OPERATION_FAIL.getMsg() + "," + TaskDraftConstants.CONFLICT_MESSAGE));
-        authRequest(token)
-                .body(Map.of("values", Map.of()))
-                .post("/app/task/instance/1/submit")
-                .then()
-                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo(ResultCode.OPERATION_FAIL.getMsg() + "," + TaskDraftConstants.CONFLICT_MESSAGE));
-        authRequest(token)
-                .body(Map.of("expectedRevision", "0"))
-                .post("/app/task/instance/1/abandon")
-                .then()
-                .body("code", equalTo(0));
-        authRequest(token).post("/app/task/instance/1/claim").then().body("code", equalTo(0));
-        authRequest(token)
-                .get(API_PATH)
-                .then()
-                .body("code", equalTo(0))
-                .body("data.draftRevision", equalTo("2"));
-        authRequest(token)
-                .body(createDraftSaveRequest("2", "2", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0))
-                .body("data.draftRevision", equalTo("3"));
-    }
-
-    @Test
-    void shouldNotPermitAnotherAssigneeOrUnknownFields() {
-        String token = createWorkflow("[]");
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of("unknown", "value")))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(2));
-        jdbcTemplate.update("UPDATE task_instance SET assignee_id=999 WHERE id=1");
-        authRequest(token).get(API_PATH).then().body("code", equalTo(3));
+    void shouldRollbackNewFileBindingWhenStaleDraftIsSaved() throws Exception {
+        String token = createWorkflow(SCHEMA);
+        save(token, "0", null, Map.of("text", "原稿"));
+        String fileId = upload(5001L, 1L, 1L);
+        authRequest(token).body(createDraftSaveRequest("0", null, Map.of("file", Map.of("fileId", fileId))))
+                .put(API_PATH).then().body("code", equalTo(5));
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=5001", Long.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isZero();
     }
 
     @Test
@@ -272,144 +244,57 @@ public class TaskDraftApiTest extends BaseApiTest {
         try {
             Callable<Integer> save = () -> {
                 start.await();
-                return authRequest(token)
-                        .body(createDraftSaveRequest("0", "0", Map.of()))
-                        .put(API_PATH)
-                        .jsonPath()
-                        .getInt("code");
+                return authRequest(token).body(createDraftSaveRequest("0", null, Map.of())).put(API_PATH).jsonPath().getInt("code");
             };
-            var firstRequest = executor.submit(save);
-            var secondRequest = executor.submit(save);
+            var first = executor.submit(save);
+            var second = executor.submit(save);
             start.countDown();
-            assertThat(List.of(firstRequest.get(15, TimeUnit.SECONDS), secondRequest.get(15, TimeUnit.SECONDS)))
-                    .containsExactlyInAnyOrder(ResultCode.SUCCESS.getCode(), ResultCode.OPERATION_FAIL.getCode());
-            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft", Integer.class))
-                    .isEqualTo(1);
+            assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))).containsExactlyInAnyOrder(0, 5);
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft WHERE status=1", Integer.class)).isEqualTo(1);
         } finally {
             executor.shutdownNow();
         }
     }
 
     @Test
-    void shouldValidateRevisionFormatAndAuthentication() {
+    void shouldValidateParametersAndAuthentication() {
         String token = createWorkflow("[]");
-        authRequest(token)
-                .body(createDraftSaveRequest("-1", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(2));
+        authRequest(token).body(createDraftSaveRequest("-1", null, Map.of())).put(API_PATH).then().body("code", equalTo(2));
+        authRequest(token).body(createDraftSaveRequest("0", "0", Map.of())).put(API_PATH).then().body("code", equalTo(2));
+        authRequest(token).body(Map.of("expectedTaskRevision", "0")).post(API_PATH + "/submit").then().body("code", equalTo(2));
         request().get(API_PATH).then().body("code", equalTo(1));
     }
 
     @Test
-    void shouldFreezeFilesAndPromoteOnlyTheSavedSnapshot() throws Exception {
-        String schema = JSON.toJSONString(List.of(Map.of("key", "file", "label", "附件", "type", "file",
-                "required", true, "options", List.of())));
-        String token = createWorkflow(schema);
-        Path folder = Path.of(System.getProperty("java.io.tmpdir"), "oa-task-draft-tests");
-        Path source = folder.resolve("task_submit/5001.txt");
-        Files.createDirectories(source.getParent());
-        Files.writeString(source, "original");
-        jdbcTemplate.update(
-                "INSERT INTO"
-                    + " resource(id,org_id,storage_type,storage_key,file_name,file_ext,file_size,file_mime,biz_type,biz_id,process_status,creator_id)"
-                    + " VALUES(5001,1,1,'task_submit/5001.txt','成果.txt','txt',8,'text/plain','task_submit',0,0,1)");
-        var saved = authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of("file", Map.of("fileId", "5001"))))
-                .put(API_PATH);
-        saved.then().body("code", equalTo(0));
-        String snapshotFileId = saved.jsonPath().getString("data.draft.values.file.fileId");
-        assertThat(snapshotFileId).isNotEqualTo("5001");
-        Files.writeString(source, "modified");
-        String snapshotKey = jdbcTemplate.queryForObject("SELECT storage_key FROM resource WHERE id=?",
-                String.class, Long.valueOf(snapshotFileId));
-        assertThat(Files.readString(folder.resolve(snapshotKey))).isEqualTo("original");
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "1", Map.of("file", Map.of("fileId", snapshotFileId))))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0))
-                .body("data.draft.values.file.fileId", equalTo(snapshotFileId));
-        authRequest(token)
-                .body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "2"))
-                .post(API_PATH + "/submit")
-                .then()
-                .body("code", equalTo(0));
-        assertThat(jdbcTemplate.queryForObject("SELECT biz_type FROM resource WHERE id=?",
-                String.class, Long.valueOf(snapshotFileId)))
-                .isEqualTo("task_submit");
-        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=?",
-                Long.class, Long.valueOf(snapshotFileId)))
-                .isEqualTo(1);
-    }
-
-    @Test
-    void shouldAllowDraftWhileWaitingButNotSubmitIt() {
-        String token = createWorkflow("[]");
+    void shouldAllowSavingWhileWaitingButKeepDraftAfterBlockedSubmission() {
+        String token = createWorkflow(SCHEMA);
+        addParallelTask();
         jdbcTemplate.update("UPDATE item_task_node SET sort=2 WHERE id=1");
-        jdbcTemplate.update(
-                "INSERT INTO"
-                    + " item_task_node(id,item_task_flow_id,item_id,project_id,base_task_id,name,meta_schema,sort,parallel_sort)"
-                    + " VALUES(2,1,1,1,1,'前置','[]',1,1)");
-        jdbcTemplate.update(
-                "INSERT INTO"
-                    + " task_instance(id,project_id,item_id,item_task_node_id,task_flow_id,status)"
-                    + " VALUES(2,1,1,2,1,1)");
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0))
-                .body("data.canSubmit", equalTo(false));
-        authRequest(token)
-                .body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "1"))
-                .post(API_PATH + "/submit")
-                .then()
-                .body("code", equalTo(5));
-        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_draft", Integer.class))
-                .isEqualTo(1);
+        String id = save(token, "0", null, Map.of("text", "等待前置的成果"));
+        authRequest(token).get(API_PATH).then().body("data.canSubmit", equalTo(false));
+        authRequest(token).body(submit("0", id)).post(API_PATH + "/submit").then().body("code", equalTo(5));
+        authRequest(token).get(API_PATH).then().body("data.draft.id", equalTo(id));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class)).isZero();
     }
 
     @Test
-    void shouldNotExposeDraftToAnotherOrganization() {
-        String token = createWorkflow("[]");
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0));
-        authRequest(token, 999L)
-                .get(API_PATH)
-                .then()
-                .body("code", not(equalTo(0)));
-    }
-
-    @Test
-    void shouldMakeConcurrentSubmitIdempotent() throws Exception {
-        String token = createWorkflow("[]");
-        authRequest(token)
-                .body(createDraftSaveRequest("0", "0", Map.of()))
-                .put(API_PATH)
-                .then()
-                .body("code", equalTo(0));
+    void shouldSerializeConcurrentSubmissionsAndReturnOneResult() throws Exception {
+        String token = createWorkflow(SCHEMA);
+        String id = save(token, "0", null, Map.of("text", "成果"));
         var executor = Executors.newFixedThreadPool(2);
         var start = new CountDownLatch(1);
         try {
-            Callable<Integer> submit = () -> {
+            Callable<String> submit = () -> {
                 start.await();
-                return authRequest(token)
-                        .body(Map.of("expectedTaskRevision", "0", "expectedDraftRevision", "1"))
-                        .post(API_PATH + "/submit")
-                        .jsonPath()
-                        .getInt("code");
+                var response = authRequest(token).body(submit("0", id)).post(API_PATH + "/submit");
+                response.then().body("code", equalTo(0));
+                return response.jsonPath().getString("data.submissionId");
             };
-            var firstRequest = executor.submit(submit);
-            var secondRequest = executor.submit(submit);
+            var first = executor.submit(submit);
+            var second = executor.submit(submit);
             start.countDown();
-            assertThat(List.of(firstRequest.get(15, TimeUnit.SECONDS), secondRequest.get(15, TimeUnit.SECONDS)))
-                    .containsOnly(0);
-            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class))
-                    .isEqualTo(1);
+            assertThat(first.get(15, TimeUnit.SECONDS)).isEqualTo(second.get(15, TimeUnit.SECONDS));
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class)).isEqualTo(1);
         } finally {
             executor.shutdownNow();
         }

@@ -58,7 +58,7 @@ import online.longlian.app.service.app.TaskDraftRecordService;
 
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.common.enumeration.TaskDraftStatus;
-import online.longlian.app.service.resource.TaskDraftResourceService;
+import online.longlian.app.service.resource.ResourceService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -106,7 +106,7 @@ class TaskInstanceServiceImplTest {
 
     private TaskInstanceServiceImpl service;
 
-    @Mock private TaskDraftResourceService taskDraftResourceService;
+    @Mock private ResourceService resourceService;
     @Mock private TaskFormService taskFormService;
     @Mock private TaskDraftRecordService taskDraftRecordService;
 
@@ -118,7 +118,7 @@ class TaskInstanceServiceImplTest {
                 taskInstanceAssembler, taskInstanceCommandHandler, operationLogService,
                 itemTaskFlowMapper, organizationMembershipService, transactionManager, projectService,
                 inboxNotificationService, Clock.fixed(Instant.parse("2026-10-26T01:00:00Z"), ZoneId.of("UTC")),
-                taskDraftRecordService, taskDraftResourceService, taskFormService);
+                taskDraftRecordService, resourceService, taskFormService);
         lenient().when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
                 .id(6L).itemId(1L).projectId(2L).build());
         lenient().when(transactionManager.getTransaction(any()))
@@ -894,7 +894,7 @@ class TaskInstanceServiceImplTest {
         when(taskFormService.parseFields(isNull())).thenReturn(List.of());
         when(taskDraftRecordService.getTaskDraftRecord(any())).thenReturn(TaskDraftRecordResultBO.builder()
                 .id(44L).taskInstanceId(100L).orgId(10L).ownerId(1L)
-                .taskRevision(0L).revision(2L).status(status).metadata("{\"notes\":\"已暂存的内容\"}").build());
+                .status(status).metadata("{\"notes\":\"已暂存的内容\"}").build());
         if (status == TaskDraftStatus.ACTIVE) {
             when(taskFormService.validateDraftValues(anyList(), anyMap()))
                     .thenReturn(new TaskFormService.ValidatedValues(Map.of("notes", "已暂存的内容"), List.of()));
@@ -903,13 +903,12 @@ class TaskInstanceServiceImplTest {
         TaskDraftResultBO result = service.getTaskDraft(new TaskDraftGetParamsBO(100L, 1L, 10L));
 
         assertThat(result.getTaskRevision()).isEqualTo("7");
-        assertThat(result.getDraftRevision()).isEqualTo("2");
         if (status == TaskDraftStatus.ACTIVE) {
             assertThat(result.getDraft().getValues()).containsEntry("notes", "已暂存的内容");
-            verify(taskDraftResourceService).getTaskDraftFiles(any());
+            verify(resourceService).findActivated("task_submit", 100L, 10L, List.of());
         } else {
             assertThat(result.getDraft()).isNull();
-            verifyNoInteractions(taskDraftResourceService);
+            verifyNoInteractions(resourceService);
         }
     }
 

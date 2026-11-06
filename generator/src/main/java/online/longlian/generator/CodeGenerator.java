@@ -52,7 +52,7 @@ public class CodeGenerator {
                         .typeConvertHandler(new TypeConverter())
                 )
                 .globalConfig(builder -> builder.author("longlian")
-                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate(""))
+                        .enableSwagger().outputDir(OUTPUT_DIR).disableOpenDir().commentDate("yyyy-MM-dd"))
                 .packageConfig(builder -> builder.parent("online.longlian").moduleName("app").entity("pojo.entity")
                         .pathInfo(Map.of(OutputFile.xml, Paths.get("app", "src", "main", "resources", "mapper").toString())))
                 .strategyConfig(builder -> {

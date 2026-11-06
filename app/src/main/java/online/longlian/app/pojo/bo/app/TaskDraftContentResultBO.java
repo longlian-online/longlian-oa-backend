@@ -16,7 +16,6 @@ import java.util.Map;
 public class TaskDraftContentResultBO {
 
     private String id;
-    private String revision;
     private LocalDateTime updatedAt;
     private Map<String, Object> values;
     private Map<String, TaskDraftFileResultBO> files;

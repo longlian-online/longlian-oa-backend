@@ -27,10 +27,4 @@ public class TaskDraftFileVO {
 
     @Schema(description = "available-可用；unavailable-不可用")
     private String availability;
-
-    @Schema(description = "临时读取链接")
-    private String readUrl;
-
-    @Schema(description = "读取链接到期时间(Unix秒)")
-    private Long expiresAt;
 }

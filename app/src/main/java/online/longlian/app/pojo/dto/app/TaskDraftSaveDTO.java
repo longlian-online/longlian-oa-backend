@@ -19,11 +19,10 @@ public class TaskDraftSaveDTO {
     @Schema(description = "读取草稿时返回的任务修订号", requiredMode = Schema.RequiredMode.REQUIRED)
     private String expectedTaskRevision;
 
-    @NotBlank(message = "草稿修订号不能为空")
-    @Pattern(regexp = "0|[1-9][0-9]{0,18}", message = "草稿修订号必须为非负整数字符串")
-    @DecimalMax(value = "9223372036854775806", message = "草稿修订号超出范围")
-    @Schema(description = "读取草稿时返回的草稿修订号", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String expectedDraftRevision;
+    @Pattern(regexp = "[1-9][0-9]{0,18}", message = "草稿ID必须为正整数字符串")
+    @DecimalMax(value = "9223372036854775807", message = "草稿ID超出范围")
+    @Schema(description = "正在编辑的草稿ID，首次暂存为null")
+    private String expectedDraftId;
 
     @NotNull(message = "草稿字段值不能为空")
     @Schema(description = "按节点字段快照保存的完整表单值，允许必填字段暂缺", requiredMode = Schema.RequiredMode.REQUIRED)

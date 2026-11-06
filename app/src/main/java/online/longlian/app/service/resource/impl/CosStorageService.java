@@ -14,7 +14,6 @@ import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceCopyParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.service.resource.StorageService;
@@ -109,11 +108,6 @@ public class CosStorageService implements StorageService, DisposableBean {
         } catch (RuntimeException e) {
             throw incompleteFile();
         }
-    }
-
-    @Override
-    public void copyResource(ResourceCopyParamsBO params) {
-        cosClient.copyObject(cosConfig.getBucket(), params.sourceKey(), cosConfig.getBucket(), params.targetKey());
     }
 
     @Override

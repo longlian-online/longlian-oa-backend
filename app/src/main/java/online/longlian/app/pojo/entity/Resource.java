@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
  * </p>
  *
  * @author longlian
+ * @since 2026-11-06
  */
 @Data
 @Builder
@@ -150,27 +151,6 @@ public class Resource implements Serializable {
     @TableField("size_checked_at")
     @ApiModelProperty("最近一次与对象实际大小核对的时间")
     private LocalDateTime sizeCheckedAt;
-
-    /**
-     * 草稿附件封存操作标识
-     */
-    @ApiModelProperty("草稿附件封存操作标识")
-    @TableField("draft_seal_token")
-    private String draftSealToken;
-
-    /**
-     * 草稿附件封存租约期限
-     */
-    @ApiModelProperty("草稿附件封存租约期限")
-    @TableField("draft_seal_expires_at")
-    private LocalDateTime draftSealExpiresAt;
-
-    /**
-     * 封存候选的原上传资源ID
-     */
-    @ApiModelProperty("封存候选的原上传资源ID")
-    @TableField("draft_seal_source_id")
-    private Long draftSealSourceId;
 
     /**
      * 上传人ID

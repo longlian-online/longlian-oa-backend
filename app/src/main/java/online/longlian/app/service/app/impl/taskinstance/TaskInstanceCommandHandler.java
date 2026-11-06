@@ -21,7 +21,6 @@ import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Component;
 
-import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -111,19 +110,11 @@ public class TaskInstanceCommandHandler {
      * 前置阶段未完成时在绑定附件和改状态之前拒绝。
      */
     public TaskInstanceSubmitResultBO submit(TaskInstance instance, Long userId, Long orgId, Map<String, Object> values) {
-        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
-            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
-        }
-        requireAssignee(instance, userId, "仅接取人可提交任务");
-        ItemTaskNode node = requireNode(instance);
-        List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
-        LocalDateTime now = LocalDateTime.now(clock);
-        return completeSubmission(instance, node, beforeNodes, userId, userId, orgId, values,
-                now, now, TaskInstanceStatus.CLAIMED, false, null);
+        return submit(instance, userId, orgId, values, false);
     }
 
-    public TaskInstanceSubmitResultBO submitFromDraft(TaskInstance instance, Long userId, Long orgId,
-                                                      Long draftId, Map<String, Object> values) {
+    public TaskInstanceSubmitResultBO submit(TaskInstance instance, Long userId, Long orgId,
+                                            Map<String, Object> values, boolean reuseBound) {
         if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
             throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
         }
@@ -132,7 +123,7 @@ public class TaskInstanceCommandHandler {
         List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
         LocalDateTime now = LocalDateTime.now(clock);
         return completeSubmission(instance, node, beforeNodes, userId, userId, orgId, values,
-                now, now, TaskInstanceStatus.CLAIMED, false, draftId);
+                now, now, TaskInstanceStatus.CLAIMED, false, reuseBound);
     }
 
     /**
@@ -156,7 +147,7 @@ public class TaskInstanceCommandHandler {
         ItemTaskNode node = requireNode(instance);
         List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
         return completeSubmission(instance, node, beforeNodes, assigneeId, operatorId, orgId, values,
-                submittedAt, now, TaskInstanceStatus.PENDING, true, null);
+                submittedAt, now, TaskInstanceStatus.PENDING, true, false);
     }
 
     /**
@@ -168,21 +159,17 @@ public class TaskInstanceCommandHandler {
                                                           Long submitterId, Long resourceOwnerId, Long orgId,
                                                           Map<String, Object> values, LocalDateTime submittedAt,
                                                           LocalDateTime updatedAt, TaskInstanceStatus requiredStatus,
-                                                          boolean claimAndAssign, Long draftId) {
+                                                          boolean claimAndAssign, boolean reuseBound) {
         TaskFormService.ValidatedValues validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
-        if (draftId != null) {
-            resourceService.promoteTaskDraftFiles(new TaskDraftFilePromoteParamsBO(
-                    resourceOwnerId, orgId, draftId, instance.getId(), validated.resourceIds()));
-        } else {
-            resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
-                    .resourceIds(validated.resourceIds())
-                    .bizType("task_submit")
-                    .bizId(instance.getId())
-                    .orgId(orgId)
-                    .creatorId(resourceOwnerId)
-                    .build());
-        }
+        resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
+                .resourceIds(validated.resourceIds())
+                .bizType("task_submit")
+                .bizId(instance.getId())
+                .orgId(orgId)
+                .creatorId(resourceOwnerId)
+                .reuseBound(reuseBound)
+                .build());
 
         LambdaUpdateWrapper<TaskInstance> update = new LambdaUpdateWrapper<TaskInstance>()
                 .eq(TaskInstance::getId, instance.getId())

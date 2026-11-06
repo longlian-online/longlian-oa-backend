@@ -25,9 +25,6 @@ public class TaskDraftDetailVO {
     @Schema(description = "节点提交表单定义")
     private List<TaskFormField> submitFields;
 
-    @Schema(description = "草稿当前修订号；无记录为0")
-    private String draftRevision;
-
     @Schema(description = "当前接取人的有效草稿；尚未暂存为null")
     private TaskDraftContentVO draft;
 }

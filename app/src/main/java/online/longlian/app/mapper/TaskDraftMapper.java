@@ -6,11 +6,11 @@ import org.apache.ibatis.annotations.Mapper;
 
 /**
  * <p>
- * 任务最新草稿 Mapper 接口
+ * 任务暂存成果快照 Mapper 接口
  * </p>
  *
  * @author longlian
- * @since
+ * @since 2026-11-06
  */
 @Mapper
 public interface TaskDraftMapper extends BaseMapper<TaskDraft> {

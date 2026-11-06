@@ -19,6 +19,5 @@ public class TaskDraftResultBO {
     private String taskRevision;
     private boolean canSubmit;
     private List<TaskFormField> submitFields;
-    private String draftRevision;
     private TaskDraftContentResultBO draft;
 }

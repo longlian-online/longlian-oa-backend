@@ -19,9 +19,6 @@ public class TaskDraftContentVO {
     @Schema(description = "草稿ID")
     private String id;
 
-    @Schema(description = "本次暂存修订号")
-    private String revision;
-
     @Schema(description = "最近暂存时间")
     private LocalDateTime updatedAt;
 

@@ -16,5 +16,5 @@ public class TaskDraftSubmitParamsBO {
     private Long userId;
     private Long orgId;
     private String expectedTaskRevision;
-    private String expectedDraftRevision;
+    private String draftId;
 }

@@ -5,7 +5,6 @@ import online.longlian.app.common.properties.LonglianProperties;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
-import online.longlian.app.pojo.bo.common.ResourceCopyParamsBO;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlResultBO;
@@ -126,17 +125,6 @@ public class LocalStorageService implements StorageService {
             validateImage(target, params.expectedMimeType());
         } catch (IOException e) {
             throw incompleteFile();
-        }
-    }
-
-    @Override
-    public void copyResource(ResourceCopyParamsBO params) {
-        Path target = resolveKey(params.targetKey());
-        try {
-            Files.createDirectories(target.getParent());
-            Files.copy(resolveKey(params.sourceKey()), target);
-        } catch (IOException exception) {
-            throw new IllegalStateException("本地文件复制失败", exception);
         }
     }
 

@@ -19,8 +19,6 @@ public class TaskDraftRecordResultBO {
     private Long orgId;
     private Long ownerId;
     private String metadata;
-    private Long revision;
-    private Long taskRevision;
     private TaskDraftStatus status;
     private Long submittedSubmissionId;
     private LocalDateTime createdAt;

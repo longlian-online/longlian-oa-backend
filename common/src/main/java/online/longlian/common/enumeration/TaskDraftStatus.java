@@ -11,7 +11,8 @@ public enum TaskDraftStatus implements CodeEnum {
 
     ACTIVE(1, "有效"),
     CONSUMED(2, "已提交"),
-    DISCARDED(3, "已废弃");
+    DISCARDED(3, "已废弃"),
+    REPLACED(4, "已替换");
 
     private final Integer code;
     private final String desc;
