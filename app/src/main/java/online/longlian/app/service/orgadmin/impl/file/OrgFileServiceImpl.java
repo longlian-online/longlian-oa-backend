@@ -14,6 +14,7 @@ import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
@@ -26,17 +27,21 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.orgadmin.OrgFileService;
+import online.longlian.app.service.resource.ResourceDeprecationService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OrgFileEntryKind;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Collator;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -62,6 +67,8 @@ public class OrgFileServiceImpl implements OrgFileService {
     private final UserMapper userMapper;
     private final TaskFormService taskFormService;
     private final ResourceService resourceService;
+    private final ResourceDeprecationService resourceDeprecationService;
+    private final Clock clock;
 
     @Override
     public OrgFileEntriesResultBO list(OrgFileListParamsBO params) {
@@ -95,6 +102,37 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .readUrl(read.readUrl())
                 .expireAt(read.expiresAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void discard(OrgFileDiscardParamsBO params) {
+        if (params.getFieldKey() == null || params.getFieldKey().isBlank()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "提交字段不能为空");
+        }
+        TaskInstance instance = taskInstanceMapper.selectById(params.getTaskInstanceId());
+        if (instance == null) {
+            throw missing("附件不存在");
+        }
+        requireItem(instance.getItemId(), instance.getProjectId(), params.getOrgId());
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
+        List<TaskFormField> fields = node == null ? null : readFields(node.getMetaSchema());
+        TaskFormService.ValidatedValues values = fields == null || submission == null
+                ? null : readValues(fields, submission.getMetadata());
+        TaskFormField field = fields == null ? null : fields.stream()
+                .filter(item -> params.getFieldKey().equals(item.key()))
+                .findFirst()
+                .orElse(null);
+        if (field == null || values == null || !params.getFileId().equals(fileId(field, values))) {
+            throw missing("附件不存在");
+        }
+        // 不改提交 JSON。必填文件被清空会让任务详情无法读取；弃置后详情和历史版本显示为不可用。
+        boolean deprecated = resourceDeprecationService.deprecateTaskSubmitFile(
+                params.getFileId(), instance.getId(), params.getOrgId(), LocalDateTime.now(clock));
+        if (!deprecated) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "文件仍被其他资料使用，不能删除");
+        }
     }
 
     private OrgFileEntriesResultBO listProjects(Long orgId) {
@@ -211,11 +249,12 @@ public class OrgFileServiceImpl implements OrgFileService {
         Map<Long, ActivatedResource> resources = fileIds.isEmpty()
                 ? Map.of()
                 : resourceService.findActivated(TASK_SUBMIT, instance.getId(), orgId, fileIds);
+        Set<Long> deprecatedIds = resourceDeprecationService.deprecatedIds(fileIds);
         String submitterName = nicknames.getOrDefault(submission.getSubmitterId(), "");
         List<OrgFileEntryResultBO> entries = new ArrayList<>();
         for (TaskFormField field : fields) {
             Long fileId = fileId(field, values);
-            if (fileId == null) {
+            if (fileId == null || deprecatedIds.contains(fileId)) {
                 continue;
             }
             entries.add(fileEntry(node, instance, submission, field, fileId,
@@ -239,6 +278,7 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .name(available ? resource.fileName() : field.label())
                 .taskInstanceId(instance.getId())
                 .taskName(node.getName())
+                .fieldKey(field.key())
                 .fieldLabel(field.label())
                 .fileId(fileId)
                 .fileSize(available ? resource.fileSize() : null)

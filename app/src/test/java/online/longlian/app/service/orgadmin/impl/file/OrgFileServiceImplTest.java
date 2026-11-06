@@ -10,6 +10,7 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
@@ -20,10 +21,12 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.common.TaskFormService;
+import online.longlian.app.service.resource.ResourceDeprecationService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OrgFileEntryKind;
 import online.longlian.common.enumeration.StorageType;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,7 +34,10 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +45,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,10 +72,19 @@ class OrgFileServiceImplTest {
     private UserMapper userMapper;
     @Mock
     private ResourceService resourceService;
+    @Mock
+    private ResourceDeprecationService resourceDeprecationService;
+    @Mock
+    private Clock clock;
     @Spy
     private TaskFormService taskFormService = new TaskFormService();
     @InjectMocks
     private OrgFileServiceImpl service;
+
+    @BeforeEach
+    void noDeprecatedFiles() {
+        lenient().when(resourceDeprecationService.deprecatedIds(any())).thenReturn(java.util.Set.of());
+    }
 
     @Test
     void shouldListProjectsInChineseNameOrder() {
@@ -159,6 +177,65 @@ class OrgFileServiceImplTest {
 
         assertThat(result.getReadUrl()).isEqualTo("https://files/101");
         assertThat(result.getExpireAt()).isEqualTo(50L);
+    }
+
+    @Test
+    void shouldRemoveCurrentFileAndAskDeprecationToRespectOtherReferences() {
+        when(taskInstanceMapper.selectById(8L)).thenReturn(
+                TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build());
+        when(itemMapper.selectById(3L)).thenReturn(Item.builder().id(3L).projectId(1L).build());
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemTaskNodeMapper.selectById(7L)).thenReturn(
+                ItemTaskNode.builder().id(7L).metaSchema(SCHEMA).build());
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
+                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"},\"note\":\"新\"}")));
+        when(clock.instant()).thenReturn(Instant.parse("2026-11-07T02:00:00Z"));
+        when(clock.getZone()).thenReturn(ZoneId.of("Asia/Shanghai"));
+        when(resourceDeprecationService.deprecateTaskSubmitFile(
+                eq(101L), eq(8L), eq(1L), eq(LocalDateTime.of(2026, 11, 7, 10, 0)))).thenReturn(true);
+
+        service.discard(OrgFileDiscardParamsBO.builder()
+                .orgId(1L).taskInstanceId(8L).fileId(101L).fieldKey("script").build());
+
+        verify(taskSubmissionMapper, never()).update(any(), any());
+        verify(resourceDeprecationService).deprecateTaskSubmitFile(
+                eq(101L), eq(8L), eq(1L), eq(LocalDateTime.of(2026, 11, 7, 10, 0)));
+    }
+
+    @Test
+    void shouldHideDeprecatedFilesFromTheFolder() {
+        when(itemMapper.selectById(3L)).thenReturn(Item.builder().id(3L).projectId(1L).title("第一话").build());
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
+                ItemTaskNode.builder().id(7L).itemId(3L).name("翻译").metaSchema(SCHEMA).sort(1).build()));
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build()));
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
+                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"},\"note\":\"新\"}")));
+        when(resourceDeprecationService.deprecatedIds(List.of(101L))).thenReturn(java.util.Set.of(101L));
+
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).projectId(1L).itemId(3L).build());
+
+        assertThat(result.getEntries()).isEmpty();
+    }
+
+    @Test
+    void shouldFailDiscardWhenFieldDoesNotHoldThatFile() {
+        when(taskInstanceMapper.selectById(8L)).thenReturn(
+                TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build());
+        when(itemMapper.selectById(3L)).thenReturn(Item.builder().id(3L).projectId(1L).build());
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemTaskNodeMapper.selectById(7L)).thenReturn(
+                ItemTaskNode.builder().id(7L).metaSchema(SCHEMA).build());
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
+                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}")));
+
+        assertThatThrownBy(() -> service.discard(OrgFileDiscardParamsBO.builder()
+                .orgId(1L).taskInstanceId(8L).fileId(101L).fieldKey("extra").build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
     }
 
     @Test

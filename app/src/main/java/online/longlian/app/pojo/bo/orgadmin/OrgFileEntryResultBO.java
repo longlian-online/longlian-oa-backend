@@ -14,6 +14,7 @@ public class OrgFileEntryResultBO {
     private String name;
     private Long taskInstanceId;
     private String taskName;
+    private String fieldKey;
     private String fieldLabel;
     private Long fileId;
     private Long fileSize;

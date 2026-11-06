@@ -9,6 +9,7 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
@@ -19,6 +20,7 @@ import online.longlian.app.pojo.vo.orgadmin.OrgFileEntryVO;
 import online.longlian.app.service.orgadmin.OrgFileService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -70,6 +72,22 @@ public class OrgFileController {
         vo.setReadUrl(result.getReadUrl());
         vo.setExpireAt(result.getExpireAt());
         return vo;
+    }
+
+    @Operation(summary = "弃置当前提交中的文件", description = "不改提交内容。封面、头像或企划附件仍引用时拒绝。弃置后文件页不再列出，任务详情显示为不可用")
+    @DeleteMapping("/tasks/{taskInstanceId}/attachments/{fileId}")
+    @ResponseMessage("已删除")
+    public void discard(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long taskInstanceId,
+            @PathVariable Long fileId,
+            @Parameter(description = "提交字段 key") @RequestParam String fieldKey) {
+        orgFileService.discard(OrgFileDiscardParamsBO.builder()
+                .orgId(sessionContext.orgId())
+                .taskInstanceId(taskInstanceId)
+                .fileId(fileId)
+                .fieldKey(fieldKey)
+                .build());
     }
 
     private List<OrgFileEntryVO> toEntries(List<OrgFileEntryResultBO> entries) {

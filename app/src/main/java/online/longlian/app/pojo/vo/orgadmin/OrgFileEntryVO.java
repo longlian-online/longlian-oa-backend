@@ -26,6 +26,9 @@ public class OrgFileEntryVO {
     @Schema(description = "任务名称，仅文件")
     private String taskName;
 
+    @Schema(description = "提交字段 key，仅文件")
+    private String fieldKey;
+
     @Schema(description = "提交字段名，仅文件")
     private String fieldLabel;
 

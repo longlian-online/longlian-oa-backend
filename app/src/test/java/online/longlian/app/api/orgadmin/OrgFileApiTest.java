@@ -149,6 +149,61 @@ public class OrgFileApiTest extends BaseApiTest {
     }
 
     @Test
+    void shouldDiscardCurrentFileWhenNothingElseReferencesIt() {
+        String token = admin();
+        insertProject(2L, 1L, "阿企划");
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (10, 2, '第一话', 1, 1, 1)");
+        insertNodeAndTask();
+        jdbcTemplate.update(
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, metadata, status) "
+                        + "VALUES (2, 2, 10, 8, 7, 1, 1, ?, 1)",
+                "{\"script\":{\"fileId\":\"101\"},\"note\":\"新\"}");
+        insertTaskResource(101L, 8L);
+
+        authRequest(token).queryParam("fieldKey", "script")
+                .delete("/orgadmin/files/tasks/8/attachments/101").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT metadata FROM task_submission WHERE id = 2", String.class))
+                .contains("101");
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 101", Integer.class))
+                .isEqualTo(FileProcessStatus.Deprecated.getCode());
+        assertThat(jdbcTemplate.queryForObject("SELECT deprecated_at FROM resource WHERE id = 101", Object.class))
+                .isNotNull();
+        authRequest(token).queryParam("projectId", 2).queryParam("itemId", 10).get("/orgadmin/files")
+                .then().body("data.entries", hasSize(0));
+    }
+
+    @Test
+    void shouldFailDiscardWhenFileIsStillUsedAsCover() {
+        String token = admin();
+        insertProject(2L, 1L, "阿企划");
+        jdbcTemplate.update("UPDATE project SET cover_file_id = 101 WHERE id = 2");
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (10, 2, '第一话', 1, 1, 1)");
+        insertNodeAndTask();
+        jdbcTemplate.update(
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, metadata, status) "
+                        + "VALUES (2, 2, 10, 8, 7, 1, 1, ?, 1)",
+                "{\"script\":{\"fileId\":\"101\"}}");
+        insertTaskResource(101L, 8L);
+
+        authRequest(token).queryParam("fieldKey", "script")
+                .delete("/orgadmin/files/tasks/8/attachments/101").then().statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id = 101", Integer.class))
+                .isEqualTo(FileProcessStatus.Activated.getCode());
+    }
+
+    @Test
+    void shouldFailDiscardWithoutFieldKey() {
+        String token = admin();
+        authRequest(token).delete("/orgadmin/files/tasks/8/attachments/101").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
     void shouldReturnEmptyRootWhenOrganizationHasNoProjects() {
         String token = admin();
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
