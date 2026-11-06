@@ -159,14 +159,17 @@ public class TaskDraftApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldReuseBoundFileAndRecycleOnlyRemovedFile() throws Exception {
+    void shouldReuseBoundFileAndRetainRemovedFileUntilAbandon() throws Exception {
         String token = createWorkflow(SCHEMA);
         String fileId = upload(5001L, 1L, 1L);
         String first = save(token, "0", null, Map.of("file", Map.of("fileId", fileId)));
         String second = save(token, "0", first, Map.of("file", Map.of("fileId", fileId), "text", "补充说明"));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM resource", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=5001", Long.class)).isEqualTo(1L);
+        assertThat(jdbcTemplate.queryForObject("SELECT biz_id FROM resource WHERE id=5001", Long.class)).isEqualTo(Long.valueOf(second));
         save(token, "0", second, Map.of("text", "移除附件"));
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(1);
+        authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon")
+                .then().body("code", equalTo(0));
         assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject("SELECT deprecated_at FROM resource WHERE id=5001", java.sql.Timestamp.class)).isNotNull();
     }
@@ -178,11 +181,16 @@ public class TaskDraftApiTest extends BaseApiTest {
         String first = save(token, "0", null, Map.of("text", "成果", "file", Map.of("fileId", fileId)));
         authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(0));
         authRequest(token).post("/app/task/instance/1/reset").then().body("code", equalTo(0));
-        String next = save(token, "2", null, Map.of("text", "修订稿", "file", Map.of("fileId", fileId)));
+        String newFile = upload(5002L, 1L, 1L);
+        String next = save(token, "2", null, Map.of("text", "修订稿", "file", Map.of("fileId", newFile)));
         save(token, "2", next, Map.of("text", "移除附件"));
         assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(1);
         authRequest(token).get("/app/task/instance/1/attachments/5001/download").then().body("code", equalTo(0));
         authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(5));
+        authRequest(token).body(Map.of("expectedRevision", "2")).post("/app/task/instance/1/abandon")
+                .then().body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5001", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT process_status FROM resource WHERE id=5002", Integer.class)).isEqualTo(2);
     }
 
     @Test
@@ -195,7 +203,9 @@ public class TaskDraftApiTest extends BaseApiTest {
         String viewer = loginAs("draft_viewer", "123456");
         authRequest(viewer).get(API_PATH).then().body("code", not(equalTo(0)));
         authRequest(viewer).get("/app/task/instance/1/attachments/5001/download").then().body("code", not(equalTo(0)));
-        authRequest(token).get("/app/task/instance/1/attachments/5001/download").then().body("code", equalTo(0));
+        authRequest(token).get(API_PATH).then().body("code", equalTo(0))
+                .body("data.draft.files['5001'].availability", equalTo("available"));
+        authRequest(token).get("/app/task/instance/1/attachments/5001/download").then().body("code", not(equalTo(0)));
         authRequest(token).body(submit("0", id)).post(API_PATH + "/submit").then().body("code", equalTo(0));
         authRequest(viewer).get("/app/task/instance/1/attachments/5001/download").then().body("code", equalTo(0));
     }
@@ -299,4 +309,29 @@ public class TaskDraftApiTest extends BaseApiTest {
             executor.shutdownNow();
         }
     }
+    @Test
+    void shouldAllowAbandoningTaskWithoutDraft() {
+        String token = createWorkflow("[]");
+        authRequest(token).body(Map.of("expectedRevision", "0")).post("/app/task/instance/1/abandon")
+                .then().body("code", equalTo(0));
+    }
+
+    @Test
+    void shouldAllowDeletingProjectWithoutDraft() {
+        String token = createWorkflow("[]");
+        authRequest(token).delete("/app/projects/1/items/1").then().body("code", equalTo(0));
+    }
+
+    @Test
+    void shouldAllowAbandonAfterMultipleSavesSubmitAndReset() {
+        String token = createWorkflow(SCHEMA);
+        String first = save(token, "0", null, Map.of("text", "第一稿"));
+        String second = save(token, "0", first, Map.of("text", "第二稿"));
+        authRequest(token).body(submit("0", second)).post(API_PATH + "/submit").then().body("code", equalTo(0));
+        authRequest(token).post("/app/task/instance/1/reset").then().body("code", equalTo(0));
+        authRequest(token).body(Map.of("expectedRevision", "2")).post("/app/task/instance/1/abandon")
+                .then().body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_draft WHERE status=1", Integer.class)).isZero();
+    }
+
 }

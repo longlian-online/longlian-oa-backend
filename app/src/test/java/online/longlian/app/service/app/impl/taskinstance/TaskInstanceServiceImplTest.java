@@ -905,7 +905,7 @@ class TaskInstanceServiceImplTest {
         assertThat(result.getTaskRevision()).isEqualTo("7");
         if (status == TaskDraftStatus.ACTIVE) {
             assertThat(result.getDraft().getValues()).containsEntry("notes", "已暂存的内容");
-            verify(resourceService).findActivated("task_submit", 100L, 10L, List.of());
+            verify(resourceService).findActivated("task_draft", 44L, 10L, List.of());
         } else {
             assertThat(result.getDraft()).isNull();
             verifyNoInteractions(resourceService);

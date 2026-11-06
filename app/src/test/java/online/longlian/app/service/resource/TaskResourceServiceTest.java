@@ -96,12 +96,13 @@ class TaskResourceServiceTest {
                 .isInstanceOf(AppException.class);
     }
 
-    /** 精确匹配归属的任务附件复用时不重复探测或写入。 */
+    /** 即使任务 ID 相同，已绑定的上传也不能用于重新提交。 */
     @Test
-    void shouldReusePreviouslyBoundTaskAttachment() {
+    void shouldRejectPreviouslyBoundTaskAttachment() {
         when(resourceMapper.selectList(any())).thenReturn(List.of(activated(1L)));
 
-        bind(List.of(1L));
+        assertThatThrownBy(() -> bind(List.of(1L)))
+                .isInstanceOf(AppException.class);
         verify(resourceMapper, never()).update(isNull(), any());
         verifyNoInteractions(storageFactory);
     }
@@ -125,6 +126,7 @@ class TaskResourceServiceTest {
         Resource uploadedBound = uploaded(2L);
         uploadedBound.setBizId(TASK_ID);
         invalidResources.add(uploadedBound);
+        invalidResources.add(activated(2L));
         Resource crossTask = activated(2L);
         crossTask.setBizId(99L);
         invalidResources.add(crossTask);
@@ -135,9 +137,6 @@ class TaskResourceServiceTest {
         pendingBound.setProcessStatus(FileProcessStatus.Pending);
         pendingBound.setBizId(99L);
         invalidResources.add(pendingBound);
-        Resource cleaned = activated(2L);
-        cleaned.setStorageCleanedAt(java.time.LocalDateTime.now());
-        invalidResources.add(cleaned);
         Resource activeForeignCreator = activated(2L);
         activeForeignCreator.setCreatorId(99L);
         invalidResources.add(activeForeignCreator);
@@ -296,7 +295,6 @@ class TaskResourceServiceTest {
                 .bizId(TASK_ID)
                 .orgId(ORG_ID)
                 .creatorId(CREATOR_ID)
-                .reuseBound(true)
                 .build());
     }
 

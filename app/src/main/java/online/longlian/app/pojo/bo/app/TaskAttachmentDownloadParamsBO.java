@@ -9,5 +9,4 @@ public class TaskAttachmentDownloadParamsBO {
     private Long instanceId;
     private Long fileId;
     private Long orgId;
-    private Long userId;
 }

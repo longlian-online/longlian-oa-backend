@@ -3,26 +3,17 @@ package online.longlian.app.service.app.impl.taskdraft;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskDraftMapper;
-import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.TaskDraftConsumeParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftDiscardParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftRecordSaveParamsBO;
-import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskDraft;
-import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskDraftStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,17 +36,13 @@ class TaskDraftRecordServiceImplTest {
 
     @Mock private TaskDraftMapper mapper;
     @Mock private ResourceService resources;
-    @Mock private TaskInstanceMapper instances;
-    @Mock private ItemTaskNodeMapper nodes;
-    @Mock private TaskSubmissionMapper submissions;
     private TaskDraftRecordServiceImpl service;
 
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskDraft.class);
         service = new TaskDraftRecordServiceImpl(resources,
-                Clock.fixed(Instant.parse("2026-11-06T00:00:00Z"), ZoneOffset.UTC),
-                new TaskFormService(), instances, nodes, submissions);
+                Clock.fixed(Instant.parse("2026-11-06T00:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "baseMapper", mapper);
     }
 
@@ -72,7 +60,7 @@ class TaskDraftRecordServiceImplTest {
         var result = service.saveTaskDraftRecord(saveParams(null, "{}"));
         assertThat(result.getId()).isEqualTo(11L);
         assertThat(result.getStatus()).isEqualTo(TaskDraftStatus.ACTIVE);
-        verifyNoInteractions(instances, resources, submissions);
+        verifyNoInteractions(resources);
         verify(mapper, never()).update(any(), any());
     }
 
@@ -90,31 +78,36 @@ class TaskDraftRecordServiceImplTest {
         TaskDraft previous = TaskDraft.builder().id(10L).taskInstanceId(1L).orgId(2L)
                 .metadata("{}").status(TaskDraftStatus.ACTIVE).build();
         when(mapper.selectOne(any(), eq(true))).thenReturn(previous);
-        when(instances.selectById(1L)).thenReturn(TaskInstance.builder().id(1L).itemTaskNodeId(4L).build());
-        when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder().metaSchema("[]").build());
         service.saveTaskDraftRecord(saveParams("10", "{}"));
         assertThat(previous.getMetadata()).isEqualTo("{}");
         ArgumentCaptor<TaskDraft> inserted = ArgumentCaptor.forClass(TaskDraft.class);
         verify(mapper).insert(inserted.capture());
         assertThat(inserted.getValue()).isNotSameAs(previous);
         assertThat(inserted.getValue().getStatus()).isEqualTo(TaskDraftStatus.ACTIVE);
-        verifyNoInteractions(resources, submissions);
+        verifyNoInteractions(resources);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void shouldKeepFormalHistoryFilesWhenDiscardingDraft(boolean unreadable) {
-        TaskDraft draft = TaskDraft.builder().id(10L).taskInstanceId(1L).orgId(2L).ownerId(3L)
-                .metadata("{\"file\":{\"fileId\":\"99\"}}").status(TaskDraftStatus.ACTIVE).build();
-        when(mapper.selectList(any())).thenReturn(List.of(draft));
-        when(instances.selectById(1L)).thenReturn(TaskInstance.builder().id(1L).itemTaskNodeId(4L).build());
-        when(nodes.selectById(4L)).thenReturn(ItemTaskNode.builder()
-                .metaSchema("[{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":false,\"options\":[]}]").build());
-        when(submissions.selectList(any())).thenReturn(List.of(TaskSubmission.builder()
-                .metadata(unreadable ? "invalid" : draft.getMetadata()).build()));
+    @Test
+    void shouldDiscardAllUnsubmittedDraftsWithoutChangingSnapshotContent() {
+        TaskDraft first = TaskDraft.builder().id(10L).taskInstanceId(1L).orgId(2L)
+                .metadata("{}").status(TaskDraftStatus.REPLACED).revision(0L).build();
+        TaskDraft second = TaskDraft.builder().id(11L).taskInstanceId(1L).orgId(2L)
+                .metadata("{}").status(TaskDraftStatus.ACTIVE).revision(0L).build();
+        when(mapper.selectList(any())).thenReturn(List.of(first, second));
+        service.discardTaskDrafts(new TaskDraftDiscardParamsBO(List.of(1L), 2L));
+        verify(resources).abandonBound(argThat(params -> params.getBizType().equals("task_draft")
+                && params.getBizIds().equals(List.of(10L, 11L)) && params.getOrgId().equals(2L)));
+        verify(mapper, times(2)).update(isNull(), any());
+        assertThat(first.getMetadata()).isEqualTo("{}");
+        assertThat(first.getRevision()).isZero();
+        assertThat(second.getRevision()).isZero();
+    }
+
+    @Test
+    void shouldAllowDiscardingTaskWithoutAnyDraft() {
         service.discardTaskDrafts(new TaskDraftDiscardParamsBO(List.of(1L), 2L));
         verifyNoInteractions(resources);
-        assertThat(draft.getMetadata()).contains("99");
+        verify(mapper, never()).update(any(), any());
     }
 
     @Test
@@ -123,6 +116,6 @@ class TaskDraftRecordServiceImplTest {
                 .isInstanceOf(AppException.class);
         when(mapper.update(isNull(), any())).thenReturn(1);
         service.consumeTaskDraftRecord(new TaskDraftConsumeParamsBO(10L, 20L));
-        verifyNoInteractions(resources, instances, submissions);
+        verifyNoInteractions(resources);
     }
 }

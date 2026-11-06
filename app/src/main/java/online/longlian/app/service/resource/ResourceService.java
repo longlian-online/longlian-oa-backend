@@ -29,6 +29,10 @@ import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriUtils;
 
+import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
@@ -254,7 +258,7 @@ public class ResourceService {
 
     /** 需要原文件名下载的业务类型：上传时写入对象头，读取时还原。 */
     public static boolean isAttachmentBusiness(String bizType) {
-        return "task_submit".equals(bizType)
+        return "task_submit".equals(bizType) || "task_draft".equals(bizType)
                 || "project_attachment".equals(bizType);
     }
 
@@ -273,7 +277,7 @@ public class ResourceService {
             return;
         }
         if (isResourceId(params.getResourceId())) {
-            bindResources(List.of(params.getResourceId()), scope(params), false);
+            bindResources(List.of(params.getResourceId()), scope(params));
         }
         if (!Objects.equals(params.getResourceId(), params.getReplacedResourceId())) {
             deprecateReplacedResource(params.getReplacedResourceId(), params.getBizId(), params.getOrgId());
@@ -282,7 +286,7 @@ public class ResourceService {
 
     /**
      * 将多份上传绑定到同一业务对象。
-     * 绑定并激活新上传，精确匹配归属的已绑定附件可重复使用，不废弃其他资源。
+     * 仅绑定并激活未绑定的新上传，不废弃其他资源。
      */
     public void bindBizResources(ResourceBindBatchParamsBO params) {
         if (params.getBizId() == null || params.getResourceIds() == null || params.getResourceIds().isEmpty()) {
@@ -296,7 +300,7 @@ public class ResourceService {
         }
         if (!resourceIds.isEmpty()) {
             bindResources(resourceIds, new BindScope(
-                    params.getBizType(), params.getBizId(), params.getCreatorId(), params.getOrgId()), params.isReuseBound());
+                    params.getBizType(), params.getBizId(), params.getCreatorId(), params.getOrgId()));
         }
     }
 
@@ -304,37 +308,23 @@ public class ResourceService {
         return new BindScope(params.getBizType(), params.getBizId(), params.getCreatorId(), params.getOrgId());
     }
 
-    private void bindResources(List<Long> resourceIds, BindScope scope, boolean reuseBound) {
+    private void bindResources(List<Long> resourceIds, BindScope scope) {
         if (scope.bizType() == null) {
             throw unauthorized();
         }
         Map<Long, Resource> resources = loadResources(resourceIds);
         for (Long resourceId : resourceIds) {
-            if (!reuseBound || !isAlreadyBound(resources.get(resourceId), scope)) {
-                validateBind(resources.get(resourceId), scope);
-            }
+            validateBind(resources.get(resourceId), scope);
         }
         for (Long resourceId : resourceIds) {
-            if (!reuseBound || !isAlreadyBound(resources.get(resourceId), scope)) {
-                activateBound(resources.get(resourceId), scope);
-            }
+            activateBound(resources.get(resourceId), scope);
         }
-    }
-
-    private boolean isAlreadyBound(Resource resource, BindScope scope) {
-        return resource != null && resource.getProcessStatus() == FileProcessStatus.Activated
-                && resource.getStorageCleanedAt() == null
-                && Objects.equals(resource.getCreatorId(), scope.creatorId())
-                && Objects.equals(resource.getOrgId(), scope.orgId())
-                && Objects.equals(resource.getBizType(), scope.bizType())
-                && Objects.equals(resource.getBizId(), scope.bizId());
     }
 
     private void validateBind(Resource resource, BindScope scope) {
         if (resource == null || !Objects.equals(resource.getCreatorId(), scope.creatorId())
                 || (scope.orgId() != null && !Objects.equals(resource.getOrgId(), scope.orgId()))
                 || !Objects.equals(resource.getBizType(), scope.bizType())
-                || resource.getStorageCleanedAt() != null
                 || !Objects.equals(resource.getBizId(), 0L)
                 || (resource.getProcessStatus() != FileProcessStatus.Pending
                     && resource.getProcessStatus() != FileProcessStatus.Uploaded)) {
@@ -343,6 +333,10 @@ public class ResourceService {
     }
 
     private void activateBound(Resource resource, BindScope scope) {
+        activateBound(resource, scope, scope.bizType());
+    }
+
+    private void activateBound(Resource resource, BindScope scope, String targetBizType) {
         if (resource.getProcessStatus() == FileProcessStatus.Pending) {
             storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
                     resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
@@ -351,21 +345,17 @@ public class ResourceService {
                     .set(Resource::getProcessStatus, FileProcessStatus.Uploaded)
                     .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
             if (uploaded != 1) {
-                if (isAlreadyBound(resourceMapper.selectById(resource.getId()), scope)) {
-                    return;
-                }
                 throw unauthorized();
             }
         }
         int activated = resourceMapper.update(null, unboundUpdate(resource.getId(), scope)
                 .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                .set(Resource::getBizType, targetBizType)
                 .set(Resource::getBizId, scope.bizId())
                 .set(Resource::getProcessStatus, FileProcessStatus.Activated)
                 .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
         if (activated != 1) {
-            if (!isAlreadyBound(resourceMapper.selectById(resource.getId()), scope)) {
-                throw unauthorized();
-            }
+            throw unauthorized();
         }
     }
 
@@ -376,6 +366,103 @@ public class ResourceService {
                 .eq(Resource::getCreatorId, scope.creatorId())
                 .eq(Resource::getBizType, scope.bizType())
                 .eq(Resource::getBizId, 0L);
+    }
+
+    /**
+     * 把本次暂存引用的上传绑到新草稿。
+     * 未绑定的任务上传在同一事务里激活；上一份草稿仍保留的附件只改绑，不复制、不废弃。
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bindTaskDraftFiles(TaskDraftFileBindParamsBO params) {
+        List<Long> fileIds = params.getFileIds().stream().distinct().sorted().toList();
+        if (fileIds.isEmpty()) {
+            return;
+        }
+        List<Resource> resources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
+                .in(Resource::getId, fileIds)
+                .orderByAsc(Resource::getId)
+                .last("FOR UPDATE"));
+        if (resources.size() != fileIds.size()) {
+            throw unauthorized();
+        }
+        for (Resource resource : resources) {
+            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
+                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || resource.getStorageCleanedAt() != null) {
+                throw unauthorized();
+            }
+            if (isUnboundTaskUpload(resource)) {
+                BindScope scope = new BindScope("task_submit", params.getDraftId(), params.getUserId(), params.getOrgId());
+                validateBind(resource, scope);
+                activateBound(resource, scope, "task_draft");
+            } else if (isRetainedDraftFile(resource, params.getPreviousDraftId())) {
+                int moved = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                        .eq(Resource::getId, resource.getId())
+                        .eq(Resource::getBizType, "task_draft")
+                        .eq(Resource::getBizId, params.getPreviousDraftId())
+                        .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                        .isNull(Resource::getStorageCleanedAt)
+                        .set(Resource::getBizId, params.getDraftId())
+                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+                if (moved != 1) {
+                    throw unauthorized();
+                }
+            } else {
+                throw unauthorized();
+            }
+        }
+    }
+
+    private boolean isUnboundTaskUpload(Resource resource) {
+        return "task_submit".equals(resource.getBizType())
+                && Objects.equals(resource.getBizId(), 0L)
+                && (resource.getProcessStatus() == FileProcessStatus.Pending
+                        || resource.getProcessStatus() == FileProcessStatus.Uploaded);
+    }
+
+    private boolean isRetainedDraftFile(Resource resource, Long previousDraftId) {
+        return previousDraftId != null
+                && "task_draft".equals(resource.getBizType())
+                && Objects.equals(resource.getBizId(), previousDraftId)
+                && resource.getProcessStatus() == FileProcessStatus.Activated;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void promoteTaskDraftFiles(TaskDraftFilePromoteParamsBO params) {
+        List<Long> fileIds = params.getFileIds().stream().distinct().sorted().toList();
+        if (fileIds.isEmpty()) {
+            return;
+        }
+        List<Resource> resources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
+                .in(Resource::getId, fileIds)
+                .orderByAsc(Resource::getId)
+                .last("FOR UPDATE"));
+        if (resources.size() != fileIds.size()) {
+            throw unauthorized();
+        }
+        for (Resource resource : resources) {
+            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
+                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || !"task_draft".equals(resource.getBizType())
+                    || !Objects.equals(resource.getBizId(), params.getDraftId())
+                    || resource.getProcessStatus() != FileProcessStatus.Activated
+                    || resource.getStorageCleanedAt() != null) {
+                throw unauthorized();
+            }
+            storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
+                    resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
+            int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                    .eq(Resource::getId, resource.getId())
+                    .eq(Resource::getBizType, "task_draft")
+                    .eq(Resource::getBizId, params.getDraftId())
+                    .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                    .isNull(Resource::getStorageCleanedAt)
+                    .set(Resource::getBizType, "task_submit")
+                    .set(Resource::getBizId, params.getInstanceId()));
+            if (updated != 1) {
+                throw unauthorized();
+            }
+        }
     }
 
     private record BindScope(String bizType, Long bizId, Long creatorId, Long orgId) {
