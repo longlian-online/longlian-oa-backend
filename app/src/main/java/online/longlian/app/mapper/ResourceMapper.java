@@ -6,7 +6,9 @@ import online.longlian.app.pojo.entity.Resource;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -43,4 +45,48 @@ public interface ResourceMapper extends BaseMapper<Resource> {
             </script>
             """)
     List<ResourceUsageSummaryBO> summarizeUsage(@Param("orgIds") List<Long> orgIds);
+
+    /**
+     * 业务表上的当前文件编号无法用单表 Wrapper 表达。
+     * 提交内容的 fileId 在 JSON 里，LIKE 带上结束引号，避免 12 命中 123。
+     * 判断和更新在同一条语句里完成，避免扫描期间刚保存的引用被标成弃置。
+     */
+    @Update("""
+            UPDATE resource
+            SET process_status = #{deprecatedStatus},
+                deprecated_at = #{executeTime},
+                updated_at = #{executeTime}
+            WHERE id = #{resourceId}
+              AND deleted_at IS NULL
+              AND process_status = #{activatedStatus}
+              AND storage_cleaned_at IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM project
+                  WHERE deleted_at IS NULL
+                    AND (cover_file_id = #{resourceId} OR thumbnail_file_id = #{resourceId})
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM `user`
+                  WHERE deleted_at IS NULL AND avatar_file_id = #{resourceId}
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM organization
+                  WHERE deleted_at IS NULL AND avatar_file_id = #{resourceId}
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM project_attachment
+                  WHERE deleted_at IS NULL AND file_id = #{resourceId}
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM task_submission submission
+                  INNER JOIN task_instance instance
+                      ON instance.id = submission.task_instance_id AND instance.deleted_at IS NULL
+                  WHERE submission.deleted_at IS NULL
+                    AND submission.metadata LIKE CONCAT('%"fileId":"', #{resourceId}, '"%')
+              )
+            """)
+    int deprecateIfUnreferenced(@Param("resourceId") Long resourceId,
+                                @Param("executeTime") LocalDateTime executeTime,
+                                @Param("activatedStatus") int activatedStatus,
+                                @Param("deprecatedStatus") int deprecatedStatus);
 }

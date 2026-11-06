@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import online.longlian.app.service.outbox.OutboxDispatcher;
+import online.longlian.app.service.resource.ResourceDeprecationService;
 
 import java.time.LocalDateTime;
 
@@ -52,6 +53,19 @@ class ScheduledTaskImplementationsTest {
         task.execute(executeTime);
 
         verify(dispatcher).dispatch(executeTime);
+    }
+
+    @Test
+    void shouldDeprecateUnreferencedResourcesWithTheGivenExecuteTime() {
+        ResourceDeprecationService deprecationService = mock(ResourceDeprecationService.class);
+        ResourceDeprecationTask task = new ResourceDeprecationTask(deprecationService);
+        LocalDateTime executeTime = LocalDateTime.of(2026, 11, 7, 3, 4, 5);
+
+        assertThat(task.getDefinition().getTaskName()).isEqualTo("resource-deprecation");
+        assertThat(task.getDefinition().getCronExpression()).isEqualTo("0 2/5 * * * ?");
+        task.execute(executeTime);
+
+        verify(deprecationService).deprecateUnreferenced(executeTime);
     }
 
 }

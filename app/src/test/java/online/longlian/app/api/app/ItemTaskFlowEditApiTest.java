@@ -61,7 +61,7 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
     }
 
     /**
-     * 删除未接取节点时，只把该实例上仍在使用的任务附件送进保留期。
+     * 删除未接取节点时不改资源状态。
      * 保留节点、其他组织、其他业务类型，以及原先已废弃的附件都不变。
      */
     @Test
@@ -87,8 +87,8 @@ public class ItemTaskFlowEditApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
-        assertThat(processStatus(1L)).isEqualTo(FileProcessStatus.Deprecated.getCode());
-        assertThat(deprecatedAt(1L)).isNotNull();
+        assertThat(processStatus(1L)).isEqualTo(FileProcessStatus.Activated.getCode());
+        assertThat(deprecatedAt(1L)).isNull();
         assertThat(processStatus(2L)).isEqualTo(FileProcessStatus.Activated.getCode());
         assertThat(processStatus(3L)).isEqualTo(FileProcessStatus.Deprecated.getCode());
         assertThat(deprecatedAt(3L)).isEqualTo(deprecatedAt);

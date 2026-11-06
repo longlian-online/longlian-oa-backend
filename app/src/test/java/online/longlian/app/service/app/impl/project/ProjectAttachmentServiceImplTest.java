@@ -167,7 +167,7 @@ class ProjectAttachmentServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         error -> assertThat(error.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
 
-        verify(projectAttachmentHandler, never()).abandonAttachment(any(), any());
+        verify(projectAttachmentHandler, never()).deleteAttachment(any());
     }
 
     @Test
@@ -180,11 +180,11 @@ class ProjectAttachmentServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class,
                         error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
 
-        verify(projectAttachmentHandler, never()).abandonAttachment(any(), any());
+        verify(projectAttachmentHandler, never()).deleteAttachment(any());
     }
 
     @Test
-    void deleteProjectAttachment_creatorAbandonsAssociation() {
+    void deleteProjectAttachment_creatorDeletesAssociation() {
         ProjectAttachment attachment = attachment(200L, 20L, 2L);
         when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(2L));
         when(projectAttachmentMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(attachment);
@@ -192,7 +192,7 @@ class ProjectAttachmentServiceImplTest {
         service.deleteProjectAttachment(ProjectAttachmentDeleteParamsBO.builder()
                 .projectId(100L).attachmentId(200L).userId(2L).orgId(1L).build());
 
-        verify(projectAttachmentHandler).abandonAttachment(attachment, 1L);
+        verify(projectAttachmentHandler).deleteAttachment(attachment);
     }
 
     @Test
