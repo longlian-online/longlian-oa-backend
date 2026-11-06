@@ -153,9 +153,9 @@ public class TaskDraftApiTest extends BaseApiTest {
         authRequest(token).body(submit("0", first)).post(API_PATH + "/submit").then().body("code", equalTo(2));
         authRequest(token).get(API_PATH).then().body("data.draft.id", equalTo(first));
         String second = save(token, "0", first, Map.of("text", "完整成果"));
-        authRequest(token).body(Map.of("values", Map.of("text", "绕过草稿")))
-                .post("/app/task/instance/1/submit").then().body("code", equalTo(5));
-        authRequest(token).body(submit("0", second)).post(API_PATH + "/submit").then().body("code", equalTo(0));
+        authRequest(token).body(Map.of("values", Map.of("text", "直接提交")))
+                .post("/app/task/instance/1/submit").then().body("code", equalTo(0));
+        authRequest(token).body(submit("0", second)).post(API_PATH + "/submit").then().body("code", equalTo(5));
     }
 
     @Test

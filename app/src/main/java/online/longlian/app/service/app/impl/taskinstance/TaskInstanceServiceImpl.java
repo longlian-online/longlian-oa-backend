@@ -202,11 +202,6 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     @Override
     public void submitTask(TaskInstanceSubmitParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
-            TaskDraftRecordResultBO draft = taskDraftRecordService.getTaskDraftRecord(
-                    new TaskDraftRecordGetParamsBO(instance.getId(), params.getOrgId()));
-            if (draft != null && draft.getStatus() == TaskDraftStatus.ACTIVE) {
-                throw new AppException(ResultCode.OPERATION_FAIL, TaskDraftConstants.CONFLICT_MESSAGE);
-            }
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
             finishSubmission(instance, project, result, params.getUserId());
