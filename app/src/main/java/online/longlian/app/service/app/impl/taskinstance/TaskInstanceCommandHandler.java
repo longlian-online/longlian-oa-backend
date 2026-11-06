@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -193,12 +194,18 @@ public class TaskInstanceCommandHandler {
         map.values().forEach(child -> collectFileIds(child, ids));
     }
 
+    /** 没有暂存、空内容或存的是 JSON null 时返回空对象，不当成读取失败。 */
     public Map<String, Object> readDraftValues(TaskInstance instance) {
-        if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
-            return Map.of();
+        String metadata = instance.getDraftMetadata();
+        if (metadata == null || metadata.isBlank()) {
+            return new LinkedHashMap<>();
         }
-        com.alibaba.fastjson2.JSONObject values = com.alibaba.fastjson2.JSON.parseObject(instance.getDraftMetadata());
-        return values == null ? Map.of() : values;
+        try {
+            com.alibaba.fastjson2.JSONObject values = com.alibaba.fastjson2.JSON.parseObject(metadata);
+            return values == null ? new LinkedHashMap<>() : values;
+        } catch (RuntimeException exception) {
+            return new LinkedHashMap<>();
+        }
     }
 
     /** 清空任务上的暂存。不再引用的附件由弃置任务处理，这里不直接标为弃置。 */
