@@ -137,7 +137,7 @@ public class TaskInstanceAssembler {
         List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
         try {
             TaskFormService.ValidatedValues validated =
-                    taskFormService.parseValues(fields, instance.getDraftMetadata());
+                    taskFormService.parseDraftValues(fields, instance.getDraftMetadata());
             Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
                     instance.getId(), orgId, validated.resourceIds());
             return new TaskInstanceDetailVO.Draft(

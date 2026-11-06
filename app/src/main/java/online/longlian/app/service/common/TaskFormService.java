@@ -194,6 +194,21 @@ public class TaskFormService {
         }
     }
 
+    /** 回读暂存。必填项可以空着，已填写的内容仍按字段类型校验。 */
+    public ValidatedValues parseDraftValues(List<TaskFormField> fields, String stored) {
+        try {
+            Object parsed = JSON.parse(stored);
+            if (!(parsed instanceof JSONObject values)) {
+                throw invalid("提交内容存储无效");
+            }
+            return validateDraftValues(fields, values);
+        } catch (AppException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw invalid("提交内容存储无效");
+        }
+    }
+
     /** Revalidates persisted submission values against the task's immutable field snapshot. */
     public ValidatedValues parseValues(List<TaskFormField> fields, String stored) {
         try {
