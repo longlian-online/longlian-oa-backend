@@ -112,6 +112,9 @@ public interface TaskInstanceService {
      */
     void submitTask(TaskInstanceSubmitParamsBO params);
 
+    /** 读取当前接取人的暂存内容。没有暂存时值为空。 */
+    java.util.Map<String, Object> getTaskDraft(TaskInstanceOperateParamsBO params);
+
     /** 保存或覆盖当前接取人的一条暂存提交，不改变任务状态。 */
     Long saveTaskDraft(TaskInstanceSubmitParamsBO params);
 

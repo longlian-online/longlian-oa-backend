@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -130,6 +131,7 @@ public class TaskInstanceCommandHandler {
         TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
         TaskSubmission draft = currentDraft(instance.getId());
+        List<Long> previousFileIds = draft == null ? List.of() : referencedFileIds(draft.getMetadata());
         LocalDateTime now = LocalDateTime.now(clock);
         if (draft == null) {
             draft = TaskSubmission.builder()
@@ -151,9 +153,16 @@ public class TaskInstanceCommandHandler {
                     .set(TaskSubmission::getMetadata, validated.serialize())
                     .set(TaskSubmission::getUpdatedAt, now));
         }
+        List<Long> nextFileIds = validated.resourceIds();
+        List<Long> addedFileIds = nextFileIds.stream().filter(id -> !previousFileIds.contains(id)).toList();
+        List<Long> removedFileIds = previousFileIds.stream().filter(id -> !nextFileIds.contains(id)).toList();
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
-                .resourceIds(validated.resourceIds()).bizType("task_submit").bizId(draft.getId())
+                .resourceIds(addedFileIds).bizType("task_submit").bizId(draft.getId())
                 .orgId(orgId).creatorId(userId).build());
+        if (!removedFileIds.isEmpty()) {
+            resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
+                    .orgId(orgId).resourceIds(removedFileIds).build());
+        }
         return draft.getId();
     }
 
@@ -206,6 +215,36 @@ public class TaskInstanceCommandHandler {
         resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
                 .orgId(orgId).bizType("task_submit").bizIds(List.of(draft.getId())).build());
         taskSubmissionMapper.deleteById(draft.getId());
+    }
+
+    private List<Long> referencedFileIds(String metadata) {
+        if (metadata == null || metadata.isBlank()) {
+            return List.of();
+        }
+        List<Long> ids = new ArrayList<>();
+        collectFileIds(com.alibaba.fastjson2.JSON.parse(metadata), ids);
+        return ids.stream().distinct().toList();
+    }
+
+    private void collectFileIds(Object value, List<Long> ids) {
+        if (!(value instanceof Map<?, ?> map)) {
+            return;
+        }
+        Object fileId = map.get("fileId");
+        if (fileId instanceof String text && !text.isEmpty() && text.chars().allMatch(Character::isDigit)) {
+            ids.add(Long.valueOf(text));
+            return;
+        }
+        map.values().forEach(child -> collectFileIds(child, ids));
+    }
+
+    public Map<String, Object> readDraftValues(Long taskInstanceId) {
+        TaskSubmission draft = currentDraft(taskInstanceId);
+        if (draft == null || draft.getMetadata() == null || draft.getMetadata().isBlank()) {
+            return Map.of();
+        }
+        com.alibaba.fastjson2.JSONObject values = com.alibaba.fastjson2.JSON.parseObject(draft.getMetadata());
+        return values == null ? Map.of() : values;
     }
 
     public TaskSubmission currentDraft(Long taskInstanceId) {

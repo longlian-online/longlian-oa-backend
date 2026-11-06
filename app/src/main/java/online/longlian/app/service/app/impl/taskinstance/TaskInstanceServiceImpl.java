@@ -188,6 +188,15 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     @Override
+    public Map<String, Object> getTaskDraft(TaskInstanceOperateParamsBO params) {
+        TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
+        if (!java.util.Objects.equals(instance.getAssigneeId(), params.getUserId())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅接取人可查看暂存");
+        }
+        return taskInstanceCommandHandler.readDraftValues(instance.getId());
+    }
+
+    @Override
     public Long saveTaskDraft(TaskInstanceSubmitParamsBO params) {
         return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) ->
                 taskInstanceCommandHandler.saveDraft(instance, params.getUserId(), params.getOrgId(), params.getValues()));
