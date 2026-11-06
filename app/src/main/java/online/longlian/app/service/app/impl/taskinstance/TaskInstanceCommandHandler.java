@@ -24,10 +24,8 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 任务实例状态流转的处理器。
@@ -142,13 +140,9 @@ public class TaskInstanceCommandHandler {
                 .set(TaskInstance::getDraftUpdatedAt, now)));
         List<Long> nextFileIds = validated.resourceIds();
         List<Long> addedFileIds = nextFileIds.stream().filter(id -> !previousFileIds.contains(id)).toList();
-        Set<Long> keptFileIds = new HashSet<>(nextFileIds);
-        keptFileIds.addAll(submittedFileIds(instance.getId()));
-        List<Long> removedFileIds = previousFileIds.stream().filter(id -> !keptFileIds.contains(id)).toList();
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
                 .resourceIds(addedFileIds).bizType("task_submit").bizId(instance.getId())
                 .orgId(orgId).creatorId(userId).build());
-        abandonDraftFiles(orgId, removedFileIds);
         return instance.getId();
     }
 
@@ -169,13 +163,13 @@ public class TaskInstanceCommandHandler {
         LocalDateTime now = LocalDateTime.now(clock);
         markSubmitted(instance, userId, now, now, TaskInstanceStatus.CLAIMED, false);
         TaskSubmission submission = insertSubmission(instance, userId, validated.serialize(), now, now);
-        clearDraft(instance, orgId, validated.resourceIds());
+        clearDraft(instance);
         memberSubmitCountHandler.incrementSubmitCount(userId, instance.getProjectId());
         return new TaskInstanceSubmitResultBO(submission.getId(), now, beforeNodes);
     }
 
-    public void discardDraft(TaskInstance instance, Long orgId) {
-        clearDraft(instance, orgId, List.of());
+    public void discardDraft(TaskInstance instance) {
+        clearDraft(instance);
     }
 
     private List<Long> referencedFileIds(String metadata) {
@@ -207,38 +201,16 @@ public class TaskInstanceCommandHandler {
         return values == null ? Map.of() : values;
     }
 
-    /** 正式提交后清掉任务上的暂存。仍被提交版本引用的附件保留。 */
-    private void clearDraft(TaskInstance instance, Long orgId, List<Long> retainedFileIds) {
-        String metadata = instance.getDraftMetadata();
-        if (metadata != null && !metadata.isBlank()) {
-            Set<Long> kept = new HashSet<>(retainedFileIds);
-            kept.addAll(submittedFileIds(instance.getId()));
-            abandonDraftFiles(orgId, referencedFileIds(metadata).stream().filter(id -> !kept.contains(id)).toList());
-        }
-        if ((metadata == null || metadata.isBlank()) && instance.getDraftUpdatedAt() == null) {
+    /** 清空任务上的暂存。不再引用的附件由弃置任务处理，这里不直接标为弃置。 */
+    private void clearDraft(TaskInstance instance) {
+        if ((instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank())
+                && instance.getDraftUpdatedAt() == null) {
             return;
         }
         taskInstanceMapper.update(null, new LambdaUpdateWrapper<TaskInstance>()
                 .eq(TaskInstance::getId, instance.getId())
                 .set(TaskInstance::getDraftMetadata, null)
                 .set(TaskInstance::getDraftUpdatedAt, null));
-    }
-
-    private void abandonDraftFiles(Long orgId, List<Long> resourceIds) {
-        if (resourceIds.isEmpty()) {
-            return;
-        }
-        resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
-                .orgId(orgId).resourceIds(resourceIds).build());
-    }
-
-    private Set<Long> submittedFileIds(Long taskInstanceId) {
-        Set<Long> ids = new HashSet<>();
-        taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
-                        .eq(TaskSubmission::getTaskInstanceId, taskInstanceId)
-                        .select(TaskSubmission::getMetadata))
-                .forEach(submission -> ids.addAll(referencedFileIds(submission.getMetadata())));
-        return ids;
     }
 
     /**
@@ -287,7 +259,7 @@ public class TaskInstanceCommandHandler {
         markSubmitted(instance, submitterId, submittedAt, updatedAt, requiredStatus, claimAndAssign);
         TaskSubmission submission = insertSubmission(
                 instance, submitterId, validated.serialize(), submittedAt, updatedAt);
-        clearDraft(instance, orgId, validated.resourceIds());
+        clearDraft(instance);
         if (claimAndAssign) {
             memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId(), submittedAt);
         } else {

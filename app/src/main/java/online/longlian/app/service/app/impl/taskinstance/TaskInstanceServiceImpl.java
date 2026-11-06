@@ -164,7 +164,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             boolean projectCreator = managesPlanning(project, params.getUserId());
             taskInstanceCommandHandler.abandon(instance, params.getUserId(), projectCreator,
                     params.getExpectedRevision());
-            taskInstanceCommandHandler.discardDraft(instance, params.getOrgId());
+            taskInstanceCommandHandler.discardDraft(instance);
             if (projectCreator && !params.getUserId().equals(instance.getAssigneeId())) {
                 logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), null,
                         UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
