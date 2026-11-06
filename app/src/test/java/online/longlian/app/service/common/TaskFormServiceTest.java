@@ -106,6 +106,19 @@ class TaskFormServiceTest {
     }
 
     @Test
+    void shouldReadPartialDraftWithoutRequiringEveryField() {
+        List<TaskFormField> fields = List.of(field("title", "text", true), field("notes", "textarea", true));
+        TaskFormService.ValidatedValues saved = service.validateDraftValues(fields, Map.of("title", "  "));
+
+        assertThat(service.parseDraftValues(fields, saved.serialize()).values())
+                .containsEntry("title", "  ")
+                .containsEntry("notes", null);
+        assertThatThrownBy(() -> service.parseValues(fields, saved.serialize())).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.parseDraftValues(fields, "{")).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.parseDraftValues(fields, "[]")).isInstanceOf(AppException.class);
+    }
+
+    @Test
     void shouldRejectCorruptedSubmissionSnapshotsWithoutParserExceptions() {
         List<TaskFormField> fields = List.of(field("title", "text", true));
         for (String stored : List.of("[]", "{", "{\"title\":123}")) {
