@@ -13,6 +13,8 @@ public class TaskInstanceDetailVO {
 
     private Task task;
     private Submission submission;
+    /** 仅当前接取人可见；没有暂存时为空。 */
+    private Draft draft;
 
     /** Task identity and current execution state, independent of submission content. */
     public record Task(String id, String name, Integer stage, String status, Assignee assignee) { }
@@ -22,6 +24,9 @@ public class TaskInstanceDetailVO {
 
     /** Current effective submission; reset or rejected submissions are not returned as current. */
     public record Submission(String state, LocalDateTime submittedAt, List<Field> fields) { }
+
+    /** 接取人尚未正式提交的暂存。字段结构和版本记录相同。 */
+    public record Draft(LocalDateTime updatedAt, List<Field> fields, boolean unreadable) { }
 
     /** Ordered display items, distinct from the input form's control definitions. */
     @Schema(oneOf = {TextField.class, FileField.class}, discriminatorProperty = "type",

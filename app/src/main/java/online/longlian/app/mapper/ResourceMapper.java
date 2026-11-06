@@ -48,7 +48,7 @@ public interface ResourceMapper extends BaseMapper<Resource> {
 
     /**
      * 业务表上的当前文件编号无法用单表 Wrapper 表达。
-     * 提交内容的 fileId 在 JSON 里，LIKE 带上结束引号，避免 12 命中 123。
+     * 提交内容和任务暂存的 fileId 都在 JSON 里，LIKE 带上结束引号，避免 12 命中 123。
      * 判断和更新在同一条语句里完成，避免扫描期间刚保存的引用被标成弃置。
      */
     @Update("""
@@ -83,6 +83,11 @@ public interface ResourceMapper extends BaseMapper<Resource> {
                       ON instance.id = submission.task_instance_id AND instance.deleted_at IS NULL
                   WHERE submission.deleted_at IS NULL
                     AND submission.metadata LIKE CONCAT('%"fileId":"', #{resourceId}, '"%')
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM task_instance draft_instance
+                  WHERE draft_instance.deleted_at IS NULL
+                    AND draft_instance.draft_metadata LIKE CONCAT('%"fileId":"', #{resourceId}, '"%')
               )
             """)
     int deprecateIfUnreferenced(@Param("resourceId") Long resourceId,
