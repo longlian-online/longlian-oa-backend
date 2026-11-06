@@ -129,6 +129,24 @@ public class TaskInstanceAssembler {
         return result;
     }
 
+    /** 按版本记录的字段结构组装任务实例上的暂存。附件挂在任务实例上。 */
+    public TaskInstanceDetailVO.Draft assembleDraft(ItemTaskNode node, TaskInstance instance, Long orgId) {
+        if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
+            return null;
+        }
+        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
+        try {
+            TaskFormService.ValidatedValues validated =
+                    taskFormService.parseValues(fields, instance.getDraftMetadata());
+            Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
+                    instance.getId(), orgId, validated.resourceIds());
+            return new TaskInstanceDetailVO.Draft(
+                    instance.getDraftUpdatedAt(), displayFields(fields, validated, attachments), false);
+        } catch (AppException exception) {
+            return new TaskInstanceDetailVO.Draft(instance.getDraftUpdatedAt(), List.of(), true);
+        }
+    }
+
     /** 按表单快照顺序产出展示字段；file 字段挂接已授权附件。 */
     public List<TaskInstanceDetailVO.Field> displayFields(
             List<TaskFormField> fields,

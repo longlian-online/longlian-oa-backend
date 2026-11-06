@@ -144,6 +144,7 @@ public class TaskInstanceController {
                 TaskInstanceDetailParamsBO.builder()
                         .instanceId(instanceId)
                         .orgId(sessionContext.orgId())
+                        .userId(sessionContext.userId())
                         .build());
     }
 
@@ -261,6 +262,46 @@ public class TaskInstanceController {
                         .orgId(sessionContext.orgId())
                         .values(taskSubmitDTO.getValues())
                         .build());
+    }
+
+    @Operation(summary = "读取暂存", description = "返回当前接取人的暂存字段；没有暂存时值为空")
+    @GetMapping("/{instanceId}/draft")
+    @ResponseMessage("查询成功")
+    public online.longlian.app.pojo.vo.app.TaskDraftValuesVO getTaskDraft(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long instanceId) {
+        return new online.longlian.app.pojo.vo.app.TaskDraftValuesVO(taskInstanceService.getTaskDraft(
+                TaskInstanceOperateParamsBO.builder()
+                        .instanceId(instanceId)
+                        .userId(sessionContext.userId())
+                        .orgId(sessionContext.orgId())
+                        .build()));
+    }
+
+    @Operation(summary = "暂存任务", description = "覆盖当前接取人的一条暂存提交，不改变任务状态、提交计数和阶段解锁")
+    @PutMapping("/{instanceId}/draft")
+    @ResponseMessage("暂存成功")
+    public Long saveTaskDraft(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                              @PathVariable Long instanceId,
+                              @RequestBody @Valid TaskSubmitDTO taskSubmitDTO) {
+        return taskInstanceService.saveTaskDraft(TaskInstanceSubmitParamsBO.builder()
+                .instanceId(instanceId)
+                .userId(sessionContext.userId())
+                .orgId(sessionContext.orgId())
+                .values(taskSubmitDTO.getValues())
+                .build());
+    }
+
+    @Operation(summary = "提交暂存", description = "把当前暂存提交转为正式提交")
+    @PostMapping("/{instanceId}/draft/submit")
+    @ResponseMessage("提交成功")
+    public void submitTaskDraft(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+                                 @PathVariable Long instanceId) {
+        taskInstanceService.submitTaskDraft(TaskInstanceOperateParamsBO.builder()
+                .instanceId(instanceId)
+                .userId(sessionContext.userId())
+                .orgId(sessionContext.orgId())
+                .build());
     }
 
     @Operation(

@@ -124,21 +124,37 @@ public class TaskFormService {
         Map<String, Object> normalized = new LinkedHashMap<>();
         List<Long> resourceIds = new ArrayList<>();
         for (TaskFormField field : fields) {
-            normalized.put(field.key(), normalizeValue(field, values.get(field.key()), resourceIds));
+            normalized.put(field.key(), normalizeValue(field, values.get(field.key()), resourceIds, true));
         }
         return new ValidatedValues(normalized, resourceIds.stream().distinct().toList());
     }
 
-    private Object normalizeValue(TaskFormField field, Object value, List<Long> resourceIds) {
+    /** 暂存允许缺少必填项，已填写的字段仍按正式提交的类型校验。 */
+    public ValidatedValues validateDraftValues(List<TaskFormField> fields, Map<String, Object> values) {
+        Set<String> keys = new HashSet<>();
+        fields.forEach(field -> keys.add(field.key()));
+        if (values != null && !keys.containsAll(values.keySet())) {
+            throw invalid("提交包含未定义字段");
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        List<Long> resourceIds = new ArrayList<>();
+        Map<String, Object> source = values == null ? Map.of() : values;
+        for (TaskFormField field : fields) {
+            normalized.put(field.key(), normalizeValue(field, source.get(field.key()), resourceIds, false));
+        }
+        return new ValidatedValues(normalized, resourceIds.stream().distinct().toList());
+    }
+
+    private Object normalizeValue(TaskFormField field, Object value, List<Long> resourceIds, boolean required) {
         boolean empty = value == null || value instanceof String text && text.isEmpty();
         if (empty) {
-            if (field.required()) {
+            if (required && field.required()) {
                 throw invalid(field.label() + "不能为空");
             }
             return null;
         }
         return field.type().equals("file")
-                ? normalizeFile(field, value, resourceIds) : normalizeText(field, value);
+                ? normalizeFile(field, value, resourceIds) : normalizeText(field, value, required);
     }
 
     private Map<String, String> normalizeFile(TaskFormField field, Object value, List<Long> resourceIds) {
@@ -151,11 +167,11 @@ public class TaskFormService {
         return Map.of("fileId", Long.toString(id));
     }
 
-    private String normalizeText(TaskFormField field, Object value) {
+    private String normalizeText(TaskFormField field, Object value, boolean required) {
         if (!(value instanceof String text)) {
             throw invalid(field.label() + "必须为文本");
         }
-        if (field.required() && text.isBlank()) {
+        if (required && field.required() && text.isBlank()) {
             throw invalid(field.label() + "不能为空");
         }
         if (field.type().equals("select") && !field.options().contains(text)) {

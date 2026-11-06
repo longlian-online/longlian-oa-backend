@@ -36,6 +36,12 @@ public class ResourceDeprecationTaskApiTest extends BaseApiTest {
                         + "VALUES (1, 1, 1, 1, 1, 3), (2, 1, 1, 1, 1, 3)");
         jdbcTemplate.update("UPDATE task_instance SET deleted_at = NOW() WHERE id = 2");
         jdbcTemplate.update(
+                "UPDATE task_instance SET draft_metadata = ? WHERE id = 1",
+                "{\"draft\":{\"fileId\":\"16\"}}");
+        jdbcTemplate.update(
+                "UPDATE task_instance SET draft_metadata = ? WHERE id = 2",
+                "{\"draft\":{\"fileId\":\"17\"}}");
+        jdbcTemplate.update(
                 "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, "
                         + "submitter_id, version_no, metadata, status) VALUES "
                         + "(1, 1, 1, 1, 1, 1, 1, ?, 3),"
@@ -44,7 +50,7 @@ public class ResourceDeprecationTaskApiTest extends BaseApiTest {
                 "{\"old\":{\"fileId\":\"10\"}}",
                 "{\"file\":{\"fileId\":\"123\"}}",
                 "{\"file\":{\"fileId\":\"13\"}}");
-        for (long id : new long[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 123}) {
+        for (long id : new long[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 123}) {
             createResource(id, 1L, 1L);
         }
         LocalDateTime keptDeprecatedAt = LocalDateTime.of(2026, 1, 2, 3, 4, 5);
@@ -61,11 +67,11 @@ public class ResourceDeprecationTaskApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
 
-        for (long id : new long[]{1, 2, 4, 6, 8, 10, 123}) {
+        for (long id : new long[]{1, 2, 4, 6, 8, 10, 16, 123}) {
             assertThat(status(id)).as("resource %s stays activated", id)
                     .isEqualTo(FileProcessStatus.Activated.getCode());
         }
-        for (long id : new long[]{3, 5, 7, 9, 12, 13}) {
+        for (long id : new long[]{3, 5, 7, 9, 12, 13, 17}) {
             assertThat(status(id)).as("resource %s is deprecated", id)
                     .isEqualTo(FileProcessStatus.Deprecated.getCode());
             assertThat(deprecatedAt(id)).isNotNull();
