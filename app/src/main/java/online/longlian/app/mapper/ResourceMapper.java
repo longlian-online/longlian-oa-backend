@@ -94,4 +94,45 @@ public interface ResourceMapper extends BaseMapper<Resource> {
                                 @Param("executeTime") LocalDateTime executeTime,
                                 @Param("activatedStatus") int activatedStatus,
                                 @Param("deprecatedStatus") int deprecatedStatus);
+
+    /**
+     * 组织文件页主动弃置任务提交文件。提交内容和暂存仍可能引用它，那些页面会显示为不可用。
+     * 封面、头像和企划附件仍引用时不弃置，避免误伤其他资料。
+     */
+    @Update("""
+            UPDATE resource
+            SET process_status = #{deprecatedStatus},
+                deprecated_at = #{executeTime},
+                updated_at = #{executeTime}
+            WHERE id = #{resourceId}
+              AND org_id = #{orgId}
+              AND biz_type = 'task_submit'
+              AND biz_id = #{taskInstanceId}
+              AND deleted_at IS NULL
+              AND process_status = #{activatedStatus}
+              AND storage_cleaned_at IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM project
+                  WHERE deleted_at IS NULL
+                    AND (cover_file_id = #{resourceId} OR thumbnail_file_id = #{resourceId})
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM `user`
+                  WHERE deleted_at IS NULL AND avatar_file_id = #{resourceId}
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM organization
+                  WHERE deleted_at IS NULL AND avatar_file_id = #{resourceId}
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM project_attachment
+                  WHERE deleted_at IS NULL AND file_id = #{resourceId}
+              )
+            """)
+    int deprecateTaskSubmitFile(@Param("resourceId") Long resourceId,
+                                @Param("taskInstanceId") Long taskInstanceId,
+                                @Param("orgId") Long orgId,
+                                @Param("executeTime") LocalDateTime executeTime,
+                                @Param("activatedStatus") int activatedStatus,
+                                @Param("deprecatedStatus") int deprecatedStatus);
 }
