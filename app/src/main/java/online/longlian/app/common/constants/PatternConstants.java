@@ -10,6 +10,6 @@ public class PatternConstants {
     public static final String EMAIL_CODE_PATTERN = "^[A-Z0-9]{6}$";
     public static final String FILE_EXT_PATTERN = "(?i)jpg|jpeg|png|gif|webp|avif|bmp|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z|mp4|webm|mp3|wav|ogg|oga|opus|m4a|aac|flac|weba";
     public static final String FILE_MIME_PATTERN = "(?i)image/(jpeg|png|gif|webp|avif|bmp)|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application/vnd.ms-powerpoint|application/vnd.openxmlformats-officedocument.presentationml.presentation|text/plain|text/csv|application/zip|application/x-zip-compressed|application/vnd.rar|application/x-rar-compressed|application/x-7z-compressed|video/(mp4|webm)|audio/(mpeg|mp3|wav|x-wav|wave|ogg|opus|mp4|x-m4a|m4a|aac|flac|webm)";
-    public static final String FILE_BIZ_TYPE_PATTERN = "avatar|cover|thumbnail|task_submit|project_attachment";
+    public static final String FILE_BIZ_TYPE_PATTERN = "avatar|cover|thumbnail|task_submit|task_draft|project_attachment";
     public static final String TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 }

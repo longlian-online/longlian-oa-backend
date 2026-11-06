@@ -112,6 +112,12 @@ public interface TaskInstanceService {
      */
     void submitTask(TaskInstanceSubmitParamsBO params);
 
+    /** 保存或覆盖当前接取人的一条暂存提交，不改变任务状态。 */
+    Long saveTaskDraft(TaskInstanceSubmitParamsBO params);
+
+    /** 把当前暂存提交正式提交。 */
+    void submitTaskDraft(TaskInstanceOperateParamsBO params);
+
     /**
      * 代提交：{@code PENDING → COMPLETED}。仅企划负责人可把未接取任务记到指定组员名下，
      * 提交时间使用设定值。组员必须是当前组织的启用成员，不要求已加入该企划，也不会自动加入。

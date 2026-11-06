@@ -85,10 +85,10 @@ public class TaskSubmission implements Serializable {
     private String metadata;
 
     /**
-     * 提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)
+     * 提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置) 4-DRAFT(暂存)
      */
     @TableField("status")
-    @ApiModelProperty("提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)")
+    @ApiModelProperty("提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置) 4-DRAFT(暂存)")
     private TaskSubmissionStatus status;
 
     /**

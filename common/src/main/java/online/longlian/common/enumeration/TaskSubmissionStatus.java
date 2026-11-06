@@ -11,7 +11,8 @@ public enum TaskSubmissionStatus implements CodeEnum {
 
     SUBMITTED(1, "已提交"),
     REJECTED(2, "已打回"),
-    RESET(3, "已重置");
+    RESET(3, "已重置"),
+    DRAFT(4, "暂存");
 
     private final Integer code;
     private final String desc;

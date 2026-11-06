@@ -120,6 +120,101 @@ public class TaskInstanceCommandHandler {
                 now, now, TaskInstanceStatus.CLAIMED, false);
     }
 
+    /** 每个任务只保留一条暂存提交。再次暂存覆盖内容，不产生新版本。 */
+    public Long saveDraft(TaskInstance instance, Long userId, Long orgId, Map<String, Object> values) {
+        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可暂存");
+        }
+        requireAssignee(instance, userId, "仅接取人可暂存任务");
+        ItemTaskNode node = requireNode(instance);
+        TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
+                taskFormService.parseFields(node.getMetaSchema()), values);
+        TaskSubmission draft = currentDraft(instance.getId());
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (draft == null) {
+            draft = TaskSubmission.builder()
+                    .projectId(instance.getProjectId())
+                    .itemId(instance.getItemId())
+                    .taskInstanceId(instance.getId())
+                    .itemTaskNodeId(instance.getItemTaskNodeId())
+                    .submitterId(userId)
+                    .metadata(validated.serialize())
+                    .status(TaskSubmissionStatus.DRAFT)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            taskSubmissionMapper.insert(draft);
+        } else {
+            taskSubmissionMapper.update(null, new LambdaUpdateWrapper<TaskSubmission>()
+                    .eq(TaskSubmission::getId, draft.getId())
+                    .eq(TaskSubmission::getStatus, TaskSubmissionStatus.DRAFT)
+                    .set(TaskSubmission::getMetadata, validated.serialize())
+                    .set(TaskSubmission::getUpdatedAt, now));
+        }
+        resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
+                .resourceIds(validated.resourceIds()).bizType("task_draft").bizId(draft.getId())
+                .orgId(orgId).creatorId(userId).build());
+        return draft.getId();
+    }
+
+    /** 把当前暂存提交转为正式提交，附件改绑到任务实例。 */
+    public TaskInstanceSubmitResultBO submitDraft(TaskInstance instance, Long userId, Long orgId) {
+        if (instance.getStatus() != TaskInstanceStatus.CLAIMED) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "该任务不可提交");
+        }
+        requireAssignee(instance, userId, "仅接取人可提交任务");
+        ItemTaskNode node = requireNode(instance);
+        List<ItemStageNodeStatusBO> beforeNodes = requirePreviousStagesCompleted(instance, node);
+        TaskSubmission draft = currentDraft(instance.getId());
+        if (draft == null) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "没有可提交的暂存");
+        }
+        TaskFormService.ValidatedValues validated = taskFormService.validateValues(
+                taskFormService.parseFields(node.getMetaSchema()),
+                com.alibaba.fastjson2.JSON.parseObject(draft.getMetadata()));
+        resourceService.publishDraftFiles(draft.getId(), instance.getId(), orgId, validated.resourceIds());
+        LocalDateTime now = LocalDateTime.now(clock);
+        requireUpdated(taskInstanceMapper.update(null, new LambdaUpdateWrapper<TaskInstance>()
+                .eq(TaskInstance::getId, instance.getId())
+                .eq(TaskInstance::getRevision, instance.getRevision())
+                .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                .eq(TaskInstance::getAssigneeId, userId)
+                .setSql("revision = revision + 1")
+                .set(TaskInstance::getStatus, TaskInstanceStatus.COMPLETED)
+                .set(TaskInstance::getSubmittedAt, now)
+                .set(TaskInstance::getCompletedAt, now)
+                .set(TaskInstance::getUpdatedAt, now)));
+        int promoted = taskSubmissionMapper.update(null, new LambdaUpdateWrapper<TaskSubmission>()
+                .eq(TaskSubmission::getId, draft.getId())
+                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.DRAFT)
+                .set(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED)
+                .set(TaskSubmission::getVersionNo, nextVersionNo(instance.getId()))
+                .set(TaskSubmission::getMetadata, validated.serialize())
+                .set(TaskSubmission::getUpdatedAt, now));
+        if (promoted != 1) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "没有可提交的暂存");
+        }
+        memberSubmitCountHandler.incrementSubmitCount(userId, instance.getProjectId());
+        return new TaskInstanceSubmitResultBO(draft.getId(), now, beforeNodes);
+    }
+
+    public void discardDraft(Long taskInstanceId, Long orgId) {
+        TaskSubmission draft = currentDraft(taskInstanceId);
+        if (draft == null) {
+            return;
+        }
+        resourceService.abandonBound(online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO.builder()
+                .orgId(orgId).bizType("task_draft").bizIds(List.of(draft.getId())).build());
+        taskSubmissionMapper.deleteById(draft.getId());
+    }
+
+    public TaskSubmission currentDraft(Long taskInstanceId) {
+        return taskSubmissionMapper.selectOne(new LambdaQueryWrapper<TaskSubmission>()
+                .eq(TaskSubmission::getTaskInstanceId, taskInstanceId)
+                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.DRAFT)
+                .isNull(TaskSubmission::getVersionNo));
+    }
+
     /**
      * 代提交：PENDING → COMPLETED，不经过接取。
      * 提交记录和任务时间归指定组员，且使用调用方设定的提交时间；附件仍由实际操作人绑定。

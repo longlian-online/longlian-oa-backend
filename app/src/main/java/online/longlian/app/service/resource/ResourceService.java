@@ -315,10 +315,18 @@ public class ResourceService {
         }
     }
 
+    /** 任务附件上传时记为 task_draft；提交时目标类型是 task_submit。其他业务类型必须一致。 */
+    private boolean acceptableUploadType(Resource resource, BindScope scope) {
+        if (Objects.equals(resource.getBizType(), scope.bizType())) {
+            return true;
+        }
+        return "task_draft".equals(resource.getBizType()) && "task_submit".equals(scope.bizType());
+    }
+
     private void validateBind(Resource resource, BindScope scope) {
         if (resource == null || !Objects.equals(resource.getCreatorId(), scope.creatorId())
                 || (scope.orgId() != null && !Objects.equals(resource.getOrgId(), scope.orgId()))
-                || !Objects.equals(resource.getBizType(), scope.bizType())
+                || !acceptableUploadType(resource, scope)
                 || !Objects.equals(resource.getBizId(), 0L)
                 || (resource.getProcessStatus() != FileProcessStatus.Pending
                     && resource.getProcessStatus() != FileProcessStatus.Uploaded)) {
@@ -340,6 +348,7 @@ public class ResourceService {
         }
         int activated = resourceMapper.update(null, unboundUpdate(resource.getId(), scope)
                 .eq(Resource::getProcessStatus, FileProcessStatus.Uploaded)
+                .set(Resource::getBizType, scope.bizType())
                 .set(Resource::getBizId, scope.bizId())
                 .set(Resource::getProcessStatus, FileProcessStatus.Activated)
                 .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
@@ -358,6 +367,29 @@ public class ResourceService {
     }
 
     private record BindScope(String bizType, Long bizId, Long creatorId, Long orgId) {
+    }
+
+    /**
+     * 把暂存提交上的附件改绑到任务实例，类型从 task_draft 改为 task_submit。
+     */
+    public void publishDraftFiles(Long draftSubmissionId, Long taskInstanceId, Long orgId, List<Long> resourceIds) {
+        if (resourceIds == null || resourceIds.isEmpty()) {
+            return;
+        }
+        List<Long> ids = resourceIds.stream().distinct().sorted().toList();
+        int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
+                .in(Resource::getId, ids)
+                .eq(Resource::getOrgId, orgId)
+                .eq(Resource::getBizType, "task_draft")
+                .eq(Resource::getBizId, draftSubmissionId)
+                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .isNull(Resource::getStorageCleanedAt)
+                .set(Resource::getBizType, "task_submit")
+                .set(Resource::getBizId, taskInstanceId)
+                .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
+        if (updated != ids.size()) {
+            throw unauthorized();
+        }
     }
 
     /**

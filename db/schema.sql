@@ -422,7 +422,7 @@ CREATE TABLE `task_submission` (
   `submitter_id` bigint NOT NULL COMMENT "提交人ID",
   `version_no` int NULL COMMENT "提交版本号（任务实例内从 1 递增；存量数据由数据迁移回填）",
   `metadata` json NULL COMMENT "提交元数据(JSON对象，按节点 meta_schema 组织)",
-  `status` tinyint NOT NULL DEFAULT 1 COMMENT "提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置)",
+  `status` tinyint NOT NULL DEFAULT 1 COMMENT "提交状态 1-SUBMITTED(已提交) 2-REJECTED(已打回) 3-RESET(已重置) 4-DRAFT(暂存)",
   `reviewer_id` bigint NULL COMMENT "审核人ID（打回操作人）",
   `reviewed_at` datetime NULL COMMENT "审核/打回时间",
   `review_comment` varchar(500) NULL DEFAULT "" COMMENT "审核/打回意见",

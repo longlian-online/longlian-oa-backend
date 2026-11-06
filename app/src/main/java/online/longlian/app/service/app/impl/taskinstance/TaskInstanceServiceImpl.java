@@ -163,6 +163,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             boolean projectCreator = managesPlanning(project, params.getUserId());
             taskInstanceCommandHandler.abandon(instance, params.getUserId(), projectCreator,
                     params.getExpectedRevision());
+            taskInstanceCommandHandler.discardDraft(instance.getId(), params.getOrgId());
             if (projectCreator && !params.getUserId().equals(instance.getAssigneeId())) {
                 logOwnerOperation(instance, params.getUserId(), params.getExpectedRevision(), null,
                         UserOperationType.TASK_ABANDON, "OWNER_CANCEL");
@@ -179,6 +180,24 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submit(
                     instance, params.getUserId(), params.getOrgId(), params.getValues());
+            finishSubmission(instance, project, result, params.getUserId());
+            operationLogService.log(params.getUserId(), instance.getProjectId(),
+                    instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
+            return null;
+        });
+    }
+
+    @Override
+    public Long saveTaskDraft(TaskInstanceSubmitParamsBO params) {
+        return mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) ->
+                taskInstanceCommandHandler.saveDraft(instance, params.getUserId(), params.getOrgId(), params.getValues()));
+    }
+
+    @Override
+    public void submitTaskDraft(TaskInstanceOperateParamsBO params) {
+        mutateTask(params.getInstanceId(), params.getOrgId(), params.getUserId(), (instance, project) -> {
+            TaskInstanceSubmitResultBO result = taskInstanceCommandHandler.submitDraft(
+                    instance, params.getUserId(), params.getOrgId());
             finishSubmission(instance, project, result, params.getUserId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_SUBMIT, params);
@@ -374,6 +393,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         List<TaskSubmission> submissions = taskSubmissionMapper.selectList(
                 new LambdaQueryWrapper<TaskSubmission>()
                         .eq(TaskSubmission::getTaskInstanceId, params.getInstanceId())
+                        .ne(TaskSubmission::getStatus, online.longlian.common.enumeration.TaskSubmissionStatus.DRAFT)
                         .orderByDesc(TaskSubmission::getVersionNo));
 
         return taskInstanceAssembler.assembleSubmissionVersions(instance, node, submissions, params.getOrgId());
