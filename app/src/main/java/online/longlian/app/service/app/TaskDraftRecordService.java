@@ -8,6 +8,8 @@ import online.longlian.app.pojo.bo.app.TaskDraftRecordResultBO;
 import online.longlian.app.pojo.bo.app.TaskDraftRecordSaveParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSummaryParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSummaryResultBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
 
 import java.util.Map;
 
@@ -28,4 +30,10 @@ public interface TaskDraftRecordService {
     void abandonTaskInstanceResources(TaskDraftDiscardParamsBO params);
 
     Map<Long, TaskDraftSummaryResultBO> getTaskDraftSummaries(TaskDraftSummaryParamsBO params);
+
+    /** 把本次暂存引用的上传绑到新草稿。未绑定上传被激活；上一份草稿的附件只改绑。 */
+    void bindTaskDraftFiles(TaskDraftFileBindParamsBO params);
+
+    /** 正式提交时，把指定草稿的附件改绑为任务提交附件。 */
+    void promoteTaskDraftFiles(TaskDraftFilePromoteParamsBO params);
 }

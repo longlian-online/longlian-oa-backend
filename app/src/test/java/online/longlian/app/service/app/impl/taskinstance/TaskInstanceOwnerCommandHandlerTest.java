@@ -13,6 +13,7 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -63,6 +64,8 @@ class TaskInstanceOwnerCommandHandlerTest {
     private MemberSubmitCountHandler memberSubmitCountHandler;
     @Mock
     private ResourceService resourceService;
+    @Mock
+    private TaskDraftRecordService taskDraftRecordService;
 
     private TaskInstanceCommandHandler handler;
 
@@ -74,7 +77,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), ItemTaskNode.class);
         handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper, itemTaskNodeMapper,
                 memberSubmitCountHandler, Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC),
-                new TaskFormService(), resourceService);
+                new TaskFormService(), resourceService, taskDraftRecordService);
     }
 
     @Test

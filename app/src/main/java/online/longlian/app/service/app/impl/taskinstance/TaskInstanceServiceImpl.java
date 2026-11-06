@@ -405,7 +405,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             TaskDraftRecordResultBO draft = taskDraftRecordService.saveTaskDraftRecord(TaskDraftRecordSaveParamsBO.builder()
                     .instanceId(instance.getId()).userId(params.getUserId()).orgId(params.getOrgId())
                     .expectedDraftId(params.getExpectedDraftId()).metadata(validated.serialize()).build());
-            resourceService.bindTaskDraftFiles(TaskDraftFileBindParamsBO.builder()
+            taskDraftRecordService.bindTaskDraftFiles(TaskDraftFileBindParamsBO.builder()
                     .userId(params.getUserId()).orgId(params.getOrgId()).draftId(draft.getId())
                     .previousDraftId(params.getExpectedDraftId() == null ? null : Long.valueOf(params.getExpectedDraftId()))
                     .fileIds(validated.resourceIds()).build());

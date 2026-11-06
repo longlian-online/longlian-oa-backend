@@ -29,8 +29,9 @@ import online.longlian.common.enumeration.StorageType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriUtils;
 
-import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
+import online.longlian.app.pojo.bo.common.LockedResourceBO;
+import online.longlian.app.pojo.bo.common.ResourceActivateUnboundParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceRebindParamsBO;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -368,100 +369,63 @@ public class ResourceService {
                 .eq(Resource::getBizId, 0L);
     }
 
-    /**
-     * 把本次暂存引用的上传绑到新草稿。
-     * 未绑定的任务上传在同一事务里激活；上一份草稿仍保留的附件只改绑，不复制、不废弃。
-     */
+    /** 按主键排序锁定资源。调用方负责判断数量和业务归属。 */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void bindTaskDraftFiles(TaskDraftFileBindParamsBO params) {
-        List<Long> fileIds = params.getFileIds().stream().distinct().sorted().toList();
-        if (fileIds.isEmpty()) {
-            return;
+    public List<LockedResourceBO> lockResources(List<Long> resourceIds) {
+        if (resourceIds.isEmpty()) {
+            return List.of();
         }
-        List<Resource> resources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
-                .in(Resource::getId, fileIds)
-                .orderByAsc(Resource::getId)
-                .last("FOR UPDATE"));
-        if (resources.size() != fileIds.size()) {
-            throw unauthorized();
-        }
-        for (Resource resource : resources) {
-            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
-                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
-                    || resource.getStorageCleanedAt() != null) {
-                throw unauthorized();
-            }
-            if (isUnboundTaskUpload(resource)) {
-                BindScope scope = new BindScope("task_submit", params.getDraftId(), params.getUserId(), params.getOrgId());
-                validateBind(resource, scope);
-                activateBound(resource, scope, "task_draft");
-            } else if (isRetainedDraftFile(resource, params.getPreviousDraftId())) {
-                int moved = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                        .eq(Resource::getId, resource.getId())
-                        .eq(Resource::getBizType, "task_draft")
-                        .eq(Resource::getBizId, params.getPreviousDraftId())
-                        .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
-                        .isNull(Resource::getStorageCleanedAt)
-                        .set(Resource::getBizId, params.getDraftId())
-                        .set(Resource::getUpdatedAt, LocalDateTime.now(clock)));
-                if (moved != 1) {
-                    throw unauthorized();
-                }
-            } else {
-                throw unauthorized();
-            }
-        }
+        return resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
+                        .in(Resource::getId, resourceIds)
+                        .orderByAsc(Resource::getId)
+                        .last("FOR UPDATE"))
+                .stream()
+                .map(resource -> LockedResourceBO.builder()
+                        .id(resource.getId())
+                        .orgId(resource.getOrgId())
+                        .creatorId(resource.getCreatorId())
+                        .bizType(resource.getBizType())
+                        .bizId(resource.getBizId())
+                        .processStatus(resource.getProcessStatus())
+                        .storageCleanedAt(resource.getStorageCleanedAt())
+                        .build())
+                .toList();
     }
 
-    private boolean isUnboundTaskUpload(Resource resource) {
-        return "task_submit".equals(resource.getBizType())
-                && Objects.equals(resource.getBizId(), 0L)
-                && (resource.getProcessStatus() == FileProcessStatus.Pending
-                        || resource.getProcessStatus() == FileProcessStatus.Uploaded);
-    }
-
-    private boolean isRetainedDraftFile(Resource resource, Long previousDraftId) {
-        return previousDraftId != null
-                && "task_draft".equals(resource.getBizType())
-                && Objects.equals(resource.getBizId(), previousDraftId)
-                && resource.getProcessStatus() == FileProcessStatus.Activated;
-    }
-
+    /** 激活一份尚未绑定的上传。当前行必须仍是未绑定状态。 */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void promoteTaskDraftFiles(TaskDraftFilePromoteParamsBO params) {
-        List<Long> fileIds = params.getFileIds().stream().distinct().sorted().toList();
-        if (fileIds.isEmpty()) {
-            return;
-        }
-        List<Resource> resources = resourceMapper.selectList(new LambdaQueryWrapper<Resource>()
-                .in(Resource::getId, fileIds)
-                .orderByAsc(Resource::getId)
-                .last("FOR UPDATE"));
-        if (resources.size() != fileIds.size()) {
-            throw unauthorized();
-        }
-        for (Resource resource : resources) {
-            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
-                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
-                    || !"task_draft".equals(resource.getBizType())
-                    || !Objects.equals(resource.getBizId(), params.getDraftId())
-                    || resource.getProcessStatus() != FileProcessStatus.Activated
-                    || resource.getStorageCleanedAt() != null) {
+    public void activateUnbound(ResourceActivateUnboundParamsBO params) {
+        Resource resource = resourceMapper.selectById(params.getResourceId());
+        BindScope scope = new BindScope(params.getCurrentBizType(), params.getTargetBizId(),
+                params.getCreatorId(), params.getOrgId());
+        validateBind(resource, scope);
+        activateBound(resource, scope, params.getTargetBizType());
+    }
+
+    /** 改绑一份已激活资源。条件不匹配时不更新。 */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void rebindActivated(ResourceRebindParamsBO params) {
+        if (params.isProbe()) {
+            Resource resource = resourceMapper.selectById(params.getResourceId());
+            if (resource == null) {
                 throw unauthorized();
             }
             storageFactory.get(resource.getStorageType()).probe(new ResourceProbeParamsBO(
                     resource.getStorageKey(), resource.getFileSize(), resource.getFileMime()));
-            int updated = resourceMapper.update(null, new LambdaUpdateWrapper<Resource>()
-                    .eq(Resource::getId, resource.getId())
-                    .eq(Resource::getBizType, "task_draft")
-                    .eq(Resource::getBizId, params.getDraftId())
-                    .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
-                    .isNull(Resource::getStorageCleanedAt)
-                    .set(Resource::getBizType, "task_submit")
-                    .set(Resource::getBizId, params.getInstanceId()));
-            if (updated != 1) {
-                throw unauthorized();
-            }
+        }
+        LambdaUpdateWrapper<Resource> update = new LambdaUpdateWrapper<Resource>()
+                .eq(Resource::getId, params.getResourceId())
+                .eq(Resource::getBizType, params.getCurrentBizType())
+                .eq(Resource::getBizId, params.getCurrentBizId())
+                .eq(Resource::getProcessStatus, FileProcessStatus.Activated)
+                .isNull(Resource::getStorageCleanedAt)
+                .set(Resource::getBizType, params.getTargetBizType())
+                .set(Resource::getBizId, params.getTargetBizId());
+        if (!params.isProbe()) {
+            update.set(Resource::getUpdatedAt, LocalDateTime.now(clock));
+        }
+        if (resourceMapper.update(null, update) != 1) {
+            throw unauthorized();
         }
     }
 

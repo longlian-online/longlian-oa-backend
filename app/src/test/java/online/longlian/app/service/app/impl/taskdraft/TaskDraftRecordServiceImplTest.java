@@ -7,8 +7,12 @@ import online.longlian.app.mapper.TaskDraftMapper;
 import online.longlian.app.pojo.bo.app.TaskDraftConsumeParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftDiscardParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftRecordSaveParamsBO;
+import online.longlian.app.pojo.bo.common.LockedResourceBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
 import online.longlian.app.pojo.entity.TaskDraft;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.TaskDraftStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -134,6 +138,52 @@ class TaskDraftRecordServiceImplTest {
     void shouldSkipAbandonWhenThereIsNoInstance() {
         service.abandonTaskInstanceResources(new TaskDraftDiscardParamsBO(List.of(), 2L));
         verifyNoInteractions(resources, mapper);
+    }
+
+    private LockedResourceBO locked(String bizType, long bizId, FileProcessStatus status) {
+        return LockedResourceBO.builder().id(1L).orgId(2L).creatorId(3L)
+                .bizType(bizType).bizId(bizId).processStatus(status).build();
+    }
+
+    @Test
+    void shouldActivateUnboundUploadOntoTheNewDraft() {
+        when(resources.lockResources(List.of(1L))).thenReturn(List.of(
+                locked("task_submit", 0L, FileProcessStatus.Pending)));
+        service.bindTaskDraftFiles(new TaskDraftFileBindParamsBO(3L, 2L, 11L, null, List.of(1L)));
+        verify(resources).activateUnbound(argThat(params -> params.getTargetBizType().equals("task_draft")
+                && params.getTargetBizId().equals(11L) && params.getCurrentBizType().equals("task_submit")));
+        verify(resources, never()).rebindActivated(any());
+    }
+
+    @Test
+    void shouldRebindRetainedDraftFileWithoutActivating() {
+        when(resources.lockResources(List.of(1L))).thenReturn(List.of(
+                locked("task_draft", 10L, FileProcessStatus.Activated)));
+        service.bindTaskDraftFiles(new TaskDraftFileBindParamsBO(3L, 2L, 11L, 10L, List.of(1L)));
+        verify(resources).rebindActivated(argThat(params -> !params.isProbe()
+                && params.getCurrentBizId().equals(10L) && params.getTargetBizId().equals(11L)
+                && params.getTargetBizType().equals("task_draft")));
+        verify(resources, never()).activateUnbound(any());
+    }
+
+    @Test
+    void shouldRejectFilesFromAnotherDraft() {
+        when(resources.lockResources(List.of(1L))).thenReturn(List.of(
+                locked("task_draft", 99L, FileProcessStatus.Activated)));
+        assertThatThrownBy(() -> service.bindTaskDraftFiles(
+                new TaskDraftFileBindParamsBO(3L, 2L, 11L, 10L, List.of(1L))))
+                .isInstanceOf(AppException.class);
+        verify(resources, never()).activateUnbound(any());
+        verify(resources, never()).rebindActivated(any());
+    }
+
+    @Test
+    void shouldPromoteOnlyFilesOwnedByTheSubmittedDraft() {
+        when(resources.lockResources(List.of(1L))).thenReturn(List.of(
+                locked("task_draft", 11L, FileProcessStatus.Activated)));
+        service.promoteTaskDraftFiles(new TaskDraftFilePromoteParamsBO(3L, 2L, 11L, 100L, List.of(1L)));
+        verify(resources).rebindActivated(argThat(params -> params.isProbe()
+                && params.getTargetBizType().equals("task_submit") && params.getTargetBizId().equals(100L)));
     }
 
     @Test

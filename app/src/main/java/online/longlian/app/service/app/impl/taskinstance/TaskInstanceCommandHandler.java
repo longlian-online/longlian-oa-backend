@@ -16,6 +16,7 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
+import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -44,6 +45,7 @@ public class TaskInstanceCommandHandler {
     private final Clock clock;
     private final TaskFormService taskFormService;
     private final ResourceService resourceService;
+    private final TaskDraftRecordService taskDraftRecordService;
 
     /**
      * 接取任务：PENDING -> CLAIMED，归属操作人。
@@ -168,7 +170,7 @@ public class TaskInstanceCommandHandler {
                     .resourceIds(validated.resourceIds()).bizType("task_submit").bizId(instance.getId())
                     .orgId(orgId).creatorId(resourceOwnerId).build());
         } else {
-            resourceService.promoteTaskDraftFiles(new TaskDraftFilePromoteParamsBO(
+            taskDraftRecordService.promoteTaskDraftFiles(new TaskDraftFilePromoteParamsBO(
                     resourceOwnerId, orgId, draftId, instance.getId(), validated.resourceIds()));
         }
 

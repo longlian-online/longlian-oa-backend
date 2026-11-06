@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
-import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceActivateUnboundParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceRebindParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
@@ -20,10 +20,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TaskDraftAttachmentBindingTest {
@@ -45,65 +51,59 @@ class TaskDraftAttachmentBindingTest {
                 .storageKey("task_submit/1.txt").fileSize(8L).fileMime("text/plain").build();
     }
 
-    private TaskDraftFileBindParamsBO bindParams(Long previousId) {
-        return new TaskDraftFileBindParamsBO(3L, 2L, 11L, previousId, List.of(1L));
+    @Test
+    void shouldLockRequestedResourcesInIdOrder() {
+        when(mapper.selectList(any())).thenReturn(List.of(upload()));
+        assertThat(service.lockResources(List.of(1L))).extracting(resource -> resource.getId()).containsExactly(1L);
     }
 
     @Test
     void shouldProbeAndActivateNewUploadUsingTheExistingUploadTransition() {
-        when(mapper.selectList(any())).thenReturn(List.of(upload()));
+        when(mapper.selectById(1L)).thenReturn(upload());
         when(mapper.update(isNull(), any())).thenReturn(1);
         when(factory.get(StorageType.LOCAL)).thenReturn(storage);
-        service.bindTaskDraftFiles(bindParams(null));
+        service.activateUnbound(ResourceActivateUnboundParamsBO.builder()
+                .resourceId(1L).creatorId(3L).orgId(2L)
+                .currentBizType("task_submit").targetBizType("task_draft").targetBizId(11L).build());
         verify(storage).probe(any());
         verify(mapper, times(2)).update(isNull(), any());
     }
 
     @Test
-    void shouldMoveRetainedFileWithoutAnotherStorageOperation() {
-        Resource resource = upload();
-        resource.setBizType("task_draft");
-        resource.setBizId(10L);
-        resource.setProcessStatus(FileProcessStatus.Activated);
-        when(mapper.selectList(any())).thenReturn(List.of(resource));
-        when(mapper.update(isNull(), any())).thenReturn(1);
-        service.bindTaskDraftFiles(bindParams(10L));
-        verify(mapper).update(isNull(), any());
-        verifyNoInteractions(factory, storage);
-    }
-
-    @Test
-    void shouldRejectFilesFromAnotherDraft() {
-        Resource resource = upload();
-        resource.setBizType("task_draft");
-        resource.setBizId(99L);
-        resource.setProcessStatus(FileProcessStatus.Activated);
-        when(mapper.selectList(any())).thenReturn(List.of(resource));
-        assertThatThrownBy(() -> service.bindTaskDraftFiles(bindParams(10L))).isInstanceOf(AppException.class);
-        verify(mapper, never()).update(isNull(), any());
-        verifyNoInteractions(factory);
-    }
-
-    @Test
-    void shouldNotBindAnIncompleteUpload() {
-        when(mapper.selectList(any())).thenReturn(List.of(upload()));
+    void shouldNotActivateAnIncompleteUpload() {
+        when(mapper.selectById(1L)).thenReturn(upload());
         when(factory.get(StorageType.LOCAL)).thenReturn(storage);
         doThrow(new AppException(online.longlian.app.common.result.ResultCode.OPERATION_FAIL)).when(storage).probe(any());
-        assertThatThrownBy(() -> service.bindTaskDraftFiles(bindParams(null))).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.activateUnbound(ResourceActivateUnboundParamsBO.builder()
+                .resourceId(1L).creatorId(3L).orgId(2L)
+                .currentBizType("task_submit").targetBizType("task_draft").targetBizId(11L).build()))
+                .isInstanceOf(AppException.class);
         verify(mapper, never()).update(isNull(), any());
     }
 
     @Test
-    void shouldPromoteOnlyFilesOwnedByTheSubmittedDraft() {
+    void shouldRebindActivatedResourceAfterProbe() {
         Resource resource = upload();
         resource.setBizType("task_draft");
         resource.setBizId(11L);
         resource.setProcessStatus(FileProcessStatus.Activated);
-        when(mapper.selectList(any())).thenReturn(List.of(resource));
+        when(mapper.selectById(1L)).thenReturn(resource);
         when(mapper.update(isNull(), any())).thenReturn(1);
         when(factory.get(StorageType.LOCAL)).thenReturn(storage);
-        service.promoteTaskDraftFiles(new TaskDraftFilePromoteParamsBO(3L, 2L, 11L, 100L, List.of(1L)));
+        service.rebindActivated(ResourceRebindParamsBO.builder()
+                .resourceId(1L).currentBizType("task_draft").currentBizId(11L)
+                .targetBizType("task_submit").targetBizId(100L).probe(true).build());
         verify(storage).probe(any());
         verify(mapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldMoveActivatedResourceWithoutStorageOperation() {
+        when(mapper.update(isNull(), any())).thenReturn(1);
+        service.rebindActivated(ResourceRebindParamsBO.builder()
+                .resourceId(1L).currentBizType("task_draft").currentBizId(10L)
+                .targetBizType("task_draft").targetBizId(11L).probe(false).build());
+        verify(mapper).update(isNull(), any());
+        verifyNoInteractions(factory, storage);
     }
 }

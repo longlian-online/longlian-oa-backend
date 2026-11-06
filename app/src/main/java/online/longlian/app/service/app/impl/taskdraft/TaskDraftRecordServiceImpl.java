@@ -16,10 +16,16 @@ import online.longlian.app.pojo.bo.app.TaskDraftRecordResultBO;
 import online.longlian.app.pojo.bo.app.TaskDraftRecordSaveParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSummaryParamsBO;
 import online.longlian.app.pojo.bo.app.TaskDraftSummaryResultBO;
+import online.longlian.app.pojo.bo.common.LockedResourceBO;
 import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceActivateUnboundParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceRebindParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFileBindParamsBO;
+import online.longlian.app.pojo.bo.common.TaskDraftFilePromoteParamsBO;
 import online.longlian.app.pojo.entity.TaskDraft;
 import online.longlian.app.service.app.TaskDraftRecordService;
 import online.longlian.app.service.resource.ResourceService;
+import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.TaskDraftStatus;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -155,6 +161,80 @@ public class TaskDraftRecordServiceImpl extends ServiceImpl<TaskDraftMapper, Tas
                 .bizType("task_submit")
                 .bizIds(params.getInstanceIds())
                 .build());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bindTaskDraftFiles(TaskDraftFileBindParamsBO params) {
+        List<LockedResourceBO> resources = lockRequestedFiles(params.getFileIds());
+        for (LockedResourceBO resource : resources) {
+            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
+                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || resource.getStorageCleanedAt() != null) {
+                throw unauthorized();
+            }
+            if (isUnboundTaskUpload(resource)) {
+                resourceService.activateUnbound(ResourceActivateUnboundParamsBO.builder()
+                        .resourceId(resource.getId()).creatorId(params.getUserId()).orgId(params.getOrgId())
+                        .currentBizType("task_submit").targetBizType("task_draft")
+                        .targetBizId(params.getDraftId()).build());
+            } else if (isRetainedDraftFile(resource, params.getPreviousDraftId())) {
+                resourceService.rebindActivated(ResourceRebindParamsBO.builder()
+                        .resourceId(resource.getId()).currentBizType("task_draft")
+                        .currentBizId(params.getPreviousDraftId()).targetBizType("task_draft")
+                        .targetBizId(params.getDraftId()).probe(false).build());
+            } else {
+                throw unauthorized();
+            }
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void promoteTaskDraftFiles(TaskDraftFilePromoteParamsBO params) {
+        for (LockedResourceBO resource : lockRequestedFiles(params.getFileIds())) {
+            if (!Objects.equals(resource.getCreatorId(), params.getUserId())
+                    || !Objects.equals(resource.getOrgId(), params.getOrgId())
+                    || !"task_draft".equals(resource.getBizType())
+                    || !Objects.equals(resource.getBizId(), params.getDraftId())
+                    || resource.getProcessStatus() != FileProcessStatus.Activated
+                    || resource.getStorageCleanedAt() != null) {
+                throw unauthorized();
+            }
+            resourceService.rebindActivated(ResourceRebindParamsBO.builder()
+                    .resourceId(resource.getId()).currentBizType("task_draft").currentBizId(params.getDraftId())
+                    .targetBizType("task_submit").targetBizId(params.getInstanceId()).probe(true).build());
+        }
+    }
+
+    private List<LockedResourceBO> lockRequestedFiles(List<Long> fileIds) {
+        List<Long> ids = fileIds.stream().distinct().sorted().toList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<LockedResourceBO> resources = resourceService.lockResources(ids);
+        if (resources.size() != ids.size()) {
+            throw unauthorized();
+        }
+        return resources;
+    }
+
+    private boolean isUnboundTaskUpload(LockedResourceBO resource) {
+        return "task_submit".equals(resource.getBizType())
+                && Objects.equals(resource.getBizId(), 0L)
+                && (resource.getProcessStatus() == FileProcessStatus.Pending
+                        || resource.getProcessStatus() == FileProcessStatus.Uploaded);
+    }
+
+    private boolean isRetainedDraftFile(LockedResourceBO resource, Long previousDraftId) {
+        return previousDraftId != null
+                && "task_draft".equals(resource.getBizType())
+                && Objects.equals(resource.getBizId(), previousDraftId)
+                && resource.getProcessStatus() == FileProcessStatus.Activated;
+    }
+
+    private AppException unauthorized() {
+        return new AppException(ResultCode.UNAUTHORIZED_OPERATION, "无权使用该文件");
     }
 
     private TaskDraftRecordResultBO toResult(TaskDraft draft) {
