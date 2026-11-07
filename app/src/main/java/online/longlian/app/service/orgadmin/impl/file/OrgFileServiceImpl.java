@@ -1,6 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.file;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
@@ -34,7 +35,6 @@ import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.Collator;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -42,7 +42,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -72,15 +71,13 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     @Override
     public OrgFileEntriesResultBO list(OrgFileListParamsBO params) {
-        OrgFileEntriesResultBO result;
         if (params.getItemId() != null) {
-            result = listFiles(params);
-        } else if (params.getProjectId() != null) {
-            result = listItems(params);
-        } else {
-            result = listProjects(params.getOrgId());
+            return listFiles(params);
         }
-        return page(result, params.getPageNum(), params.getPageSize());
+        if (params.getProjectId() != null) {
+            return listItems(params);
+        }
+        return listProjects(params);
     }
 
     @Override
@@ -137,38 +134,32 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
     }
 
-    private OrgFileEntriesResultBO page(OrgFileEntriesResultBO result, int pageNum, int pageSize) {
-        List<OrgFileEntryResultBO> all = result.getEntries() == null ? List.of() : result.getEntries();
-        int from = (pageNum - 1) * pageSize;
-        int to = Math.min(from + pageSize, all.size());
-        result.setTotal((long) all.size());
-        result.setEntries(from >= all.size() ? List.of() : new ArrayList<>(all.subList(from, to)));
-        return result;
-    }
-
-    private OrgFileEntriesResultBO listProjects(Long orgId) {
-        List<Project> projects = new ArrayList<>(projectMapper.selectList(new LambdaQueryWrapper<Project>()
-                .eq(Project::getOrgId, orgId)));
-        Collator collator = Collator.getInstance(Locale.CHINA);
-        projects.sort(Comparator.comparing(Project::getTitle, Comparator.nullsLast(collator))
-                .thenComparing(Project::getId));
-        List<OrgFileEntryResultBO> entries = projects.stream()
+    private OrgFileEntriesResultBO listProjects(OrgFileListParamsBO params) {
+        Page<Project> page = projectMapper.selectPage(
+                new Page<>(params.getPageNum(), params.getPageSize()),
+                new LambdaQueryWrapper<Project>()
+                        .eq(Project::getOrgId, params.getOrgId())
+                        .orderByAsc(Project::getTitle)
+                        .orderByAsc(Project::getId));
+        List<OrgFileEntryResultBO> entries = page.getRecords().stream()
                 .map(project -> OrgFileEntryResultBO.builder()
                         .id(project.getId().toString())
                         .kind(OrgFileEntryKind.FOLDER)
                         .name(project.getTitle())
                         .build())
                 .toList();
-        return OrgFileEntriesResultBO.builder().entries(entries).build();
+        return OrgFileEntriesResultBO.builder().total(page.getTotal()).entries(entries).build();
     }
 
     private OrgFileEntriesResultBO listItems(OrgFileListParamsBO params) {
         Project project = requireProject(params.getProjectId(), params.getOrgId());
-        List<Item> items = itemMapper.selectList(new LambdaQueryWrapper<Item>()
-                .eq(Item::getProjectId, project.getId())
-                .orderByAsc(Item::getSort)
-                .orderByAsc(Item::getId));
-        List<OrgFileEntryResultBO> entries = items.stream()
+        Page<Item> page = itemMapper.selectPage(
+                new Page<>(params.getPageNum(), params.getPageSize()),
+                new LambdaQueryWrapper<Item>()
+                        .eq(Item::getProjectId, project.getId())
+                        .orderByAsc(Item::getSort)
+                        .orderByAsc(Item::getId));
+        List<OrgFileEntryResultBO> entries = page.getRecords().stream()
                 .map(item -> OrgFileEntryResultBO.builder()
                         .id(item.getId().toString())
                         .kind(OrgFileEntryKind.FOLDER)
@@ -178,6 +169,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         return OrgFileEntriesResultBO.builder()
                 .projectId(project.getId())
                 .projectTitle(project.getTitle())
+                .total(page.getTotal())
                 .entries(entries)
                 .build();
     }
@@ -191,6 +183,7 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .projectTitle(project.getTitle())
                 .itemId(item.getId())
                 .itemTitle(item.getTitle())
+                .total((long) entries.size())
                 .entries(entries)
                 .build();
     }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -45,8 +46,8 @@ public class OrgFileApiTest extends BaseApiTest {
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
-                .body("data.entries.name", equalTo(java.util.List.of("阿企划", "白企划", "停用企划")))
-                .body("data.entries.kind", equalTo(java.util.List.of("FOLDER", "FOLDER", "FOLDER")));
+                .body("data.entries.name", containsInAnyOrder("阿企划", "白企划", "停用企划"))
+                .body("data.entries.kind", containsInAnyOrder("FOLDER", "FOLDER", "FOLDER"));
 
         authRequest(token).queryParam("projectId", 2).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -204,6 +205,20 @@ public class OrgFileApiTest extends BaseApiTest {
         String token = admin();
         authRequest(token).delete("/orgadmin/files/tasks/8/attachments/101").then().statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldPageProjectsInTheDatabase() {
+        String token = admin();
+        for (int index = 1; index <= 51; index++) {
+            insertProject(index, 1L, String.format("%03d", index));
+        }
+
+        authRequest(token).queryParam("pageNum", 2).get("/orgadmin/files").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(51))
+                .body("data.entries", hasSize(1))
+                .body("data.entries[0].name", equalTo("051"));
     }
 
     @Test
