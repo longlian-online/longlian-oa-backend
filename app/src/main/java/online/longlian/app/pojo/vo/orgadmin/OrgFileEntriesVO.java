@@ -10,6 +10,13 @@ import java.util.List;
 @Schema(description = "组织文件页当前文件夹")
 public class OrgFileEntriesVO {
     @JsonLongIdString
+    @Schema(type = "string", description = "当前企划类型 ID；非类型分层或类型根目录为空")
+    private Long typeId;
+
+    @Schema(description = "当前企划类型名称")
+    private String typeName;
+
+    @JsonLongIdString
     @Schema(type = "string", description = "当前企划 ID；根目录为空")
     private Long projectId;
 
