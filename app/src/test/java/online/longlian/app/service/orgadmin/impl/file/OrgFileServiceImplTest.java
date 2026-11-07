@@ -6,6 +6,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
+import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.UserMapper;
@@ -18,6 +19,7 @@ import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
+import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.User;
@@ -26,6 +28,7 @@ import online.longlian.app.service.common.TaskFormService;
 import online.longlian.app.service.resource.ResourceDeprecationService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OrgFileEntryKind;
+import online.longlian.common.enumeration.OrgFileView;
 import online.longlian.common.enumeration.StorageType;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +65,8 @@ class OrgFileServiceImplTest {
 
     @Mock
     private ProjectMapper projectMapper;
+    @Mock
+    private ProjectTypeMapper projectTypeMapper;
     @Mock
     private ItemMapper itemMapper;
     @Mock
@@ -273,6 +278,78 @@ class OrgFileServiceImplTest {
 
         assertThat(result.getTotal()).isEqualTo(51);
         assertThat(result.getEntries()).extracting("name").containsExactly("051");
+    }
+
+    @Test
+    void shouldListTypesFromTheDatabasePage() {
+        Page<ProjectType> page = new Page<>(1, OrgFileService.PAGE_SIZE);
+        page.setTotal(1);
+        page.setRecords(List.of(ProjectType.builder().id(2L).orgId(1L).name("漫画").priority(5).build()));
+        when(projectTypeMapper.selectPage(any(), any())).thenReturn(page);
+
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.type).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+
+        assertThat(result.getTotal()).isEqualTo(1);
+        assertThat(result.getTypeId()).isNull();
+        assertThat(result.getEntries()).extracting("name").containsExactly("漫画");
+        assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FOLDER);
+    }
+
+    @Test
+    void shouldRejectTypeOutsideOrganization() {
+        when(projectTypeMapper.selectById(4L))
+                .thenReturn(ProjectType.builder().id(4L).orgId(2L).name("外组织").build());
+
+        assertThatThrownBy(() -> service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.type).typeId(4L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+    }
+
+    @Test
+    void shouldRejectProjectThatDoesNotBelongToTheType() {
+        when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
+        when(projectMapper.selectById(1L)).thenReturn(Project.builder().id(1L).orgId(1L).typeId(9L).title("阿企划").build());
+
+        assertThatThrownBy(() -> service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.type).typeId(2L).projectId(1L)
+                .pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+    }
+
+    @Test
+    void shouldKeepTypeNameWhenListingItsProjects() {
+        when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
+        Page<Project> page = new Page<>(1, OrgFileService.PAGE_SIZE);
+        page.setTotal(1);
+        page.setRecords(List.of(Project.builder().id(1L).orgId(1L).typeId(2L).title("阿企划").build()));
+        when(projectMapper.selectPage(any(), any())).thenReturn(page);
+
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.type).typeId(2L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+
+        assertThat(result.getTypeName()).isEqualTo("漫画");
+        assertThat(result.getEntries()).extracting("name").containsExactly("阿企划");
+    }
+
+    @Test
+    void shouldListItemsAcrossPlanningsWithPlanningName() {
+        Page<Item> page = new Page<>(1, OrgFileService.PAGE_SIZE);
+        page.setTotal(1);
+        page.setRecords(List.of(Item.builder().id(10L).projectId(2L).title("第一话").build()));
+        when(itemMapper.selectPage(any(), any())).thenReturn(page);
+        when(projectMapper.selectList(any())).thenReturn(List.of(project(2L, "阿企划")));
+
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.item).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+
+        assertThat(result.getProjectId()).isNull();
+        assertThat(result.getEntries()).extracting("name").containsExactly("第一话");
+        assertThat(result.getEntries()).extracting("subtitle").containsExactly("阿企划");
     }
 
     private Project project(Long id, String title) {

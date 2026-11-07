@@ -18,6 +18,7 @@ import online.longlian.app.pojo.vo.orgadmin.OrgFileDownloadVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntriesVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntryVO;
 import online.longlian.app.service.orgadmin.OrgFileService;
+import online.longlian.common.enumeration.OrgFileView;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -38,16 +39,20 @@ public class OrgFileController {
 
     private final OrgFileService orgFileService;
 
-    @Operation(summary = "浏览组织文件", description = "不传 ID 为全部企划；传 projectId 为该企划下的项目；再传 itemId 为该项目当前有效提交文件")
+    @Operation(summary = "浏览组织文件", description = "view 省略或 planning：不传 ID 为全部企划，传 projectId 为该企划下的项目，再传 itemId 为该项目当前有效提交文件。view=type：不传 ID 为全部企划类型，传 typeId 为该类型下的企划，再传 projectId、itemId 同前。view=item：不传 ID 为全部项目，传 itemId 为该项目当前有效提交文件。企划、类型和项目分页，提交文件不分页")
     @GetMapping
     @ResponseMessage("查询成功")
     public OrgFileEntriesVO list(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @Parameter(description = "目录分层，默认 planning") @RequestParam(required = false) OrgFileView view,
+            @Parameter(description = "企划类型 ID，仅 type 分层") @RequestParam(required = false) Long typeId,
             @Parameter(description = "企划 ID") @RequestParam(required = false) Long projectId,
             @Parameter(description = "项目 ID") @RequestParam(required = false) Long itemId,
             @Parameter(description = "页码，从 1 开始") @RequestParam(required = false) Integer pageNum) {
         OrgFileEntriesResultBO result = orgFileService.list(OrgFileListParamsBO.builder()
                 .orgId(sessionContext.orgId())
+                .view(view)
+                .typeId(typeId)
                 .projectId(projectId)
                 .itemId(itemId)
                 .pageNum(pageNum == null || pageNum < 1 ? 1 : pageNum)

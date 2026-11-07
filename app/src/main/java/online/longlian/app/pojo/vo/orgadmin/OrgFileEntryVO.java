@@ -19,6 +19,9 @@ public class OrgFileEntryVO {
     @Schema(description = "文件夹名称或文件原名；文件不可用时改为字段名")
     private String name;
 
+    @Schema(description = "补充说明。仅项目分层的项目文件夹，为所属企划名称")
+    private String subtitle;
+
     @JsonLongIdString
     @Schema(type = "string", description = "任务实例 ID，仅文件")
     private Long taskInstanceId;

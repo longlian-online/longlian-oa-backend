@@ -8,6 +8,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
+import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.UserMapper;
@@ -23,6 +24,7 @@ import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
+import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.User;
@@ -31,6 +33,7 @@ import online.longlian.app.service.orgadmin.OrgFileService;
 import online.longlian.app.service.resource.ResourceDeprecationService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OrgFileEntryKind;
+import online.longlian.common.enumeration.OrgFileView;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +62,7 @@ public class OrgFileServiceImpl implements OrgFileService {
     private static final String UNAVAILABLE = "unavailable";
 
     private final ProjectMapper projectMapper;
+    private final ProjectTypeMapper projectTypeMapper;
     private final ItemMapper itemMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceMapper taskInstanceMapper;
@@ -71,13 +75,20 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     @Override
     public OrgFileEntriesResultBO list(OrgFileListParamsBO params) {
+        OrgFileView view = params.getView() == null ? OrgFileView.planning : params.getView();
+        if (view == OrgFileView.item) {
+            return params.getItemId() == null ? listAllItems(params) : listFiles(params, null);
+        }
+        if (view == OrgFileView.type) {
+            return listByType(params);
+        }
         if (params.getItemId() != null) {
-            return listFiles(params);
+            return listFiles(params, null);
         }
         if (params.getProjectId() != null) {
-            return listItems(params);
+            return listItems(params, null);
         }
-        return listProjects(params);
+        return listProjects(params, null);
     }
 
     @Override
@@ -134,13 +145,53 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
     }
 
-    private OrgFileEntriesResultBO listProjects(OrgFileListParamsBO params) {
+    private OrgFileEntriesResultBO listByType(OrgFileListParamsBO params) {
+        if (params.getTypeId() == null) {
+            if (params.getProjectId() != null || params.getItemId() != null) {
+                throw missing("企划类型不存在");
+            }
+            return listTypes(params);
+        }
+        ProjectType type = requireType(params.getTypeId(), params.getOrgId());
+        if (params.getItemId() != null) {
+            if (params.getProjectId() == null) {
+                throw missing("项目不存在");
+            }
+            return listFiles(params, type);
+        }
+        if (params.getProjectId() != null) {
+            return listItems(params, type);
+        }
+        return listProjects(params, type);
+    }
+
+    private OrgFileEntriesResultBO listTypes(OrgFileListParamsBO params) {
+        Page<ProjectType> page = projectTypeMapper.selectPage(
+                new Page<>(params.getPageNum(), params.getPageSize()),
+                new LambdaQueryWrapper<ProjectType>()
+                        .eq(ProjectType::getOrgId, params.getOrgId())
+                        .orderByDesc(ProjectType::getPriority)
+                        .orderByAsc(ProjectType::getName)
+                        .orderByAsc(ProjectType::getId));
+        List<OrgFileEntryResultBO> entries = page.getRecords().stream()
+                .map(type -> OrgFileEntryResultBO.builder()
+                        .id(type.getId().toString())
+                        .kind(OrgFileEntryKind.FOLDER)
+                        .name(type.getName())
+                        .build())
+                .toList();
+        return OrgFileEntriesResultBO.builder().total(page.getTotal()).entries(entries).build();
+    }
+
+    private OrgFileEntriesResultBO listProjects(OrgFileListParamsBO params, ProjectType type) {
+        LambdaQueryWrapper<Project> query = new LambdaQueryWrapper<Project>()
+                .eq(Project::getOrgId, params.getOrgId());
+        if (type != null) {
+            query.eq(Project::getTypeId, type.getId());
+        }
         Page<Project> page = projectMapper.selectPage(
                 new Page<>(params.getPageNum(), params.getPageSize()),
-                new LambdaQueryWrapper<Project>()
-                        .eq(Project::getOrgId, params.getOrgId())
-                        .orderByAsc(Project::getTitle)
-                        .orderByAsc(Project::getId));
+                query.orderByAsc(Project::getTitle).orderByAsc(Project::getId));
         List<OrgFileEntryResultBO> entries = page.getRecords().stream()
                 .map(project -> OrgFileEntryResultBO.builder()
                         .id(project.getId().toString())
@@ -148,11 +199,14 @@ public class OrgFileServiceImpl implements OrgFileService {
                         .name(project.getTitle())
                         .build())
                 .toList();
-        return OrgFileEntriesResultBO.builder().total(page.getTotal()).entries(entries).build();
+        return folder(type, null, null, page.getTotal(), entries);
     }
 
-    private OrgFileEntriesResultBO listItems(OrgFileListParamsBO params) {
+    private OrgFileEntriesResultBO listItems(OrgFileListParamsBO params, ProjectType type) {
         Project project = requireProject(params.getProjectId(), params.getOrgId());
+        if (type != null && !type.getId().equals(project.getTypeId())) {
+            throw missing("企划不存在");
+        }
         Page<Item> page = itemMapper.selectPage(
                 new Page<>(params.getPageNum(), params.getPageSize()),
                 new LambdaQueryWrapper<Item>()
@@ -166,26 +220,81 @@ public class OrgFileServiceImpl implements OrgFileService {
                         .name(item.getTitle())
                         .build())
                 .toList();
+        return folder(type, project, null, page.getTotal(), entries);
+    }
+
+    private OrgFileEntriesResultBO listAllItems(OrgFileListParamsBO params) {
+        Page<Item> page = itemMapper.selectPage(
+                new Page<>(params.getPageNum(), params.getPageSize()),
+                new LambdaQueryWrapper<Item>()
+                        .apply("project_id IN (SELECT id FROM project WHERE org_id = {0} AND deleted_at IS NULL)",
+                                params.getOrgId())
+                        .orderByAsc(Item::getTitle)
+                        .orderByAsc(Item::getId));
+        Map<Long, String> projectTitles = projectTitles(page.getRecords());
+        List<OrgFileEntryResultBO> entries = page.getRecords().stream()
+                .map(item -> OrgFileEntryResultBO.builder()
+                        .id(item.getId().toString())
+                        .kind(OrgFileEntryKind.FOLDER)
+                        .name(item.getTitle())
+                        .subtitle(projectTitles.get(item.getProjectId()))
+                        .build())
+                .toList();
+        return OrgFileEntriesResultBO.builder().total(page.getTotal()).entries(entries).build();
+    }
+
+    private OrgFileEntriesResultBO listFiles(OrgFileListParamsBO params, ProjectType type) {
+        Item item = requireItem(params.getItemId(), params.getProjectId(), params.getOrgId());
+        Project project = requireProject(item.getProjectId(), params.getOrgId());
+        if (type != null && !type.getId().equals(project.getTypeId())) {
+            throw missing("企划不存在");
+        }
+        List<OrgFileEntryResultBO> entries = fileEntries(item.getId(), params.getOrgId());
+        return folder(type, project, item, (long) entries.size(), entries);
+    }
+
+    private OrgFileEntriesResultBO folder(
+            ProjectType type,
+            Project project,
+            Item item,
+            Long total,
+            List<OrgFileEntryResultBO> entries) {
         return OrgFileEntriesResultBO.builder()
-                .projectId(project.getId())
-                .projectTitle(project.getTitle())
-                .total(page.getTotal())
+                .typeId(type == null ? null : type.getId())
+                .typeName(type == null ? null : type.getName())
+                .projectId(project == null ? null : project.getId())
+                .projectTitle(project == null ? null : project.getTitle())
+                .itemId(item == null ? null : item.getId())
+                .itemTitle(item == null ? null : item.getTitle())
+                .total(total)
                 .entries(entries)
                 .build();
     }
 
-    private OrgFileEntriesResultBO listFiles(OrgFileListParamsBO params) {
-        Item item = requireItem(params.getItemId(), params.getProjectId(), params.getOrgId());
-        Project project = requireProject(item.getProjectId(), params.getOrgId());
-        List<OrgFileEntryResultBO> entries = fileEntries(item.getId(), params.getOrgId());
-        return OrgFileEntriesResultBO.builder()
-                .projectId(project.getId())
-                .projectTitle(project.getTitle())
-                .itemId(item.getId())
-                .itemTitle(item.getTitle())
-                .total((long) entries.size())
-                .entries(entries)
-                .build();
+    private Map<Long, String> projectTitles(List<Item> items) {
+        List<Long> projectIds = new ArrayList<>();
+        for (Item item : items) {
+            if (item.getProjectId() != null && !projectIds.contains(item.getProjectId())) {
+                projectIds.add(item.getProjectId());
+            }
+        }
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> titles = new HashMap<>();
+        for (Project project : projectMapper.selectList(
+                new LambdaQueryWrapper<Project>().in(Project::getId, projectIds))) {
+            titles.put(project.getId(), project.getTitle());
+        }
+        return titles;
+    }
+
+    private ProjectType requireType(Long typeId, Long orgId) {
+        ProjectType type = projectTypeMapper.selectById(typeId);
+        if (type == null || !Objects.equals(type.getOrgId(), orgId)) {
+            throw missing("企划类型不存在");
+        }
+        return type;
     }
 
     private List<OrgFileEntryResultBO> fileEntries(Long itemId, Long orgId) {
