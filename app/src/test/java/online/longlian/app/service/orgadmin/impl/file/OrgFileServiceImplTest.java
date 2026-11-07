@@ -1,5 +1,6 @@
 package online.longlian.app.service.orgadmin.impl.file;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
@@ -88,16 +89,17 @@ class OrgFileServiceImplTest {
     }
 
     @Test
-    void shouldListProjectsInChineseNameOrder() {
-        when(projectMapper.selectList(any())).thenReturn(List.of(
-                project(2L, "白企划"),
-                project(1L, "阿企划")));
+    void shouldListProjectsFromTheDatabasePage() {
+        Page<Project> page = new Page<>(1, OrgFileService.PAGE_SIZE);
+        page.setTotal(2);
+        page.setRecords(List.of(project(2L, "白企划"), project(1L, "阿企划")));
+        when(projectMapper.selectPage(any(), any())).thenReturn(page);
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
                 .orgId(1L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getTotal()).isEqualTo(2);
-        assertThat(result.getEntries()).extracting("name").containsExactly("阿企划", "白企划");
+        assertThat(result.getEntries()).extracting("name").containsExactly("白企划", "阿企划");
         assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FOLDER);
         assertThat(result.getProjectId()).isNull();
     }
@@ -261,11 +263,10 @@ class OrgFileServiceImplTest {
 
     @Test
     void shouldReturnTheSecondPageOfFolders() {
-        List<Project> projects = new java.util.ArrayList<>();
-        for (int index = 1; index <= 51; index++) {
-            projects.add(project((long) index, String.format("%03d", index)));
-        }
-        when(projectMapper.selectList(any())).thenReturn(projects);
+        Page<Project> page = new Page<>(2, OrgFileService.PAGE_SIZE);
+        page.setTotal(51);
+        page.setRecords(List.of(project(51L, "051")));
+        when(projectMapper.selectPage(any(), any())).thenReturn(page);
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
                 .orgId(1L).pageNum(2).pageSize(OrgFileService.PAGE_SIZE).build());
