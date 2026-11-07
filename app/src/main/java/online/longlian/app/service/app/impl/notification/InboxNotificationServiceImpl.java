@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.util.ImageResizeUrl;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.app.*;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -80,7 +81,7 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
                     .findFirst().orElse(null);
             return new NotificationResultBO(row.getId(), row.getKind(), row.getSourceId(), row.getCreatedAt(),
                     row.getReadAt(), source.getSource(), thumbnail == null ? null
-                    : thumbnail + (thumbnail.contains("?") ? "&" : "?") + "eo-img.resize=w/144/h/144");
+                    : ImageResizeUrl.append(thumbnail, "eo-img.resize=w/144/h/144"));
         }).toList();
         return new NotificationPageResultBO(list, hasNext, unreadCount);
     }
