@@ -152,17 +152,39 @@ public class OrgFileServiceImpl implements OrgFileService {
             }
             return listTypes(params);
         }
-        ProjectType type = requireType(params.getTypeId(), params.getOrgId());
-        if (params.getItemId() != null) {
-            if (params.getProjectId() == null) {
-                throw missing("项目不存在");
+        return listTypeFiles(params, requireType(params.getTypeId(), params.getOrgId()));
+    }
+
+    private OrgFileEntriesResultBO listTypeFiles(OrgFileListParamsBO params, ProjectType type) {
+        List<Project> projects = projectMapper.selectList(new LambdaQueryWrapper<Project>()
+                .eq(Project::getOrgId, params.getOrgId())
+                .eq(Project::getTypeId, type.getId())
+                .orderByAsc(Project::getTitle)
+                .orderByAsc(Project::getId));
+        List<OrgFileEntryResultBO> files = new ArrayList<>();
+        if (!projects.isEmpty()) {
+            List<Long> projectIds = projects.stream().map(Project::getId).toList();
+            Map<Long, List<Item>> itemsByProject = new HashMap<>();
+            for (Item item : itemMapper.selectList(new LambdaQueryWrapper<Item>()
+                    .in(Item::getProjectId, projectIds)
+                    .orderByAsc(Item::getSort)
+                    .orderByAsc(Item::getId))) {
+                itemsByProject.computeIfAbsent(item.getProjectId(), key -> new ArrayList<>()).add(item);
             }
-            return listFiles(params, type);
+            for (Project project : projects) {
+                for (Item item : itemsByProject.getOrDefault(project.getId(), List.of())) {
+                    String place = project.getTitle() + " · " + item.getTitle();
+                    for (OrgFileEntryResultBO entry : fileEntries(item.getId(), params.getOrgId())) {
+                        entry.setSubtitle(place);
+                        files.add(entry);
+                    }
+                }
+            }
         }
-        if (params.getProjectId() != null) {
-            return listItems(params, type);
-        }
-        return listProjects(params, type);
+        int from = Math.max(0, (params.getPageNum() - 1) * params.getPageSize());
+        int to = Math.min(from + params.getPageSize(), files.size());
+        List<OrgFileEntryResultBO> page = from >= files.size() ? List.of() : new ArrayList<>(files.subList(from, to));
+        return folder(type, null, null, (long) files.size(), page);
     }
 
     private OrgFileEntriesResultBO listTypes(OrgFileListParamsBO params) {

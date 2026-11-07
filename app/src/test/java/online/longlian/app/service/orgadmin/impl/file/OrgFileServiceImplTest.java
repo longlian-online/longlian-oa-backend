@@ -309,31 +309,31 @@ class OrgFileServiceImplTest {
     }
 
     @Test
-    void shouldRejectProjectThatDoesNotBelongToTheType() {
+    void shouldListTypeFilesWithoutNestedFolders() {
         when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
-        when(projectMapper.selectById(1L)).thenReturn(Project.builder().id(1L).orgId(1L).typeId(9L).title("阿企划").build());
-
-        assertThatThrownBy(() -> service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.type).typeId(2L).projectId(1L)
-                .pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
-                .isInstanceOf(AppException.class)
-                .extracting("code")
-                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
-    }
-
-    @Test
-    void shouldKeepTypeNameWhenListingItsProjects() {
-        when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
-        Page<Project> page = new Page<>(1, OrgFileService.PAGE_SIZE);
-        page.setTotal(1);
-        page.setRecords(List.of(Project.builder().id(1L).orgId(1L).typeId(2L).title("阿企划").build()));
-        when(projectMapper.selectPage(any(), any())).thenReturn(page);
+        when(projectMapper.selectList(any())).thenReturn(List.of(
+                Project.builder().id(1L).orgId(1L).typeId(2L).title("阿企划").build()));
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                Item.builder().id(3L).projectId(1L).title("第一话").sort(1L).build()));
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
+                ItemTaskNode.builder().id(7L).itemId(3L).name("翻译").metaSchema(SCHEMA).sort(1).build()));
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build()));
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
+                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}")));
+        when(userMapper.selectList(any())).thenReturn(List.of(User.builder().id(4L).nickname("小林").build()));
+        when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L))))
+                .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.type).typeId(2L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+                .orgId(1L).view(OrgFileView.type).typeId(2L).projectId(9L)
+                .pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getTypeName()).isEqualTo("漫画");
-        assertThat(result.getEntries()).extracting("name").containsExactly("阿企划");
+        assertThat(result.getProjectId()).isNull();
+        assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FILE);
+        assertThat(result.getEntries()).extracting("name").containsExactly("第一话译稿.pdf");
+        assertThat(result.getEntries()).extracting("subtitle").containsExactly("阿企划 · 第一话");
     }
 
     @Test

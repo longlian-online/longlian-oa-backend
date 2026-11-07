@@ -159,22 +159,16 @@ public class OrgFileApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("data.typeId", equalTo("2"))
                 .body("data.typeName", equalTo("漫画"))
-                .body("data.entries.name", equalTo(java.util.List.of("白企划", "阿企划")));
+                .body("data.projectId", nullValue())
+                .body("data.entries.kind", equalTo(java.util.List.of("FILE")))
+                .body("data.entries.name", equalTo(java.util.List.of("成果101.pdf")))
+                .body("data.entries.subtitle", equalTo(java.util.List.of("阿企划 · 第一话")));
 
-        authRequest(token).queryParam("view", "type").queryParam("typeId", 2).queryParam("projectId", 3)
-                .get("/orgadmin/files").then().statusCode(200)
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
-
-        authRequest(token).queryParam("view", "type").queryParam("typeId", 4).get("/orgadmin/files")
+        authRequest(token).queryParam("view", "type").queryParam("typeId", 1).get("/orgadmin/files")
                 .then().statusCode(200)
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
-
-        authRequest(token).queryParam("view", "type").queryParam("typeId", 2)
-                .queryParam("projectId", 2).queryParam("itemId", 10).get("/orgadmin/files")
-                .then().statusCode(200)
-                .body("data.typeName", equalTo("漫画"))
-                .body("data.itemTitle", equalTo("第一话"))
-                .body("data.entries[0].name", equalTo("成果101.pdf"));
+                .body("data.typeName", equalTo("小说"))
+                .body("data.total", equalTo(0))
+                .body("data.entries", hasSize(0));
 
         authRequest(token).queryParam("view", "item").get("/orgadmin/files").then().statusCode(200)
                 .body("data.total", equalTo(2))
