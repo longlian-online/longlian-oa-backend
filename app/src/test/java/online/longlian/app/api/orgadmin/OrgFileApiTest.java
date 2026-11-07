@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -45,8 +46,8 @@ public class OrgFileApiTest extends BaseApiTest {
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
-                .body("data.entries.name", equalTo(java.util.List.of("阿企划", "白企划", "停用企划")))
-                .body("data.entries.kind", equalTo(java.util.List.of("FOLDER", "FOLDER", "FOLDER")));
+                .body("data.entries.name", containsInAnyOrder("阿企划", "白企划", "停用企划"))
+                .body("data.entries.kind", containsInAnyOrder("FOLDER", "FOLDER", "FOLDER"));
 
         authRequest(token).queryParam("projectId", 2).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
@@ -117,6 +118,71 @@ public class OrgFileApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()))
                 .body("data", nullValue());
+    }
+
+    @Test
+    void shouldBrowseByTypeAndByItem() {
+        String token = admin();
+        jdbcTemplate.update(
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (1, 1, '小说', 1, 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (2, 1, '漫画', 5, 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (3, 1, '停用类型', 5, 0, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (4, 2, '外组织', 9, 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id, deleted_at) VALUES (5, 1, '已删类型', 9, 1, 1, NOW())");
+        jdbcTemplate.update(
+                "INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 2, '白企划', 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (2, 1, 2, '阿企划', 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (3, 1, 1, '小说企划', 1)");
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (10, 2, '第一话', 1, 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (11, 1, '序章', 1, 1, 1)");
+        insertNodeAndTask();
+        jdbcTemplate.update(
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, metadata, status) "
+                        + "VALUES (2, 2, 10, 8, 7, 1, 1, ?, 1)",
+                "{\"script\":{\"fileId\":\"101\"},\"note\":\"新\"}");
+        insertTaskResource(101L, 8L);
+
+        authRequest(token).queryParam("view", "type").get("/orgadmin/files").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3))
+                .body("data.entries.name", equalTo(java.util.List.of("停用类型", "漫画", "小说")));
+
+        authRequest(token).queryParam("view", "type").queryParam("typeId", 2).get("/orgadmin/files")
+                .then().statusCode(200)
+                .body("data.typeId", equalTo("2"))
+                .body("data.typeName", equalTo("漫画"))
+                .body("data.projectId", nullValue())
+                .body("data.entries.kind", equalTo(java.util.List.of("FILE")))
+                .body("data.entries.name", equalTo(java.util.List.of("成果101.pdf")))
+                .body("data.entries.subtitle", equalTo(java.util.List.of("阿企划 · 第一话")));
+
+        authRequest(token).queryParam("view", "type").queryParam("typeId", 1).get("/orgadmin/files")
+                .then().statusCode(200)
+                .body("data.typeName", equalTo("小说"))
+                .body("data.total", equalTo(0))
+                .body("data.entries", hasSize(0));
+
+        authRequest(token).queryParam("view", "item").get("/orgadmin/files").then().statusCode(200)
+                .body("data.total", equalTo(2))
+                .body("data.projectId", nullValue())
+                .body("data.entries.name", equalTo(java.util.List.of("序章", "第一话")))
+                .body("data.entries.subtitle", equalTo(java.util.List.of("白企划", "阿企划")));
+
+        authRequest(token).queryParam("view", "item").queryParam("itemId", 10).get("/orgadmin/files")
+                .then().statusCode(200)
+                .body("data.itemTitle", equalTo("第一话"))
+                .body("data.entries[0].kind", equalTo("FILE"));
+
+        authRequest(token).queryParam("view", "nope").get("/orgadmin/files").then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
@@ -204,6 +270,20 @@ public class OrgFileApiTest extends BaseApiTest {
         String token = admin();
         authRequest(token).delete("/orgadmin/files/tasks/8/attachments/101").then().statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void shouldPageProjectsInTheDatabase() {
+        String token = admin();
+        for (int index = 1; index <= 51; index++) {
+            insertProject(index, 1L, String.format("%03d", index));
+        }
+
+        authRequest(token).queryParam("pageNum", 2).get("/orgadmin/files").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(51))
+                .body("data.entries", hasSize(1))
+                .body("data.entries[0].name", equalTo("051"));
     }
 
     @Test

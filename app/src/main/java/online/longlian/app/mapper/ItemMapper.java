@@ -3,8 +3,10 @@ package online.longlian.app.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
@@ -38,5 +40,23 @@ public interface ItemMapper extends BaseMapper<Item> {
             </script>
             """)
     int updateSorts(@Param("projectId") Long projectId, @Param("items") List<ItemSortUpdateBO> items);
+
+    @Select("""
+            SELECT i.id AS item_id,
+                   i.title AS item_title,
+                   p.id AS project_id,
+                   p.title AS project_title
+            FROM item i
+            INNER JOIN project p ON p.id = i.project_id AND p.deleted_at IS NULL
+            WHERE i.deleted_at IS NULL
+              AND p.org_id = #{orgId}
+              AND p.type_id = #{typeId}
+            ORDER BY p.title ASC, p.id ASC, i.sort ASC, i.id ASC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<OrgFileTypeItemBO> selectByProjectType(@Param("orgId") Long orgId,
+                                                 @Param("typeId") Long typeId,
+                                                 @Param("offset") long offset,
+                                                 @Param("limit") int limit);
 
 }
