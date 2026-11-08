@@ -44,6 +44,7 @@ import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 @Component
@@ -66,26 +67,28 @@ public class TaskTools {
             + "返回 projectId、itemId、instanceId，可继续调用 get_task 读取本人草稿和当前 revision。已完成任务不在待办中。",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public String listMyTasks(McpSyncServerExchange exchange,
-            @McpToolParam(description = "SUBMITTABLE 或 WAITING，默认 SUBMITTABLE", required = false) MyTaskBucket bucket,
-            @McpToolParam(description = "按接取时间排序：ASC 或 DESC，默认 ASC", required = false) SortDirection sortDirection,
+            @McpToolParam(description = "SUBMITTABLE 或 WAITING，默认 SUBMITTABLE", required = false) String bucket,
+            @McpToolParam(description = "按接取时间排序：ASC 或 DESC，默认 ASC", required = false) String sortDirection,
             @McpToolParam(description = "页码，从 1 开始，默认 1", required = false) Integer pageNum,
             @McpToolParam(description = "每页数量，1 到 100，默认 20", required = false) Integer pageSize) {
         SessionContext session = userSession.require(exchange);
         return JSON.toJSONString(myTaskService.listMyTasks(MyTaskParamsBO.builder()
-                .userId(session.userId()).orgId(session.orgId()).bucket(bucket == null ? MyTaskBucket.SUBMITTABLE : bucket)
-                .sortDirection(sortDirection == null ? SortDirection.ASC : sortDirection).page(page(pageNum, pageSize)).build()));
+                .userId(session.userId()).orgId(session.orgId())
+                .bucket(enumValue("bucket", bucket, MyTaskBucket.class, MyTaskBucket.SUBMITTABLE))
+                .sortDirection(enumValue("sortDirection", sortDirection, SortDirection.class, SortDirection.ASC))
+                .page(page(pageNum, pageSize)).build()));
     }
 
     @McpTool(name = "list_claimable_tasks", description = "查询当前组织跨企划的缺人任务广场，按企划分页，total 为企划数。"
-            + "默认只查各项目首个未完成阶段，等待最久优先；stageScope=ALL 可看后续阶段，isCurrentStage=false 的任务应等前置完成。"
+            + "默认只查各项目首个未完成阶段，等待最久优先；stageScope=ALL 可看后续阶段，isCurrentStage=false 的任务可预接取，但处理需等前置完成。"
             + "企划分组提供 projectId，任务提供 itemId、instanceId，可继续读取任务。支持按任务类型、名称关键词和企划类型筛选。",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public String listClaimableTasks(McpSyncServerExchange exchange,
             @McpToolParam(description = "原子任务类型 ID，十进制字符串；省略则查询全部类型", required = false) String baseTaskId,
             @McpToolParam(description = "企划名、项目名或任务名关键词，最长 50 字符", required = false) String keyword,
             @McpToolParam(description = "企划类型名称，最长 20 字符", required = false) String projectType,
-            @McpToolParam(description = "WAIT 等待最久、LATEST 最新发布、MOST 缺员最多；默认 WAIT", required = false) PlazaSortBy sortBy,
-            @McpToolParam(description = "CURRENT 当前阶段或 ALL 所有阶段，默认 CURRENT", required = false) PlazaStageScope stageScope,
+            @McpToolParam(description = "WAIT 等待最久、LATEST 最新发布、MOST 缺员最多；默认 WAIT", required = false) String sortBy,
+            @McpToolParam(description = "CURRENT 当前阶段或 ALL 所有阶段，默认 CURRENT", required = false) String stageScope,
             @McpToolParam(description = "页码，从 1 开始，默认 1", required = false) Integer pageNum,
             @McpToolParam(description = "每页企划数，1 到 100，默认 20", required = false) Integer pageSize) {
         SessionContext session = userSession.require(exchange);
@@ -93,12 +96,8 @@ public class TaskTools {
         dto.setBaseTaskId(baseTaskId == null ? null : McpUserSession.positiveId(baseTaskId));
         dto.setKeyword(keyword);
         dto.setProjectType(projectType);
-        if (sortBy != null) {
-            dto.setSortBy(sortBy);
-        }
-        if (stageScope != null) {
-            dto.setStageScope(stageScope);
-        }
+        dto.setSortBy(enumValue("sortBy", sortBy, PlazaSortBy.class, PlazaSortBy.WAIT));
+        dto.setStageScope(enumValue("stageScope", stageScope, PlazaStageScope.class, PlazaStageScope.CURRENT));
         validate(dto);
         return JSON.toJSONString(taskPlazaService.getTaskPlaza(TaskPlazaParamsBO.builder().orgId(session.orgId())
                 .baseTaskId(dto.getBaseTaskId()).keyword(dto.getKeyword()).projectType(dto.getProjectType())
@@ -139,7 +138,8 @@ public class TaskTools {
     }
 
     @McpTool(name = "get_project_tasks", description = "读取项目任务流，按 sort、parallelSort 顺序返回。"
-            + "同 sort 为并行任务。只处理 canClaim 或 canWork 的任务；有草稿时先读取再修改。"
+            + "同 sort 为并行任务。canClaim 表示可接取，包含预接取；canWork 表示本人已接取且前置完成，可以处理。"
+            + "按顺序执行时优先接取 blockedBy 为空的任务；用户明确要求时可预接取后续任务，随后等待前置完成。有草稿时先读取再修改。"
             + "暂存不会解锁下一阶段，没有可执行任务时向用户汇报待审核项并停止；人工网页提交后再查询继续。",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public String getProjectTasks(McpSyncServerExchange exchange,
@@ -161,6 +161,7 @@ public class TaskTools {
     }
 
     @McpTool(name = "claim_task", description = "以当前用户本人身份接取任务，待接取变为已接取。"
+            + "允许预接取后续任务，但前置未完成时只接取并等待，接取后须读取 canWork 再开始处理。"
             + "仅在用户已要求处理该任务时执行；尚未加入企划时自动加入，须向用户说明 autoJoinedProject。"
             + "已经由本人接取时直接读取任务继续，不重复接取。",
             annotations = @McpTool.McpAnnotations(destructiveHint = false, openWorldHint = false))
@@ -259,6 +260,18 @@ public class TaskTools {
         SessionContext session = userSession.require(exchange);
         return new McpTaskQueryParamsBO(session.userId(), session.orgId(), McpUserSession.positiveId(projectId),
                 McpUserSession.positiveId(itemId), instanceId == null ? null : McpUserSession.positiveId(instanceId));
+    }
+
+    private <E extends Enum<E>> E enumValue(String name, String value, Class<E> type, E defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Enum.valueOf(type, value);
+        } catch (IllegalArgumentException exception) {
+            String allowed = Arrays.stream(type.getEnumConstants()).map(Enum::name).collect(Collectors.joining(" 或 "));
+            throw new AppException(ResultCode.PARAM_ERROR, name + " 必须为 " + allowed);
+        }
     }
 
     private PageParamsBO page(Integer pageNum, Integer pageSize) {

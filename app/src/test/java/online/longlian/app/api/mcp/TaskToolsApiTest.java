@@ -9,6 +9,8 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +27,48 @@ class TaskToolsApiTest extends BaseApiTest {
     private static final String ACCEPT = "application/json, text/event-stream";
     private final List<Session> sessions = new ArrayList<>();
     private int requestId;
+
+    // 预接取与开始处理是不同能力，提示必须与接取接口和前置解锁规则一致。
+    @Test
+    void shouldAllowPreclaimButWaitToWorkUntilPredecessorSubmitted() {
+        Session session = fixture();
+        Map<String, String> nextTask = Map.of("projectId", "1", "itemId", "1", "instanceId", "2");
+        JSONObject available = data(call(session, "get_task", nextTask)).getJSONObject("task");
+        assertThat(available.getBoolean("canClaim")).isTrue();
+        assertThat(available.getBoolean("canWork")).isFalse();
+        assertThat(available.getJSONArray("blockedBy")).isNotEmpty();
+
+        data(call(session, "claim_task", Map.of("instanceId", "2")));
+        JSONObject claimed = data(call(session, "get_task", nextTask)).getJSONObject("task");
+        assertThat(claimed.getBoolean("canClaim")).isFalse();
+        assertThat(claimed.getBoolean("canWork")).isFalse();
+        assertThat(data(call(session, "get_project_tasks", scope())).getJSONArray("tasks").getJSONObject(1)
+                .getBoolean("canWork")).isFalse();
+        assertThat(data(call(session, "list_my_tasks", Map.of("bucket", "WAITING"))).getJSONArray("list")
+                .getJSONObject(0).getString("instanceId")).isEqualTo("2");
+
+        data(call(session, "claim_task", Map.of("instanceId", "1")));
+        data(call(session, "save_task_draft", Map.of("instanceId", "1", "values", Map.of("summary", "前序成果"))));
+        authRequest(session.token()).post("/app/task/instance/1/draft/submit").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(data(call(session, "get_task", nextTask)).getJSONObject("task").getBoolean("canWork")).isTrue();
+        assertThat(data(call(session, "list_my_tasks", Map.of("bucket", "WAITING"))).getLong("total")).isZero();
+    }
+
+    // 非法枚举在入口返回参数名和允许值，不能暴露 SDK 的 Java 枚举转换异常。
+    @ParameterizedTest
+    @CsvSource({
+            "list_my_tasks,bucket,bucket 必须为 SUBMITTABLE 或 WAITING",
+            "list_my_tasks,sortDirection,sortDirection 必须为 DESC 或 ASC",
+            "list_claimable_tasks,sortBy,sortBy 必须为 WAIT 或 LATEST 或 MOST",
+            "list_claimable_tasks,stageScope,stageScope 必须为 ALL 或 CURRENT"
+    })
+    void shouldExplainInvalidEnumValues(String tool, String parameter, String expectedMessage) {
+        Session session = fixture();
+        JSONObject result = call(session, tool, Map.of(parameter, "BROKEN"));
+        assertThat(result.getBoolean("isError")).isTrue();
+        assertThat(result.getJSONArray("content").getJSONObject(0).getString("text"))
+                .contains(expectedMessage).doesNotContain("No enum constant", "online.longlian", "java.lang");
+    }
 
     @AfterEach
     void closeSessions() {
@@ -114,7 +158,8 @@ class TaskToolsApiTest extends BaseApiTest {
                 .getJSONArray("list").getJSONObject(0).getString("itemId")).isEqualTo("1");
         JSONObject tasks = data(call(session, "get_project_tasks", scope()));
         assertThat(tasks.getJSONArray("tasks").getJSONObject(0).getBoolean("canClaim")).isTrue();
-        assertThat(tasks.getJSONArray("tasks").getJSONObject(1).getBoolean("canClaim")).isFalse();
+        assertThat(tasks.getJSONArray("tasks").getJSONObject(1).getBoolean("canClaim")).isTrue();
+        assertThat(tasks.getJSONArray("tasks").getJSONObject(1).getJSONArray("blockedBy")).isNotEmpty();
 
         assertThat(call(session, "claim_task", Map.of("instanceId", "1")).getBoolean("isError")).isNotEqualTo(true);
         JSONObject context = data(call(session, "get_task", task()));
@@ -131,7 +176,7 @@ class TaskToolsApiTest extends BaseApiTest {
                 .isEqualTo(TaskInstanceStatus.CLAIMED.getCode());
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task_submission", Integer.class)).isZero();
         assertThat(data(call(session, "get_project_tasks", scope())).getJSONArray("tasks").getJSONObject(1)
-                .getBoolean("canClaim")).isFalse();
+                .getJSONArray("blockedBy")).isNotEmpty();
 
         authRequest(session.token()).post("/app/task/instance/1/draft/submit").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
         assertThat(data(call(session, "list_my_tasks", Map.of())).getLong("total")).isZero();

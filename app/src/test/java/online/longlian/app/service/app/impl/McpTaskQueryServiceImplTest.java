@@ -59,18 +59,29 @@ class McpTaskQueryServiceImplTest {
                 .id(100L).fileId(101L).fileName("原文.txt").fileMime("text/plain").fileSize(8L).build()));
     }
 
-    // 暂存不视为完成，所有前序阶段都完成后才提示可以处理下一阶段；同阶段不互相阻塞。
+    // 后序任务允许预接取；暂存不视为完成，只有本人已接取且前置完成时才能处理。
     @Test
     void shouldKeepNextStageBlockedByDraftAndAllowParallelTasksAfterSubmission() {
         var before = service.getProjectTasks(params);
         assertThat(before.tasks().get(0).hasDraft()).isTrue();
         assertThat(before.tasks().get(0).canWork()).isTrue();
-        assertThat(before.tasks().get(1).canClaim()).isFalse();
+        assertThat(before.tasks().get(1).canClaim()).isTrue();
+        assertThat(before.tasks().get(1).canWork()).isFalse();
         assertThat(before.tasks().get(1).blockedBy()).containsExactly("翻译（第 1 步）");
+
+        flow.getNodes().get(1).setTaskStatus(TaskInstanceStatus.CLAIMED);
+        when(taskService.listItemTaskInstances(any())).thenReturn(List.of(
+                ItemTaskInstanceVO.builder().id(10L).assigneeId(7L).build(),
+                ItemTaskInstanceVO.builder().id(20L).assigneeId(7L).build(),
+                ItemTaskInstanceVO.builder().id(30L).build()));
+        var claimed = service.getProjectTasks(params);
+        assertThat(claimed.tasks().get(1).canClaim()).isFalse();
+        assertThat(claimed.tasks().get(1).canWork()).isFalse();
 
         flow.getNodes().get(0).setTaskStatus(TaskInstanceStatus.COMPLETED);
         var after = service.getProjectTasks(params);
-        assertThat(after.tasks().get(1).canClaim()).isTrue();
+        assertThat(after.tasks().get(1).canClaim()).isFalse();
+        assertThat(after.tasks().get(1).canWork()).isTrue();
         assertThat(after.tasks().get(2).canClaim()).isTrue();
         assertThat(after.tasks().get(2).blockedBy()).isEmpty();
     }

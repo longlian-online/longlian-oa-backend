@@ -52,6 +52,8 @@
 分页默认第 1 页、每页 20 项，上限 100。`projectId` 表示企划，`itemId` 表示企划内的项目。
 `list_my_tasks` 默认 `bucket=SUBMITTABLE`、`sortDirection=ASC`，可用 `WAITING` 查询等前置的待办，正式提交后不再列出。
 `list_claimable_tasks` 默认 `stageScope=CURRENT`、`sortBy=WAIT`，`total` 为企划数；`ALL` 包含后续阶段，任务的 `isCurrentStage` 表示是否处于当前阶段。
+`canClaim` 表示当前任务可接取，包含前置尚未完成时的预接取；`canWork` 表示本人已接取且前置全部完成，可以开始处理。`blockedBy` 列出未完成前置。按顺序执行时优先接取无阻塞任务，用户要求预接取时可先接取后续任务，随后等待前置完成。
+枚举参数使用工具说明中的大写取值，非法值返回中文参数提示和允许值，例如「bucket 必须为 SUBMITTABLE 或 WAITING」。
 放弃任务前从 `get_task` 的 `task.revision`（或 `get_project_tasks` 中对应任务的 `revision`）读取任务修订号，原样传为 `expectedRevision`。该修订号沿用现有任务状态校验，不是草稿版本。
 只有用户明确要求放弃时才调用，须告知暂存会清空；修订号过期则重新读取，不自动重试。MCP 不提供负责人取消他人接取的操作。
 `get_task_file_url` 的 `source=task` 使用任务实例 ID 和文件 ID；`source=project` 使用企划 ID 和 `references[].attachmentId`。

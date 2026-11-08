@@ -65,7 +65,7 @@ class TaskToolsTest {
         when(plaza.getTaskPlaza(any())).thenReturn(new PageResultVO<>(List.of(), 0L));
         try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
             TaskTools tools = new TaskTools(session, null, null, null, null, null, null, null, plaza, factory.getValidator());
-            tools.listClaimableTasks(null, "99", "翻译", "漫画", PlazaSortBy.MOST, PlazaStageScope.ALL, 2, 5);
+            tools.listClaimableTasks(null, "99", "翻译", "漫画", "MOST", "ALL", 2, 5);
             ArgumentCaptor<TaskPlazaParamsBO> params = ArgumentCaptor.forClass(TaskPlazaParamsBO.class);
             verify(plaza).getTaskPlaza(params.capture());
             assertThat(params.getValue().getOrgId()).isEqualTo(12L);

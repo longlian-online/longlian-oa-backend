@@ -94,7 +94,7 @@ public class McpTaskQueryServiceImpl implements McpTaskQueryService {
                     node.getSort(), node.getParallelSort(), node.getTaskStatus() == null ? "LOCKED" : node.getTaskStatus().name(), node.getRevision(),
                     instance == null || instance.getAssigneeId() == null ? null : instance.getAssigneeId().toString(),
                     instance == null ? null : instance.getAssigneeNickname(), mine, hasDraft,
-                    node.getTaskStatus() == TaskInstanceStatus.PENDING && blockedBy.isEmpty(),
+                    node.getTaskStatus() == TaskInstanceStatus.PENDING,
                     mine && node.getTaskStatus() == TaskInstanceStatus.CLAIMED && blockedBy.isEmpty(), blockedBy);
         }).toList();
         return new McpTaskQueryResultBO.TaskList(params.projectId().toString(), projectTitle,
