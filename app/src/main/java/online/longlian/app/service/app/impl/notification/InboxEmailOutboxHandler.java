@@ -14,6 +14,8 @@ import online.longlian.app.service.outbox.OutboxPermanentException;
 import online.longlian.app.service.outbox.OutboxSkipException;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.OutboxMessageType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -29,6 +31,7 @@ import java.util.regex.Pattern;
 
 @Component
 public class InboxEmailOutboxHandler implements OutboxHandler {
+    private static final Logger log = LoggerFactory.getLogger(InboxEmailOutboxHandler.class);
     private static final String TEMPLATE = "classpath:templates/inbox-notification.html";
     private static final Pattern INBOX_NOTIFICATION_PIXEL_URL = Pattern.compile(
             "^https://[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?$");
@@ -71,7 +74,8 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
             return "";
         }
         if (!INBOX_NOTIFICATION_PIXEL_URL.matcher(url).matches()) {
-            throw new IllegalStateException("longlian.inbox-notification-pixel-url 无效");
+            log.warn("站内通知邮件像素地址无效，已跳过");
+            return "";
         }
         return "<img src=\"" + HtmlUtils.htmlEscape(url)
                 + "\" alt=\"\" width=\"1\" height=\"1\" style=\"display:block;width:1px;height:1px;border:0;\">";

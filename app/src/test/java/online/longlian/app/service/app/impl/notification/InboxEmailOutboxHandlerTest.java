@@ -395,12 +395,16 @@ class InboxEmailOutboxHandlerTest {
     }
 
     @Test
-    void shouldRejectUnsafeInboxNotificationPixelUrl() {
-        assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB, "http://umami.example/p/a"))
-                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.inbox-notification-pixel-url 无效");
-        assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB,
-                "https://umami.example/p/a\"><script>"))
-                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.inbox-notification-pixel-url 无效");
+    void shouldOmitUnsafeInboxNotificationPixelUrl() throws Exception {
+        for (String pixelUrl : List.of("http://umami.example/p/a", "https://umami.example/p/a\"><script>")) {
+            InboxEmailOutboxHandler tracked = handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB, pixelUrl);
+            when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
+            when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+
+            tracked.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
+
+            assertThat(sent().content()).doesNotContain("umami.example").doesNotContain("${inboxNotificationPixel}");
+        }
     }
 
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName) {
