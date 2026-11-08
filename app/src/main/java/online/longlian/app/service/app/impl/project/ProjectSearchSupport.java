@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.github.houbb.opencc4j.util.ZhConverterUtil;
 import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
 
@@ -22,15 +23,19 @@ public final class ProjectSearchSupport {
                 .orgId(params.getOrgId())
                 .typeId(typeId)
                 .keyword(keyword)
-                .matchPattern(likePattern(keyword))
+                .matchPatterns(buildMatchPatterns(keyword))
                 .tagMatchPattern(escapePattern(keyword))
                 .sortByTime(params.getSortByTime())
                 .orderDir(params.getOrderDir())
                 .build();
     }
 
-    private static String likePattern(String text) {
-        return "%" + escapePattern(text) + "%";
+    private static List<String> buildMatchPatterns(String keyword) {
+        Set<String> keywords = new LinkedHashSet<>();
+        keywords.add(keyword);
+        keywords.add(ZhConverterUtil.toSimple(keyword));
+        keywords.add(ZhConverterUtil.toTraditional(keyword));
+        return keywords.stream().map(text -> "%" + escapePattern(text) + "%").toList();
     }
 
     private static String escapePattern(String text) {

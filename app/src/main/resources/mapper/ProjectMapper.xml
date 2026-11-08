@@ -12,8 +12,16 @@
         SELECT ranked.*
         FROM (
             SELECT p.*,
-                CASE WHEN p.title LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS title_hit,
-                CASE WHEN p.alias LIKE #{params.matchPattern} ESCAPE '!' THEN 1 ELSE 0 END AS alias_hit,
+                CASE WHEN
+                    <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
+                        p.title LIKE #{pattern} ESCAPE '!'
+                    </foreach>
+                THEN 1 ELSE 0 END AS title_hit,
+                CASE WHEN
+                    <foreach collection="params.matchPatterns" item="pattern" separator=" OR ">
+                        p.alias LIKE #{pattern} ESCAPE '!'
+                    </foreach>
+                THEN 1 ELSE 0 END AS alias_hit,
                 <!-- tags 与自定义字段共用完整关键词；合并进同一路径数组，命中只计一次，且不改变 fields 顺序。 -->
                 JSON_MERGE_PRESERVE('[]',
                     COALESCE(JSON_SEARCH(p.metadata COLLATE utf8mb4_unicode_520_ci,

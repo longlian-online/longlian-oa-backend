@@ -26,6 +26,83 @@ class ProjectSearchApiTest extends BaseApiTest {
         token = loginAs("searchuser", "123456");
     }
 
+    /** 简繁关键词双向匹配名称和别名，展示及数据库均保留原文。 */
+    @Test
+    void shouldSearchSimplifiedAndTraditionalTitlesAndAliases() {
+        createProject(1, "銀色的結晶", "one", metadata());
+        createProject(2, "银色的结晶", "two", metadata());
+        createProject(3, "其他企划", "結晶物語", metadata());
+        createProject(4, "普通企划", "结晶故事", metadata());
+
+        for (String keyword : List.of("结晶", "結晶")) {
+            search(keyword).then().statusCode(200)
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .body("data.total", equalTo(4))
+                    .body("data.list.id", equalTo(List.of("2", "1", "4", "3")))
+                    .body("data.list[1].title", equalTo("銀色的結晶"))
+                    .body("data.list[2].alias", equalTo("结晶故事"));
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM project WHERE id = 1", String.class))
+                .isEqualTo("銀色的結晶");
+    }
+
+    /** 扩展候选不重复计分或返回记录，原文精确命中仍优先，分页总数准确。 */
+    @Test
+    void shouldPreserveExactMatchRankingAndPaginateExpandedMatches() {
+        createProject(1, "结晶", "one", metadata());
+        createProject(2, "結晶", "two", metadata());
+        createProject(3, "结晶與結晶", "three", metadata());
+
+        search("结晶").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3)).body("data.list.id", equalTo(List.of("1", "3", "2")));
+        search("結晶").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3)).body("data.list.id", equalTo(List.of("2", "3", "1")));
+        authRequest(token).queryParam("keyword", "结晶").queryParam("pageSize", 1).queryParam("pageNum", 3)
+                .get("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3)).body("data.list.id", equalTo(List.of("2")));
+    }
+
+    /** 扩展后的名称条件仍将通配符作为字面值，元信息不扩展简繁。 */
+    @Test
+    void shouldEscapeExpandedKeywordsAndKeepMetadataSearchLiteral() {
+        createProject(1, "銀色的結晶50%_!", "one", metadata());
+        createProject(2, "結晶5000", "two", metadata());
+        createProject(3, "其他企划", "three", metadata("系列", "結晶"));
+
+        search("结晶50%_!").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+        search("结晶").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(2)).body("data.list.id", equalTo(List.of("2", "1")));
+        search("結晶").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(3)).body("data.list.id", equalTo(List.of("2", "1", "3")));
+    }
+
+    /** 扩展条件仍受组织、企划类型和可见状态约束。 */
+    @Test
+    void shouldRestrictExpandedMatchesToVisibleProjectsOfRequestedType() {
+        createProject(1, "銀色的結晶", "one", metadata());
+        createProject(2, "銀色的結晶", "two", metadata());
+        createProject(3, "銀色的結晶", "three", metadata());
+        createProject(4, "銀色的結晶", "four", metadata());
+        createProject(5, "銀色的結晶", "five", metadata());
+        jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 2");
+        jdbcTemplate.update("UPDATE project SET deleted_at = NOW() WHERE id = 3");
+        jdbcTemplate.update("UPDATE project SET org_id = 2 WHERE id = 4");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (2, 1, '小说', 1, 1)");
+        jdbcTemplate.update("UPDATE project SET type_id = 2 WHERE id = 5");
+
+        authRequest(token).queryParam("keyword", "结晶").queryParam("projectType", "漫画")
+                .get("/app/projects").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1)).body("data.list.id", equalTo(List.of("1")));
+    }
+
     /** 中文子串按标题、别名、元数据的权重排序，多字段命中累加。 */
     @Test
     void shouldRankChineseMatchesByFieldWeightsAndCombineHits() {
