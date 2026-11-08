@@ -17,8 +17,38 @@ import java.io.IOException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class AuthenticationResponseHandlerTest {
+
+    // MCP functional route 不参与 REST handler 查找，认证失败返回 HTTP 401。
+    @Test
+    void shouldReturnHttpUnauthorizedForMcpWithoutHandlerLookup() throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mcp");
+        request.setServletPath("/mcp");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new AuthenticationEntryPointImpl(mapping).commence(request, response,
+                new BadCredentialsException("bad credentials"));
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).isEmpty();
+        verifyNoInteractions(mapping);
+    }
+
+    // MCP 权限失败不能包装成 HTTP 200 的 REST Result。
+    @Test
+    void shouldReturnHttpForbiddenForMcp() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mcp");
+        request.setServletPath("/mcp");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new AccessDeniedHandlerImpl().handle(request, response, new AccessDeniedException("forbidden"));
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
 
     @Test
     void shouldReturnNotFoundWhenRequestHasNoHandler() throws Exception {
