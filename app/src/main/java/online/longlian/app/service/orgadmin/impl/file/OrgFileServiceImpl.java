@@ -137,15 +137,12 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
         List<OrgFileBatchFileResultBO> files = new ArrayList<>();
         for (Downloadable file : ordered.values()) {
-            ActivatedResourceRead read = resourceService.signDownload(file.resource());
             files.add(OrgFileBatchFileResultBO.builder()
                     .taskInstanceId(file.taskInstanceId())
                     .fieldKey(file.fieldKey())
                     .fileId(file.fileId())
                     .fileName(file.resource().fileName())
                     .fileSize(file.resource().fileSize())
-                    .readUrl(read.readUrl())
-                    .expireAt(read.expiresAt())
                     .build());
         }
         return OrgFileBatchDownloadResultBO.builder().files(files).build();

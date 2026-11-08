@@ -25,9 +25,4 @@ public class OrgFileBatchFileVO {
     @Schema(description = "文件大小，字节")
     private Long fileSize;
 
-    @Schema(description = "文件读取地址")
-    private String readUrl;
-
-    @Schema(description = "签名链接到期时间，Unix 秒")
-    private Long expireAt;
 }

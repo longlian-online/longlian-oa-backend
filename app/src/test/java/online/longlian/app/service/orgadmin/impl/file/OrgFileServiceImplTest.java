@@ -59,7 +59,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -393,7 +392,7 @@ class OrgFileServiceImplTest {
     }
 
     @Test
-    void shouldSignCurrentFileOnceWhenSelectedWithItsProject() {
+    void shouldListCurrentFileOnceWhenSelectedWithItsProject() {
         TaskInstance instance = TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build();
         when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
         when(itemMapper.selectList(any())).thenReturn(List.of(
@@ -419,8 +418,6 @@ class OrgFileServiceImplTest {
                 .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
         when(resourceService.findActivated(eq("task_submit"), eq(9L), eq(1L), eq(List.of(202L))))
                 .thenReturn(Map.of());
-        when(resourceService.signDownload(any())).thenReturn(
-                new ActivatedResourceRead(101L, "第一话译稿.pdf", 2048L, "application/pdf", "https://files/101", 50L));
 
         OrgFileBatchDownloadResultBO result = service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
                 .orgId(1L)
@@ -437,9 +434,8 @@ class OrgFileServiceImplTest {
         assertThat(result.getFiles()).hasSize(1);
         assertThat(result.getFiles().get(0).getFileName()).isEqualTo("第一话译稿.pdf");
         assertThat(result.getFiles().get(0).getFieldKey()).isEqualTo("script");
-        assertThat(result.getFiles().get(0).getReadUrl()).isEqualTo("https://files/101");
-        assertThat(result.getFiles().get(0).getExpireAt()).isEqualTo(50L);
-        verify(resourceService, times(1)).signDownload(any());
+        assertThat(result.getFiles().get(0).getFileId()).isEqualTo(101L);
+        verify(resourceService, never()).signDownload(any());
     }
 
     @Test

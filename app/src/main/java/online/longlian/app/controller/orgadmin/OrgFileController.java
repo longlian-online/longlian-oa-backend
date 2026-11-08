@@ -93,7 +93,7 @@ public class OrgFileController {
         return vo;
     }
 
-    @Operation(summary = "批量获取提交文件读取链接", description = "展开选中的文件、项目、企划或企划类型。只签发当前有效且可用的提交文件，不按目录分层返回路径")
+    @Operation(summary = "展开选中的提交文件", description = "展开选中的文件、项目、企划或企划类型。只返回当前有效且可用的提交文件身份和原名，不签发读取链接")
     @PostMapping("/downloads")
     @ResponseMessage("获取成功")
     public OrgFileBatchDownloadVO downloadBatch(

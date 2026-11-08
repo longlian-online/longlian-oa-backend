@@ -134,10 +134,8 @@ public class OrgFileApiTest extends BaseApiTest {
                 .body("data.files[0].taskInstanceId", equalTo("8"))
                 .body("data.files[0].fieldKey", equalTo("script"))
                 .body("data.files[0].fileId", equalTo("101"))
-                .body("data.files[0].fileName", equalTo("成果101.pdf"));
-        URI uri = URI.create(download.jsonPath().getString("data.files[0].readUrl"));
-        assertThat(uri.getHost()).isEqualTo("static.example.com");
-        assertThat(uri.getRawPath()).isEqualTo("/task_submit/101.pdf");
+                .body("data.files[0].fileName", equalTo("成果101.pdf"))
+                .body("data.files[0].readUrl", nullValue());
 
         authRequest(token)
                 .body(java.util.Map.of("targets", java.util.List.of(

@@ -11,6 +11,4 @@ public class OrgFileBatchFileResultBO {
     private Long fileId;
     private String fileName;
     private Long fileSize;
-    private String readUrl;
-    private Long expireAt;
 }
