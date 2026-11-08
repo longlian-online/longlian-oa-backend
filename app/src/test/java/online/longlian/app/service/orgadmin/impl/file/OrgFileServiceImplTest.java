@@ -13,6 +13,9 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
@@ -30,6 +33,7 @@ import online.longlian.app.service.resource.ResourceDeprecationService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OrgFileEntryKind;
 import online.longlian.common.enumeration.OrgFileView;
+import online.longlian.common.enumeration.OrgFileBatchTargetKind;
 import online.longlian.common.enumeration.StorageType;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +59,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -385,6 +390,114 @@ class OrgFileServiceImplTest {
         assertThat(result.getProjectId()).isNull();
         assertThat(result.getEntries()).extracting("name").containsExactly("第一话");
         assertThat(result.getEntries()).extracting("subtitle").containsExactly("阿企划");
+    }
+
+    @Test
+    void shouldSignCurrentFileOnceWhenSelectedWithItsProject() {
+        TaskInstance instance = TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build();
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                Item.builder().id(3L).projectId(1L).title("第一话").sort(1L).build(),
+                Item.builder().id(4L).projectId(1L).title("第二话").sort(2L).build()));
+        when(itemMapper.selectById(3L)).thenReturn(Item.builder().id(3L).projectId(1L).title("第一话").build());
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
+                ItemTaskNode.builder().id(7L).itemId(3L).name("翻译").metaSchema(SCHEMA).sort(1).build(),
+                ItemTaskNode.builder().id(8L).itemId(4L).name("校对").metaSchema(SCHEMA).sort(1).build()));
+        when(itemTaskNodeMapper.selectById(7L)).thenReturn(
+                ItemTaskNode.builder().id(7L).itemId(3L).metaSchema(SCHEMA).build());
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                instance,
+                TaskInstance.builder().id(9L).itemId(4L).projectId(1L).itemTaskNodeId(8L).build()));
+        when(taskInstanceMapper.selectById(8L)).thenReturn(instance);
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
+                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}"),
+                TaskSubmission.builder().id(3L).taskInstanceId(9L).submitterId(4L).versionNo(1)
+                        .metadata("{\"script\":{\"fileId\":\"202\"}}").status(TaskSubmissionStatus.SUBMITTED)
+                        .createdAt(LocalDateTime.of(2026, 11, 7, 11, 0)).build()));
+        when(userMapper.selectList(any())).thenReturn(List.of());
+        when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L))))
+                .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
+        when(resourceService.findActivated(eq("task_submit"), eq(9L), eq(1L), eq(List.of(202L))))
+                .thenReturn(Map.of());
+        when(resourceService.signDownload(any())).thenReturn(
+                new ActivatedResourceRead(101L, "第一话译稿.pdf", 2048L, "application/pdf", "https://files/101", 50L));
+
+        OrgFileBatchDownloadResultBO result = service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+                .orgId(1L)
+                .targets(List.of(
+                        OrgFileBatchTargetParamsBO.builder().kind(OrgFileBatchTargetKind.PROJECT).projectId(1L).build(),
+                        OrgFileBatchTargetParamsBO.builder()
+                                .kind(OrgFileBatchTargetKind.FILE)
+                                .taskInstanceId(8L)
+                                .fileId(101L)
+                                .fieldKey("script")
+                                .build()))
+                .build());
+
+        assertThat(result.getFiles()).hasSize(1);
+        assertThat(result.getFiles().get(0).getFileName()).isEqualTo("第一话译稿.pdf");
+        assertThat(result.getFiles().get(0).getFieldKey()).isEqualTo("script");
+        assertThat(result.getFiles().get(0).getReadUrl()).isEqualTo("https://files/101");
+        assertThat(result.getFiles().get(0).getExpireAt()).isEqualTo(50L);
+        verify(resourceService, times(1)).signDownload(any());
+    }
+
+    @Test
+    void shouldSkipUnavailableFileAndRejectOneOutsideTheCurrentSubmission() {
+        TaskInstance instance = TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build();
+        when(taskInstanceMapper.selectById(8L)).thenReturn(instance);
+        when(itemMapper.selectById(3L)).thenReturn(Item.builder().id(3L).projectId(1L).build());
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemTaskNodeMapper.selectById(7L)).thenReturn(
+                ItemTaskNode.builder().id(7L).metaSchema(SCHEMA).build());
+        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
+                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}")));
+        when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L))))
+                .thenReturn(Map.of());
+
+        OrgFileBatchDownloadResultBO skipped = service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+                .orgId(1L)
+                .targets(List.of(OrgFileBatchTargetParamsBO.builder()
+                        .kind(OrgFileBatchTargetKind.FILE)
+                        .taskInstanceId(8L)
+                        .fileId(101L)
+                        .fieldKey("script")
+                        .build()))
+                .build());
+
+        assertThat(skipped.getFiles()).isEmpty();
+        assertThatThrownBy(() -> service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+                .orgId(1L)
+                .targets(List.of(OrgFileBatchTargetParamsBO.builder()
+                        .kind(OrgFileBatchTargetKind.FILE)
+                        .taskInstanceId(8L)
+                        .fileId(100L)
+                        .fieldKey("script")
+                        .build()))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
+        verify(resourceService, never()).signDownload(any());
+    }
+
+    @Test
+    void shouldRejectAnEmptyOrOversizedBatch() {
+        assertThatThrownBy(() -> service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+                .orgId(1L).targets(List.of()).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
+
+        List<OrgFileBatchTargetParamsBO> targets = new java.util.ArrayList<>();
+        for (int index = 0; index < 101; index++) {
+            targets.add(OrgFileBatchTargetParamsBO.builder().kind(OrgFileBatchTargetKind.ITEM).itemId(1L).build());
+        }
+        assertThatThrownBy(() -> service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+                .orgId(1L).targets(targets).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.PARAM_ERROR.getCode());
     }
 
     private Project project(Long id, String title) {
