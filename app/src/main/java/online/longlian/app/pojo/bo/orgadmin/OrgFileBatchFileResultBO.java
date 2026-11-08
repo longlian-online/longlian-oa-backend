@@ -11,4 +11,7 @@ public class OrgFileBatchFileResultBO {
     private Long fileId;
     private String fileName;
     private Long fileSize;
+    private String typeName;
+    private String projectTitle;
+    private String itemTitle;
 }
