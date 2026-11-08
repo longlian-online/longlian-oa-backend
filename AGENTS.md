@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-- **类型**: Spring Boot 3.3.5 REST API 后端
+- **类型**: Spring Boot 3.5.16 REST API 后端
 - **Java**: 21
 - **数据库**: MariaDB 10.11 + MyBatis Plus 3.5.15 ORM
 - **认证**: Spring Security + JWT (jjwt 0.11.5)

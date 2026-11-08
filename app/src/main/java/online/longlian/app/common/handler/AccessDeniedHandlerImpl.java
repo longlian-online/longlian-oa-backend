@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -23,10 +24,18 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
+
+    @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
+    private String mcpEndpoint = "/mcp";
     @Override
     public void handle(HttpServletRequest request,
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException, ServletException {
+
+        if (request.getServletPath().equals(mcpEndpoint)) {
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            return;
+        }
 
         // 日志打印
         log.warn("URL权限不足 |msg={} | uri={} | method={}",
