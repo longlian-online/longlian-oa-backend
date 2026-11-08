@@ -16,7 +16,7 @@ public class McpTaskQueryResultBO {
 
     public record Upload(String fileId, String method, String uploadUrl, Map<String, String> headers) { }
 
-    public record Task(String instanceId, String name, Integer sort, Integer parallelSort, String status,
+    public record Task(String instanceId, String name, Integer sort, Integer parallelSort, String status, String revision,
                        String assigneeId, String assigneeName, boolean mine, boolean hasDraft,
                        boolean canClaim, boolean canWork, List<String> blockedBy) { }
 

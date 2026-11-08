@@ -59,7 +59,8 @@ public class PingApiTest extends BaseApiTest {
         assertThat(result.getJSONArray("tools").stream()
                 .map(value -> ((JSONObject) value).getString("name")))
                 .containsExactlyInAnyOrder("ping", "find_projects", "list_project_items", "get_project_tasks",
-                        "get_task", "claim_task", "get_task_file_url", "create_task_upload", "save_task_draft");
+                        "get_task", "claim_task", "get_task_file_url", "create_task_upload", "save_task_draft",
+                        "list_my_tasks", "list_claimable_tasks", "abandon_task");
         JSONObject tool = result.getJSONArray("tools").stream().map(value -> (JSONObject) value)
                 .filter(value -> "ping".equals(value.getString("name"))).findFirst().orElseThrow();
         assertThat(tool.getString("name")).isEqualTo("ping");

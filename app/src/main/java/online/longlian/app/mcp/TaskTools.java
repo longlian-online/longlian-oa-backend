@@ -7,10 +7,17 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.ItemSortBy;
 import online.longlian.app.common.enumeration.SortByTime;
 import online.longlian.app.common.enumeration.SortDirection;
+import online.longlian.app.common.enumeration.MyTaskBucket;
+import online.longlian.app.common.enumeration.PlazaSortBy;
+import online.longlian.app.common.enumeration.PlazaStageScope;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
+import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.app.McpTaskQueryParamsBO;
 import online.longlian.app.pojo.bo.app.McpTaskQueryResultBO;
 import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadParamsBO;
@@ -21,12 +28,16 @@ import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
+import online.longlian.app.pojo.dto.app.TaskAbandonDTO;
+import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.McpTaskQueryService;
 import online.longlian.app.service.app.ProjectAttachmentService;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.TaskInstanceService;
+import online.longlian.app.service.app.MyTaskService;
+import online.longlian.app.service.app.TaskPlazaService;
 import online.longlian.app.service.resource.ResourceService;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -46,7 +57,53 @@ public class TaskTools {
     private final TaskInstanceService taskInstanceService;
     private final ProjectAttachmentService projectAttachmentService;
     private final ResourceService resourceService;
+    private final MyTaskService myTaskService;
+    private final TaskPlazaService taskPlazaService;
     private final Validator validator;
+
+    @McpTool(name = "list_my_tasks", description = "跨项目查询当前用户在当前组织已接取的待办。"
+            + "默认 bucket=SUBMITTABLE 查询前置已完成的任务，WAITING 查询等前置的任务；默认按最早接取排序。"
+            + "返回 projectId、itemId、instanceId，可继续调用 get_task 读取本人草稿和当前 revision。已完成任务不在待办中。",
+            annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
+    public String listMyTasks(McpSyncServerExchange exchange,
+            @McpToolParam(description = "SUBMITTABLE 或 WAITING，默认 SUBMITTABLE", required = false) MyTaskBucket bucket,
+            @McpToolParam(description = "按接取时间排序：ASC 或 DESC，默认 ASC", required = false) SortDirection sortDirection,
+            @McpToolParam(description = "页码，从 1 开始，默认 1", required = false) Integer pageNum,
+            @McpToolParam(description = "每页数量，1 到 100，默认 20", required = false) Integer pageSize) {
+        SessionContext session = userSession.require(exchange);
+        return JSON.toJSONString(myTaskService.listMyTasks(MyTaskParamsBO.builder()
+                .userId(session.userId()).orgId(session.orgId()).bucket(bucket == null ? MyTaskBucket.SUBMITTABLE : bucket)
+                .sortDirection(sortDirection == null ? SortDirection.ASC : sortDirection).page(page(pageNum, pageSize)).build()));
+    }
+
+    @McpTool(name = "list_claimable_tasks", description = "查询当前组织跨企划的缺人任务广场，按企划分页，total 为企划数。"
+            + "默认只查各项目首个未完成阶段，等待最久优先；stageScope=ALL 可看后续阶段，isCurrentStage=false 的任务应等前置完成。"
+            + "企划分组提供 projectId，任务提供 itemId、instanceId，可继续读取任务。支持按任务类型、名称关键词和企划类型筛选。",
+            annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
+    public String listClaimableTasks(McpSyncServerExchange exchange,
+            @McpToolParam(description = "原子任务类型 ID，十进制字符串；省略则查询全部类型", required = false) String baseTaskId,
+            @McpToolParam(description = "企划名、项目名或任务名关键词，最长 50 字符", required = false) String keyword,
+            @McpToolParam(description = "企划类型名称，最长 20 字符", required = false) String projectType,
+            @McpToolParam(description = "WAIT 等待最久、LATEST 最新发布、MOST 缺员最多；默认 WAIT", required = false) PlazaSortBy sortBy,
+            @McpToolParam(description = "CURRENT 当前阶段或 ALL 所有阶段，默认 CURRENT", required = false) PlazaStageScope stageScope,
+            @McpToolParam(description = "页码，从 1 开始，默认 1", required = false) Integer pageNum,
+            @McpToolParam(description = "每页企划数，1 到 100，默认 20", required = false) Integer pageSize) {
+        SessionContext session = userSession.require(exchange);
+        TaskPlazaListDTO dto = new TaskPlazaListDTO();
+        dto.setBaseTaskId(baseTaskId == null ? null : McpUserSession.positiveId(baseTaskId));
+        dto.setKeyword(keyword);
+        dto.setProjectType(projectType);
+        if (sortBy != null) {
+            dto.setSortBy(sortBy);
+        }
+        if (stageScope != null) {
+            dto.setStageScope(stageScope);
+        }
+        validate(dto);
+        return JSON.toJSONString(taskPlazaService.getTaskPlaza(TaskPlazaParamsBO.builder().orgId(session.orgId())
+                .baseTaskId(dto.getBaseTaskId()).keyword(dto.getKeyword()).projectType(dto.getProjectType())
+                .sortBy(dto.getSortBy()).stageScope(dto.getStageScope()).page(page(pageNum, pageSize)).build()));
+    }
 
     @McpTool(name = "find_projects", description = "按名称或别名查找当前组织的企划。projectId 是企划 ID，"
             + "用 list_project_items 查找其中的具体项目；重名时请用户选定，不自行猜测。",
@@ -112,6 +169,31 @@ public class TaskTools {
         SessionContext session = userSession.require(exchange);
         return JSON.toJSONString(taskInstanceService.claimTask(TaskInstanceOperateParamsBO.builder()
                 .instanceId(McpUserSession.positiveId(instanceId)).userId(session.userId()).orgId(session.orgId()).build()));
+    }
+
+    @McpTool(name = "abandon_task", description = "放弃本人接取的任务，恢复待接取并清空该任务暂存。"
+            + "仅在用户明确要求放弃该任务后调用，先说明草稿会被清空。先用 get_task 读取 task.revision，原样传入 expectedRevision。"
+            + "修订号过期时重新读取，不自动重试。不提供负责人取消他人接取的操作。",
+            annotations = @McpTool.McpAnnotations(destructiveHint = true, idempotentHint = false, openWorldHint = false))
+    public String abandonTask(McpSyncServerExchange exchange,
+            @McpToolParam(description = "本人接取的任务实例 ID") String instanceId,
+            @McpToolParam(description = "get_task 返回的 task.revision，非负整数字符串") String expectedRevision) {
+        SessionContext session = userSession.require(exchange);
+        Long id = McpUserSession.positiveId(instanceId);
+        TaskAbandonDTO dto = new TaskAbandonDTO();
+        dto.setExpectedRevision(expectedRevision);
+        validate(dto);
+        var detail = taskInstanceService.getTaskInstanceDetail(TaskInstanceDetailParamsBO.builder()
+                .instanceId(id).userId(session.userId()).orgId(session.orgId()).build());
+        var assignee = detail.getTask().assignee();
+        // 网页接口还允许负责人取消他人接取；MCP 只开放用户本人的放弃操作。
+        if (assignee == null || !session.userId().toString().equals(assignee.id())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "仅可放弃本人接取的任务");
+        }
+        taskInstanceService.abandonTask(TaskInstanceAbandonParamsBO.builder().instanceId(id)
+                .userId(session.userId()).orgId(session.orgId()).expectedRevision(dto.getExpectedRevision()).build());
+        return JSON.toJSONString(Map.of("instanceId", instanceId, "abandoned", true,
+                "message", "已放弃任务并清空暂存，任务恢复待接取"));
     }
 
     @McpTool(name = "get_task_file_url", description = "为有权读取的材料签发临时下载链接。"

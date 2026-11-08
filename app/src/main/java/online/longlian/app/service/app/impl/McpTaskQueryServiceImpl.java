@@ -91,7 +91,7 @@ public class McpTaskQueryServiceImpl implements McpTaskQueryService {
             boolean hasDraft = mine && detail(params, instance.getId()).getDraft() != null;
             return new McpTaskQueryResultBO.Task(
                     node.getTaskInstanceId() == null ? null : node.getTaskInstanceId().toString(), node.getName(),
-                    node.getSort(), node.getParallelSort(), node.getTaskStatus() == null ? "LOCKED" : node.getTaskStatus().name(),
+                    node.getSort(), node.getParallelSort(), node.getTaskStatus() == null ? "LOCKED" : node.getTaskStatus().name(), node.getRevision(),
                     instance == null || instance.getAssigneeId() == null ? null : instance.getAssigneeId().toString(),
                     instance == null ? null : instance.getAssigneeNickname(), mine, hasDraft,
                     node.getTaskStatus() == TaskInstanceStatus.PENDING && blockedBy.isEmpty(),

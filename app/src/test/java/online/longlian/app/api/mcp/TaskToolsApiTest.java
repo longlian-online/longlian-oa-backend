@@ -34,6 +34,76 @@ class TaskToolsApiTest extends BaseApiTest {
         sessions.clear();
     }
 
+    // 先从广场定位任务，再接取、暂存，使用详情修订号放弃后恢复为可接取。
+    @Test
+    void shouldDiscoverClaimAndAbandonOwnDraftUsingCurrentRevision() {
+        Session session = fixture();
+        JSONObject plaza = data(call(session, "list_claimable_tasks", Map.of()));
+        assertThat(plaza.getLong("total")).isEqualTo(1);
+        JSONObject group = plaza.getJSONArray("list").getJSONObject(0);
+        assertThat(group.get("projectId")).isEqualTo("1");
+        assertThat(group.getJSONArray("tasks")).hasSize(1);
+        JSONObject available = group.getJSONArray("tasks").getJSONObject(0);
+        assertThat(available.get("itemId")).isEqualTo("1");
+        assertThat(available.get("instanceId")).isEqualTo("1");
+        assertThat(available.getBoolean("isCurrentStage")).isTrue();
+
+        data(call(session, "claim_task", Map.of("instanceId", "1")));
+        data(call(session, "save_task_draft", Map.of("instanceId", "1", "values", Map.of("summary", "暂存"))));
+        JSONObject mine = data(call(session, "list_my_tasks", Map.of()));
+        assertThat(mine.getLong("total")).isEqualTo(1);
+        assertThat(mine.getJSONArray("list").getJSONObject(0).get("instanceId")).isEqualTo("1");
+        String revision = data(call(session, "get_task", task())).getJSONObject("task").getString("revision");
+        assertThat(revision).isEqualTo("1");
+        assertThat(call(session, "abandon_task", Map.of("instanceId", "1", "expectedRevision", "0"))
+                .getBoolean("isError")).isTrue();
+        assertThat(data(call(session, "get_task", task())).getJSONObject("draftValues").getString("summary")).isEqualTo("暂存");
+        assertThat(data(call(session, "abandon_task", Map.of("instanceId", "1", "expectedRevision", revision)))
+                .getBoolean("abandoned")).isTrue();
+        assertThat(data(call(session, "list_my_tasks", Map.of())).getLong("total")).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM task_instance WHERE id = 1", Integer.class))
+                .isEqualTo(TaskInstanceStatus.PENDING.getCode());
+        assertThat(jdbcTemplate.queryForObject("SELECT draft_metadata FROM task_instance WHERE id = 1", String.class)).isNull();
+        assertThat(data(call(session, "list_claimable_tasks", Map.of())).getJSONArray("list").getJSONObject(0)
+                .getJSONArray("tasks").getJSONObject(0).get("instanceId")).isEqualTo("1");
+    }
+
+    // 广场保留阶段、关键词、任务类型筛选及企划分页；待办可切换到等前置分组。
+    @Test
+    void shouldFilterPlazaAndListWaitingTasks() {
+        Session session = fixture();
+        JSONObject all = data(call(session, "list_claimable_tasks", Map.of("stageScope", "ALL", "sortBy", "MOST", "baseTaskId", "1")));
+        assertThat(all.getJSONArray("list").getJSONObject(0).getJSONArray("tasks")).hasSize(2);
+        assertThat(all.getJSONArray("list").getJSONObject(0).getJSONArray("tasks").getJSONObject(1)
+                .getBoolean("isCurrentStage")).isFalse();
+        assertThat(data(call(session, "list_claimable_tasks", Map.of("keyword", "不存在"))).getLong("total")).isZero();
+        assertThat(data(call(session, "list_claimable_tasks", Map.of("projectType", "类型", "keyword", "翻译")))
+                .getJSONArray("list").getJSONObject(0).getJSONArray("tasks")).hasSize(1);
+        JSONObject nextPage = data(call(session, "list_claimable_tasks", Map.of("pageNum", 2, "pageSize", 1)));
+        assertThat(nextPage.getLong("total")).isEqualTo(1);
+        assertThat(nextPage.getJSONArray("list")).isEmpty();
+        jdbcTemplate.update("UPDATE task_instance SET status = 2, assignee_id = 1, claimed_at = NOW() WHERE id = 2");
+        JSONObject waiting = data(call(session, "list_my_tasks", Map.of("bucket", "WAITING", "sortDirection", "DESC")));
+        assertThat(waiting.getLong("total")).isEqualTo(1);
+        assertThat(waiting.getJSONArray("list").getJSONObject(0).get("instanceId")).isEqualTo("2");
+        assertThat(waiting.getJSONArray("list").getJSONObject(0).getString("waitingStageName")).isEqualTo("翻译");
+        assertThat(data(call(session, "list_my_tasks", Map.of())).getJSONArray("list")).isEmpty();
+    }
+
+    // 新入口仍要求当前组织身份，分页和修订号格式错误不能改变任务。
+    @Test
+    void shouldRejectInvalidListAndAbandonArguments() {
+        Session session = fixture();
+        for (String tool : List.of("list_my_tasks", "list_claimable_tasks")) {
+            assertThat(call(new Session(session.token(), session.id(), null), tool, Map.of()).getBoolean("isError")).isTrue();
+            assertThat(call(new Session(session.token(), session.id(), "2"), tool, Map.of()).getBoolean("isError")).isTrue();
+            assertThat(call(session, tool, Map.of("pageNum", 0)).getBoolean("isError")).isTrue();
+        }
+        assertThat(call(session, "list_claimable_tasks", Map.of("keyword", "x".repeat(51))).getBoolean("isError")).isTrue();
+        assertThat(call(session, "abandon_task", Map.of("instanceId", "1", "expectedRevision", "-1")).getBoolean("isError")).isTrue();
+        assertThat(call(session, "abandon_task", Map.of("instanceId", "1", "expectedRevision", "0")).getBoolean("isError")).isTrue();
+    }
+
     // AI 暂存和修改不解锁后序任务；本人通过网页接口提交之后才可继续。
     @Test
     void shouldClaimDraftReviseAndContinueOnlyAfterHumanSubmission() {
@@ -64,6 +134,7 @@ class TaskToolsApiTest extends BaseApiTest {
                 .getBoolean("canClaim")).isFalse();
 
         authRequest(session.token()).post("/app/task/instance/1/draft/submit").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(data(call(session, "list_my_tasks", Map.of())).getLong("total")).isZero();
         assertThat(data(call(session, "get_project_tasks", scope())).getJSONArray("tasks").getJSONObject(1)
                 .getBoolean("canClaim")).isTrue();
         JSONObject next = data(call(session, "get_task", Map.of("projectId", "1", "itemId", "1", "instanceId", "2")));
@@ -143,6 +214,9 @@ class TaskToolsApiTest extends BaseApiTest {
         assertThat(result.get("draft")).isNull();
         assertThat(call(session, "save_task_draft", Map.of("instanceId", "1", "values", Map.of("summary", "覆盖")))
                 .getBoolean("isError")).isTrue();
+        assertThat(call(session, "abandon_task", Map.of("instanceId", "1", "expectedRevision", "0"))
+                .getBoolean("isError")).isTrue();
+        assertThat(jdbcTemplate.queryForObject("SELECT assignee_id FROM task_instance WHERE id = 1", Long.class)).isEqualTo(2L);
     }
 
     private Session fixture() {
