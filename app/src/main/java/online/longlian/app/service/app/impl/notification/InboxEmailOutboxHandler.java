@@ -14,6 +14,8 @@ import online.longlian.app.service.outbox.OutboxPermanentException;
 import online.longlian.app.service.outbox.OutboxSkipException;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.OutboxMessageType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -25,10 +27,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Component
 public class InboxEmailOutboxHandler implements OutboxHandler {
+    private static final Logger log = LoggerFactory.getLogger(InboxEmailOutboxHandler.class);
     private static final String TEMPLATE = "classpath:templates/inbox-notification.html";
+    private static final Pattern INBOX_NOTIFICATION_PIXEL_URL = Pattern.compile(
+            "^https://[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?$");
 
     private final NotificationSourceResolver sourceResolver;
     private final UserService userService;
@@ -43,7 +49,8 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
                                    ObjectMapper objectMapper, ResourceLoader resourceLoader,
                                    @Value("${spring.mail.username}") String fromEmail,
                                    @Value("${longlian.display-name}") String displayName,
-                                   @Value("${longlian.web-url}") String webUrl) {
+                                   @Value("${longlian.web-url}") String webUrl,
+                                   @Value("${longlian.inbox-notification-pixel-url:}") String inboxNotificationPixelUrl) {
         this.sourceResolver = sourceResolver;
         this.userService = userService;
         this.mailUtil = mailUtil;
@@ -51,7 +58,7 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
         this.fromEmail = fromEmail;
         this.displayName = displayName;
         this.webOrigin = InboxEmailLink.origin(webUrl);
-        String raw = load(resourceLoader);
+        String raw = load(resourceLoader).replace("${inboxNotificationPixel}", inboxNotificationPixel(inboxNotificationPixelUrl));
         int linkAt = raw.indexOf("${link}");
         if (linkAt < 0 || raw.indexOf("${link}", linkAt + "${link}".length()) >= 0) {
             throw new IllegalStateException("站内通知邮件模板缺失");
@@ -59,6 +66,19 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
         String withLink = raw.substring(0, linkAt) + InboxEmailLink.PLACEHOLDER
                 + raw.substring(linkAt + "${link}".length());
         this.htmlTemplate = withLink.replace("${displayName}", HtmlUtils.htmlEscape(displayName));
+    }
+
+    private static String inboxNotificationPixel(String configured) {
+        String url = configured == null ? "" : configured.trim();
+        if (url.isEmpty()) {
+            return "";
+        }
+        if (!INBOX_NOTIFICATION_PIXEL_URL.matcher(url).matches()) {
+            log.warn("站内通知邮件像素地址无效，已跳过");
+            return "";
+        }
+        return "<img src=\"" + HtmlUtils.htmlEscape(url)
+                + "\" alt=\"\" width=\"1\" height=\"1\" style=\"display:block;width:1px;height:1px;border:0;\">";
     }
 
     @Override

@@ -20,6 +20,8 @@ longlian:
   server-url: https://oa.longlian.online
   # 用户端站点根地址，邮件跳转使用。只写协议和主机。
   web-url: https://oa.longlian.online
+  # 站内通知邮件打开统计像素。与测试服不同，未配置则不插入。
+  inbox-notification-pixel-url: ""
   datasource:
     type: mariadb
   cache:
