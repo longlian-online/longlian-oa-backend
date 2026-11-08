@@ -433,6 +433,9 @@ class OrgFileServiceImplTest {
 
         assertThat(result.getFiles()).hasSize(1);
         assertThat(result.getFiles().get(0).getFileName()).isEqualTo("第一话译稿.pdf");
+        assertThat(result.getFiles().get(0).getProjectTitle()).isEqualTo("阿企划");
+        assertThat(result.getFiles().get(0).getItemTitle()).isEqualTo("第一话");
+        assertThat(result.getFiles().get(0).getTypeName()).isNull();
         assertThat(result.getFiles().get(0).getFieldKey()).isEqualTo("script");
         assertThat(result.getFiles().get(0).getFileId()).isEqualTo(101L);
         verify(resourceService, never()).signDownload(any());

@@ -143,6 +143,9 @@ public class OrgFileServiceImpl implements OrgFileService {
                     .fileId(file.fileId())
                     .fileName(file.resource().fileName())
                     .fileSize(file.resource().fileSize())
+                    .typeName(file.typeName())
+                    .projectTitle(file.projectTitle())
+                    .itemTitle(file.itemTitle())
                     .build());
         }
         return OrgFileBatchDownloadResultBO.builder().files(files).build();
@@ -543,6 +546,17 @@ public class OrgFileServiceImpl implements OrgFileService {
         return project;
     }
 
+    private String typeName(Project project) {
+        if (project.getTypeId() == null) {
+            return null;
+        }
+        ProjectType type = projectTypeMapper.selectById(project.getTypeId());
+        if (type == null || !Objects.equals(type.getOrgId(), project.getOrgId())) {
+            return null;
+        }
+        return type.getName();
+    }
+
     private Item requireItem(Long itemId, Long projectId, Long orgId) {
         Item item = itemMapper.selectById(itemId);
         if (item == null) {
@@ -577,7 +591,8 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (instance == null) {
             throw missing("附件不存在");
         }
-        requireItem(instance.getItemId(), instance.getProjectId(), orgId);
+        Item item = requireItem(instance.getItemId(), instance.getProjectId(), orgId);
+        Project project = requireProject(item.getProjectId(), orgId);
         TaskFormField field = requireCurrentField(instance, target.getFieldKey(), target.getFileId());
         if (resourceDeprecationService.deprecatedIds(List.of(target.getFileId())).contains(target.getFileId())) {
             return List.of();
@@ -588,7 +603,9 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (resource == null) {
             return List.of();
         }
-        return List.of(new Downloadable(instance.getId(), field.key(), target.getFileId(), resource));
+        return List.of(new Downloadable(
+                instance.getId(), field.key(), target.getFileId(), resource,
+                typeName(project), project.getTitle(), item.getTitle()));
     }
 
     private static void requireFileTarget(OrgFileBatchTargetParamsBO target) {
@@ -624,7 +641,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         Item item = requireItem(itemId, null, orgId);
         Project project = requireProject(item.getProjectId(), orgId);
         return downloadables(List.of(new OrgFileTypeItemBO(
-                item.getId(), item.getTitle(), project.getId(), project.getTitle())), orgId);
+                item.getId(), item.getTitle(), project.getId(), project.getTitle())), orgId, typeName(project));
     }
 
     private List<Downloadable> resolveProject(Long orgId, Long projectId) {
@@ -640,7 +657,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         for (Item item : items) {
             rows.add(new OrgFileTypeItemBO(item.getId(), item.getTitle(), project.getId(), project.getTitle()));
         }
-        return downloadables(rows, orgId);
+        return downloadables(rows, orgId, typeName(project));
     }
 
     private List<Downloadable> resolveType(Long orgId, Long typeId) {
@@ -656,7 +673,7 @@ public class OrgFileServiceImpl implements OrgFileService {
             if (items == null || items.isEmpty()) {
                 break;
             }
-            files.addAll(downloadables(items, orgId));
+            files.addAll(downloadables(items, orgId, type.getName()));
             if (items.size() < TYPE_ITEM_BATCH) {
                 break;
             }
@@ -665,7 +682,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         return files;
     }
 
-    private List<Downloadable> downloadables(List<OrgFileTypeItemBO> items, Long orgId) {
+    private List<Downloadable> downloadables(List<OrgFileTypeItemBO> items, Long orgId, String typeName) {
         if (items.isEmpty()) {
             return List.of();
         }
@@ -688,7 +705,9 @@ public class OrgFileServiceImpl implements OrgFileService {
             if (resource == null) {
                 continue;
             }
-            files.add(new Downloadable(file.instance().getId(), file.field().key(), file.fileId(), resource));
+            files.add(new Downloadable(
+                    file.instance().getId(), file.field().key(), file.fileId(), resource,
+                    typeName, file.projectTitle(), file.itemTitle()));
         }
         return files;
     }
@@ -743,7 +762,9 @@ public class OrgFileServiceImpl implements OrgFileService {
                             continue;
                         }
                         fileIds.add(fileId);
-                        pending.add(new PendingFile(node, instance, submission, field, fileId, submitterName, subtitle));
+                        pending.add(new PendingFile(
+                                node, instance, submission, field, fileId, submitterName, subtitle,
+                                item.getProjectTitle(), item.getItemTitle()));
                     }
                 }
             }
@@ -796,13 +817,18 @@ public class OrgFileServiceImpl implements OrgFileService {
             TaskFormField field,
             Long fileId,
             String submitterName,
-            String subtitle) {
+            String subtitle,
+            String projectTitle,
+            String itemTitle) {
     }
 
     private record Downloadable(
             Long taskInstanceId,
             String fieldKey,
             Long fileId,
-            ActivatedResource resource) {
+            ActivatedResource resource,
+            String typeName,
+            String projectTitle,
+            String itemTitle) {
     }
 }

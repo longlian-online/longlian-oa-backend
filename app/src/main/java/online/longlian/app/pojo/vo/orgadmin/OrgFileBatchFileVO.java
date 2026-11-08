@@ -25,4 +25,13 @@ public class OrgFileBatchFileVO {
     @Schema(description = "文件大小，字节")
     private Long fileSize;
 
+    @Schema(description = "所属企划类型名称")
+    private String typeName;
+
+    @Schema(description = "所属企划名称")
+    private String projectTitle;
+
+    @Schema(description = "所属项目名称")
+    private String itemTitle;
+
 }
