@@ -4,6 +4,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.TestPropertySource;
 
 import java.net.URI;
 
@@ -13,6 +14,18 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 
+@TestPropertySource(properties = {
+        "storage.type=COS",
+        "storage.cos.bucket=test-bucket",
+        "storage.cos.region=ap-guangzhou",
+        "storage.cos.secret-id=test-secret-id",
+        "storage.cos.secret-key=test-secret-key",
+        "storage.cdn.enabled=true",
+        "storage.cdn.url-prefix=https://static.example.com",
+        "storage.cdn.auth-key=test-cdn-key",
+        "storage.cdn.auth-ttl-seconds=300",
+        "storage.cdn.url-reuse-percent=80"
+})
 public class OrgFileApiTest extends BaseApiTest {
 
     private static final String SCHEMA = """
@@ -89,6 +102,56 @@ public class OrgFileApiTest extends BaseApiTest {
         URI uri = URI.create(download.jsonPath().getString("data.readUrl"));
         assertThat(uri.getHost()).isEqualTo("static.example.com");
         assertThat(uri.getRawPath()).isEqualTo("/task_submit/101.pdf");
+    }
+
+    @Test
+    void shouldBatchDownloadFilesUnderAnItemWithoutNesting() {
+        String token = admin();
+        insertProject(2L, 1L, "阿企划");
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (11, 2, '第二话', 2, 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO item (id, project_id, title, sort, task_template_id, creator_id) VALUES (10, 2, '第一话', 1, 1, 1)");
+        insertNodeAndTask();
+        jdbcTemplate.update(
+                "INSERT INTO task_submission (id, project_id, item_id, task_instance_id, item_task_node_id, submitter_id, version_no, metadata, status) "
+                        + "VALUES (2, 2, 10, 8, 7, 1, 1, ?, 1)",
+                "{\"script\":{\"fileId\":\"101\"},\"note\":\"新\"}");
+        insertTaskResource(101L, 8L);
+
+        var download = authRequest(token)
+                .body(java.util.Map.of("targets", java.util.List.of(
+                        java.util.Map.of("kind", "PROJECT", "projectId", "2"),
+                        java.util.Map.of(
+                                "kind", "FILE",
+                                "taskInstanceId", "8",
+                                "fileId", "101",
+                                "fieldKey", "script"))))
+                .post("/orgadmin/files/downloads");
+        download.then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.files", hasSize(1))
+                .body("data.files[0].taskInstanceId", equalTo("8"))
+                .body("data.files[0].fieldKey", equalTo("script"))
+                .body("data.files[0].fileId", equalTo("101"))
+                .body("data.files[0].fileName", equalTo("成果101.pdf"))
+                .body("data.files[0].readUrl", nullValue());
+
+        authRequest(token)
+                .body(java.util.Map.of("targets", java.util.List.of(
+                        java.util.Map.of(
+                                "kind", "FILE",
+                                "taskInstanceId", "8",
+                                "fileId", "100",
+                                "fieldKey", "script"))))
+                .post("/orgadmin/files/downloads")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        authRequest(token)
+                .body(java.util.Map.of("targets", java.util.List.of()))
+                .post("/orgadmin/files/downloads")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }
 
     @Test
