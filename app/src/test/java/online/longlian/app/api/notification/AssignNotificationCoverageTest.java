@@ -56,10 +56,10 @@ class AssignNotificationCoverageTest {
     @Test
     void shouldRejectMissingTemplateAndUnavailableTaskSource() throws Exception {
         assertThatThrownBy(() -> new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper,
-                template("<html>${displayName}</html>"), "mailer@example.com", "龙联", "https://oa.example/"))
+                template("<html>${displayName}</html>"), "mailer@example.com", "龙联", "https://oa.example/", ""))
                 .isInstanceOf(IllegalStateException.class).hasMessage("站内通知邮件模板缺失");
         assertThatThrownBy(() -> new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper,
-                template("<html>${link}</html>${link}"), "mailer@example.com", "龙联", "https://oa.example/"))
+                template("<html>${link}</html>${link}"), "mailer@example.com", "龙联", "https://oa.example/", ""))
                 .isInstanceOf(IllegalStateException.class).hasMessage("站内通知邮件模板缺失");
 
         InboxEmailOutboxHandler ready = handler("https://oa.example/");
@@ -95,6 +95,6 @@ class AssignNotificationCoverageTest {
 
     private InboxEmailOutboxHandler handler(String webUrl) {
         return new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper, new DefaultResourceLoader(),
-                "mailer@example.com", "龙联", webUrl);
+                "mailer@example.com", "龙联", webUrl, "");
     }
 }

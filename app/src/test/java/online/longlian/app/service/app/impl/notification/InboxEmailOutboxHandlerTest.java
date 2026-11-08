@@ -369,12 +369,52 @@ class InboxEmailOutboxHandlerTest {
                 .isInstanceOf(IllegalStateException.class).hasMessage("longlian.web-url 无效");
     }
 
+    @Test
+    void shouldOmitUmamiPixelWhenUnset() throws Exception {
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+
+        handler.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
+
+        assertThat(sent().content()).doesNotContain("${umamiPixel}").doesNotContain("umami.longlian.online");
+    }
+
+    @Test
+    void shouldInsertConfiguredUmamiPixel() throws Exception {
+        InboxEmailOutboxHandler tracked = handler(new DefaultResourceLoader(), "${umamiPixel}", WEB,
+                "  https://umami.longlian.online/p/tJgx6dhuK  ");
+        when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
+        when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
+
+        tracked.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
+
+        String content = sent().content();
+        assertThat(content).contains(
+                "<img src=\"https://umami.longlian.online/p/tJgx6dhuK\" alt=\"\" width=\"1\" height=\"1\" style=\"display:block;width:1px;height:1px;border:0;\">");
+        assertThat(content).contains("<title>${umamiPixel}</title>");
+    }
+
+    @Test
+    void shouldRejectUnsafeUmamiPixelUrl() {
+        assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB, "http://umami.example/p/a"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.umami-pixel-url 无效");
+        assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB,
+                "https://umami.example/p/a\"><script>"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.umami-pixel-url 无效");
+    }
+
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName) {
         return handler(resources, displayName, WEB);
     }
 
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName, String webUrl) {
-        return new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper, resources, FROM, displayName, webUrl);
+        return handler(resources, displayName, webUrl, "");
+    }
+
+    private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName,
+                                            String webUrl, String pixelUrl) {
+        return new InboxEmailOutboxHandler(resolver, userService, mailUtil, objectMapper, resources, FROM, displayName,
+                webUrl, pixelUrl);
     }
 
     private OutboxMessage message(InboxNotificationKind kind, long sourceId) throws Exception {

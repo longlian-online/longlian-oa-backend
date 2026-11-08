@@ -27,6 +27,8 @@ longlian:
   server-url: http://localhost:10003
   # 用户端站点根地址，邮件等第三方入口拼 /go。只写协议和主机，不要带路径。
   web-url: http://localhost:5173
+  # 通知邮件打开统计像素。测试服和正式服不同，未配置则不插入。不把地址写进仓库。
+  umami-pixel-url: ""
   datasource:
     # mariadb | sqlite。改 sqlite 时必须同时填写下方 sqlite.datasource.url
     type: mariadb
