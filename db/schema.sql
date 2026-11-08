@@ -406,6 +406,8 @@ CREATE TABLE `task_instance` (
   `revision` bigint NOT NULL DEFAULT 0 COMMENT "任务状态修订号（每次状态写入递增，防止旧操作重放）",
   `submitted_at` datetime NULL COMMENT "提交时间",
   `completed_at` datetime NULL COMMENT "完成时间",
+  `draft_metadata` json NULL COMMENT "接取人暂存的提交内容，仅本人可见；正式提交或放弃后清空",
+  `draft_updated_at` datetime NULL COMMENT "暂存更新时间",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,

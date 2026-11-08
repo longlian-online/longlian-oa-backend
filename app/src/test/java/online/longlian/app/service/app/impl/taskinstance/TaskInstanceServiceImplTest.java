@@ -631,7 +631,7 @@ class TaskInstanceServiceImplTest {
 
     @Test
     void getTaskInstanceDetail_withSubmission_assemblesAuthorizedDetail() {
-        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L, null);
         TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).itemId(1L).itemTaskNodeId(3L).build();
         ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);
@@ -648,7 +648,7 @@ class TaskInstanceServiceImplTest {
 
     @Test
     void getTaskInstanceDetail_noSubmission_assemblesTaskWithoutSubmission() {
-        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L);
+        TaskInstanceDetailParamsBO params = new TaskInstanceDetailParamsBO(100L, 10L, null);
         TaskInstance instance = TaskInstance.builder().revision(0L).id(100L).itemId(1L).itemTaskNodeId(3L).build();
         ItemTaskNode node = ItemTaskNode.builder().id(3L).metaSchema("[]").build();
         when(taskInstanceMapper.selectById(100L)).thenReturn(instance);

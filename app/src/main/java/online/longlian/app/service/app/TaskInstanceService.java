@@ -10,6 +10,8 @@ import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
@@ -65,6 +67,11 @@ public interface TaskInstanceService {
     List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params);
 
     /**
+     * 为当前可见任务上的一个已绑定附件签发读取链接。详情本身不带链接。
+     */
+    ProjectAttachmentDownloadResultBO getTaskAttachmentDownload(TaskAttachmentDownloadParamsBO params);
+
+    /**
      * 查询指定项目下所有任务实例及其节点信息。
      *
      * @param params 包含项目 ID 的查询参数
@@ -104,6 +111,15 @@ public interface TaskInstanceService {
      * @param params 包含任务实例 ID、提交内容及其他元数据的提交参数
      */
     void submitTask(TaskInstanceSubmitParamsBO params);
+
+    /** 读取当前接取人的暂存内容。没有暂存时值为空。 */
+    java.util.Map<String, Object> getTaskDraft(TaskInstanceOperateParamsBO params);
+
+    /** 保存或覆盖当前接取人的一条暂存提交，不改变任务状态。 */
+    Long saveTaskDraft(TaskInstanceSubmitParamsBO params);
+
+    /** 把当前暂存提交正式提交。 */
+    void submitTaskDraft(TaskInstanceOperateParamsBO params);
 
     /**
      * 代提交：{@code PENDING → COMPLETED}。仅企划负责人可把未接取任务记到指定组员名下，

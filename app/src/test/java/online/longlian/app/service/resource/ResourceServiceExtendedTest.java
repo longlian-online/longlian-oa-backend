@@ -272,34 +272,42 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void bindBizResource_replacesActivatedResource() {
+    void bindBizResource_doesNotDeprecatePreviousResource() {
         when(resourceMapper.selectList(any())).thenReturn(List.of(pendingResource(2L)));
         when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
-        when(resourceMapper.update(isNull(), any())).thenReturn(1, 1, 1);
+        when(resourceMapper.update(isNull(), any())).thenReturn(1, 1);
 
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(2L).replacedResourceId(1L).bizType("avatar").bizId(3L).creatorId(1L).orgId(1L).build());
+                .resourceId(2L).bizType("avatar").bizId(3L).creatorId(1L).orgId(1L).build());
 
-        verify(resourceMapper, times(3)).update(isNull(), any());
+        verify(resourceMapper, times(2)).update(isNull(), any());
     }
 
     @Test
-    void bindBizResource_sameResourceDoesNotDeprecateIt() {
-        resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(1L).replacedResourceId(1L).bizId(2L).creatorId(1L).orgId(1L).build());
+    void bindBizResource_alreadyActivatedResourceIsRejected() {
+        Resource activated = pendingResource(1L);
+        activated.setBizId(2L);
+        activated.setProcessStatus(FileProcessStatus.Activated);
+        when(resourceMapper.selectList(any())).thenReturn(List.of(activated));
 
-        verifyNoInteractions(resourceMapper, storageFactory);
+        assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
+                .resourceId(1L).bizType("avatar").bizId(2L).creatorId(9L).orgId(1L).build()))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("无权使用该文件");
+
+        verify(resourceMapper, never()).update(isNull(), any());
+        verifyNoInteractions(storageFactory);
     }
 
     @Test
-    void bindBizResource_probeFailureKeepsPendingAndReplacement() {
+    void bindBizResource_probeFailureKeepsPending() {
         when(resourceMapper.selectList(any())).thenReturn(List.of(pendingResource(2L)));
         when(storageFactory.get(StorageType.OSS)).thenReturn(storageService);
         doThrow(new AppException(online.longlian.app.common.result.ResultCode.OPERATION_FAIL))
                 .when(storageService).probe(any());
 
         assertThatThrownBy(() -> resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(2L).replacedResourceId(1L).bizType("avatar").bizId(3L).creatorId(1L).orgId(1L).build()))
+                .resourceId(2L).bizType("avatar").bizId(3L).creatorId(1L).orgId(1L).build()))
                 .isInstanceOf(AppException.class);
 
         verify(storageService).probe(any());
@@ -336,11 +344,11 @@ class ResourceServiceExtendedTest {
     }
 
     @Test
-    void bindBizResource_zeroNewResourceDeprecatesReplacedResource() {
+    void bindBizResource_zeroResourceIdWithBizId_doesNothing() {
         resourceService.bindBizResource(ResourceBindParamsBO.builder()
-                .resourceId(0L).replacedResourceId(1L).bizId(2L).orgId(1L).build());
+                .resourceId(0L).bizId(2L).orgId(1L).build());
 
-        verify(resourceMapper).update(isNull(), any());
+        verify(resourceMapper, never()).update(isNull(), any());
     }
 
     @Test

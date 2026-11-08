@@ -13,7 +13,6 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
-import online.longlian.app.pojo.bo.common.ResourceAbandonParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -22,7 +21,6 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.orgadmin.BaseTaskService;
-import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,8 +58,6 @@ class ItemTaskFlowEditorTest {
     @Mock private TaskInstanceMapper instanceMapper;
     @Mock private TaskSubmissionMapper submissionMapper;
     @Mock private BaseTaskMapper baseTaskMapper;
-    @Mock private ResourceService resourceService;
-
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
     private ItemTaskFlowEditor editor;
 
@@ -71,13 +67,13 @@ class ItemTaskFlowEditorTest {
             TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), entity);
         }
         editor = new ItemTaskFlowEditor(projectService, baseTaskService, itemMapper, flowMapper,
-                nodeMapper, instanceMapper, submissionMapper, baseTaskMapper, resourceService, clock);
+                nodeMapper, instanceMapper, submissionMapper, baseTaskMapper, clock);
     }
 
     @Test
     void rejectsMissingItemBeforeCheckingProjectAccess() {
         expectFailure(params(List.of(), null), ResultCode.DATA_NOT_EXIT, "项目不存在");
-        verifyNoInteractions(projectService, flowMapper, nodeMapper, instanceMapper, resourceService);
+        verifyNoInteractions(projectService, flowMapper, nodeMapper, instanceMapper);
     }
 
     @Test
@@ -99,7 +95,7 @@ class ItemTaskFlowEditorTest {
     void rejectsDuplicateInstancesForOneNode() {
         lockedFlow(List.of(currentNode()), List.of(instance(0L), instance(0L)));
         expectFailure(params(List.of(desired(10L, 0L)), null), ResultCode.OPERATION_FAIL, ItemTaskFlowEditPlanner.STALE);
-        verifyNoInteractions(submissionMapper, baseTaskService, resourceService);
+        verifyNoInteractions(submissionMapper, baseTaskService);
         verify(instanceMapper, never()).update(isNull(), any(Wrapper.class));
     }
 
@@ -107,7 +103,7 @@ class ItemTaskFlowEditorTest {
     void rejectsNodeWithoutInstance() {
         lockedFlow(List.of(currentNode()), List.of());
         expectFailure(params(List.of(desired(10L, 0L)), null), ResultCode.OPERATION_FAIL, ItemTaskFlowEditPlanner.STALE);
-        verifyNoInteractions(submissionMapper, baseTaskService, resourceService);
+        verifyNoInteractions(submissionMapper, baseTaskService);
     }
 
     @Test
@@ -126,7 +122,7 @@ class ItemTaskFlowEditorTest {
                 .sort(field.equals("sort") ? null : 1)
                 .parallelSort(field.equals("parallelSort") ? null : 1).build();
         expectFailure(params(List.of(node), null), ResultCode.PARAM_ERROR, "流程位置无效");
-        verifyNoInteractions(baseTaskService, baseTaskMapper, resourceService);
+        verifyNoInteractions(baseTaskService, baseTaskMapper);
     }
 
     @Test
@@ -142,7 +138,7 @@ class ItemTaskFlowEditorTest {
         ItemTaskFlowUpdateParamsBO.Removed removed = ItemTaskFlowUpdateParamsBO.Removed.builder()
                 .id(field.equals("id") ? null : 10L).revision(field.equals("revision") ? null : 0L).build();
         expectFailure(params(List.of(desired(null, null)), List.of(removed)), ResultCode.PARAM_ERROR, "任务修订号不能为空");
-        verifyNoInteractions(baseTaskService, resourceService);
+        verifyNoInteractions(baseTaskService);
     }
 
     @Test
@@ -153,7 +149,7 @@ class ItemTaskFlowEditorTest {
                 TaskSubmission.builder().taskInstanceId(30L).build()));
         expectFailure(replaceParams(), ResultCode.OPERATION_FAIL, ItemTaskFlowEditPlanner.LOCKED_DELETE);
         verify(instanceMapper, never()).update(isNull(), any(Wrapper.class));
-        verifyNoInteractions(baseTaskService, resourceService);
+        verifyNoInteractions(baseTaskService);
     }
 
     @ParameterizedTest
@@ -163,7 +159,6 @@ class ItemTaskFlowEditorTest {
         when(instanceMapper.update(isNull(), any(Wrapper.class))).thenReturn(updated);
         expectFailure(params(List.of(desired(10L, 0L)), null), ResultCode.OPERATION_FAIL, ItemTaskFlowEditPlanner.STALE);
         verify(flowMapper, never()).update(isNull(), any(Wrapper.class));
-        verifyNoInteractions(resourceService);
     }
 
     @Test
@@ -173,7 +168,7 @@ class ItemTaskFlowEditorTest {
         editor.update(params(List.of(desired(10L, 0L)), null));
         verify(nodeMapper).update(isNull(), any(Wrapper.class));
         verify(flowMapper).update(isNull(), any(Wrapper.class));
-        verifyNoInteractions(baseTaskService, baseTaskMapper, resourceService);
+        verifyNoInteractions(baseTaskService, baseTaskMapper);
         verify(projectService, never()).isPlanningManager(any(), any(), any());
     }
 
@@ -187,20 +182,14 @@ class ItemTaskFlowEditorTest {
         verify(nodeMapper, never()).update(isNull(), any(Wrapper.class));
         verify(nodeMapper, never()).insert(any(ItemTaskNode.class));
         verify(flowMapper, never()).update(isNull(), any(Wrapper.class));
-        verifyNoInteractions(resourceService);
     }
 
     @Test
-    void deletesNodeAndAbandonsItsTaskResourcesBeforeCreatingReplacement() {
+    void deletesNodeWithoutDeprecatingResources() {
         lockedFlow(List.of(currentNode()), List.of(instance(0L)));
         when(baseTaskMapper.selectBatchIds(List.of(20L))).thenReturn(List.of(baseTask()));
         when(instanceMapper.update(isNull(), any(Wrapper.class))).thenReturn(1);
         editor.update(replaceParams());
-        ArgumentCaptor<ResourceAbandonParamsBO> abandoned = ArgumentCaptor.forClass(ResourceAbandonParamsBO.class);
-        verify(resourceService).abandonBound(abandoned.capture());
-        assertThat(abandoned.getValue().getOrgId()).isEqualTo(2L);
-        assertThat(abandoned.getValue().getBizType()).isEqualTo("task_submit");
-        assertThat(abandoned.getValue().getBizIds()).containsExactly(30L);
         verify(nodeMapper).update(isNull(), any(Wrapper.class));
         verify(flowMapper).update(isNull(), any(Wrapper.class));
     }
@@ -246,7 +235,7 @@ class ItemTaskFlowEditorTest {
         assertThat(instance.getValue().getTaskFlowId()).isEqualTo(5L);
         verify(baseTaskService).lockBaseTasks(2L, List.of(20L));
         verify(flowMapper).update(isNull(), any(Wrapper.class));
-        verifyNoInteractions(submissionMapper, resourceService);
+        verifyNoInteractions(submissionMapper);
     }
 
     private void accessibleProject(Long creatorId) {

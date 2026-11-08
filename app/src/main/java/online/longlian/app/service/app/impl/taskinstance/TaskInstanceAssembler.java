@@ -8,6 +8,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.TaskFormField;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
@@ -36,6 +37,10 @@ public class TaskInstanceAssembler {
     private final ResourceService resourceService;
     private final TaskFormService taskFormService;
     private final TaskAttachmentPresenter taskAttachmentPresenter;
+
+    public ProjectAttachmentDownloadResultBO downloadAttachment(Long taskId, Long orgId, Long fileId) {
+        return taskAttachmentPresenter.download(taskId, orgId, fileId);
+    }
 
     public List<ItemTaskInstanceVO> assembleInstances(List<TaskInstance> instances, Map<Long, ItemTaskNode> nodeMap) {
         if (instances.isEmpty()) {
@@ -122,6 +127,24 @@ public class TaskInstanceAssembler {
         result.setSubmission(new TaskInstanceDetailVO.Submission(
                 "submitted", submission.getCreatedAt(), detailFields));
         return result;
+    }
+
+    /** 按版本记录的字段结构组装任务实例上的暂存。附件挂在任务实例上。 */
+    public TaskInstanceDetailVO.Draft assembleDraft(ItemTaskNode node, TaskInstance instance, Long orgId) {
+        if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
+            return null;
+        }
+        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
+        try {
+            TaskFormService.ValidatedValues validated =
+                    taskFormService.parseDraftValues(fields, instance.getDraftMetadata());
+            Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
+                    instance.getId(), orgId, validated.resourceIds());
+            return new TaskInstanceDetailVO.Draft(
+                    instance.getDraftUpdatedAt(), displayFields(fields, validated, attachments), false);
+        } catch (AppException exception) {
+            return new TaskInstanceDetailVO.Draft(instance.getDraftUpdatedAt(), List.of(), true);
+        }
     }
 
     /** 按表单快照顺序产出展示字段；file 字段挂接已授权附件。 */

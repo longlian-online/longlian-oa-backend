@@ -67,8 +67,15 @@ class TaskSubmissionVersionsApiTest extends BaseApiTest {
                 .isEqualTo(FileProcessStatus.Activated.getCode());
 
         response.then()
-                .body("data[0].fields[1].file.readUrl",
-                        startsWith("https://static.example.com/task_submit/102.pdf"));
+                .body("data[0].fields[1].file.readUrl", nullValue())
+                .body("data[1].fields[1].file.readUrl", nullValue());
+        org.assertj.core.api.Assertions.assertThat(response.asString()).doesNotContain("token=");
+        authRequest(token).get("/app/task/instance/1/attachments/102/download").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.readUrl", startsWith("https://static.example.com/task_submit/102.pdf"));
+        authRequest(token).get("/app/task/instance/1/attachments/101/download").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.readUrl", startsWith("https://static.example.com/task_submit/101.pdf"));
     }
 
     @Test
@@ -122,8 +129,9 @@ class TaskSubmissionVersionsApiTest extends BaseApiTest {
                 .body("data", hasSize(1))
                 .body("data[0].fields[0].file.id", equalTo("901"))
                 .body("data[0].fields[0].file.name", not(isEmptyOrNullString()))
-                .body("data[0].fields[0].file.availability", equalTo("unavailable"))
-                .body("data[0].fields[0].file.readUrl", nullValue());
+                .body("data[0].fields[0].file.availability", equalTo("unavailable"));
+        authRequest(token).get("/app/task/instance/1/attachments/901/download").then()
+                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }
 
     @Test

@@ -581,6 +581,21 @@ class TaskInstanceCommandHandlerTest {
     }
 
     @Test
+    void readDraftValues_withoutDraft_returnsEmptyObject() {
+        TaskInstance missing = TaskInstance.builder().build();
+        TaskInstance blank = TaskInstance.builder().draftMetadata("  ").build();
+        TaskInstance jsonNull = TaskInstance.builder().draftMetadata("null").build();
+        TaskInstance unreadable = TaskInstance.builder().draftMetadata("not-json").build();
+        TaskInstance saved = TaskInstance.builder().draftMetadata("{\"note\":\"a\"}").build();
+
+        assertThat(handler.readDraftValues(missing)).isEmpty();
+        assertThat(handler.readDraftValues(blank)).isEmpty();
+        assertThat(handler.readDraftValues(jsonNull)).isEmpty();
+        assertThat(handler.readDraftValues(unreadable)).isEmpty();
+        assertThat(handler.readDraftValues(saved)).containsEntry("note", "a");
+    }
+
+    @Test
     void proxySubmit_futureTime_throws() {
         TaskInstance instance = pendingProxyInstance();
 
