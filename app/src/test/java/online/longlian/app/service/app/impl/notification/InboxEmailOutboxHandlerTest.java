@@ -370,18 +370,18 @@ class InboxEmailOutboxHandlerTest {
     }
 
     @Test
-    void shouldOmitUmamiPixelWhenUnset() throws Exception {
+    void shouldOmitInboxNotificationPixelWhenUnset() throws Exception {
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
         when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
 
         handler.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
 
-        assertThat(sent().content()).doesNotContain("${umamiPixel}").doesNotContain("umami.longlian.online");
+        assertThat(sent().content()).doesNotContain("${inboxNotificationPixel}").doesNotContain("umami.longlian.online");
     }
 
     @Test
-    void shouldInsertConfiguredUmamiPixel() throws Exception {
-        InboxEmailOutboxHandler tracked = handler(new DefaultResourceLoader(), "${umamiPixel}", WEB,
+    void shouldInsertConfiguredInboxNotificationPixel() throws Exception {
+        InboxEmailOutboxHandler tracked = handler(new DefaultResourceLoader(), "${inboxNotificationPixel}", WEB,
                 "  https://umami.longlian.online/p/tJgx6dhuK  ");
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
         when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
@@ -391,16 +391,16 @@ class InboxEmailOutboxHandlerTest {
         String content = sent().content();
         assertThat(content).contains(
                 "<img src=\"https://umami.longlian.online/p/tJgx6dhuK\" alt=\"\" width=\"1\" height=\"1\" style=\"display:block;width:1px;height:1px;border:0;\">");
-        assertThat(content).contains("<title>${umamiPixel}</title>");
+        assertThat(content).contains("<title>${inboxNotificationPixel}</title>");
     }
 
     @Test
-    void shouldRejectUnsafeUmamiPixelUrl() {
+    void shouldRejectUnsafeInboxNotificationPixelUrl() {
         assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB, "http://umami.example/p/a"))
-                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.umami-pixel-url 无效");
+                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.inbox-notification-pixel-url 无效");
         assertThatThrownBy(() -> handler(new DefaultResourceLoader(), DISPLAY_NAME, WEB,
                 "https://umami.example/p/a\"><script>"))
-                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.umami-pixel-url 无效");
+                .isInstanceOf(IllegalStateException.class).hasMessage("longlian.inbox-notification-pixel-url 无效");
     }
 
     private InboxEmailOutboxHandler handler(org.springframework.core.io.ResourceLoader resources, String displayName) {
