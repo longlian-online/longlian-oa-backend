@@ -300,14 +300,14 @@ public class OrgFileServiceImpl implements OrgFileService {
             throw missing("企划不存在");
         }
         List<OrgFileEntryResultBO> entries = fileEntries(item.getId(), params.getOrgId());
-        return folder(type, project, item, (long) entries.size(), entries);
+        return folder(type, project, item, entries.size(), entries);
     }
 
     private OrgFileEntriesResultBO folder(
             ProjectType type,
             Project project,
             Item item,
-            Long total,
+            long total,
             List<OrgFileEntryResultBO> entries) {
         return OrgFileEntriesResultBO.builder()
                 .typeId(type == null ? null : type.getId())
@@ -523,7 +523,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         try {
             return taskFormService.parseFields(schema);
         } catch (AppException exception) {
-            return null;
+            return List.of();
         }
     }
 
@@ -575,27 +575,13 @@ public class OrgFileServiceImpl implements OrgFileService {
     }
 
     private List<Downloadable> resolveFile(Long orgId, OrgFileBatchTargetParamsBO target) {
-        if (target.getTaskInstanceId() == null || target.getFileId() == null
-                || target.getFieldKey() == null || target.getFieldKey().isBlank()) {
-            throw new AppException(ResultCode.PARAM_ERROR, "文件参数不完整");
-        }
+        requireFileTarget(target);
         TaskInstance instance = taskInstanceMapper.selectById(target.getTaskInstanceId());
         if (instance == null) {
             throw missing("附件不存在");
         }
         requireItem(instance.getItemId(), instance.getProjectId(), orgId);
-        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
-        List<TaskFormField> fields = node == null ? null : readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = fields == null || submission == null
-                ? null : readValues(fields, submission.getMetadata());
-        TaskFormField field = fields == null ? null : fields.stream()
-                .filter(item -> target.getFieldKey().equals(item.key()))
-                .findFirst()
-                .orElse(null);
-        if (field == null || values == null || !target.getFileId().equals(fileId(field, values))) {
-            throw missing("附件不存在");
-        }
+        TaskFormField field = requireCurrentField(instance, target.getFieldKey(), target.getFileId());
         if (resourceDeprecationService.deprecatedIds(List.of(target.getFileId())).contains(target.getFileId())) {
             return List.of();
         }
@@ -606,6 +592,32 @@ public class OrgFileServiceImpl implements OrgFileService {
             return List.of();
         }
         return List.of(new Downloadable(instance.getId(), field.key(), target.getFileId(), resource));
+    }
+
+    private static void requireFileTarget(OrgFileBatchTargetParamsBO target) {
+        if (target.getTaskInstanceId() == null || target.getFileId() == null
+                || target.getFieldKey() == null || target.getFieldKey().isBlank()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "文件参数不完整");
+        }
+    }
+
+    private TaskFormField requireCurrentField(TaskInstance instance, String fieldKey, Long fileId) {
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
+        if (node == null || submission == null) {
+            throw missing("附件不存在");
+        }
+        List<TaskFormField> fields = readFields(node.getMetaSchema());
+        TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
+        if (values == null) {
+            throw missing("附件不存在");
+        }
+        for (TaskFormField field : fields) {
+            if (fieldKey.equals(field.key()) && fileId.equals(fileId(field, values))) {
+                return field;
+            }
+        }
+        throw missing("附件不存在");
     }
 
     private List<Downloadable> resolveItem(Long orgId, Long itemId) {

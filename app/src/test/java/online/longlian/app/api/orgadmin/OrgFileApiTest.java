@@ -4,6 +4,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.FileProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.TestPropertySource;
 
 import java.net.URI;
 
@@ -13,6 +14,18 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 
+@TestPropertySource(properties = {
+        "storage.type=COS",
+        "storage.cos.bucket=test-bucket",
+        "storage.cos.region=ap-guangzhou",
+        "storage.cos.secret-id=test-secret-id",
+        "storage.cos.secret-key=test-secret-key",
+        "storage.cdn.enabled=true",
+        "storage.cdn.url-prefix=https://static.example.com",
+        "storage.cdn.auth-key=test-cdn-key",
+        "storage.cdn.auth-ttl-seconds=300",
+        "storage.cdn.url-reuse-percent=80"
+})
 public class OrgFileApiTest extends BaseApiTest {
 
     private static final String SCHEMA = """
