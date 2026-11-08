@@ -3,17 +3,26 @@ package online.longlian.app.controller.orgadmin;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchFileResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
+import online.longlian.app.pojo.dto.orgadmin.OrgFileBatchDownloadDTO;
+import online.longlian.app.pojo.dto.orgadmin.OrgFileBatchTargetDTO;
+import online.longlian.app.pojo.vo.orgadmin.OrgFileBatchDownloadVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgFileBatchFileVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileDownloadVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntriesVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntryVO;
@@ -24,6 +33,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -82,6 +93,24 @@ public class OrgFileController {
         return vo;
     }
 
+    @Operation(summary = "展开选中的提交文件", description = "展开选中的文件、项目、企划或企划类型。只返回当前有效且可用的提交文件身份和原名，不签发读取链接")
+    @PostMapping("/downloads")
+    @ResponseMessage("获取成功")
+    public OrgFileBatchDownloadVO downloadBatch(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @RequestBody @Valid OrgFileBatchDownloadDTO dto) {
+        List<OrgFileBatchTargetParamsBO> targets = dto.getTargets().stream()
+                .map(this::toTarget)
+                .toList();
+        OrgFileBatchDownloadResultBO result = orgFileService.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+                .orgId(sessionContext.orgId())
+                .targets(targets)
+                .build());
+        OrgFileBatchDownloadVO vo = new OrgFileBatchDownloadVO();
+        vo.setFiles(result.getFiles().stream().map(this::toBatchFile).toList());
+        return vo;
+    }
+
     @Operation(summary = "弃置当前提交中的文件", description = "不改提交内容。封面、头像或企划附件仍引用时拒绝。弃置后文件页不再列出，任务详情显示为不可用")
     @DeleteMapping("/tasks/{taskInstanceId}/attachments/{fileId}")
     @ResponseMessage("已删除")
@@ -107,5 +136,23 @@ public class OrgFileController {
             BeanUtils.copyProperties(entry, vo);
             return vo;
         }).toList();
+    }
+
+    private OrgFileBatchTargetParamsBO toTarget(OrgFileBatchTargetDTO target) {
+        return OrgFileBatchTargetParamsBO.builder()
+                .kind(target.getKind())
+                .taskInstanceId(target.getTaskInstanceId())
+                .fileId(target.getFileId())
+                .fieldKey(target.getFieldKey())
+                .itemId(target.getItemId())
+                .projectId(target.getProjectId())
+                .typeId(target.getTypeId())
+                .build();
+    }
+
+    private OrgFileBatchFileVO toBatchFile(OrgFileBatchFileResultBO file) {
+        OrgFileBatchFileVO vo = new OrgFileBatchFileVO();
+        BeanUtils.copyProperties(file, vo);
+        return vo;
     }
 }

@@ -16,6 +16,10 @@ import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchFileResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
@@ -115,6 +119,33 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .readUrl(read.readUrl())
                 .expireAt(read.expiresAt())
                 .build();
+    }
+
+    @Override
+    public OrgFileBatchDownloadResultBO downloadBatch(OrgFileBatchDownloadParamsBO params) {
+        if (params.getTargets() == null || params.getTargets().isEmpty()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "请选择要下载的文件");
+        }
+        if (params.getTargets().size() > 100) {
+            throw new AppException(ResultCode.PARAM_ERROR, "一次最多选择 100 项");
+        }
+        LinkedHashMap<String, Downloadable> ordered = new LinkedHashMap<>();
+        for (OrgFileBatchTargetParamsBO target : params.getTargets()) {
+            for (Downloadable file : resolveTarget(params.getOrgId(), target)) {
+                ordered.putIfAbsent(downloadKey(file), file);
+            }
+        }
+        List<OrgFileBatchFileResultBO> files = new ArrayList<>();
+        for (Downloadable file : ordered.values()) {
+            files.add(OrgFileBatchFileResultBO.builder()
+                    .taskInstanceId(file.taskInstanceId())
+                    .fieldKey(file.fieldKey())
+                    .fileId(file.fileId())
+                    .fileName(file.resource().fileName())
+                    .fileSize(file.resource().fileSize())
+                    .build());
+        }
+        return OrgFileBatchDownloadResultBO.builder().files(files).build();
     }
 
     @Override
@@ -266,14 +297,14 @@ public class OrgFileServiceImpl implements OrgFileService {
             throw missing("企划不存在");
         }
         List<OrgFileEntryResultBO> entries = fileEntries(item.getId(), params.getOrgId());
-        return folder(type, project, item, (long) entries.size(), entries);
+        return folder(type, project, item, entries.size(), entries);
     }
 
     private OrgFileEntriesResultBO folder(
             ProjectType type,
             Project project,
             Item item,
-            Long total,
+            long total,
             List<OrgFileEntryResultBO> entries) {
         return OrgFileEntriesResultBO.builder()
                 .typeId(type == null ? null : type.getId())
@@ -489,7 +520,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         try {
             return taskFormService.parseFields(schema);
         } catch (AppException exception) {
-            return null;
+            return List.of();
         }
     }
 
@@ -526,6 +557,144 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     private AppException missing(String message) {
         return new AppException(ResultCode.DATA_NOT_EXIT, message);
+    }
+
+    private List<Downloadable> resolveTarget(Long orgId, OrgFileBatchTargetParamsBO target) {
+        if (target == null || target.getKind() == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "下载目标不能为空");
+        }
+        return switch (target.getKind()) {
+            case FILE -> resolveFile(orgId, target);
+            case ITEM -> resolveItem(orgId, target.getItemId());
+            case PROJECT -> resolveProject(orgId, target.getProjectId());
+            case TYPE -> resolveType(orgId, target.getTypeId());
+        };
+    }
+
+    private List<Downloadable> resolveFile(Long orgId, OrgFileBatchTargetParamsBO target) {
+        requireFileTarget(target);
+        TaskInstance instance = taskInstanceMapper.selectById(target.getTaskInstanceId());
+        if (instance == null) {
+            throw missing("附件不存在");
+        }
+        requireItem(instance.getItemId(), instance.getProjectId(), orgId);
+        TaskFormField field = requireCurrentField(instance, target.getFieldKey(), target.getFileId());
+        if (resourceDeprecationService.deprecatedIds(List.of(target.getFileId())).contains(target.getFileId())) {
+            return List.of();
+        }
+        ActivatedResource resource = resourceService
+                .findActivated(TASK_SUBMIT, instance.getId(), orgId, List.of(target.getFileId()))
+                .get(target.getFileId());
+        if (resource == null) {
+            return List.of();
+        }
+        return List.of(new Downloadable(instance.getId(), field.key(), target.getFileId(), resource));
+    }
+
+    private static void requireFileTarget(OrgFileBatchTargetParamsBO target) {
+        if (target.getTaskInstanceId() == null || target.getFileId() == null
+                || target.getFieldKey() == null || target.getFieldKey().isBlank()) {
+            throw new AppException(ResultCode.PARAM_ERROR, "文件参数不完整");
+        }
+    }
+
+    private TaskFormField requireCurrentField(TaskInstance instance, String fieldKey, Long fileId) {
+        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
+        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
+        if (node == null || submission == null) {
+            throw missing("附件不存在");
+        }
+        List<TaskFormField> fields = readFields(node.getMetaSchema());
+        TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
+        if (values == null) {
+            throw missing("附件不存在");
+        }
+        for (TaskFormField field : fields) {
+            if (fieldKey.equals(field.key()) && fileId.equals(fileId(field, values))) {
+                return field;
+            }
+        }
+        throw missing("附件不存在");
+    }
+
+    private List<Downloadable> resolveItem(Long orgId, Long itemId) {
+        if (itemId == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "项目不能为空");
+        }
+        Item item = requireItem(itemId, null, orgId);
+        Project project = requireProject(item.getProjectId(), orgId);
+        return downloadables(List.of(new OrgFileTypeItemBO(
+                item.getId(), item.getTitle(), project.getId(), project.getTitle())), orgId);
+    }
+
+    private List<Downloadable> resolveProject(Long orgId, Long projectId) {
+        if (projectId == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "企划不能为空");
+        }
+        Project project = requireProject(projectId, orgId);
+        List<Item> items = itemMapper.selectList(new LambdaQueryWrapper<Item>()
+                .eq(Item::getProjectId, project.getId())
+                .orderByAsc(Item::getSort)
+                .orderByAsc(Item::getId));
+        List<OrgFileTypeItemBO> rows = new ArrayList<>();
+        for (Item item : items) {
+            rows.add(new OrgFileTypeItemBO(item.getId(), item.getTitle(), project.getId(), project.getTitle()));
+        }
+        return downloadables(rows, orgId);
+    }
+
+    private List<Downloadable> resolveType(Long orgId, Long typeId) {
+        if (typeId == null) {
+            throw new AppException(ResultCode.PARAM_ERROR, "企划类型不能为空");
+        }
+        ProjectType type = requireType(typeId, orgId);
+        List<Downloadable> files = new ArrayList<>();
+        long offset = 0;
+        while (true) {
+            List<OrgFileTypeItemBO> items = itemMapper.selectByProjectType(
+                    orgId, type.getId(), offset, TYPE_ITEM_BATCH);
+            if (items == null || items.isEmpty()) {
+                break;
+            }
+            files.addAll(downloadables(items, orgId));
+            if (items.size() < TYPE_ITEM_BATCH) {
+                break;
+            }
+            offset += items.size();
+        }
+        return files;
+    }
+
+    private List<Downloadable> downloadables(List<OrgFileTypeItemBO> items, Long orgId) {
+        if (items.isEmpty()) {
+            return List.of();
+        }
+        List<PendingFile> pending = pendingFiles(items, orgId);
+        Map<Long, List<PendingFile>> byInstance = new LinkedHashMap<>();
+        for (PendingFile file : pending) {
+            byInstance.computeIfAbsent(file.instance().getId(), key -> new ArrayList<>()).add(file);
+        }
+        Map<Long, Map<Long, ActivatedResource>> resourcesByInstance = new HashMap<>();
+        for (Map.Entry<Long, List<PendingFile>> entry : byInstance.entrySet()) {
+            List<Long> ids = entry.getValue().stream().map(PendingFile::fileId).distinct().toList();
+            resourcesByInstance.put(entry.getKey(),
+                    resourceService.findActivated(TASK_SUBMIT, entry.getKey(), orgId, ids));
+        }
+        List<Downloadable> files = new ArrayList<>();
+        for (PendingFile file : pending) {
+            ActivatedResource resource = resourcesByInstance
+                    .getOrDefault(file.instance().getId(), Map.of())
+                    .get(file.fileId());
+            if (resource == null) {
+                continue;
+            }
+            files.add(new Downloadable(file.instance().getId(), file.field().key(), file.fileId(), resource));
+        }
+        return files;
+    }
+
+    private static String downloadKey(Downloadable file) {
+        return file.taskInstanceId() + "\u001f" + file.fieldKey() + "\u001f" + file.fileId();
     }
 
     private List<PendingFile> pendingFiles(List<OrgFileTypeItemBO> items, Long orgId) {
@@ -628,5 +797,12 @@ public class OrgFileServiceImpl implements OrgFileService {
             Long fileId,
             String submitterName,
             String subtitle) {
+    }
+
+    private record Downloadable(
+            Long taskInstanceId,
+            String fieldKey,
+            Long fileId,
+            ActivatedResource resource) {
     }
 }
