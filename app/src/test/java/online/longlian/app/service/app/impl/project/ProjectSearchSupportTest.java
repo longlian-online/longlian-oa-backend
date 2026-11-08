@@ -23,7 +23,7 @@ class ProjectSearchSupportTest {
         assertThat(result.getOrgId()).isEqualTo(7L);
         assertThat(result.getTypeId()).isEqualTo(9L);
         assertThat(result.getKeyword()).isEqualTo("50%_!");
-        assertThat(result.getMatchPattern()).isEqualTo("%50!%!_!!%");
+        assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!!%");
         assertThat(result.getTagMatchPattern()).isEqualTo("50!%!_!!");
         assertThat(result.getSortByTime()).isEqualTo(SortByTime.UPDATE);
         assertThat(result.getOrderDir()).isEqualTo(SortDirection.ASC);
@@ -36,7 +36,7 @@ class ProjectSearchSupportTest {
                 .keyword("  星海　银河\tGo OA 星海  ").build(), null);
 
         assertThat(result.getKeyword()).isEqualTo("星海　银河\tGo OA 星海");
-        assertThat(result.getMatchPattern()).isEqualTo("%星海　银河\tGo OA 星海%");
+        assertThat(result.getMatchPatterns()).contains("%星海　银河\tGo OA 星海%");
         assertThat(result.getTagMatchPattern()).isEqualTo("星海　银河\tGo OA 星海");
     }
 
@@ -46,8 +46,34 @@ class ProjectSearchSupportTest {
         ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
                 .keyword("50%_! Go").build(), null);
 
-        assertThat(result.getMatchPattern()).isEqualTo("%50!%!_!! Go%");
+        assertThat(result.getMatchPatterns()).containsExactly("%50!%!_!! Go%");
         assertThat(result.getTagMatchPattern()).isEqualTo("50!%!_!! Go");
+    }
+
+    /** 原文优先，简繁候选去重，元信息仍使用原始关键词。 */
+    @Test
+    void shouldExpandSimplifiedAndTraditionalKeywords() {
+        ProjectSearchParamsBO simplified = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .keyword("  结晶  ").build(), null);
+        ProjectSearchParamsBO traditional = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .keyword("結晶").build(), null);
+
+        assertThat(simplified.getMatchPatterns()).containsExactly("%结晶%", "%結晶%");
+        assertThat(traditional.getMatchPatterns()).containsExactly("%結晶%", "%结晶%");
+        assertThat(simplified.getTagMatchPattern()).isEqualTo("结晶");
+        assertThat(traditional.getTagMatchPattern()).isEqualTo("結晶");
+    }
+
+    /** 混合输入保留原文，并在转换后逐一转义通配符。 */
+    @Test
+    void shouldEscapeEveryExpandedPatternWithoutSplittingMixedKeyword() {
+        ProjectSearchParamsBO result = ProjectSearchSupport.buildParams(ProjectListParamsBO.builder()
+                .keyword("  銀色的结晶 50%_!  ").build(), null);
+
+        assertThat(result.getMatchPatterns()).containsExactly(
+                "%銀色的结晶 50!%!_!!%", "%银色的结晶 50!%!_!!%", "%銀色的結晶 50!%!_!!%");
+        assertThat(result.getKeyword()).isEqualTo("銀色的结晶 50%_!");
+        assertThat(result.getTagMatchPattern()).isEqualTo("銀色的结晶 50!%!_!!");
     }
 
     /** 命中项稳定前置，重复路径不重复输出，保留顶层额外字段。 */
