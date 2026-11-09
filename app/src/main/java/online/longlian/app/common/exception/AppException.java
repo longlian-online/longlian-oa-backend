@@ -26,6 +26,6 @@ public class AppException extends RuntimeException {
     public AppException(ResultCode resultCode,String msg) {
         super(msg);
         this.code = resultCode.getCode();
-        this.msg = resultCode.getMsg() +","+ msg;
+        this.msg = resultCode.getMsg() +"，"+ msg;
     }
 }

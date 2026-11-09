@@ -84,7 +84,7 @@ public class DeletionRequestApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,已提交删除申请，请等待审核"));
+                .body("msg", equalTo("操作失败，已提交删除申请，请等待审核"));
     }
 
     @Test

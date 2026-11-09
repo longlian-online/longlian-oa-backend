@@ -703,7 +703,7 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
                     assertThat(ex.getMsg()).isEqualTo(
-                            "参数错误,企划已存在项目，请提交删除申请");
+                            "参数错误，企划已存在项目，请提交删除申请");
                 });
         verify(projectMapper, never()).deleteById(any());
     }
@@ -727,7 +727,7 @@ class ProjectServiceImplTest {
 
         assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
                 .isInstanceOfSatisfying(AppException.class, ex ->
-                        assertThat(ex.getMsg()).isEqualTo("参数错误,企划已存在项目，请提交删除申请"));
+                        assertThat(ex.getMsg()).isEqualTo("参数错误，企划已存在项目，请提交删除申请"));
         verify(projectMapper, never()).deleteById(any());
     }
 
@@ -752,7 +752,7 @@ class ProjectServiceImplTest {
         assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-                    assertThat(ex.getMsg()).isEqualTo("无权操作,仅企划负责人可删除企划");
+                    assertThat(ex.getMsg()).isEqualTo("无权操作，仅企划负责人可删除企划");
                 });
         verify(projectMapper, never()).deleteById(any());
         verify(itemMapper, never()).selectCount(any());

@@ -27,7 +27,7 @@ public class TaskSubmitStageGateApiTest extends BaseApiTest {
 
         submit(token, 3).then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,请先完成前置阶段"));
+                .body("msg", equalTo("操作失败，请先完成前置阶段"));
 
         assertStatus(3, 2);
         assertStatus(2, openStatus);
@@ -76,7 +76,7 @@ public class TaskSubmitStageGateApiTest extends BaseApiTest {
 
         submit(token, 2).then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,请先完成前置阶段"));
+                .body("msg", equalTo("操作失败，请先完成前置阶段"));
         assertStatus(2, 2);
         assertSubmissionCount(2, 0);
     }
