@@ -135,6 +135,10 @@ public class OrgFileApiTest extends BaseApiTest {
                 .body("data.files[0].fieldKey", equalTo("script"))
                 .body("data.files[0].fileId", equalTo("101"))
                 .body("data.files[0].fileName", equalTo("成果101.pdf"))
+                .body("data.files[0].projectTitle", equalTo("阿企划"))
+                .body("data.files[0].itemTitle", equalTo("第一话"))
+                .body("data.files[0].taskName", equalTo("翻译"))
+                .body("data.files[0].fieldLabel", equalTo("译稿"))
                 .body("data.files[0].readUrl", nullValue());
 
         authRequest(token)

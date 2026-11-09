@@ -34,4 +34,10 @@ public class OrgFileBatchFileVO {
     @Schema(description = "所属项目名称")
     private String itemTitle;
 
+    @Schema(description = "所属任务名称")
+    private String taskName;
+
+    @Schema(description = "提交项名称")
+    private String fieldLabel;
+
 }
