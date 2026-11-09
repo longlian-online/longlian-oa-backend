@@ -7,7 +7,6 @@ import java.util.List;
 
 @Data
 @Builder
-public class OrgFileBatchDownloadParamsBO {
-    private Long orgId;
-    private List<OrgFileBatchTargetParamsBO> targets;
+public class OrgFileExpansionResultBO {
+    private List<OrgFileBatchFileResultBO> files;
 }

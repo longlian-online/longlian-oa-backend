@@ -9,11 +9,11 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-@Schema(description = "组织文件页批量下载")
-public class OrgFileBatchDownloadDTO {
+@Schema(description = "展开选中的组织文件")
+public class OrgFileExpansionDTO {
 
     @Valid
-    @NotEmpty(message = "请选择要下载的文件")
+    @NotEmpty(message = "请选择要展开的文件")
     @Size(max = 100, message = "一次最多选择 100 项")
     @Schema(description = "选中的文件或文件夹", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<OrgFileBatchTargetDTO> targets;

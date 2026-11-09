@@ -4,8 +4,8 @@ import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
 
 public interface OrgFileService {
@@ -15,7 +15,7 @@ public interface OrgFileService {
 
     ProjectAttachmentDownloadResultBO download(OrgFileDownloadParamsBO params);
 
-    OrgFileBatchDownloadResultBO downloadBatch(OrgFileBatchDownloadParamsBO params);
+    OrgFileExpansionResultBO expand(OrgFileExpansionParamsBO params);
 
     void discard(OrgFileDiscardParamsBO params);
 }
