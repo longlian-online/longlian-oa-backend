@@ -1,5 +1,6 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.MyTaskBucket;
 import online.longlian.app.mapper.TaskInstanceMapper;
@@ -7,8 +8,13 @@ import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
 import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
 import online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO;
 import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.ProjectClaimedTaskParamsBO;
+import online.longlian.app.pojo.entity.TaskInstance;
+import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.ClaimedTaskLoadService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +31,17 @@ import java.util.stream.Collectors;
 public class ClaimedTaskLoadServiceImpl implements ClaimedTaskLoadService {
 
     private final TaskInstanceMapper taskInstanceMapper;
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean hasClaimedTasksInProject(ProjectClaimedTaskParamsBO params) {
+        return taskInstanceMapper.selectOne(new LambdaQueryWrapper<TaskInstance>()
+                .select(TaskInstance::getId)
+                .eq(TaskInstance::getProjectId, params.getProjectId())
+                .eq(TaskInstance::getAssigneeId, params.getAssigneeId())
+                .eq(TaskInstance::getStatus, TaskInstanceStatus.CLAIMED)
+                .last("LIMIT 1 LOCK IN SHARE MODE")) != null;
+    }
 
     @Override
     public List<ClaimedTaskLoadResultBO> listClaimedTasks(ClaimedTaskLoadParamsBO params) {

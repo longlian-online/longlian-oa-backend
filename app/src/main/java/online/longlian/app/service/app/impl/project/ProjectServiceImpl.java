@@ -29,6 +29,7 @@ import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.app.ProjectClaimedTaskParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
@@ -38,6 +39,7 @@ import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
 import online.longlian.app.pojo.vo.app.ProjectTypeCustomFieldVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
@@ -69,6 +71,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectTypeCustomFormService projectTypeCustomFormService;
     private final ProjectAttachmentHandler projectAttachmentHandler;
     private final OrganizationMembershipService organizationMembershipService;
+    private final ClaimedTaskLoadService claimedTaskLoadService;
     private final Clock clock;
 
     @Override
@@ -340,12 +343,17 @@ public class ProjectServiceImpl implements ProjectService {
         if (project.getCreatorId().equals(params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "企划负责人不能退出企划");
         }
+        // 先锁定成员关联，再当前读检查责任；接取/分配在同一事务中确认关联，避免退出漏掉并发接取。
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
+        if (claimedTaskLoadService.hasClaimedTasksInProject(ProjectClaimedTaskParamsBO.builder()
+                .projectId(params.getProjectId()).assigneeId(params.getUserId()).build())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "还有未完成的任务，请先提交或放弃后再退出企划");
+        }
     }
 
 
