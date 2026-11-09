@@ -10,8 +10,8 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchFileResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
@@ -19,9 +19,9 @@ import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
-import online.longlian.app.pojo.dto.orgadmin.OrgFileBatchDownloadDTO;
+import online.longlian.app.pojo.dto.orgadmin.OrgFileExpansionDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrgFileBatchTargetDTO;
-import online.longlian.app.pojo.vo.orgadmin.OrgFileBatchDownloadVO;
+import online.longlian.app.pojo.vo.orgadmin.OrgFileExpansionVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileBatchFileVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileDownloadVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntriesVO;
@@ -94,19 +94,19 @@ public class OrgFileController {
     }
 
     @Operation(summary = "展开选中的提交文件", description = "展开选中的文件、项目、企划或企划类型。只返回当前有效且可用的提交文件身份和原名，不签发读取链接")
-    @PostMapping("/downloads")
+    @PostMapping("/expansions")
     @ResponseMessage("获取成功")
-    public OrgFileBatchDownloadVO downloadBatch(
+    public OrgFileExpansionVO expand(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-            @RequestBody @Valid OrgFileBatchDownloadDTO dto) {
+            @RequestBody @Valid OrgFileExpansionDTO dto) {
         List<OrgFileBatchTargetParamsBO> targets = dto.getTargets().stream()
                 .map(this::toTarget)
                 .toList();
-        OrgFileBatchDownloadResultBO result = orgFileService.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+        OrgFileExpansionResultBO result = orgFileService.expand(OrgFileExpansionParamsBO.builder()
                 .orgId(sessionContext.orgId())
                 .targets(targets)
                 .build());
-        OrgFileBatchDownloadVO vo = new OrgFileBatchDownloadVO();
+        OrgFileExpansionVO vo = new OrgFileExpansionVO();
         vo.setFiles(result.getFiles().stream().map(this::toBatchFile).toList());
         return vo;
     }

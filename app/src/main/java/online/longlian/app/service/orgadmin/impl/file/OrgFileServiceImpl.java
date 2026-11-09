@@ -16,8 +16,8 @@ import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.common.TaskFormField;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchFileResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
@@ -122,9 +122,9 @@ public class OrgFileServiceImpl implements OrgFileService {
     }
 
     @Override
-    public OrgFileBatchDownloadResultBO downloadBatch(OrgFileBatchDownloadParamsBO params) {
+    public OrgFileExpansionResultBO expand(OrgFileExpansionParamsBO params) {
         if (params.getTargets() == null || params.getTargets().isEmpty()) {
-            throw new AppException(ResultCode.PARAM_ERROR, "请选择要下载的文件");
+            throw new AppException(ResultCode.PARAM_ERROR, "请选择要展开的文件");
         }
         if (params.getTargets().size() > 100) {
             throw new AppException(ResultCode.PARAM_ERROR, "一次最多选择 100 项");
@@ -148,7 +148,7 @@ public class OrgFileServiceImpl implements OrgFileService {
                     .itemTitle(file.itemTitle())
                     .build());
         }
-        return OrgFileBatchDownloadResultBO.builder().files(files).build();
+        return OrgFileExpansionResultBO.builder().files(files).build();
     }
 
     @Override
@@ -575,7 +575,7 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     private List<Downloadable> resolveTarget(Long orgId, OrgFileBatchTargetParamsBO target) {
         if (target == null || target.getKind() == null) {
-            throw new AppException(ResultCode.PARAM_ERROR, "下载目标不能为空");
+            throw new AppException(ResultCode.PARAM_ERROR, "展开目标不能为空");
         }
         return switch (target.getKind()) {
             case FILE -> resolveFile(orgId, target);

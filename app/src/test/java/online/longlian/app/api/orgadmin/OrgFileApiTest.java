@@ -105,7 +105,7 @@ public class OrgFileApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldBatchDownloadFilesUnderAnItemWithoutNesting() {
+    void shouldExpandFilesUnderAnItemWithoutNesting() {
         String token = admin();
         insertProject(2L, 1L, "阿企划");
         jdbcTemplate.update(
@@ -127,7 +127,7 @@ public class OrgFileApiTest extends BaseApiTest {
                                 "taskInstanceId", "8",
                                 "fileId", "101",
                                 "fieldKey", "script"))))
-                .post("/orgadmin/files/downloads");
+                .post("/orgadmin/files/expansions");
         download.then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.files", hasSize(1))
@@ -144,12 +144,12 @@ public class OrgFileApiTest extends BaseApiTest {
                                 "taskInstanceId", "8",
                                 "fileId", "100",
                                 "fieldKey", "script"))))
-                .post("/orgadmin/files/downloads")
+                .post("/orgadmin/files/expansions")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
         authRequest(token)
                 .body(java.util.Map.of("targets", java.util.List.of()))
-                .post("/orgadmin/files/downloads")
+                .post("/orgadmin/files/expansions")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
     }

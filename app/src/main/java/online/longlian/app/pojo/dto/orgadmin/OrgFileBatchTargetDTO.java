@@ -7,10 +7,10 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.common.enumeration.OrgFileBatchTargetKind;
 
 @Data
-@Schema(description = "组织文件页批量下载的一项选择")
+@Schema(description = "组织文件页展开的一项选择")
 public class OrgFileBatchTargetDTO {
 
-    @NotNull(message = "下载目标不能为空")
+    @NotNull(message = "展开目标不能为空")
     @Schema(description = "FILE-提交文件，ITEM-项目，PROJECT-企划，TYPE-企划类型", requiredMode = Schema.RequiredMode.REQUIRED)
     private OrgFileBatchTargetKind kind;
 

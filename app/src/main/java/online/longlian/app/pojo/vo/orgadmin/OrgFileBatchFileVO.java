@@ -5,7 +5,7 @@ import lombok.Data;
 import online.longlian.app.common.annotation.JsonLongIdString;
 
 @Data
-@Schema(description = "批量下载中的一个提交文件")
+@Schema(description = "展开结果中的一个提交文件")
 public class OrgFileBatchFileVO {
 
     @JsonLongIdString

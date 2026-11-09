@@ -13,8 +13,8 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
@@ -419,7 +419,7 @@ class OrgFileServiceImplTest {
         when(resourceService.findActivated(eq("task_submit"), eq(9L), eq(1L), eq(List.of(202L))))
                 .thenReturn(Map.of());
 
-        OrgFileBatchDownloadResultBO result = service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+        OrgFileExpansionResultBO result = service.expand(OrgFileExpansionParamsBO.builder()
                 .orgId(1L)
                 .targets(List.of(
                         OrgFileBatchTargetParamsBO.builder().kind(OrgFileBatchTargetKind.PROJECT).projectId(1L).build(),
@@ -454,7 +454,7 @@ class OrgFileServiceImplTest {
         when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L))))
                 .thenReturn(Map.of());
 
-        OrgFileBatchDownloadResultBO skipped = service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+        OrgFileExpansionResultBO skipped = service.expand(OrgFileExpansionParamsBO.builder()
                 .orgId(1L)
                 .targets(List.of(OrgFileBatchTargetParamsBO.builder()
                         .kind(OrgFileBatchTargetKind.FILE)
@@ -465,7 +465,7 @@ class OrgFileServiceImplTest {
                 .build());
 
         assertThat(skipped.getFiles()).isEmpty();
-        assertThatThrownBy(() -> service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+        assertThatThrownBy(() -> service.expand(OrgFileExpansionParamsBO.builder()
                 .orgId(1L)
                 .targets(List.of(OrgFileBatchTargetParamsBO.builder()
                         .kind(OrgFileBatchTargetKind.FILE)
@@ -482,7 +482,7 @@ class OrgFileServiceImplTest {
 
     @Test
     void shouldRejectAnEmptyOrOversizedBatch() {
-        assertThatThrownBy(() -> service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+        assertThatThrownBy(() -> service.expand(OrgFileExpansionParamsBO.builder()
                 .orgId(1L).targets(List.of()).build()))
                 .isInstanceOf(AppException.class)
                 .extracting("code")
@@ -492,7 +492,7 @@ class OrgFileServiceImplTest {
         for (int index = 0; index < 101; index++) {
             targets.add(OrgFileBatchTargetParamsBO.builder().kind(OrgFileBatchTargetKind.ITEM).itemId(1L).build());
         }
-        assertThatThrownBy(() -> service.downloadBatch(OrgFileBatchDownloadParamsBO.builder()
+        assertThatThrownBy(() -> service.expand(OrgFileExpansionParamsBO.builder()
                 .orgId(1L).targets(targets).build()))
                 .isInstanceOf(AppException.class)
                 .extracting("code")
