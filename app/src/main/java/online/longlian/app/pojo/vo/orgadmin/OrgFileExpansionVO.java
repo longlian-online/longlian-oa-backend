@@ -6,9 +6,9 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-@Schema(description = "组织文件页批量下载的读取链接")
-public class OrgFileBatchDownloadVO {
+@Schema(description = "展开后的提交文件")
+public class OrgFileExpansionVO {
 
-    @Schema(description = "可下载的提交文件。不可用的文件不在其中")
+    @Schema(description = "当前有效且可用的提交文件。不可用的不在其中")
     private List<OrgFileBatchFileVO> files;
 }

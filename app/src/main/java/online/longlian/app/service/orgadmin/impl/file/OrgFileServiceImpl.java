@@ -16,8 +16,8 @@ import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
 import online.longlian.app.pojo.bo.common.ActivatedResource;
 import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
 import online.longlian.app.pojo.bo.common.TaskFormField;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchFileResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
@@ -122,9 +122,9 @@ public class OrgFileServiceImpl implements OrgFileService {
     }
 
     @Override
-    public OrgFileBatchDownloadResultBO downloadBatch(OrgFileBatchDownloadParamsBO params) {
+    public OrgFileExpansionResultBO expand(OrgFileExpansionParamsBO params) {
         if (params.getTargets() == null || params.getTargets().isEmpty()) {
-            throw new AppException(ResultCode.PARAM_ERROR, "请选择要下载的文件");
+            throw new AppException(ResultCode.PARAM_ERROR, "请选择要展开的文件");
         }
         if (params.getTargets().size() > 100) {
             throw new AppException(ResultCode.PARAM_ERROR, "一次最多选择 100 项");
@@ -146,9 +146,11 @@ public class OrgFileServiceImpl implements OrgFileService {
                     .typeName(file.typeName())
                     .projectTitle(file.projectTitle())
                     .itemTitle(file.itemTitle())
+                    .taskName(file.taskName())
+                    .fieldLabel(file.fieldLabel())
                     .build());
         }
-        return OrgFileBatchDownloadResultBO.builder().files(files).build();
+        return OrgFileExpansionResultBO.builder().files(files).build();
     }
 
     @Override
@@ -575,7 +577,7 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     private List<Downloadable> resolveTarget(Long orgId, OrgFileBatchTargetParamsBO target) {
         if (target == null || target.getKind() == null) {
-            throw new AppException(ResultCode.PARAM_ERROR, "下载目标不能为空");
+            throw new AppException(ResultCode.PARAM_ERROR, "展开目标不能为空");
         }
         return switch (target.getKind()) {
             case FILE -> resolveFile(orgId, target);
@@ -593,7 +595,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
         Item item = requireItem(instance.getItemId(), instance.getProjectId(), orgId);
         Project project = requireProject(item.getProjectId(), orgId);
-        TaskFormField field = requireCurrentField(instance, target.getFieldKey(), target.getFileId());
+        CurrentFile current = requireCurrentField(instance, target.getFieldKey(), target.getFileId());
         if (resourceDeprecationService.deprecatedIds(List.of(target.getFileId())).contains(target.getFileId())) {
             return List.of();
         }
@@ -604,8 +606,9 @@ public class OrgFileServiceImpl implements OrgFileService {
             return List.of();
         }
         return List.of(new Downloadable(
-                instance.getId(), field.key(), target.getFileId(), resource,
-                typeName(project), project.getTitle(), item.getTitle()));
+                instance.getId(), current.field().key(), target.getFileId(), resource,
+                typeName(project), project.getTitle(), item.getTitle(), current.taskName(),
+                current.field().label()));
     }
 
     private static void requireFileTarget(OrgFileBatchTargetParamsBO target) {
@@ -615,7 +618,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
     }
 
-    private TaskFormField requireCurrentField(TaskInstance instance, String fieldKey, Long fileId) {
+    private CurrentFile requireCurrentField(TaskInstance instance, String fieldKey, Long fileId) {
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
         TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
         if (node == null || submission == null) {
@@ -628,7 +631,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
         for (TaskFormField field : fields) {
             if (fieldKey.equals(field.key()) && fileId.equals(fileId(field, values))) {
-                return field;
+                return new CurrentFile(field, node.getName());
             }
         }
         throw missing("附件不存在");
@@ -707,7 +710,8 @@ public class OrgFileServiceImpl implements OrgFileService {
             }
             files.add(new Downloadable(
                     file.instance().getId(), file.field().key(), file.fileId(), resource,
-                    typeName, file.projectTitle(), file.itemTitle()));
+                    typeName, file.projectTitle(), file.itemTitle(), file.node().getName(),
+                    file.field().label()));
         }
         return files;
     }
@@ -829,6 +833,11 @@ public class OrgFileServiceImpl implements OrgFileService {
             ActivatedResource resource,
             String typeName,
             String projectTitle,
-            String itemTitle) {
+            String itemTitle,
+            String taskName,
+            String fieldLabel) {
+    }
+
+    private record CurrentFile(TaskFormField field, String taskName) {
     }
 }
