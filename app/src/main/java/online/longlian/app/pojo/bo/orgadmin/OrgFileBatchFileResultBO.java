@@ -16,4 +16,5 @@ public class OrgFileBatchFileResultBO {
     private String itemTitle;
     private String taskName;
     private String fieldLabel;
+    private Integer versionNo;
 }

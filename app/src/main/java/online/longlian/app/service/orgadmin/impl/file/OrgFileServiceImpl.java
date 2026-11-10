@@ -148,6 +148,7 @@ public class OrgFileServiceImpl implements OrgFileService {
                     .itemTitle(file.itemTitle())
                     .taskName(file.taskName())
                     .fieldLabel(file.fieldLabel())
+                    .versionNo(file.versionNo())
                     .build());
         }
         return OrgFileExpansionResultBO.builder().files(files).build();
@@ -164,18 +165,7 @@ public class OrgFileServiceImpl implements OrgFileService {
             throw missing("附件不存在");
         }
         requireItem(instance.getItemId(), instance.getProjectId(), params.getOrgId());
-        ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
-        List<TaskFormField> fields = node == null ? null : readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = fields == null || submission == null
-                ? null : readValues(fields, submission.getMetadata());
-        TaskFormField field = fields == null ? null : fields.stream()
-                .filter(item -> params.getFieldKey().equals(item.key()))
-                .findFirst()
-                .orElse(null);
-        if (field == null || values == null || !params.getFileId().equals(fileId(field, values))) {
-            throw missing("附件不存在");
-        }
+        requireCurrentField(instance, params.getFieldKey(), params.getFileId());
         // 不改提交 JSON。必填文件被清空会让任务详情无法读取；弃置后详情和历史版本显示为不可用。
         boolean deprecated = resourceDeprecationService.deprecateTaskSubmitFile(
                 params.getFileId(), instance.getId(), params.getOrgId(), LocalDateTime.now(clock));
@@ -356,17 +346,15 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .orderByAsc(ItemTaskNode::getParallelSort)
                 .orderByAsc(ItemTaskNode::getId));
         Map<Long, List<TaskInstance>> instancesByNode = instancesByNode(itemId);
-        Map<Long, TaskSubmission> currentByInstance = currentSubmissions(itemId);
-        Map<Long, String> nicknames = submitterNames(currentByInstance.values());
+        List<TaskSubmission> submissions = listedSubmissions(itemId);
+        Map<Long, List<TaskSubmission>> versions = versionsByInstance(submissions);
+        Map<Long, String> nicknames = submitterNames(submissions);
         List<OrgFileEntryResultBO> entries = new ArrayList<>();
         for (ItemTaskNode node : nodes) {
-            List<TaskInstance> instances = instancesByNode.getOrDefault(node.getId(), List.of());
-            for (TaskInstance instance : instances) {
-                TaskSubmission submission = currentByInstance.get(instance.getId());
-                if (submission == null) {
-                    continue;
+            for (TaskInstance instance : instancesByNode.getOrDefault(node.getId(), List.of())) {
+                for (TaskSubmission submission : versions.getOrDefault(instance.getId(), List.of())) {
+                    entries.addAll(filesOf(node, instance, submission, orgId, nicknames));
                 }
-                entries.addAll(filesOf(node, instance, submission, orgId, nicknames));
             }
         }
         return entries;
@@ -374,20 +362,24 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     private List<Long> currentFileIds(TaskInstance instance) {
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
-        if (node == null || submission == null) {
+        if (node == null) {
             return List.of();
         }
         List<TaskFormField> fields = readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
-        if (fields == null || values == null) {
+        if (fields == null) {
             return List.of();
         }
         List<Long> fileIds = new ArrayList<>();
-        for (TaskFormField field : fields) {
-            Long fileId = fileId(field, values);
-            if (fileId != null) {
-                fileIds.add(fileId);
+        for (TaskSubmission submission : submissionsOf(instance.getId())) {
+            TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
+            if (values == null) {
+                continue;
+            }
+            for (TaskFormField field : fields) {
+                Long fileId = fileId(field, values);
+                if (fileId != null) {
+                    fileIds.add(fileId);
+                }
             }
         }
         return fileIds;
@@ -438,7 +430,7 @@ public class OrgFileServiceImpl implements OrgFileService {
             String submitterName) {
         boolean available = resource != null;
         return OrgFileEntryResultBO.builder()
-                .id(instance.getId() + ":" + field.key())
+                .id(instance.getId() + ":" + submission.getId() + ":" + field.key())
                 .kind(OrgFileEntryKind.FILE)
                 .name(available ? resource.fileName() : field.label())
                 .taskInstanceId(instance.getId())
@@ -451,6 +443,7 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .availability(available ? AVAILABLE : UNAVAILABLE)
                 .submitterName(submitterName)
                 .submittedAt(submission.getCreatedAt())
+                .versionNo(submission.getVersionNo())
                 .build();
     }
 
@@ -465,19 +458,33 @@ public class OrgFileServiceImpl implements OrgFileService {
         return byNode;
     }
 
-    private Map<Long, TaskSubmission> currentSubmissions(Long itemId) {
-        List<TaskSubmission> submissions = taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
+    private static final List<TaskSubmissionStatus> LISTED_STATUSES = List.of(
+            TaskSubmissionStatus.SUBMITTED, TaskSubmissionStatus.REJECTED, TaskSubmissionStatus.RESET);
+
+    private List<TaskSubmission> listedSubmissions(Long itemId) {
+        return taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
                 .eq(TaskSubmission::getItemId, itemId)
-                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED));
-        Map<Long, TaskSubmission> current = new HashMap<>();
-        for (TaskSubmission submission : submissions) {
-            current.merge(submission.getTaskInstanceId(), submission, this::laterSubmission);
-        }
-        return current;
+                .in(TaskSubmission::getStatus, LISTED_STATUSES));
     }
 
-    private TaskSubmission laterSubmission(TaskSubmission left, TaskSubmission right) {
-        return submissionOrder().compare(left, right) >= 0 ? left : right;
+    private List<TaskSubmission> submissionsOf(Long instanceId) {
+        List<TaskSubmission> submissions = new ArrayList<>(taskSubmissionMapper.selectList(
+                new LambdaQueryWrapper<TaskSubmission>()
+                        .eq(TaskSubmission::getTaskInstanceId, instanceId)
+                        .in(TaskSubmission::getStatus, LISTED_STATUSES)));
+        submissions.sort(submissionOrder().reversed());
+        return submissions;
+    }
+
+    private Map<Long, List<TaskSubmission>> versionsByInstance(List<TaskSubmission> submissions) {
+        Map<Long, List<TaskSubmission>> grouped = new HashMap<>();
+        for (TaskSubmission submission : submissions) {
+            grouped.computeIfAbsent(submission.getTaskInstanceId(), key -> new ArrayList<>()).add(submission);
+        }
+        for (List<TaskSubmission> versions : grouped.values()) {
+            versions.sort(submissionOrder().reversed());
+        }
+        return grouped;
     }
 
     private Comparator<TaskSubmission> submissionOrder() {
@@ -608,7 +615,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         return List.of(new Downloadable(
                 instance.getId(), current.field().key(), target.getFileId(), resource,
                 typeName(project), project.getTitle(), item.getTitle(), current.taskName(),
-                current.field().label()));
+                current.field().label(), current.versionNo()));
     }
 
     private static void requireFileTarget(OrgFileBatchTargetParamsBO target) {
@@ -620,18 +627,22 @@ public class OrgFileServiceImpl implements OrgFileService {
 
     private CurrentFile requireCurrentField(TaskInstance instance, String fieldKey, Long fileId) {
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
-        TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
-        if (node == null || submission == null) {
+        if (node == null) {
             throw missing("附件不存在");
         }
         List<TaskFormField> fields = readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
-        if (values == null) {
+        if (fields == null) {
             throw missing("附件不存在");
         }
-        for (TaskFormField field : fields) {
-            if (fieldKey.equals(field.key()) && fileId.equals(fileId(field, values))) {
-                return new CurrentFile(field, node.getName());
+        for (TaskSubmission submission : submissionsOf(instance.getId())) {
+            TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
+            if (values == null) {
+                continue;
+            }
+            for (TaskFormField field : fields) {
+                if (fieldKey.equals(field.key()) && fileId.equals(fileId(field, values))) {
+                    return new CurrentFile(field, node.getName(), submission.getVersionNo());
+                }
             }
         }
         throw missing("附件不存在");
@@ -711,7 +722,7 @@ public class OrgFileServiceImpl implements OrgFileService {
             files.add(new Downloadable(
                     file.instance().getId(), file.field().key(), file.fileId(), resource,
                     typeName, file.projectTitle(), file.itemTitle(), file.node().getName(),
-                    file.field().label()));
+                    file.field().label(), file.submission().getVersionNo()));
         }
         return files;
     }
@@ -736,39 +747,35 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .orderByAsc(TaskInstance::getId))) {
             instancesByNode.computeIfAbsent(instance.getItemTaskNodeId(), key -> new ArrayList<>()).add(instance);
         }
-        Map<Long, TaskSubmission> current = new HashMap<>();
-        for (TaskSubmission submission : taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
+        List<TaskSubmission> submissions = taskSubmissionMapper.selectList(new LambdaQueryWrapper<TaskSubmission>()
                 .in(TaskSubmission::getItemId, itemIds)
-                .eq(TaskSubmission::getStatus, TaskSubmissionStatus.SUBMITTED))) {
-            current.merge(submission.getTaskInstanceId(), submission, this::laterSubmission);
-        }
-        Map<Long, String> nicknames = submitterNames(current.values());
+                .in(TaskSubmission::getStatus, LISTED_STATUSES));
+        Map<Long, List<TaskSubmission>> versions = versionsByInstance(submissions);
+        Map<Long, String> nicknames = submitterNames(submissions);
         List<Long> fileIds = new ArrayList<>();
         List<PendingFile> pending = new ArrayList<>();
         for (OrgFileTypeItemBO item : items) {
             String subtitle = item.getProjectTitle() + " · " + item.getItemTitle();
             for (ItemTaskNode node : nodesByItem.getOrDefault(item.getItemId(), List.of())) {
                 for (TaskInstance instance : instancesByNode.getOrDefault(node.getId(), List.of())) {
-                    TaskSubmission submission = current.get(instance.getId());
-                    if (submission == null) {
-                        continue;
-                    }
-                    List<TaskFormField> fields = readFields(node.getMetaSchema());
-                    TaskFormService.ValidatedValues values = fields == null
-                            ? null : readValues(fields, submission.getMetadata());
-                    if (fields == null || values == null) {
-                        continue;
-                    }
-                    String submitterName = nicknames.getOrDefault(submission.getSubmitterId(), "");
-                    for (TaskFormField field : fields) {
-                        Long fileId = fileId(field, values);
-                        if (fileId == null) {
+                    for (TaskSubmission submission : versions.getOrDefault(instance.getId(), List.of())) {
+                        List<TaskFormField> fields = readFields(node.getMetaSchema());
+                        TaskFormService.ValidatedValues values = fields == null
+                                ? null : readValues(fields, submission.getMetadata());
+                        if (fields == null || values == null) {
                             continue;
                         }
-                        fileIds.add(fileId);
-                        pending.add(new PendingFile(
-                                node, instance, submission, field, fileId, submitterName, subtitle,
-                                item.getProjectTitle(), item.getItemTitle()));
+                        String submitterName = nicknames.getOrDefault(submission.getSubmitterId(), "");
+                        for (TaskFormField field : fields) {
+                            Long fileId = fileId(field, values);
+                            if (fileId == null) {
+                                continue;
+                            }
+                            fileIds.add(fileId);
+                            pending.add(new PendingFile(
+                                    node, instance, submission, field, fileId, submitterName, subtitle,
+                                    item.getProjectTitle(), item.getItemTitle()));
+                        }
                     }
                 }
             }
@@ -835,9 +842,10 @@ public class OrgFileServiceImpl implements OrgFileService {
             String projectTitle,
             String itemTitle,
             String taskName,
-            String fieldLabel) {
+            String fieldLabel,
+            Integer versionNo) {
     }
 
-    private record CurrentFile(TaskFormField field, String taskName) {
+    private record CurrentFile(TaskFormField field, String taskName, Integer versionNo) {
     }
 }

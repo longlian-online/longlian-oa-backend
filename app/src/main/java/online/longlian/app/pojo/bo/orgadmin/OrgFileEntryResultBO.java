@@ -23,4 +23,5 @@ public class OrgFileEntryResultBO {
     private String availability;
     private String submitterName;
     private LocalDateTime submittedAt;
+    private Integer versionNo;
 }
