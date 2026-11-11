@@ -72,13 +72,17 @@ public class OrgFileApiTest extends BaseApiTest {
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.itemTitle", equalTo("第一话"))
-                .body("data.total", equalTo(1))
-                .body("data.entries", hasSize(1))
+                .body("data.total", equalTo(2))
+                .body("data.entries", hasSize(2))
+                .body("data.entries[0].fileId", equalTo("101"))
+                .body("data.entries[0].versionNo", equalTo(2))
+                .body("data.entries[1].fileId", equalTo("102"))
+                .body("data.entries[1].versionNo", equalTo(1))
+                .body("data.entries[1].name", equalTo("成果102.pdf"))
                 .body("data.entries[0].kind", equalTo("FILE"))
                 .body("data.entries[0].name", equalTo("成果101.pdf"))
                 .body("data.entries[0].taskName", equalTo("翻译"))
                 .body("data.entries[0].fieldLabel", equalTo("译稿"))
-                .body("data.entries[0].fileId", equalTo("101"))
                 .body("data.entries[0].availability", equalTo("available"))
                 .body("data.entries[0].submitterName", equalTo("orgadmin"))
                 .body("data.entries[0].taskInstanceId", equalTo("8"));
@@ -139,6 +143,7 @@ public class OrgFileApiTest extends BaseApiTest {
                 .body("data.files[0].itemTitle", equalTo("第一话"))
                 .body("data.files[0].taskName", equalTo("翻译"))
                 .body("data.files[0].fieldLabel", equalTo("译稿"))
+                .body("data.files[0].versionNo", equalTo(1))
                 .body("data.files[0].readUrl", nullValue());
 
         authRequest(token)
@@ -279,7 +284,7 @@ public class OrgFileApiTest extends BaseApiTest {
                 "INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, status) VALUES (9, 6, 10, 7, 1, 3)");
 
         authRequest(token).get("/orgadmin/files/tasks/8/attachments/102/download").then().statusCode(200)
-                .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
         authRequest(token).get("/orgadmin/files/tasks/9/attachments/101/download").then().statusCode(200)
                 .body("code", equalTo(ResultCode.DATA_NOT_EXIT.getCode()));
     }

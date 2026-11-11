@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
+import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
 import online.longlian.app.pojo.entity.Item;
@@ -127,7 +128,7 @@ class OrgFileServiceImplTest {
     }
 
     @Test
-    void shouldListOnlyLatestSubmittedFilesAndMarkMissingResource() {
+    void shouldListEverySubmissionVersionNewestFirst() {
         when(itemMapper.selectById(3L)).thenReturn(Item.builder().id(3L).projectId(1L).title("第一话").build());
         when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
@@ -140,21 +141,22 @@ class OrgFileServiceImplTest {
         when(userMapper.selectList(any())).thenReturn(List.of(User.builder().id(4L).nickname("小林").build()));
         when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L, 202L))))
                 .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
+        when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(100L))))
+                .thenReturn(Map.of());
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
                 .orgId(1L).projectId(1L).itemId(3L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getProjectTitle()).isEqualTo("阿企划");
         assertThat(result.getItemTitle()).isEqualTo("第一话");
-        assertThat(result.getEntries()).hasSize(2);
+        assertThat(result.getEntries()).extracting(OrgFileEntryResultBO::getFileId)
+                .containsExactly(101L, 202L, 100L);
+        assertThat(result.getEntries()).extracting(OrgFileEntryResultBO::getVersionNo)
+                .containsExactly(2, 2, 1);
         assertThat(result.getEntries().get(0).getName()).isEqualTo("第一话译稿.pdf");
-        assertThat(result.getEntries().get(0).getTaskName()).isEqualTo("翻译");
-        assertThat(result.getEntries().get(0).getAvailability()).isEqualTo("available");
-        assertThat(result.getEntries().get(0).getSubmitterName()).isEqualTo("小林");
-        assertThat(result.getEntries().get(0).getFileSize()).isEqualTo(2048L);
         assertThat(result.getEntries().get(1).getName()).isEqualTo("对照");
-        assertThat(result.getEntries().get(1).getAvailability()).isEqualTo("unavailable");
-        assertThat(result.getEntries().get(1).getFileId()).isEqualTo(202L);
+        assertThat(result.getEntries().get(2).getName()).isEqualTo("译稿");
+        assertThat(result.getEntries().get(2).getAvailability()).isEqualTo("unavailable");
     }
 
     @Test
