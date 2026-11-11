@@ -12,6 +12,7 @@ import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ItemCompleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
@@ -43,7 +44,7 @@ public class ItemController {
 
     @Operation(
         summary = "分页查询项目列表",
-        description = "支持标题模糊搜索、完成情况筛选与自定义或时间排序。默认展示进行中并按负责人维护的自定义顺序展示。进行中包含没有任务或仍有未完成任务的项目；已完成指至少有一个任务且全部任务已完成。"
+        description = "支持标题模糊搜索、完成情况筛选与自定义或时间排序。默认展示进行中并按负责人维护的自定义顺序展示。进行中和已完成都按项目保存的状态筛选，不按任务是否完成计算。"
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("")
@@ -119,6 +120,26 @@ public class ItemController {
                 .operatorId(sessionContext.userId())
                 .expectedItemIds(dto.getExpectedItemIds())
                 .itemIds(dto.getItemIds())
+                .build());
+    }
+
+    @Operation(
+        summary = "完成项目",
+        description = "企划负责人、组织所有者或组织管理员将项目标为已完成。不要求任务全部完成，也不改变任务状态。已完成时再次调用保持已完成。"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @Parameter(name = "itemId", description = "项目ID")
+    @PostMapping("/{itemId}/complete")
+    @ResponseMessage("项目已完成")
+    public void completeProjectItem(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @PathVariable Long itemId) {
+        itemService.completeProjectItem(ItemCompleteParamsBO.builder()
+                .projectId(projectId)
+                .itemId(itemId)
+                .orgId(sessionContext.orgId())
+                .userId(sessionContext.userId())
                 .build());
     }
 

@@ -88,6 +88,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
 
         return ItemTaskFlowVO.builder()
                 .itemTitle(item.getTitle())
+                .status(item.getStatus())
                 .name(flow.getName())
                 .description(flow.getDescription())
                 .hasSubmissionRecord(itemService.hasSubmissionRecord(itemId))

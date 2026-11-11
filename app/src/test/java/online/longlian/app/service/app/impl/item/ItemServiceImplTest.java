@@ -15,6 +15,7 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
+import online.longlian.app.pojo.bo.app.ItemCompleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
@@ -36,6 +37,7 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.entity.ItemTaskNode;
+import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.common.enumeration.TaskTemplateScope;
@@ -143,6 +145,9 @@ class ItemServiceImplTest {
         verify(itemTaskNodeMapper, times(3)).insert(nodes.capture());
         assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getBaseTaskId).containsExactly(22L, 21L, 22L);
         assertThat(nodes.getAllValues()).extracting(ItemTaskNode::getName).containsExactly("翻译", "绘制", "翻译");
+        ArgumentCaptor<Item> created = ArgumentCaptor.forClass(Item.class);
+        verify(itemMapper).insert(created.capture());
+        assertThat(created.getValue().getStatus()).isEqualTo(ItemStatus.IN_PROGRESS);
     }
 
     @Test
@@ -645,6 +650,51 @@ class ItemServiceImplTest {
                         ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
         verify(itemMapper, never()).selectById(any());
         verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void completeProjectItem_marksInProgressItemCompleted() {
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder()
+                .id(2L).projectId(1L).status(ItemStatus.IN_PROGRESS).build());
+        when(itemMapper.update(isNull(), any())).thenReturn(1);
+
+        service.completeProjectItem(completeParams(1L));
+
+        verify(itemMapper).update(isNull(), any());
+    }
+
+    @Test
+    void completeProjectItem_alreadyCompleted_doesNotWrite() {
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder()
+                .id(2L).projectId(1L).status(ItemStatus.COMPLETED).build());
+
+        service.completeProjectItem(completeParams(1L));
+
+        verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void completeProjectItem_nonCreator_rejects() {
+        when(projectService.lockEnabledProject(any())).thenReturn(new ProjectAccessResultBO(9L));
+
+        assertThatThrownBy(() -> service.completeProjectItem(completeParams(1L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+        verify(itemMapper, never()).selectById(any());
+    }
+
+    @Test
+    void completeProjectItem_missingItem_rejects() {
+        when(itemMapper.selectById(2L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.completeProjectItem(completeParams(1L)))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+        verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    private ItemCompleteParamsBO completeParams(Long userId) {
+        return ItemCompleteParamsBO.builder().projectId(1L).itemId(2L).orgId(1L).userId(userId).build();
     }
 
     private ItemDeleteParamsBO deleteParams(Long userId) {

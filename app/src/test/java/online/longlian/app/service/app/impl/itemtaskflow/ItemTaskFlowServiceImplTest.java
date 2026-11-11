@@ -14,6 +14,7 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
 import online.longlian.app.service.app.ItemService;
+import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,7 +104,7 @@ class ItemTaskFlowServiceImplTest {
     @Test
     void getItemTaskFlow_enabledProject_returnsItemTitleAndFlowInfo() {
         when(itemMapper.selectById(1L)).thenReturn(Item.builder()
-                .id(1L).projectId(2L).title("第3话").build());
+                .id(1L).projectId(2L).title("第3话").status(ItemStatus.COMPLETED).build());
         when(projectMapper.selectById(2L)).thenReturn(Project.builder()
                 .id(2L).orgId(1L).resourceStatus(Status.ENABLED).build());
         when(itemTaskFlowMapper.selectOne(any())).thenReturn(ItemTaskFlow.builder()
@@ -117,6 +118,7 @@ class ItemTaskFlowServiceImplTest {
         ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
 
         assertThat(flowVO.getItemTitle()).isEqualTo("第3话");
+        assertThat(flowVO.getStatus()).isEqualTo(ItemStatus.COMPLETED);
         assertThat(flowVO.getName()).isEqualTo("漫画汉化流程");
         assertThat(flowVO.getDescription()).isEqualTo("流程说明");
         assertThat(flowVO.getHasSubmissionRecord()).isFalse();

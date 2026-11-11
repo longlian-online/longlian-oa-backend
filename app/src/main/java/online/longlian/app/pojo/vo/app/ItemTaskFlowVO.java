@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.ItemStatus;
 
 import java.util.List;
 
@@ -17,6 +18,9 @@ public class ItemTaskFlowVO {
 
     @Schema(description = "项目名称")
     private String itemTitle;
+
+    @Schema(description = "项目状态：IN_PROGRESS-进行中，COMPLETED-已完成")
+    private ItemStatus status;
 
     @Schema(description = "任务流名称")
     private String name;

@@ -1,6 +1,7 @@
 package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ItemCompleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemListParamsBO;
@@ -56,6 +57,11 @@ public interface ItemService {
      * 企划负责人直接软删除没有提交记录的项目。
      */
     void deleteProjectItem(ItemDeleteParamsBO params);
+
+    /**
+     * 将项目标为已完成。已完成时保持不变，不改任务状态。
+     */
+    void completeProjectItem(ItemCompleteParamsBO params);
 
     /**
      * 审核通过后软删除项目，不再检查创建者或是否已有提交。

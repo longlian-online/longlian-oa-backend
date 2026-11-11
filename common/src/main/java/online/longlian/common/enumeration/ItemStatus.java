@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 项目列表筛选，不落库。已完成指至少有一个任务且全部任务已完成。
+ * 项目状态。新建默认为进行中，由负责人标记为已完成。
  */
 @Getter
 @AllArgsConstructor
