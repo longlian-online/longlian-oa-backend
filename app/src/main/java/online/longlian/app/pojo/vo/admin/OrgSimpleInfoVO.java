@@ -18,4 +18,7 @@ public class OrgSimpleInfoVO {
 
     @Schema(description = "组织头像文件url")
     private String avatarUrl;
+
+    @Schema(description = "当前用户在该组织的角色：ORG_OWNER、ORG_ADMIN、ORG_USER")
+    private String role;
 }

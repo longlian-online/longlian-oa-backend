@@ -329,7 +329,8 @@ public class UserApiTest extends BaseApiTest {
 
         response.then()
                 .statusCode(200)
-                .body("code", equalTo(0));
+                .body("code", equalTo(0))
+                .body("data[0].role", equalTo("ORG_ADMIN"));
     }
 
     @Test
