@@ -64,7 +64,7 @@
                 ORDER BY oldestCreatedAt ASC, p.id DESC
             </otherwise>
         </choose>
-        LIMIT #{offset}, #{size}
+        LIMIT #{size} OFFSET #{offset}
     </select>
 
     <select id="selectPlazaProjectCount" resultType="long">
@@ -92,7 +92,7 @@
         </if>
     </select>
 
-    <!-- Keep sibling slots here: task-type filtering happens after slot labels and counts are computed. -->
+    <!-- 同阶段的其它槽位必须保留：先计算槽位编号和数量，再按任务类型过滤。 -->
     <select id="selectPlazaTaskRows" resultType="online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO">
         SELECT ti.id AS instanceId,
                ti.project_id AS projectId,
@@ -124,15 +124,6 @@
           AND p.type_id = #{params.typeId}
         </if>
         ORDER BY ti.project_id, ti.item_id, n.sort, n.parallel_sort, ti.created_at, ti.id
-    </select>
-
-    <select id="selectPlazaItemStages" resultType="online.longlian.app.pojo.bo.app.taskplaza.PlazaItemStageBO">
-        SELECT n.item_id AS itemId, n.sort AS sort
-        FROM item_task_node n
-        WHERE n.deleted_at IS NULL
-          AND n.item_id IN
-          <foreach collection="itemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
-        ORDER BY n.item_id, n.sort
     </select>
 
     <!--

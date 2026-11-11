@@ -32,6 +32,10 @@ public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
             """)
     List<Long> selectItemIdsWithSubmissionHistory(@Param("itemIds") List<Long> itemIds);
 
+    /**
+     * 每个企划取最近一次提交，需要窗口函数，LambdaQueryWrapper 无法表达。
+     * 只输出工坊列表需要的提交人和时间，不加载完整提交记录。
+     */
     @Select("""
             <script>
             SELECT latest.project_id AS id,

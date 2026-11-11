@@ -118,6 +118,17 @@ pojo/
 
 更完整的分层与数据库规则见 [项目规范](standard.md)。
 
+## Mapper 层
+
+Mapper 接口位于 `app/src/main/java/online/longlian/app/mapper/`，XML 只放在 `app/src/main/resources/mapper/`，文件名与接口同名。每个 Mapper 对应一个实体，统一使用 `@Mapper` 和 `extends BaseMapper<Entity>`。
+
+- 常规筛选、排序、分页和计数在 Service 中通过 `LambdaQueryWrapper` 调用 `BaseMapper`，不写 SQL 注解或 XML。
+- 仅当 Wrapper 无法表达时才使用注解或 XML，例如多表关联、窗口函数、JSON 函数、批量 CASE 更新、upsert 或需要包含软删记录。多 statement 或较长 SQL 放 XML，单条较短 SQL 可用注解；同一方法只保留一种实现。
+- 使用注解或 XML 时，在方法注释或 SQL 旁用中文说明不能使用 Wrapper 的原因；参数统一使用 `@Param` 和 `#{}` 绑定，禁止 `${}` 拼接外部输入。
+- XML 语句 id 与接口方法一一对应；生成器按表产出的空 XML 存根保留，仅删除接口方法时同步删除对应语句。
+- Mapper 只读写本实体对应的表。需要其他领域的数据时由所属 Service 提供，不在调用方 Mapper 中拼接对方表。
+- 分页优先使用 MyBatis Plus 的 `Page` 参数；聚合查询无法套用分页插件时，手工分页统一写成 `LIMIT #{size} OFFSET #{offset}`。
+
 ## 定时任务
 
 | 路径 | 说明 |

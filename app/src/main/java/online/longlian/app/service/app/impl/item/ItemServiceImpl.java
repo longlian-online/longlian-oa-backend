@@ -27,6 +27,7 @@ import online.longlian.app.pojo.bo.app.item.ItemOrderEntryResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.app.item.ItemStageSortResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.BaseTask;
@@ -102,6 +103,19 @@ public class ItemServiceImpl implements ItemService {
         List<ProjectItemListResultBO> list = itemAssembler.assembleList(items);
         markSubmissionRecords(list);
         return new PageResultBO<>(list, itemPage.getTotal());
+    }
+
+    @Override
+    public List<ItemStageSortResultBO> listItemStageSorts(List<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            return List.of();
+        }
+        return itemTaskNodeMapper.selectList(new LambdaQueryWrapper<ItemTaskNode>()
+                        .select(ItemTaskNode::getItemId, ItemTaskNode::getSort)
+                        .in(ItemTaskNode::getItemId, itemIds)
+                        .orderByAsc(ItemTaskNode::getItemId, ItemTaskNode::getSort)).stream()
+                .map(node -> new ItemStageSortResultBO(node.getItemId(), node.getSort()))
+                .toList();
     }
 
     @Override

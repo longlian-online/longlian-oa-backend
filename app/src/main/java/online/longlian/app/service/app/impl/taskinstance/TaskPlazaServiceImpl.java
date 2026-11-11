@@ -8,8 +8,8 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
+import online.longlian.app.pojo.bo.app.item.ItemStageSortResultBO;
 import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.taskplaza.PlazaItemStageBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
 import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.TaskPlazaService;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
     private final ProjectTypeMapper projectTypeMapper;
     private final ResourceService resourceService;
     private final TaskPlazaAssembler taskPlazaAssembler;
+    private final ItemService itemService;
 
     @Override
     public PageResultBO<PlazaProjectGroupResultBO> getTaskPlaza(TaskPlazaParamsBO params) {
@@ -74,10 +76,10 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
         List<Long> itemIds = rows.stream().map(PlazaTaskRowBO::getItemId).distinct().toList();
         Map<Long, List<Integer>> itemSorts = itemIds.isEmpty()
                 ? Collections.emptyMap()
-                : taskInstanceMapper.selectPlazaItemStages(itemIds).stream()
-                        .collect(Collectors.groupingBy(PlazaItemStageBO::getItemId,
+                : itemService.listItemStageSorts(itemIds).stream()
+                        .collect(Collectors.groupingBy(ItemStageSortResultBO::getItemId,
                                 Collectors.collectingAndThen(
-                                        Collectors.mapping(PlazaItemStageBO::getSort,
+                                        Collectors.mapping(ItemStageSortResultBO::getSort,
                                                 Collectors.toCollection(TreeSet::new)),
                                         List::copyOf)));
         Map<Long, List<ItemStageNodeStatusBO>> nodesByItem = itemIds.isEmpty()

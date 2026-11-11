@@ -7,6 +7,7 @@ import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderEntryResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemStageSortResultBO;
 import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
 
 import java.util.List;
@@ -37,6 +38,13 @@ public interface ItemService {
      * @return 分页的项目列表
      */
     PageResultBO<ProjectItemListResultBO> listProjectItems(ItemListParamsBO params);
+
+    /**
+     * 查询项目内全部阶段序号，按项目、序号升序返回。任务广场据此推导阶段位次与总数。
+     *
+     * @param itemIds 项目 ID 列表；为空时返回空列表
+     */
+    List<ItemStageSortResultBO> listItemStageSorts(List<Long> itemIds);
 
     /**
      * 创建项目并实例化任务流。

@@ -4,7 +4,7 @@ import online.longlian.app.common.enumeration.PlazaSortBy;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.pojo.bo.app.taskplaza.PlazaItemStageBO;
+import online.longlian.app.pojo.bo.app.item.ItemStageSortResultBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
 import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
@@ -14,6 +14,7 @@ import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,13 +50,15 @@ class TaskPlazaServiceImplTest {
     private ResourceService resourceService;
     @Mock
     private TaskPlazaAssembler taskPlazaAssembler;
+    @Mock
+    private ItemService itemService;
 
     private TaskPlazaServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new TaskPlazaServiceImpl(taskInstanceMapper, projectTypeMapper,
-                resourceService, taskPlazaAssembler);
+                resourceService, taskPlazaAssembler, itemService);
     }
 
     @Test
@@ -68,7 +71,7 @@ class TaskPlazaServiceImplTest {
         assertThat(result.getTotal()).isZero();
         verify(taskInstanceMapper, never()).selectPlazaProjectSummaries(any(), anyInt(), anyInt());
         verify(taskInstanceMapper, never()).selectPlazaTaskRows(any(), anyList());
-        verify(taskInstanceMapper, never()).selectPlazaItemStages(anyList());
+        verify(itemService, never()).listItemStageSorts(anyList());
     }
 
     @Test
@@ -91,7 +94,7 @@ class TaskPlazaServiceImplTest {
                 .thenReturn(List.of(summary));
         when(taskInstanceMapper.selectPlazaTaskRows(any(), anyList()))
                 .thenReturn(List.of(row(11L, 100L, 200L, 1)));
-        when(taskInstanceMapper.selectPlazaItemStages(anyList()))
+        when(itemService.listItemStageSorts(anyList()))
                 .thenReturn(List.of(stage(200L, 2), stage(200L, 1), stage(200L, 2)));
         when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of());
         when(resourceService.getResourceReadUrls(anyList()))
@@ -115,7 +118,7 @@ class TaskPlazaServiceImplTest {
 
         verify(taskInstanceMapper).selectPlazaProjectSummaries(any(), eq(8), eq(8)); // 第2页 offset=8
         verify(taskInstanceMapper).selectPlazaTaskRows(any(), eq(List.of(100L)));
-        verify(taskInstanceMapper).selectPlazaItemStages(List.of(200L));
+        verify(itemService).listItemStageSorts(List.of(200L));
         verify(taskInstanceMapper).selectItemStageNodeStatuses(List.of(200L));
         // 阶段 sort 去重升序后传入装配器
         @SuppressWarnings("unchecked")
@@ -271,10 +274,7 @@ class TaskPlazaServiceImplTest {
         return row;
     }
 
-    private PlazaItemStageBO stage(Long itemId, int sort) {
-        PlazaItemStageBO stage = new PlazaItemStageBO();
-        stage.setItemId(itemId);
-        stage.setSort(sort);
-        return stage;
+    private ItemStageSortResultBO stage(Long itemId, int sort) {
+        return new ItemStageSortResultBO(itemId, sort);
     }
 }
