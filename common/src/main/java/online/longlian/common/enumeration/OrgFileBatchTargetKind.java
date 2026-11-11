@@ -9,5 +9,7 @@ public enum OrgFileBatchTargetKind {
     /** 一个企划下的全部当前有效提交文件 */
     PROJECT,
     /** 一个企划类型下的全部当前有效提交文件 */
-    TYPE
+    TYPE,
+    /** 一个企划下同一任务的全部当前有效提交文件 */
+    TASK
 }

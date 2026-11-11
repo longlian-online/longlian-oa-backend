@@ -40,7 +40,10 @@ public class OrgFileApiTest extends BaseApiTest {
         insertProject(3L, 1L, "停用企划");
         jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 3");
         jdbcTemplate.update(
-                "INSERT INTO project (id, org_id, type_id, title, creator_id, deleted_at) VALUES (4, 1, 0, '已删企划', 1, NOW())");
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (7, 1, '漫画', 0, 1, 1)");
+        jdbcTemplate.update("UPDATE project SET type_id = 7 WHERE org_id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO project (id, org_id, type_id, title, creator_id, deleted_at) VALUES (4, 1, 7, '已删企划', 1, NOW())");
         jdbcTemplate.update(
                 "INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (5, 2, 0, '外组织企划', 1)");
         jdbcTemplate.update(
@@ -58,6 +61,13 @@ public class OrgFileApiTest extends BaseApiTest {
 
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.entries.name", equalTo(java.util.List.of("漫画")))
+                .body("data.entries.kind", equalTo(java.util.List.of("FOLDER")));
+
+        authRequest(token).queryParam("typeId", 7).get("/orgadmin/files").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.typeName", equalTo("漫画"))
                 .body("data.total", equalTo(3))
                 .body("data.entries.name", containsInAnyOrder("阿企划", "白企划", "停用企划"))
                 .body("data.entries.kind", containsInAnyOrder("FOLDER", "FOLDER", "FOLDER"));
@@ -148,6 +158,15 @@ public class OrgFileApiTest extends BaseApiTest {
 
         authRequest(token)
                 .body(java.util.Map.of("targets", java.util.List.of(
+                        java.util.Map.of("kind", "TASK", "projectId", "2", "taskId", "1"))))
+                .post("/orgadmin/files/expansions")
+                .then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.files", hasSize(1))
+                .body("data.files[0].fileId", equalTo("101"));
+
+        authRequest(token)
+                .body(java.util.Map.of("targets", java.util.List.of(
                         java.util.Map.of(
                                 "kind", "FILE",
                                 "taskInstanceId", "8",
@@ -222,36 +241,51 @@ public class OrgFileApiTest extends BaseApiTest {
                 "{\"script\":{\"fileId\":\"101\"},\"note\":\"新\"}");
         insertTaskResource(101L, 8L);
 
-        authRequest(token).queryParam("view", "type").get("/orgadmin/files").then().statusCode(200)
+        authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(3))
                 .body("data.entries.name", equalTo(java.util.List.of("停用类型", "漫画", "小说")));
 
-        authRequest(token).queryParam("view", "type").queryParam("typeId", 2).get("/orgadmin/files")
+        authRequest(token).queryParam("typeId", 2).get("/orgadmin/files")
                 .then().statusCode(200)
                 .body("data.typeId", equalTo("2"))
                 .body("data.typeName", equalTo("漫画"))
                 .body("data.projectId", nullValue())
-                .body("data.entries.kind", equalTo(java.util.List.of("FILE")))
-                .body("data.entries.name", equalTo(java.util.List.of("成果101.pdf")))
-                .body("data.entries.subtitle", equalTo(java.util.List.of("阿企划 · 第一话")));
+                .body("data.entries.kind", equalTo(java.util.List.of("FOLDER", "FOLDER")))
+                .body("data.entries.name", equalTo(java.util.List.of("白企划", "阿企划")));
 
-        authRequest(token).queryParam("view", "type").queryParam("typeId", 1).get("/orgadmin/files")
+        authRequest(token).queryParam("typeId", 1).get("/orgadmin/files")
                 .then().statusCode(200)
                 .body("data.typeName", equalTo("小说"))
-                .body("data.total", equalTo(0))
-                .body("data.entries", hasSize(0));
+                .body("data.total", equalTo(1))
+                .body("data.entries.name", equalTo(java.util.List.of("小说企划")));
 
-        authRequest(token).queryParam("view", "item").get("/orgadmin/files").then().statusCode(200)
-                .body("data.total", equalTo(2))
-                .body("data.projectId", nullValue())
-                .body("data.entries.name", equalTo(java.util.List.of("序章", "第一话")))
-                .body("data.entries.subtitle", equalTo(java.util.List.of("白企划", "阿企划")));
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, status, creator_id) VALUES (20, 1, '停用任务', 0, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, status, creator_id, deleted_at) VALUES (21, 1, '已删任务', 1, 1, NOW())");
+        jdbcTemplate.update(
+                "INSERT INTO item_task_node (id, item_task_flow_id, item_id, project_id, base_task_id, name, sort, parallel_sort) "
+                        + "VALUES (12, 1, 10, 2, 20, '停用任务', 2, 1), (13, 1, 10, 2, 21, '已删任务', 3, 1)");
 
-        authRequest(token).queryParam("view", "item").queryParam("itemId", 10).get("/orgadmin/files")
+        authRequest(token).queryParam("typeId", 2).queryParam("projectId", 2).queryParam("view", "task")
+                .get("/orgadmin/files")
                 .then().statusCode(200)
-                .body("data.itemTitle", equalTo("第一话"))
-                .body("data.entries[0].kind", equalTo("FILE"));
+                .body("data.entries.name", equalTo(java.util.List.of("翻译", "停用任务", "已删任务")))
+                .body("data.entries.id", equalTo(java.util.List.of("1", "20", "21")));
+
+        authRequest(token).queryParam("typeId", 2).queryParam("projectId", 2)
+                .queryParam("view", "task").queryParam("taskId", 1)
+                .get("/orgadmin/files")
+                .then().statusCode(200)
+                .body("data.taskName", equalTo("翻译"))
+                .body("data.entries[0].kind", equalTo("FILE"))
+                .body("data.entries[0].name", equalTo("成果101.pdf"))
+                .body("data.entries[0].subtitle", equalTo("第一话"));
+
+        authRequest(token).queryParam("typeId", 2).queryParam("projectId", 2).get("/orgadmin/files")
+                .then().statusCode(200)
+                .body("data.entries.name", equalTo(java.util.List.of("第一话")));
 
         authRequest(token).queryParam("view", "nope").get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()));
@@ -345,10 +379,12 @@ public class OrgFileApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldPageProjectsInTheDatabase() {
+    void shouldPageTypesAtTheRoot() {
         String token = admin();
         for (int index = 1; index <= 51; index++) {
-            insertProject(index, 1L, String.format("%03d", index));
+            jdbcTemplate.update(
+                    "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (?, 1, ?, 0, 1, 1)",
+                    index, String.format("%03d", index));
         }
 
         authRequest(token).queryParam("pageNum", 2).get("/orgadmin/files").then().statusCode(200)
@@ -359,7 +395,7 @@ public class OrgFileApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldReturnEmptyRootWhenOrganizationHasNoProjects() {
+    void shouldReturnEmptyRootWhenOrganizationHasNoTypes() {
         String token = admin();
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
