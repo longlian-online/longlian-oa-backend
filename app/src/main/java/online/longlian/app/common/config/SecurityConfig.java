@@ -48,7 +48,7 @@ public class SecurityConfig {
     @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
     private String mcpEndpoint;
 
-    /** 仅由安全链注册，避免 Servlet 全局注册导致认证过滤器重复执行。 */
+    /** 禁用 Servlet 容器自动注册，仅在 Spring Security 安全链中执行。 */
     @Bean
     public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter jwtFilter) {
         var registration = new FilterRegistrationBean<>(jwtFilter);
