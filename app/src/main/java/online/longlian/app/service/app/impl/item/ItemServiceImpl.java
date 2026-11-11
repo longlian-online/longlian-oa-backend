@@ -215,12 +215,28 @@ public class ItemServiceImpl implements ItemService {
         if (item.getStatus() == ItemStatus.COMPLETED) {
             return;
         }
+        // 与重置、打回共用任务流锁，避免校验通过后任务被改回未完成。
+        itemTaskFlowMapper.selectOne(new LambdaQueryWrapper<ItemTaskFlow>()
+                .eq(ItemTaskFlow::getItemId, item.getId())
+                .eq(ItemTaskFlow::getProjectId, item.getProjectId())
+                .last("FOR UPDATE"));
+        List<TaskInstance> instances = taskInstanceMapper.selectList(new LambdaQueryWrapper<TaskInstance>()
+                .select(TaskInstance::getId, TaskInstance::getStatus)
+                .eq(TaskInstance::getItemId, item.getId())
+                .orderByAsc(TaskInstance::getId)
+                .last("FOR UPDATE"));
+        if (instances.isEmpty() || instances.stream().anyMatch(
+                instance -> instance.getStatus() != TaskInstanceStatus.COMPLETED)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目中所有任务完成后才能标记完成");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
         int updated = itemMapper.update(null,
                 new LambdaUpdateWrapper<Item>()
                         .eq(Item::getId, item.getId())
                         .eq(Item::getStatus, ItemStatus.IN_PROGRESS)
                         .set(Item::getStatus, ItemStatus.COMPLETED)
-                        .set(Item::getUpdatedAt, LocalDateTime.now(clock)));
+                        .set(Item::getCompletedAt, now)
+                        .set(Item::getUpdatedAt, now));
         if (updated == 0) {
             Item current = requireItem(params.getProjectId(), params.getItemId());
             if (current.getStatus() != ItemStatus.COMPLETED) {

@@ -77,6 +77,13 @@ public class Item implements Serializable {
     @ApiModelProperty("状态 1-进行中 2-已完成")
     private ItemStatus status;
 
+    /**
+     * 标记完成时间，进行中时为空
+     */
+    @TableField("completed_at")
+    @ApiModelProperty("标记完成时间，进行中时为空")
+    private LocalDateTime completedAt;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 

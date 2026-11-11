@@ -59,7 +59,7 @@ public interface ItemService {
     void deleteProjectItem(ItemDeleteParamsBO params);
 
     /**
-     * 将项目标为已完成。已完成时保持不变，不改任务状态。
+     * 将项目标为已完成并记录完成时间。必须已有任务且全部任务已完成。已完成时保持原完成时间。
      */
     void completeProjectItem(ItemCompleteParamsBO params);
 

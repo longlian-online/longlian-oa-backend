@@ -125,7 +125,7 @@ public class ItemController {
 
     @Operation(
         summary = "完成项目",
-        description = "企划负责人、组织所有者或组织管理员将项目标为已完成。不要求任务全部完成，也不改变任务状态。已完成时再次调用保持已完成。"
+        description = "企划负责人、组织所有者或组织管理员将项目标为已完成，并记录完成时间。必须已有任务且全部任务已完成。已完成时再次调用保持已完成和原完成时间。"
     )
     @Parameter(name = "projectId", description = "企划ID")
     @Parameter(name = "itemId", description = "项目ID")

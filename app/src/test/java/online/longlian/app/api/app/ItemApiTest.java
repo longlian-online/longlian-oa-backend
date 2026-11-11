@@ -511,20 +511,33 @@ public class ItemApiTest extends BaseApiTest {
         String token = loginAs("orgadmin", "123456");
         createProjectWithItem();
         createTaskNode(1L);
-        createTaskInstance(1L, 3);
+        createTaskInstance(1L, 1);
 
+        authRequest(token).post("/app/projects/1/items/1/complete").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,项目中所有任务完成后才能标记完成"));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class)).isNull();
+
+        jdbcTemplate.update("UPDATE task_instance SET status = 3 WHERE id = 1");
         authRequest(token).queryParam("status", "IN_PROGRESS").get("/app/projects/1/items")
                 .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(1));
         authRequest(token).queryParam("status", "COMPLETED").get("/app/projects/1/items")
                 .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(0));
         authRequest(token).get("/app/item/1/flow").then().statusCode(200)
                 .body("code", equalTo(0))
-                .body("data.status", equalTo("IN_PROGRESS"));
+                .body("data.status", equalTo("IN_PROGRESS"))
+                .body("data.completedAt", nullValue());
 
         authRequest(token).post("/app/projects/1/items/1/complete").then()
                 .statusCode(200).body("code", equalTo(0)).body("msg", equalTo("项目已完成"));
+        String completedAt = jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class);
+        assertThat(completedAt).isNotBlank();
         authRequest(token).post("/app/projects/1/items/1/complete").then()
                 .statusCode(200).body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class))
+                .isEqualTo(completedAt);
 
         authRequest(token).queryParam("status", "IN_PROGRESS").get("/app/projects/1/items")
                 .then().statusCode(200).body("data.total", equalTo(0));
@@ -532,7 +545,9 @@ public class ItemApiTest extends BaseApiTest {
                 .then().statusCode(200).body("data.total", equalTo(1))
                 .body("data.list[0].title", equalTo("测试项目"));
         authRequest(token).get("/app/item/1/flow").then()
-                .body("data.status", equalTo("COMPLETED"));
+                .body("code", equalTo(0))
+                .body("data.status", equalTo("COMPLETED"))
+                .body("data.completedAt", equalTo(completedAt));
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
                 .isEqualTo(2);
     }

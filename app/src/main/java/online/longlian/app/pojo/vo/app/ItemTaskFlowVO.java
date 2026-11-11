@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.common.enumeration.ItemStatus;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -21,6 +22,9 @@ public class ItemTaskFlowVO {
 
     @Schema(description = "项目状态：IN_PROGRESS-进行中，COMPLETED-已完成")
     private ItemStatus status;
+
+    @Schema(description = "标记完成时间，进行中时为空")
+    private LocalDateTime completedAt;
 
     @Schema(description = "任务流名称")
     private String name;

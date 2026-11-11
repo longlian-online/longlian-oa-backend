@@ -654,13 +654,45 @@ class ItemServiceImplTest {
 
     @Test
     void completeProjectItem_marksInProgressItemCompleted() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
         when(itemMapper.selectById(2L)).thenReturn(Item.builder()
                 .id(2L).projectId(1L).status(ItemStatus.IN_PROGRESS).build());
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(8L).status(TaskInstanceStatus.COMPLETED).build()));
         when(itemMapper.update(isNull(), any())).thenReturn(1);
 
         service.completeProjectItem(completeParams(1L));
 
         verify(itemMapper).update(isNull(), any());
+    }
+
+    @Test
+    void completeProjectItem_rejectsWhenAnyTaskIsUnfinished() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder()
+                .id(2L).projectId(1L).status(ItemStatus.IN_PROGRESS).build());
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
+                TaskInstance.builder().id(8L).status(TaskInstanceStatus.COMPLETED).build(),
+                TaskInstance.builder().id(9L).status(TaskInstanceStatus.CLAIMED).build()));
+
+        assertThatThrownBy(() -> service.completeProjectItem(completeParams(1L)))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+                    assertThat(ex.getMsg()).isEqualTo("操作失败,项目中所有任务完成后才能标记完成");
+                });
+        verify(itemMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void completeProjectItem_rejectsWhenItemHasNoTasks() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
+        when(itemMapper.selectById(2L)).thenReturn(Item.builder()
+                .id(2L).projectId(1L).status(ItemStatus.IN_PROGRESS).build());
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.completeProjectItem(completeParams(1L)))
+                .isInstanceOf(AppException.class);
+        verify(itemMapper, never()).update(isNull(), any());
     }
 
     @Test

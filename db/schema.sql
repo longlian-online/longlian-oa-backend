@@ -79,6 +79,7 @@ CREATE TABLE `item` (
   `task_template_id` bigint NOT NULL COMMENT "创建时关联的任务模板ID（仅记录溯源）",
   `creator_id` bigint NOT NULL COMMENT "创建人ID",
   `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-进行中 2-已完成",
+  `completed_at` datetime NULL COMMENT "标记完成时间，进行中时为空",
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime NULL,
