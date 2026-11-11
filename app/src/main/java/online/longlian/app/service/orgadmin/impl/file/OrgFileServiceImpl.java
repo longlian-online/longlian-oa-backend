@@ -807,7 +807,9 @@ public class OrgFileServiceImpl implements OrgFileService {
                 .orderByAsc(ItemTaskNode::getSort)
                 .orderByAsc(ItemTaskNode::getParallelSort)
                 .orderByAsc(ItemTaskNode::getId))) {
-            nodesByItem.computeIfAbsent(node.getItemId(), key -> new ArrayList<>()).add(node);
+            if (sameTask(node, baseTaskId)) {
+                nodesByItem.computeIfAbsent(node.getItemId(), key -> new ArrayList<>()).add(node);
+            }
         }
         Map<Long, List<TaskInstance>> instancesByNode = new HashMap<>();
         for (TaskInstance instance : taskInstanceMapper.selectList(new LambdaQueryWrapper<TaskInstance>()
@@ -823,32 +825,13 @@ public class OrgFileServiceImpl implements OrgFileService {
         List<Long> fileIds = new ArrayList<>();
         List<PendingFile> pending = new ArrayList<>();
         for (OrgFileTypeItemBO item : items) {
-            String subtitle = baseTaskId == null
-                    ? item.getProjectTitle() + " · " + item.getItemTitle()
-                    : item.getItemTitle();
+            String subtitle = fileSubtitle(item, baseTaskId);
             for (ItemTaskNode node : nodesByItem.getOrDefault(item.getItemId(), List.of())) {
-                if (baseTaskId != null && !baseTaskId.equals(node.getBaseTaskId())) {
-                    continue;
-                }
                 for (TaskInstance instance : instancesByNode.getOrDefault(node.getId(), List.of())) {
                     for (TaskSubmission submission : versions.getOrDefault(instance.getId(), List.of())) {
-                        List<TaskFormField> fields = readFields(node.getMetaSchema());
-                        TaskFormService.ValidatedValues values = fields == null
-                                ? null : readValues(fields, submission.getMetadata());
-                        if (fields == null || values == null) {
-                            continue;
-                        }
-                        String submitterName = nicknames.getOrDefault(submission.getSubmitterId(), "");
-                        for (TaskFormField field : fields) {
-                            Long fileId = fileId(field, values);
-                            if (fileId == null) {
-                                continue;
-                            }
-                            fileIds.add(fileId);
-                            pending.add(new PendingFile(
-                                    node, instance, submission, field, fileId, submitterName, subtitle,
-                                    item.getProjectTitle(), item.getItemTitle()));
-                        }
+                        addSubmissionFiles(node, instance, submission,
+                                nicknames.getOrDefault(submission.getSubmitterId(), ""), subtitle,
+                                item.getProjectTitle(), item.getItemTitle(), fileIds, pending);
                     }
                 }
             }
@@ -858,6 +841,45 @@ public class OrgFileServiceImpl implements OrgFileService {
             return pending;
         }
         return pending.stream().filter(file -> !deprecatedIds.contains(file.fileId())).toList();
+    }
+
+    private static boolean sameTask(ItemTaskNode node, Long baseTaskId) {
+        return baseTaskId == null || baseTaskId.equals(node.getBaseTaskId());
+    }
+
+    private static String fileSubtitle(OrgFileTypeItemBO item, Long baseTaskId) {
+        if (baseTaskId == null) {
+            return item.getProjectTitle() + " · " + item.getItemTitle();
+        }
+        return item.getItemTitle();
+    }
+
+    private void addSubmissionFiles(
+            ItemTaskNode node,
+            TaskInstance instance,
+            TaskSubmission submission,
+            String submitterName,
+            String subtitle,
+            String projectTitle,
+            String itemTitle,
+            List<Long> fileIds,
+            List<PendingFile> pending) {
+        List<TaskFormField> fields = readFields(node.getMetaSchema());
+        TaskFormService.ValidatedValues values = fields == null
+                ? null : readValues(fields, submission.getMetadata());
+        if (fields == null || values == null) {
+            return;
+        }
+        for (TaskFormField field : fields) {
+            Long fileId = fileId(field, values);
+            if (fileId == null) {
+                continue;
+            }
+            fileIds.add(fileId);
+            pending.add(new PendingFile(
+                    node, instance, submission, field, fileId, submitterName, subtitle,
+                    projectTitle, itemTitle));
+        }
     }
 
     private void appendPage(
