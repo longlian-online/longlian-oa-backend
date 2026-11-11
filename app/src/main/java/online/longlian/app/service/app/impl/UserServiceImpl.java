@@ -282,12 +282,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 ? Collections.emptyMap()
                 : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
                         .collect(Collectors.toMap(Map.Entry::getKey, e -> resizeHeaderAvatarUrl(e.getValue().getUrl())));
+        Map<Long, String> roles = members.stream()
+                .filter(member -> member.getOrgId() != null)
+                .collect(Collectors.toMap(
+                        OrganizationMember::getOrgId,
+                        OrganizationMember::getOrgRole,
+                        (left, right) -> left));
 
         return orgs.stream()
                 .map(org -> OrgSimpleInfoBO.builder()
                         .id(org.getId())
                         .name(org.getName())
                         .avatarUrl(avatarUrlMap.get(org.getAvatarFileId()))
+                        .role(roles.get(org.getId()))
                         .build())
                 .toList();
     }

@@ -13,4 +13,5 @@ public class OrgSimpleInfoBO {
     private Long id;
     private String name;
     private String avatarUrl;
+    private String role;
 }
