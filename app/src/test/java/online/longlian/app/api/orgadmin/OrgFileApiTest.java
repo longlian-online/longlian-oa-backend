@@ -40,7 +40,10 @@ public class OrgFileApiTest extends BaseApiTest {
         insertProject(3L, 1L, "停用企划");
         jdbcTemplate.update("UPDATE project SET resource_status = 0 WHERE id = 3");
         jdbcTemplate.update(
-                "INSERT INTO project (id, org_id, type_id, title, creator_id, deleted_at) VALUES (4, 1, 0, '已删企划', 1, NOW())");
+                "INSERT INTO project_type (id, org_id, name, priority, status, creator_id) VALUES (7, 1, '漫画', 0, 1, 1)");
+        jdbcTemplate.update("UPDATE project SET type_id = 7 WHERE org_id = 1");
+        jdbcTemplate.update(
+                "INSERT INTO project (id, org_id, type_id, title, creator_id, deleted_at) VALUES (4, 1, 7, '已删企划', 1, NOW())");
         jdbcTemplate.update(
                 "INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (5, 2, 0, '外组织企划', 1)");
         jdbcTemplate.update(
@@ -58,6 +61,13 @@ public class OrgFileApiTest extends BaseApiTest {
 
         authRequest(token).get("/orgadmin/files").then().statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(1))
+                .body("data.entries.name", equalTo(java.util.List.of("漫画")))
+                .body("data.entries.kind", equalTo(java.util.List.of("FOLDER")));
+
+        authRequest(token).queryParam("typeId", 7).get("/orgadmin/files").then().statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.typeName", equalTo("漫画"))
                 .body("data.total", equalTo(3))
                 .body("data.entries.name", containsInAnyOrder("阿企划", "白企划", "停用企划"))
                 .body("data.entries.kind", containsInAnyOrder("FOLDER", "FOLDER", "FOLDER"));
@@ -242,7 +252,7 @@ public class OrgFileApiTest extends BaseApiTest {
                 .body("data.typeName", equalTo("漫画"))
                 .body("data.projectId", nullValue())
                 .body("data.entries.kind", equalTo(java.util.List.of("FOLDER", "FOLDER")))
-                .body("data.entries.name", equalTo(java.util.List.of("阿企划", "白企划")));
+                .body("data.entries.name", equalTo(java.util.List.of("白企划", "阿企划")));
 
         authRequest(token).queryParam("typeId", 1).get("/orgadmin/files")
                 .then().statusCode(200)
