@@ -16,6 +16,7 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.ItemCompleteParamsBO;
 import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
@@ -42,6 +43,7 @@ import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.InboxNotificationKind;
+import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.mapper.TaskSubmissionMapper;
@@ -203,6 +205,44 @@ public class ItemServiceImpl implements ItemService {
             throw new AppException(ResultCode.PARAM_ERROR, "项目存在提交记录，请提交删除申请");
         }
         softDeleteItem(item);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeProjectItem(ItemCompleteParamsBO params) {
+        lockProjectCreator(params.getProjectId(), params.getUserId(), params.getOrgId());
+        Item item = requireItem(params.getProjectId(), params.getItemId());
+        if (item.getStatus() == ItemStatus.COMPLETED) {
+            return;
+        }
+        // 与重置、打回共用任务流锁，避免校验通过后任务被改回未完成。
+        itemTaskFlowMapper.selectOne(new LambdaQueryWrapper<ItemTaskFlow>()
+                .eq(ItemTaskFlow::getItemId, item.getId())
+                .eq(ItemTaskFlow::getProjectId, item.getProjectId())
+                .last("FOR UPDATE"));
+        List<TaskInstance> instances = taskInstanceMapper.selectList(new LambdaQueryWrapper<TaskInstance>()
+                .select(TaskInstance::getId, TaskInstance::getStatus)
+                .eq(TaskInstance::getItemId, item.getId())
+                .orderByAsc(TaskInstance::getId)
+                .last("FOR UPDATE"));
+        if (instances.isEmpty() || instances.stream().anyMatch(
+                instance -> instance.getStatus() != TaskInstanceStatus.COMPLETED)) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "项目中所有任务完成后才能标记完成");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        int updated = itemMapper.update(null,
+                new LambdaUpdateWrapper<Item>()
+                        .eq(Item::getId, item.getId())
+                        .eq(Item::getStatus, ItemStatus.IN_PROGRESS)
+                        .set(Item::getStatus, ItemStatus.COMPLETED)
+                        .set(Item::getCompletedAt, now)
+                        .set(Item::getUpdatedAt, now));
+        if (updated == 0) {
+            Item current = requireItem(params.getProjectId(), params.getItemId());
+            if (current.getStatus() != ItemStatus.COMPLETED) {
+                throw new AppException(ResultCode.OPERATION_FAIL, "项目状态已变化，请刷新后重试");
+            }
+        }
     }
 
     @Override
@@ -426,6 +466,7 @@ public class ItemServiceImpl implements ItemService {
                 .title(params.getTitle())
                 .sort(nextSort)
                 .taskTemplateId(params.getTaskTemplateId())
+                .status(ItemStatus.IN_PROGRESS)
                 .creatorId(params.getCreatorId())
                 .createdAt(now)
                 .updatedAt(now)

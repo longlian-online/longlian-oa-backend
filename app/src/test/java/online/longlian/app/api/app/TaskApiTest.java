@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class TaskApiTest extends BaseApiTest {
@@ -660,6 +661,7 @@ public class TaskApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
+        jdbcTemplate.update("UPDATE item SET status = 2, completed_at = '2026-01-01 00:00:00' WHERE id = 1");
 
         Response response = authRequest(token)
                 .post("/app/task/instance/1/reset");
@@ -668,6 +670,8 @@ public class TaskApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class)).isNull();
     }
 
     /**
@@ -865,6 +869,7 @@ public class TaskApiTest extends BaseApiTest {
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                 1L, 1L, 1L, 1L, 1L, 1L, "{}", 1
         );
+        jdbcTemplate.update("UPDATE item SET status = 2, completed_at = '2026-01-01 00:00:00' WHERE id = 1");
 
         Response response = authRequest(token).body(Map.of("expectedRevision", "0", "reviewComment", "需要修改"))
                 .post("/app/task/instance/1/reject");
@@ -872,6 +877,8 @@ public class TaskApiTest extends BaseApiTest {
         response.then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class)).isNull();
     }
 
     /**

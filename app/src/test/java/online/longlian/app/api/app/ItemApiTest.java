@@ -87,6 +87,8 @@ public class ItemApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM item WHERE title = '测试项目'", Integer.class)).isEqualTo(1);
     }
 
     /** 批量查询保留重复节点与禁用任务快照，部分任务缺失时拒绝新建项目。 */
@@ -460,6 +462,7 @@ public class ItemApiTest extends BaseApiTest {
         createProjectWithItem();
         createTaskNode(1L);
         createTaskInstance(1L, 3);
+        jdbcTemplate.update("UPDATE item SET status = 2 WHERE id = 1");
 
         Response response = authRequest(token)
                 .queryParam("pageNum", 1)
@@ -502,6 +505,70 @@ public class ItemApiTest extends BaseApiTest {
                 .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(0));
     }
 
+    @Test
+    void shouldKeepFinishedTasksInProgressUntilItemIsCompleted() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        String token = loginAs("orgadmin", "123456");
+        createProjectWithItem();
+        createTaskNode(1L);
+        createTaskInstance(1L, 1);
+
+        authRequest(token).post("/app/projects/1/items/1/complete").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", equalTo("操作失败,项目中所有任务完成后才能标记完成"));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class)).isNull();
+
+        jdbcTemplate.update("UPDATE task_instance SET status = 3 WHERE id = 1");
+        authRequest(token).queryParam("status", "IN_PROGRESS").get("/app/projects/1/items")
+                .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(1));
+        authRequest(token).queryParam("status", "COMPLETED").get("/app/projects/1/items")
+                .then().statusCode(200).body("code", equalTo(0)).body("data.total", equalTo(0));
+        authRequest(token).get("/app/item/1/flow").then().statusCode(200)
+                .body("code", equalTo(0))
+                .body("data.status", equalTo("IN_PROGRESS"))
+                .body("data.completedAt", nullValue());
+
+        authRequest(token).post("/app/projects/1/items/1/complete").then()
+                .statusCode(200).body("code", equalTo(0)).body("msg", equalTo("项目已完成"));
+        String completedAt = jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class);
+        assertThat(completedAt).isNotBlank();
+        authRequest(token).post("/app/projects/1/items/1/complete").then()
+                .statusCode(200).body("code", equalTo(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT completed_at FROM item WHERE id = 1", String.class))
+                .isEqualTo(completedAt);
+
+        authRequest(token).queryParam("status", "IN_PROGRESS").get("/app/projects/1/items")
+                .then().statusCode(200).body("data.total", equalTo(0));
+        authRequest(token).queryParam("status", "COMPLETED").get("/app/projects/1/items")
+                .then().statusCode(200).body("data.total", equalTo(1))
+                .body("data.list[0].title", equalTo("测试项目"));
+        authRequest(token).get("/app/item/1/flow").then()
+                .body("code", equalTo(0))
+                .body("data.status", equalTo("COMPLETED"))
+                .body("data.completedAt", equalTo(completedAt));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void shouldRejectCompleteItemForOrdinaryMember() {
+        createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
+        createProjectWithItem();
+        createTestUser(2L, "member", "123456", "member@example.com");
+        jdbcTemplate.update("UPDATE `user` SET default_org_id = ? WHERE id = ?", 1L, 2L);
+        createOrganizationMember(2L, 1L, 2L, "ORG_USER");
+        String token = loginAs("member", "123456");
+
+        authRequest(token).post("/app/projects/1/items/1/complete").then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
+                .body("msg", equalTo("无权操作"));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM item WHERE id = 1", Integer.class))
+                .isEqualTo(1);
+    }
+
 
     /**
      * 只创建企划与项目本身，任务实例按用例需要补充
@@ -530,8 +597,8 @@ public class ItemApiTest extends BaseApiTest {
                         "VALUES (1, 1, 1, 0, '测试流程')"
         );
         jdbcTemplate.update(
-                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, sort, parallel_sort) " +
-                        "VALUES (?, 1, 1, 1, 0, '测试节点', 1, 1)",
+                "INSERT INTO `item_task_node` (id, item_task_flow_id, item_id, project_id, base_task_id, name, meta_schema, sort, parallel_sort) " +
+                        "VALUES (?, 1, 1, 1, 0, '测试节点', '[]', 1, 1)",
                 id
         );
     }
