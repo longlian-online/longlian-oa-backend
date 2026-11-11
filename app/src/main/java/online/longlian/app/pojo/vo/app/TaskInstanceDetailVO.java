@@ -11,9 +11,14 @@ import java.util.List;
 @Schema(description = "任务实例详情")
 public class TaskInstanceDetailVO {
 
+    @Schema(description = "任务摘要与执行状态")
     private TaskSummaryVO task;
+
+    @Schema(description = "当前生效的提交")
     private TaskSubmissionVO submission;
+
     /** 仅当前接取人可见；没有暂存时为空。 */
+    @Schema(description = "当前接取人的暂存；没有暂存时为 null")
     private TaskDraftVO draft;
 
     /** Task identity and current execution state, independent of submission content. */

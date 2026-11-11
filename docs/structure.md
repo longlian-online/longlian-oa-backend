@@ -93,6 +93,14 @@ pojo/
 - Service 的方法签名只使用 `ParamsBO`、`ResultBO` 和本层业务结构 BO，不使用 VO；HTTP 端点返回 VO 时，由 Controller 把结果 BO 转换为 VO。分页在 Service 使用 `PageResultBO`，在 Controller 使用 `PageResultVO`。
 - Mapper 的查询结果只返回实体或 BO，不直接产出端别 VO。
 - VO 按提供该接口的端别存放；被多个端别使用的响应放入 `vo/common`，不在端别包中保留同名副本。
+
+### 注解约定
+
+- 可写对象统一使用 `@Data @NoArgsConstructor @AllArgsConstructor @Builder`；VO 额外声明类级 `@Schema`，DTO 使用 `@Data @Schema`。不可变对象可以使用 `@Value @Builder` 或 `@Getter` 加 final 字段，但仍应与同包对象保持同一风格。
+- 不因历史写法差异批量补注解；新增或改动对象时按上述口径，避免在同一包内新增第三种签名。
+- VO 中需要按字符串输出的 Long 型 ID 使用 `@JsonLongIdString`（仅影响序列化）。请求 DTO 不标该注解，Fastjson2 和 Spring 都能把字符串或数字绑定为 Long。
+- VO 的类级与字段级 `@Schema` 同时提供；DTO 的类级 `@Schema` 和每个请求字段的说明同样补齐。BO 不带 `@Schema`，不进入接口文档。
+- 需要显式输出 null 的响应（如通知来源、当前产品版本）才使用 `@JSONType(serializeFeatures = JSONWriter.Feature.WriteNulls)`，该设置只用于前端依赖固定键集合的契约，不作为通用默认。
 - 使用能区分用途的最短业务名称，不重复堆叠端别、父对象和动作。例如 `TaskFlowNodeDeleteParamsBO` 表示删除任务流节点所需参数，避免 `RemovedParamsBO` 这类无法独立说明业务的名称。
 - 文件名与顶层类型名一致，包声明与文件目录一致。端别由所属包表达；只有区分业务确有需要时才加入类名。
 - `class` 和 `record` 都是对象的实现形式，按用途选择并沿用所在业务的风格；不建立 `record` 包，也不因使用 `record` 而省略职责后缀。

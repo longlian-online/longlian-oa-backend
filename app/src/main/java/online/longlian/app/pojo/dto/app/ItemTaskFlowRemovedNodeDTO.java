@@ -4,14 +4,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 @Data
 @Schema(description = "要删除的项目工作流节点")
 public class ItemTaskFlowRemovedNodeDTO {
 
     @NotNull(message = "节点不能为空")
-    @JsonLongIdString
     @Schema(type = "string", description = "节点 ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long id;
 

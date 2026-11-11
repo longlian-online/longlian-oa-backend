@@ -11,6 +11,6 @@ public class ProjectAttachmentCreateDTO {
 
     @NotNull(message = "文件ID不能为空")
     @Positive(message = "文件ID必须大于0")
-    @Schema(description = "已上传的文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(type = "string", description = "已上传的文件ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long fileId;
 }
