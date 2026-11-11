@@ -43,6 +43,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
 import online.longlian.app.service.app.UserService;
+import online.longlian.app.service.app.UserOrgApiKeyService;
 import online.longlian.app.service.app.impl.notification.AdminReviewNotificationPublisher;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.InboxNotificationKind;
@@ -88,6 +89,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final Clock clock;
     private final SessionService sessionService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserOrgApiKeyService userOrgApiKeyService;
     private final AdminReviewNotificationPublisher adminReviewNotificationPublisher;
 
     @Override
@@ -566,6 +568,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 先作废刷新会话，再写入访问凭证截点。截点取在刷新锁释放之后，并发换发的新访问凭证也会落在截点之前。
         sessionService.revokeRefreshSessions(user.getId());
         tokenBlacklistService.blacklistAllUserTokens(TokenType.User, user.getId(), "密码变更");
+        userOrgApiKeyService.revokeAllForUser(user.getId());
     }
 
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {

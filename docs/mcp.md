@@ -12,10 +12,12 @@
 
 - URL：后端基础地址加 `/mcp`。
 - 传输：Streamable HTTP，不是旧版 `/sse`。
-- 认证：每次请求携带 `Authorization: Bearer <用户访问凭证>`。
-- 沿用现有 JWT 的有效期和撤销校验；MCP 认证失败返回 HTTP 401、权限失败返回 HTTP 403，不使用 REST Result。暂未实现 OAuth 授权发现或自动登录/刷新。
-- `ping` 不要求 `X-Org-Id`；业务工具每次请求必须携带 `X-Org-Id: <当前组织 ID>`，并要求本人为该组织启用成员。管理员令牌不能作为组员身份使用。
-- HTTP 请求的认证信息和组织头经 `McpTransportContext` 传给 SDK 执行线程；业务 Service 仍显式接收 `userId`、`orgId`，不读取线程上下文。
+- 认证：在个人设置的组织设置中生成 API Key，每次请求携带 `Authorization: Bearer <API Key>`。完整 Key 仅在生成时显示；MCP 地址同时返回。
+- API Key 绑定本人及一个组织，无需携带 `X-Org-Id`；若携带，必须与 Key 对应的组织一致。API Key 仅可访问 `/mcp`，不能调用网页 REST 接口。
+- 兼容原有 JWT：沿用 JWT 的有效期和撤销校验；`ping` 不要求 `X-Org-Id`，业务工具仍必须携带该头。管理员令牌不能作为组员身份使用。
+- MCP 认证失败返回 HTTP 401、权限失败返回 HTTP 403，不使用 REST Result。暂未实现 OAuth 授权发现或自动登录/刷新。
+- HTTP 请求的认证信息、组织头及 API Key 绑定的 `SessionContext` 经 `McpTransportContext` 传给 SDK 执行线程；业务 Service 仍显式接收 `userId`、`orgId`，不读取线程上下文。
+- JWT 和 API Key 统一由现有 `JwtAuthenticationFilter` 处理，沿用同一条安全链。`ll_mcp_` 前缀仅在 MCP 入口校验，成功后复用现有用户认证策略，不定义专用 Token；绑定组织保留在请求上下文，不写入用户缓存。无效 Key 不回退到 JWT 校验。
 
 客户端先初始化连接，再使用 `tools/list` 发现工具，调用：
 
@@ -28,8 +30,21 @@
 }
 ```
 
-返回的工具结果包含文本 `pong`，不使用 REST 接口的 `Result` 包装。SSE 响应的内部异步派发不重复鉴权；每个客户端新请求仍必须携带有效 JWT，MCP 会话 ID 不能代替认证。
+返回的工具结果包含文本 `pong`，不使用 REST 接口的 `Result` 包装。SSE 响应的内部异步派发不重复鉴权；每个客户端新请求仍必须携带有效凭据，MCP 会话 ID 不能代替认证。
 支持 Streamable HTTP 且允许自定义认证请求头的 MCP 客户端可以接入；仅支持 OAuth 的客户端不能直接使用此认证方式。
+
+## API Key 管理接口
+
+以下接口使用网页用户 JWT，均不要求 `X-Org-Id`，只能管理本人凭据。
+
+| 方法 | 路径 | 返回 |
+| --- | --- | --- |
+| GET | `/app/user/organizations/api-key-settings` | 本人的组织选项，包含被禁用的组织或成员关系 |
+| GET | `/app/user/organizations/{orgId}/api-keys/current` | 状态、可展示前缀、生成及撤销时间、操作权限，不返回原文 |
+| POST | `/app/user/organizations/{orgId}/api-keys` | 生成或替换当前 Key，一次返回原文及 MCP 地址 |
+| DELETE | `/app/user/organizations/{orgId}/api-keys/current` | 撤销当前 Key，可重复调用 |
+
+状态为 `NOT_CREATED`、`ACTIVE`、`SUSPENDED`、`REVOKED`。重新生成和撤销后旧凭据不能继续发起请求；禁用账号、组织或成员后拒绝访问，恢复启用后未撤销的 Key 可继续使用。改密或重置密码会在同一事务内撤销本人全部 Key。成员退出、移除流程可调用 `revokeForMembership` 参与其事务；当前未提供退出或移除入口。
 
 ## 工具契约
 

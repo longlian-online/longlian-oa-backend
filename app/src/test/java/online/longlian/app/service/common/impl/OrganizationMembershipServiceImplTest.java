@@ -6,6 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.common.OrganizationMembershipParamsBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
@@ -43,6 +44,7 @@ class OrganizationMembershipServiceImplTest {
     private UserMapper userMapper;
 
     private OrganizationMembershipServiceImpl service;
+    private final OrganizationMembershipParamsBO membershipParams = new OrganizationMembershipParamsBO(7L, 12L);
 
     @BeforeEach
     void setUp() {
@@ -325,5 +327,71 @@ class OrganizationMembershipServiceImplTest {
 
     private OrganizationMember member(long id, long orgId, Status status, String role) {
         return OrganizationMember.builder().id(id).orgId(orgId).userId(1L).orgRole(role).status(status).build();
+    }
+
+    @Test
+    void shouldReadDisabledMembershipWithoutRejectingIt() {
+        stubMembershipStatus();
+        when(organizationMemberMapper.selectOne(any())).thenReturn(OrganizationMember.builder().status(Status.DISABLED).build());
+        var result = service.getOwnMembershipStatus(membershipParams);
+        assertThat(result.userEnabled()).isTrue();
+        assertThat(result.organizationEnabled()).isTrue();
+        assertThat(result.memberEnabled()).isFalse();
+        assertThat(result.enabled()).isFalse();
+    }
+
+    @Test
+    void shouldReadDisabledUserAndOrganizationStates() {
+        stubMembershipStatus();
+        when(userMapper.selectById(7L)).thenReturn(User.builder().status(Status.DISABLED).build());
+        when(organizationMapper.selectById(12L)).thenReturn(Organization.builder().status(Status.DISABLED).build());
+        var result = service.getOwnMembershipStatus(membershipParams);
+        assertThat(result.userEnabled()).isFalse();
+        assertThat(result.organizationEnabled()).isFalse();
+        assertThat(result.memberEnabled()).isTrue();
+    }
+
+    @Test
+    void shouldRejectMissingMembership() {
+        stubMembershipStatus();
+        when(organizationMemberMapper.selectOne(any())).thenReturn(null);
+        assertThatThrownBy(() -> service.getOwnMembershipStatus(membershipParams)).isInstanceOf(AppException.class);
+    }
+
+    /** 本人设置页仍能展示停用组织，按组织 ID 稳定排列。 */
+    @Test
+    void shouldListDisabledOrganizationsInStableOrder() {
+        when(userMapper.selectById(7L)).thenReturn(User.builder().status(Status.ENABLED).build());
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
+                OrganizationMember.builder().orgId(12L).status(Status.DISABLED).build(),
+                OrganizationMember.builder().orgId(13L).status(Status.ENABLED).build()));
+        when(organizationMapper.selectBatchIds(List.of(12L, 13L))).thenReturn(List.of(
+                Organization.builder().id(13L).name("乙").status(Status.ENABLED).build(),
+                Organization.builder().id(12L).name("甲").status(Status.DISABLED).build()));
+        assertThat(service.listOwnOrganizations(7L)).extracting(result -> result.id()).containsExactly(12L, 13L);
+    }
+
+    /** 没有成员关系时不再查组织表。 */
+    @Test
+    void shouldAvoidOrganizationQueryWhenUserHasNoMemberships() {
+        when(userMapper.selectById(7L)).thenReturn(User.builder().status(Status.ENABLED).build());
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of());
+        assertThat(service.listOwnOrganizations(7L)).isEmpty();
+        verify(organizationMapper, never()).selectBatchIds(any());
+    }
+
+    /** 停用账号不能通过本人设置页读取组织。 */
+    @Test
+    void shouldRejectDisabledUserBeforeListingOrganizations() {
+        when(userMapper.selectById(7L)).thenReturn(User.builder().status(Status.DISABLED).build());
+        assertThatThrownBy(() -> service.listOwnOrganizations(7L)).isInstanceOf(AppException.class);
+        verify(organizationMemberMapper, never()).selectList(any());
+    }
+
+    private void stubMembershipStatus() {
+        when(userMapper.selectById(7L)).thenReturn(User.builder().id(7L).status(Status.ENABLED).build());
+        when(organizationMapper.selectById(12L)).thenReturn(Organization.builder().id(12L).status(Status.ENABLED).build());
+        when(organizationMemberMapper.selectOne(any())).thenReturn(OrganizationMember.builder()
+                .userId(7L).orgId(12L).status(Status.ENABLED).build());
     }
 }

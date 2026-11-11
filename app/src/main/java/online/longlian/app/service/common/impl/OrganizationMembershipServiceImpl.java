@@ -8,6 +8,9 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.common.OrganizationMembershipOrganizationResultBO;
+import online.longlian.app.pojo.bo.common.OrganizationMembershipParamsBO;
+import online.longlian.app.pojo.bo.common.OrganizationMembershipStatusResultBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
@@ -34,6 +37,38 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
     private final OrganizationMapper organizationMapper;
     private final OrganizationMemberMapper organizationMemberMapper;
     private final UserMapper userMapper;
+
+    @Override
+    public List<OrganizationMembershipOrganizationResultBO> listOwnOrganizations(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || user.getStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.UNAUTHORIZED);
+        }
+        List<Long> orgIds = organizationMemberMapper.selectList(new LambdaQueryWrapper<OrganizationMember>()
+                        .eq(OrganizationMember::getUserId, userId)).stream()
+                .map(OrganizationMember::getOrgId).distinct().toList();
+        if (orgIds.isEmpty()) {
+            return List.of();
+        }
+        return organizationMapper.selectBatchIds(orgIds).stream()
+                .sorted(Comparator.comparing(Organization::getId))
+                .map(org -> new OrganizationMembershipOrganizationResultBO(org.getId(), org.getName()))
+                .toList();
+    }
+
+    @Override
+    public OrganizationMembershipStatusResultBO getOwnMembershipStatus(OrganizationMembershipParamsBO params) {
+        Organization organization = organizationMapper.selectById(params.orgId());
+        OrganizationMember member = organizationMemberMapper.selectOne(new LambdaQueryWrapper<OrganizationMember>()
+                .eq(OrganizationMember::getUserId, params.userId()).eq(OrganizationMember::getOrgId, params.orgId()));
+        User user = userMapper.selectById(params.userId());
+        if (organization == null || member == null || user == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织成员关系不存在");
+        }
+        return new OrganizationMembershipStatusResultBO(
+                user.getStatus() == Status.ENABLED, organization.getStatus() == Status.ENABLED,
+                member.getStatus() == Status.ENABLED);
+    }
 
     @Override
     public OrganizationMember requireEnabledMember(Long userId, Long orgId) {

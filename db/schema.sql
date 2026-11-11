@@ -495,6 +495,21 @@ CREATE TABLE `user` (
   UNIQUE INDEX `uk_email` (`email`) COMMENT "邮箱唯一",
   UNIQUE INDEX `uk_username` (`username`) COMMENT "用户名唯一"
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "系统用户表";
+-- Create "user_org_api_key" table
+CREATE TABLE `user_org_api_key` (
+  `id` bigint NOT NULL COMMENT "主键ID",
+  `user_id` bigint NOT NULL COMMENT "所属用户ID",
+  `org_id` bigint NOT NULL COMMENT "绑定组织ID",
+  `key_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT "完整Key的SHA-256摘要，撤销后清空",
+  `key_prefix` varchar(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT "用于脱敏展示的Key前缀",
+  `generated_at` datetime NOT NULL COMMENT "最近一次Key生成时间",
+  `revoked_at` datetime NULL COMMENT "撤销时间",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_org_api_key` (`user_id`, `org_id`),
+  UNIQUE INDEX `uk_user_org_api_key_hash` (`key_hash`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "用户组织MCP访问凭据";
 -- Create "user_operation_log" table
 CREATE TABLE `user_operation_log` (
   `id` bigint NOT NULL,

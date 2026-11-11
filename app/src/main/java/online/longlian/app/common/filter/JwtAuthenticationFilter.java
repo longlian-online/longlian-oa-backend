@@ -12,11 +12,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.app.UserOrgApiKeyService;
+import online.longlian.common.enumeration.TokenType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.core.Authentication;
@@ -41,10 +45,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AuthenticationEntryPoint authenticationEntryPoint;
     private final TokenBlacklistService tokenBlacklistService;
     private final List<AuthenticationStrategy> strategies;
+    private final UserOrgApiKeyService apiKeyService;
 
     /** 与 SecurityFilterChain 一致：仅 springdoc 开启时跳过文档路径鉴权。 */
     @Value("${springdoc.api-docs.enabled:false}")
     private boolean springdocApiDocsEnabled;
+
+    @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
+    private String mcpEndpoint = "/mcp";
 
     private Map<String, AuthenticationStrategy> strategyMap;
 
@@ -73,11 +81,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+        boolean apiKey = token.startsWith("ll_mcp_");
         try {
-            Authentication authentication = authenticateToken(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            Authentication authentication = apiKey ? authenticateApiKey(request, token) : authenticateToken(token);
+            var context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(authentication);
+            SecurityContextHolder.setContext(context);
         } catch (AppException e) {
-            reject(request, response, new RequestAuthenticationException(e.getCode(), e.getMsg(), e));
+            if (apiKey && request.getServletPath().equals(mcpEndpoint)
+                    && e.getCode() == ResultCode.UNAUTHORIZED_OPERATION.getCode()) {
+                SecurityContextHolder.clearContext();
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            } else {
+                reject(request, response, new RequestAuthenticationException(e.getCode(), e.getMsg(), e));
+            }
             return;
         } catch (AuthenticationException e) {
             reject(request, response, e);
@@ -90,6 +107,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private Authentication authenticateApiKey(HttpServletRequest request, String token) {
+        if (!request.getServletPath().equals(mcpEndpoint)) {
+            throw invalidToken(null);
+        }
+        var identity = apiKeyService.authenticate(token);
+        String orgHeader = request.getHeader(OrganizationScopeInterceptor.ORG_ID_HEADER);
+        if (orgHeader != null && !orgHeader.trim().equals(identity.orgId().toString())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "组织与 API Key 绑定范围不一致");
+        }
+        Authentication authentication = strategyMap.get(TokenType.User.name().toLowerCase()).authenticate(identity.userId());
+        // 身份沿用用户认证，Key 固定的组织范围只属于本次请求，不能写入用户缓存。
+        request.setAttribute(SessionContext.class.getName(), new SessionContext(identity.userId(), identity.orgId()));
+        return authentication;
     }
 
     private Authentication authenticateToken(String token) {

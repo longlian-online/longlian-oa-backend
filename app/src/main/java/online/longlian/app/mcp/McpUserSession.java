@@ -26,6 +26,10 @@ public class McpUserSession {
                 || !(authenticated.getPrincipal() instanceof UserDetailImpl user)) {
             throw new AppException(ResultCode.UNAUTHORIZED);
         }
+        Object session = exchange.transportContext().get(SessionContext.class.getName());
+        if (session instanceof SessionContext bound) {
+            return bound;
+        }
         Object organization = exchange.transportContext().get(ORGANIZATION);
         if (!(organization instanceof String header) || header.isBlank()) {
             throw new AppException(ResultCode.PARAM_ERROR, "组织不能为空，请配置 X-Org-Id 请求头");

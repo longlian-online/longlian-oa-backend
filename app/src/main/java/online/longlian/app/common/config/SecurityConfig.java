@@ -10,6 +10,7 @@ import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvi
 import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -46,6 +47,14 @@ public class SecurityConfig {
 
     @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
     private String mcpEndpoint;
+
+    /** 仅由安全链注册，避免 Servlet 全局注册导致认证过滤器重复执行。 */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter jwtFilter) {
+        var registration = new FilterRegistrationBean<>(jwtFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

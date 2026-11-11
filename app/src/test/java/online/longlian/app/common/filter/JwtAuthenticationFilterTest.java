@@ -6,11 +6,16 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
+import online.longlian.app.common.security.UserAuthenticationStrategy;
+import online.longlian.app.common.security.UserDetailImpl;
+import online.longlian.app.pojo.bo.common.McpApiKeyIdentityResultBO;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.app.UserOrgApiKeyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +40,8 @@ class JwtAuthenticationFilterTest {
     private final TokenBlacklistService blacklist = mock(TokenBlacklistService.class);
     private final AuthenticationEntryPoint entryPoint = mock(AuthenticationEntryPoint.class);
     private final AuthenticationStrategy strategy = mock(AuthenticationStrategy.class);
+    private final UserAuthenticationStrategy userStrategy = mock(UserAuthenticationStrategy.class);
+    private final UserOrgApiKeyService apiKeyService = mock(UserOrgApiKeyService.class);
     private final FilterChain chain = mock(FilterChain.class);
     private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/admin/admins/");
     private final MockHttpServletResponse response = new MockHttpServletResponse();
@@ -43,8 +50,10 @@ class JwtAuthenticationFilterTest {
     @BeforeEach
     void setUp() {
         when(strategy.supportedType()).thenReturn("admin");
-        filter = new JwtAuthenticationFilter(jwt, entryPoint, blacklist, List.of(strategy));
+        when(userStrategy.supportedType()).thenReturn("user");
+        filter = new JwtAuthenticationFilter(jwt, entryPoint, blacklist, List.of(strategy, userStrategy), apiKeyService);
         filter.init();
+        clearInvocations(strategy, userStrategy);
         request.addHeader("Authorization", "Bearer token");
     }
 
@@ -197,6 +206,117 @@ class JwtAuthenticationFilterTest {
         request.setMethod("GET");
         request.setServletPath("/common/system/private");
         assertThat(filter.shouldNotFilter(request)).isFalse();
+    }
+
+    /** API Key 复用已有用户身份，绑定范围仅存本次请求，不把 Key 或组织写入用户对象。 */
+    @Test
+    void shouldAuthenticateApiKeyAsExistingUserAndBindRequestScope() throws Exception {
+        apiKeyRequest();
+        request.addHeader("X-Org-Id", " 2 ");
+        when(apiKeyService.authenticate("ll_mcp_key")).thenReturn(new McpApiKeyIdentityResultBO(1L, 2L, 3L));
+        UserDetailImpl user = UserDetailImpl.builder().id(1L).build();
+        var authentication = new UsernamePasswordAuthenticationToken(user, null, List.of());
+        when(userStrategy.authenticate(1L)).thenReturn(authentication);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isSameAs(authentication);
+        assertThat(authentication.getPrincipal()).isSameAs(user);
+        assertThat(authentication.getCredentials()).isNull();
+        assertThat(request.getAttribute(SessionContext.class.getName())).isEqualTo(new SessionContext(1L, 2L));
+        verify(chain).doFilter(request, response);
+        verifyNoInteractions(entryPoint);
+    }
+
+    /** 请求头不能覆盖 Key 固定的组织，冲突时清除认证并返回 MCP 协议层 403。 */
+    @Test
+    void shouldRejectConflictingApiKeyOrganization() throws Exception {
+        apiKeyRequest();
+        request.addHeader("X-Org-Id", "9");
+        when(apiKeyService.authenticate("ll_mcp_key")).thenReturn(new McpApiKeyIdentityResultBO(1L, 2L, 3L));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("old", null));
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(request.getAttribute(SessionContext.class.getName())).isNull();
+        verifyNoInteractions(userStrategy, chain, entryPoint);
+    }
+
+    /** 成员或组织停用仍保留 API Key 原有的 HTTP 403 约定。 */
+    @Test
+    void shouldRejectSuspendedApiKeyMembership() throws Exception {
+        apiKeyRequest();
+        when(apiKeyService.authenticate("ll_mcp_key")).thenThrow(new AppException(ResultCode.UNAUTHORIZED_OPERATION));
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(userStrategy, chain, entryPoint);
+    }
+
+    /** 已作废的 Key 直接拒绝，不能回退到 JWT 或使用之前残留的认证上下文。 */
+    @Test
+    void shouldRejectInvalidApiKeyWithoutJwtFallback() throws Exception {
+        apiKeyRequest();
+        when(apiKeyService.authenticate("ll_mcp_key")).thenThrow(new AppException(ResultCode.UNAUTHORIZED));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("old", null));
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(((RequestAuthenticationException) failure()).getCode()).isEqualTo(ResultCode.UNAUTHORIZED.getCode());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verifyNoInteractions(jwt, blacklist, userStrategy, chain);
+    }
+
+    /** 统一入口仍将 Key 限制在 MCP，不能借标准用户身份认证网页 REST 请求。 */
+    @Test
+    void shouldRejectApiKeyOutsideMcpWithoutTryingOtherAuthentication() throws Exception {
+        request.removeHeader("Authorization");
+        request.addHeader("Authorization", "Bearer ll_mcp_key");
+        request.setServletPath("/app/user/");
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(failure().getMessage()).isEqualTo("登录凭证无效");
+        verifyNoInteractions(apiKeyService, jwt, blacklist, strategy, userStrategy, chain);
+    }
+
+    /** API Key 数据库故障沿用公共认证失败处理，响应中不携带 SQL 信息。 */
+    @Test
+    void shouldReportApiKeyInfrastructureFailureWithoutDetails() throws Exception {
+        apiKeyRequest();
+        when(apiKeyService.authenticate("ll_mcp_key")).thenThrow(new DataAccessResourceFailureException("private SQL"));
+
+        filter.doFilter(request, response, chain);
+
+        RequestAuthenticationException failure = (RequestAuthenticationException) failure();
+        assertThat(failure.getCode()).isEqualTo(ResultCode.FAIL.getCode());
+        assertThat(failure.getMessage()).doesNotContain("private SQL");
+        verifyNoInteractions(userStrategy, chain);
+    }
+
+    /** 认证用户失败时不发布绑定组织；仍使用原有用户策略返回的失败原因。 */
+    @Test
+    void shouldNotPublishBoundScopeWhenUserAuthenticationFails() throws Exception {
+        apiKeyRequest();
+        when(apiKeyService.authenticate("ll_mcp_key")).thenReturn(new McpApiKeyIdentityResultBO(1L, 2L, 3L));
+        when(userStrategy.authenticate(1L)).thenThrow(new AppException(ResultCode.UNAUTHORIZED));
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(((RequestAuthenticationException) failure()).getCode()).isEqualTo(ResultCode.UNAUTHORIZED.getCode());
+        assertThat(request.getAttribute(SessionContext.class.getName())).isNull();
+        verifyNoInteractions(chain);
+    }
+
+    private void apiKeyRequest() {
+        request.setMethod("POST");
+        request.setRequestURI("/mcp");
+        request.setServletPath("/mcp");
+        request.removeHeader("Authorization");
+        request.addHeader("Authorization", "Bearer ll_mcp_key");
     }
 
     private AuthenticationException failure() throws Exception {
