@@ -53,4 +53,7 @@ public class OrgFileEntryVO {
 
     @Schema(description = "提交时间，仅文件")
     private LocalDateTime submittedAt;
+
+    @Schema(description = "提交版本号，仅文件")
+    private Integer versionNo;
 }

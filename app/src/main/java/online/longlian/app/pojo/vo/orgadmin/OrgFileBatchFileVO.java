@@ -40,4 +40,7 @@ public class OrgFileBatchFileVO {
     @Schema(description = "提交项名称")
     private String fieldLabel;
 
+    @Schema(description = "提交版本号")
+    private Integer versionNo;
+
 }
