@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeListParamsBO;
 import online.longlian.app.pojo.entity.ProjectType;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;

@@ -3,7 +3,7 @@ package online.longlian.app.service.app.impl.projectworkshop;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.WorkshopSortBy;
-import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopListParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.common.enumeration.Status;

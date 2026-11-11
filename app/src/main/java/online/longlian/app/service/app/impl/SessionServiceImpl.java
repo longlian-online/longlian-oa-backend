@@ -11,15 +11,15 @@ import online.longlian.app.common.security.MyUsernamePasswordAuthenticationToken
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
-import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
-import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
-import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
-import online.longlian.app.pojo.bo.app.SessionRefreshResultBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginByCodeParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.app.session.SessionLogoutParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionRefreshResultBO;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.app.service.TokenBlacklistService;
 import online.longlian.app.service.app.SessionService;
-import online.longlian.app.service.common.DefaultOrganization;
+import online.longlian.app.pojo.bo.common.DefaultOrganizationResultBO;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.impl.RefreshSessionStore;
 import online.longlian.app.service.impl.RefreshSessionStore.AccountUnavailableException;
@@ -137,7 +137,7 @@ public class SessionServiceImpl implements SessionService {
         );
         String token = jwtUtil.generateAccessToken(userId, created.sessionId());
 
-        DefaultOrganization defaultOrganization = organizationMembershipService.findDefault(userId);
+        DefaultOrganizationResultBO defaultOrganization = organizationMembershipService.findDefault(userId);
         cacheLoginSession(userDetail, jwtUtil.getUserAccessExpirationSeconds());
 
         return SessionLoginResultBO.builder()

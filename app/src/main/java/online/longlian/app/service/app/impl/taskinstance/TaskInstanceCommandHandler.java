@@ -8,9 +8,10 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
+import online.longlian.app.pojo.bo.common.TaskFormValuesResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectResultBO;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
@@ -129,7 +130,7 @@ public class TaskInstanceCommandHandler {
         }
         requireAssignee(instance, userId, "仅接取人可暂存任务");
         ItemTaskNode node = requireNode(instance);
-        TaskFormService.ValidatedValues validated = taskFormService.validateDraftValues(
+        TaskFormValuesResultBO validated = taskFormService.validateDraftValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
         List<Long> previousFileIds = referencedFileIds(instance.getDraftMetadata());
         LocalDateTime now = LocalDateTime.now(clock);
@@ -158,7 +159,7 @@ public class TaskInstanceCommandHandler {
         if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
             throw new AppException(ResultCode.OPERATION_FAIL, "没有可提交的暂存");
         }
-        TaskFormService.ValidatedValues validated = taskFormService.validateValues(
+        TaskFormValuesResultBO validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()),
                 com.alibaba.fastjson2.JSON.parseObject(instance.getDraftMetadata()));
         LocalDateTime now = LocalDateTime.now(clock);
@@ -254,7 +255,7 @@ public class TaskInstanceCommandHandler {
                                                           Map<String, Object> values, LocalDateTime submittedAt,
                                                           LocalDateTime updatedAt, TaskInstanceStatus requiredStatus,
                                                           boolean claimAndAssign) {
-        TaskFormService.ValidatedValues validated = taskFormService.validateValues(
+        TaskFormValuesResultBO validated = taskFormService.validateValues(
                 taskFormService.parseFields(node.getMetaSchema()), values);
         resourceService.bindBizResources(ResourceBindBatchParamsBO.builder()
                 .resourceIds(validated.resourceIds())

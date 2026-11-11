@@ -12,21 +12,24 @@ import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
-import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
 import online.longlian.app.pojo.dto.app.ProjectItemReorderDTO;
 import online.longlian.app.pojo.vo.app.ProjectItemOrderEntryVO;
-import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
 import online.longlian.app.service.app.DeletionRequestService;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.vo.app.ProjectItemNodeVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.ItemService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -52,7 +55,7 @@ public class ItemController {
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long projectId,
             @ModelAttribute @Valid ProjectItemListDTO projectItemListDTO) {
-        PageResultBO<ProjectItemListVO> resultBO = itemService.listProjectItems(
+        PageResultBO<ProjectItemListResultBO> resultBO = itemService.listProjectItems(
                 ItemListParamsBO.builder()
                         .projectId(projectId)
                         .orgId(sessionContext.orgId())
@@ -62,7 +65,20 @@ public class ItemController {
                         .page(new PageParamsBO(projectItemListDTO.getPageNum(), projectItemListDTO.getPageSize()))
                         .build());
 
-        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
+        List<ProjectItemListVO> itemListVOList = resultBO.getList().stream()
+                .map(bo -> {
+                    ProjectItemListVO itemListVO = new ProjectItemListVO();
+                    BeanUtils.copyProperties(bo, itemListVO, "nodes");
+                    itemListVO.setNodes(bo.getNodes().stream().map(nodeBO -> {
+                        ProjectItemNodeVO nodeVO = new ProjectItemNodeVO();
+                        BeanUtils.copyProperties(nodeBO, nodeVO);
+                        return nodeVO;
+                    }).toList());
+                    return itemListVO;
+                })
+                .toList();
+
+        return new PageResultVO<>(itemListVOList, resultBO.getTotal());
     }
 
     @Operation(summary = "创建项目", description = "创建项目并按请求中的步骤和执行人生成流程，不按模板补齐")

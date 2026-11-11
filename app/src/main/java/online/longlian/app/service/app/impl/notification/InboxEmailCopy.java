@@ -1,7 +1,7 @@
 package online.longlian.app.service.app.impl.notification;
 
-import online.longlian.app.pojo.bo.app.NotificationSourceResultBO;
-import online.longlian.app.pojo.bo.app.NotificationTaskSlotBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationTaskSlotBO;
 import online.longlian.common.enumeration.InboxNotificationKind;
 
 final class InboxEmailCopy {

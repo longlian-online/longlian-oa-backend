@@ -6,15 +6,15 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectAttachmentMapper;
-import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentResultBO;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentCreateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.ProjectAttachment;
 import online.longlian.app.service.app.ProjectService;
@@ -199,10 +199,10 @@ class ProjectAttachmentServiceImplTest {
     void getProjectAttachmentDownload_returnsFreshSignedUrl() {
         when(projectService.requireVisibleProject(any())).thenReturn(new ProjectAccessResultBO(2L));
         when(projectAttachmentMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(attachment(200L, 20L, 2L));
-        ActivatedResource resource = activated(20L, "企划设定.pdf");
+        ActivatedResourceResultBO resource = activated(20L, "企划设定.pdf");
         when(resourceService.findActivated("project_attachment", 100L, 1L, List.of(20L)))
                 .thenReturn(Map.of(20L, resource));
-        when(resourceService.signDownload(resource)).thenReturn(new ActivatedResourceRead(
+        when(resourceService.signDownload(resource)).thenReturn(new ActivatedResourceReadResultBO(
                 20L, "企划设定.pdf", 3L, "application/pdf",
                 "/common/file/local?key=project_attachment/20.pdf&expires=1", 1_800L));
 
@@ -255,8 +255,8 @@ class ProjectAttachmentServiceImplTest {
                 .build();
     }
 
-    private ActivatedResource activated(Long id, String fileName) {
-        return new ActivatedResource(id, fileName, 3L, "application/pdf",
+    private ActivatedResourceResultBO activated(Long id, String fileName) {
+        return new ActivatedResourceResultBO(id, fileName, 3L, "application/pdf",
                 StorageType.LOCAL, "project_attachment/" + id + ".pdf", 1L);
     }
 }

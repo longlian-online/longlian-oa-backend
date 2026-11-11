@@ -6,7 +6,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;

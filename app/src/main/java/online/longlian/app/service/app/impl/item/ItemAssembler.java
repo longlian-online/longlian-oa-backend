@@ -7,8 +7,8 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.vo.app.ProjectItemListVO;
-import online.longlian.app.pojo.vo.app.ProjectItemNodeVO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemNodeResultBO;
 import online.longlian.common.enumeration.ItemNodeState;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.springframework.stereotype.Component;
@@ -25,7 +25,7 @@ public class ItemAssembler {
     private final ItemTaskNodeMapper itemTaskNodeMapper;
     private final TaskInstanceMapper taskInstanceMapper;
 
-    public List<ProjectItemListVO> assembleList(List<Item> items) {
+    public List<ProjectItemListResultBO> assembleList(List<Item> items) {
         if (items.isEmpty()) {
             return Collections.emptyList();
         }
@@ -60,7 +60,7 @@ public class ItemAssembler {
                 .toList();
     }
 
-    ProjectItemListVO assembleItem(Item item, List<ItemTaskNode> nodes,
+    ProjectItemListResultBO assembleItem(Item item, List<ItemTaskNode> nodes,
                                     Map<Long, List<TaskInstance>> instancesByNodeId) {
         int totalNodes = nodes.size();
         long completedCount = nodes.stream()
@@ -71,7 +71,7 @@ public class ItemAssembler {
         Map<Integer, Long> sortCountMap = nodes.stream()
                 .collect(Collectors.groupingBy(ItemTaskNode::getSort, Collectors.counting()));
 
-        return ProjectItemListVO.builder()
+        return ProjectItemListResultBO.builder()
                 .id(item.getId())
                 .title(item.getTitle())
                 .createdAt(item.getCreatedAt())
@@ -96,12 +96,12 @@ public class ItemAssembler {
         return nodes.isEmpty() ? null : nodes.get(nodes.size() - 1).getName();
     }
 
-    ProjectItemNodeVO toNodeVO(ItemTaskNode node,
+    ProjectItemNodeResultBO toNodeVO(ItemTaskNode node,
                                 Map<Long, List<TaskInstance>> instancesByNodeId,
                                 Map<Integer, Long> sortCountMap) {
         List<TaskInstance> instances = instancesByNodeId.getOrDefault(node.getId(), Collections.emptyList());
 
-        return ProjectItemNodeVO.builder()
+        return ProjectItemNodeResultBO.builder()
                 .name(node.getName())
                 .sort(node.getSort())
                 .parallelSort(node.getParallelSort())

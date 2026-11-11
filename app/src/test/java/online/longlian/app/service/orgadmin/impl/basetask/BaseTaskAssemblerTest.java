@@ -1,7 +1,7 @@
 package online.longlian.app.service.orgadmin.impl.basetask;
 
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskListResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.service.common.TaskFormService;

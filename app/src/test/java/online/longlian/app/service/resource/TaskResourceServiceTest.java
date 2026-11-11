@@ -8,7 +8,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
 import online.longlian.app.service.app.impl.taskinstance.TaskAttachmentPresenter;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
@@ -170,8 +170,8 @@ class TaskResourceServiceTest {
         other.setFileSize(1024L * 1024 * 1024);
         when(resourceMapper.selectList(any())).thenReturn(List.of(pdf, image, archive, other));
 
-        Map<Long, TaskAttachmentVO> first = present(service, List.of(1L, 2L, 3L, 4L));
-        TaskAttachmentVO attachment = first.get(1L);
+        Map<Long, TaskAttachmentResultBO> first = present(service, List.of(1L, 2L, 3L, 4L));
+        TaskAttachmentResultBO attachment = first.get(1L);
         assertThat(attachment.getId()).isEqualTo("1");
         assertThat(attachment.getName()).isEqualTo("database-name.pdf");
         assertThat(attachment.getSizeText()).isEqualTo("2.0 KB");
@@ -233,11 +233,11 @@ class TaskResourceServiceTest {
         properties.setCdn(null);
         service = serviceAt(1_000L);
 
-        Map<Long, TaskAttachmentVO> attachments = present(service,
+        Map<Long, TaskAttachmentResultBO> attachments = present(service,
                 List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L));
 
         assertThat(attachments).hasSize(8);
-        for (TaskAttachmentVO attachment : attachments.values()) {
+        for (TaskAttachmentResultBO attachment : attachments.values()) {
             assertThat(attachment.getAvailability()).isEqualTo("unavailable");
             assertThat(attachment.getSizeText()).isNull();
             assertThat(attachment.getMediaType()).isNull();
@@ -298,11 +298,11 @@ class TaskResourceServiceTest {
                 .build());
     }
 
-    private Map<Long, TaskAttachmentVO> present(ResourceService resourceService, List<Long> resourceIds) {
+    private Map<Long, TaskAttachmentResultBO> present(ResourceService resourceService, List<Long> resourceIds) {
         return new TaskAttachmentPresenter(resourceService).present(TASK_ID, ORG_ID, resourceIds);
     }
 
-    private online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO download(
+    private online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO download(
             ResourceService resourceService, Long resourceId) {
         return new TaskAttachmentPresenter(resourceService).download(TASK_ID, ORG_ID, resourceId);
     }

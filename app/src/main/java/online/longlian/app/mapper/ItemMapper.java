@@ -2,8 +2,8 @@ package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import online.longlian.app.pojo.entity.Item;
-import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
+import online.longlian.app.pojo.bo.app.item.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileTypeItemBO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;

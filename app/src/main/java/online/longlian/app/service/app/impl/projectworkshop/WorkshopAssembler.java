@@ -11,9 +11,10 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
-import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateNodeVO;
-import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectLatestSubmissionBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateNodeResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 
@@ -36,14 +37,14 @@ public class WorkshopAssembler {
     private final ResourceService resourceService;
     private final TaskSubmissionMapper taskSubmissionMapper;
 
-    public List<WorkshopProjectInfoVO> assembleProjectList(List<Project> projects) {
+    public List<WorkshopProjectInfoResultBO> assembleProjectList(List<Project> projects) {
         if (projects.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Map<Long, WorkshopProjectInfoVO> latestSubmissionMap = taskSubmissionMapper.selectLatestForProjects(
+        Map<Long, ProjectLatestSubmissionBO> latestSubmissionMap = taskSubmissionMapper.selectLatestForProjects(
                         projects.stream().map(Project::getId).toList()).stream()
-                .collect(Collectors.toMap(WorkshopProjectInfoVO::getId, Function.identity()));
+                .collect(Collectors.toMap(ProjectLatestSubmissionBO::getId, Function.identity()));
 
         List<Long> coverFileIds = projects.stream()
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
@@ -73,21 +74,21 @@ public class WorkshopAssembler {
         return projects.stream()
                 .map(project -> {
                     User creator = userMap.get(project.getCreatorId());
-                    WorkshopProjectInfoVO workshopProjectInfoVO = new WorkshopProjectInfoVO();
-                    workshopProjectInfoVO.setId(project.getId());
-                    workshopProjectInfoVO.setTitle(project.getTitle());
-                    workshopProjectInfoVO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
-                    workshopProjectInfoVO.setThumbnailUrl(
+                    WorkshopProjectInfoResultBO projectInfoResultBO = new WorkshopProjectInfoResultBO();
+                    projectInfoResultBO.setId(project.getId());
+                    projectInfoResultBO.setTitle(project.getTitle());
+                    projectInfoResultBO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
+                    projectInfoResultBO.setThumbnailUrl(
                             resizeThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId())));
                     if (creator != null && creator.getAvatarFileId() != null) {
-                        workshopProjectInfoVO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
+                        projectInfoResultBO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
                     }
-                    WorkshopProjectInfoVO latestSubmission = latestSubmissionMap.get(project.getId());
+                    ProjectLatestSubmissionBO latestSubmission = latestSubmissionMap.get(project.getId());
                     if (latestSubmission != null) {
-                        workshopProjectInfoVO.setLastSubmitterUsername(latestSubmission.getLastSubmitterUsername());
-                        workshopProjectInfoVO.setLastSubmitterAt(latestSubmission.getLastSubmitterAt());
+                        projectInfoResultBO.setLastSubmitterUsername(latestSubmission.getLastSubmitterUsername());
+                        projectInfoResultBO.setLastSubmitterAt(latestSubmission.getLastSubmitterAt());
                     }
-                    return workshopProjectInfoVO;
+                    return projectInfoResultBO;
                 })
                 .toList();
     }
@@ -99,7 +100,7 @@ public class WorkshopAssembler {
         return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
     }
 
-    public List<WorkshopTaskTemplateVO> assembleTemplateList(List<TaskTemplate> templates, Long currentUserId) {
+    public List<WorkshopTaskTemplateResultBO> assembleTemplateList(List<TaskTemplate> templates, Long currentUserId) {
         if (templates.isEmpty()) {
             return Collections.emptyList();
         }
@@ -127,36 +128,36 @@ public class WorkshopAssembler {
 
         return templates.stream()
                 .map(template -> {
-                    WorkshopTaskTemplateVO workshopTaskTemplateVO = new WorkshopTaskTemplateVO();
-                    workshopTaskTemplateVO.setId(template.getId());
-                    workshopTaskTemplateVO.setName(template.getName());
-                    workshopTaskTemplateVO.setDescription(template.getDescription());
-                    workshopTaskTemplateVO.setScope(template.getScope());
-                    workshopTaskTemplateVO.setIsMine(template.getCreatorId().equals(currentUserId));
+                    WorkshopTaskTemplateResultBO templateResultBO = new WorkshopTaskTemplateResultBO();
+                    templateResultBO.setId(template.getId());
+                    templateResultBO.setName(template.getName());
+                    templateResultBO.setDescription(template.getDescription());
+                    templateResultBO.setScope(template.getScope());
+                    templateResultBO.setIsMine(template.getCreatorId().equals(currentUserId));
 
                     List<TaskTemplateNode> nodes = nodeMap.getOrDefault(template.getId(), Collections.emptyList());
-                    workshopTaskTemplateVO.setTaskCount(nodes.size());
+                    templateResultBO.setTaskCount(nodes.size());
 
-                    List<WorkshopTaskTemplateNodeVO> nodeVOs = nodes.stream()
-                            .map(node -> toNodeVO(node, baseTaskMap))
+                    List<WorkshopTaskTemplateNodeResultBO> nodeResultBOs = nodes.stream()
+                            .map(node -> toNodeResultBO(node, baseTaskMap))
                             .toList();
-                    workshopTaskTemplateVO.setNodes(nodeVOs);
-                    return workshopTaskTemplateVO;
+                    templateResultBO.setNodes(nodeResultBOs);
+                    return templateResultBO;
                 })
                 .toList();
     }
 
-    private WorkshopTaskTemplateNodeVO toNodeVO(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap) {
-        WorkshopTaskTemplateNodeVO vo = new WorkshopTaskTemplateNodeVO();
-        vo.setBaseTaskId(node.getBaseTaskId());
-        vo.setSort(node.getSort());
-        vo.setParallelSort(node.getParallelSort());
+    private WorkshopTaskTemplateNodeResultBO toNodeResultBO(TaskTemplateNode node, Map<Long, BaseTask> baseTaskMap) {
+        WorkshopTaskTemplateNodeResultBO resultBO = new WorkshopTaskTemplateNodeResultBO();
+        resultBO.setBaseTaskId(node.getBaseTaskId());
+        resultBO.setSort(node.getSort());
+        resultBO.setParallelSort(node.getParallelSort());
 
         BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
         if (baseTask != null) {
-            vo.setBaseTaskName(baseTask.getName());
-            vo.setBaseTaskIcon(baseTask.getIcon());
+            resultBO.setBaseTaskName(baseTask.getName());
+            resultBO.setBaseTaskIcon(baseTask.getIcon());
         }
-        return vo;
+        return resultBO;
     }
 }

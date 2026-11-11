@@ -5,13 +5,13 @@ import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.common.TaskFormService;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
-import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +55,7 @@ class TaskInstanceAssemblerTest {
 
     @Test
     void assembleInstances_emptyList_returnsEmptyList() {
-        List<ItemTaskInstanceVO> result = assembler.assembleInstances(Collections.emptyList(), Map.of());
+        List<ItemTaskInstanceResultBO> result = assembler.assembleInstances(Collections.emptyList(), Map.of());
 
         assertTrue(result.isEmpty());
         verify(userMapper, never()).selectBatchIds(anyList());
@@ -71,7 +71,7 @@ class TaskInstanceAssemblerTest {
                 .createdAt(LocalDateTime.now())
                 .build(); // assigneeId is null
 
-        List<ItemTaskInstanceVO> result = assembler.assembleInstances(List.of(instance), Collections.emptyMap());
+        List<ItemTaskInstanceResultBO> result = assembler.assembleInstances(List.of(instance), Collections.emptyMap());
 
         assertEquals(1, result.size());
         assertEquals("0", result.get(0).getRevision());
@@ -106,11 +106,11 @@ class TaskInstanceAssemblerTest {
         when(resourceService.getResourceReadUrls(List.of(100L)))
                 .thenReturn(Map.of(100L, new ResourceReadUrlGetResultBO("https://cdn/avatar.png", 1L, "key")));
 
-        List<ItemTaskInstanceVO> result = assembler.assembleInstances(
+        List<ItemTaskInstanceResultBO> result = assembler.assembleInstances(
                 List.of(instance), Map.of(50L, node));
 
         assertEquals(1, result.size());
-        ItemTaskInstanceVO vo = result.get(0);
+        ItemTaskInstanceResultBO vo = result.get(0);
         assertEquals(1L, vo.getId());
         assertEquals("9223372036854775807", vo.getRevision());
         assertEquals(10L, vo.getAssigneeId());
@@ -138,7 +138,7 @@ class TaskInstanceAssemblerTest {
 
         when(userMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(assignee));
 
-        List<ItemTaskInstanceVO> result = assembler.assembleInstances(List.of(instance), Collections.emptyMap());
+        List<ItemTaskInstanceResultBO> result = assembler.assembleInstances(List.of(instance), Collections.emptyMap());
 
         assertEquals(1, result.size());
         assertEquals("bob", result.get(0).getAssigneeNickname());
@@ -156,7 +156,7 @@ class TaskInstanceAssemblerTest {
                 .revision(0L)
                 .build();
 
-        List<ItemTaskInstanceVO> result = assembler.assembleInstances(List.of(instance), Map.of());
+        List<ItemTaskInstanceResultBO> result = assembler.assembleInstances(List.of(instance), Map.of());
 
         assertEquals(1, result.size());
         assertNull(result.get(0).getName());
@@ -167,7 +167,7 @@ class TaskInstanceAssemblerTest {
     void shouldAssembleTaskWithoutSubmissionAndWithoutAttachmentLookup() {
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.PENDING).build();
         ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(2).metaSchema("[]").build();
-        TaskInstanceDetailVO detail = assembler.assembleDetail(instance, node, null, 10L);
+        TaskInstanceDetailResultBO detail = assembler.assembleDetail(instance, node, null, 10L);
         assertEquals("1", detail.getTask().id());
         assertEquals("翻译", detail.getTask().name());
         assertEquals(2, detail.getTask().stage());
@@ -180,11 +180,11 @@ class TaskInstanceAssemblerTest {
     @Test
     void shouldRenderSchemaOrderedScalarsZeroEmptyAndMultiline() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(new TaskFormField("count", "数量", "number", true, List.of()),
-                new TaskFormField("notes", "备注", "textarea", false, List.of()),
-                new TaskFormField("pick", "选择", "select", false, List.of("A")),
-                new TaskFormField("empty", "空值", "text", false, List.of()),
-                new TaskFormField("file", "附件", "file", false, List.of()));
+        List<TaskFormFieldBO> fields = List.of(new TaskFormFieldBO("count", "数量", "number", true, List.of()),
+                new TaskFormFieldBO("notes", "备注", "textarea", false, List.of()),
+                new TaskFormFieldBO("pick", "选择", "select", false, List.of("A")),
+                new TaskFormFieldBO("empty", "空值", "text", false, List.of()),
+                new TaskFormFieldBO("file", "附件", "file", false, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(2).metaSchema(forms.serializeFields(fields)).build();
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.COMPLETED).build();
         LocalDateTime submitted = LocalDateTime.of(2026, 10, 8, 12, 30);
@@ -192,33 +192,33 @@ class TaskInstanceAssemblerTest {
                 .metadata(forms.validateValues(fields, Map.of("notes", "first\n  second \n", "pick", "A", "count", "0.00")).serialize()).build();
         when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
 
-        TaskInstanceDetailVO detail = assembler.assembleDetail(instance, node, submission, 10L);
+        TaskInstanceDetailResultBO detail = assembler.assembleDetail(instance, node, submission, 10L);
 
         assertEquals("submitted", detail.getSubmission().state());
         assertEquals(submitted, detail.getSubmission().submittedAt());
-        assertEquals(List.of(new TaskInstanceDetailVO.TextField("count", "数量", "text", "0"),
-                new TaskInstanceDetailVO.TextField("notes", "备注", "multiline", "first\n  second \n"),
-                new TaskInstanceDetailVO.TextField("pick", "选择", "text", "A"),
-                new TaskInstanceDetailVO.TextField("empty", "空值", "text", "未填写"),
-                new TaskInstanceDetailVO.FileField("file", "附件", "file", null)), detail.getSubmission().fields());
+        assertEquals(List.of(new TaskInstanceDetailResultBO.TaskTextFieldResultBO("count", "数量", "text", "0"),
+                new TaskInstanceDetailResultBO.TaskTextFieldResultBO("notes", "备注", "multiline", "first\n  second \n"),
+                new TaskInstanceDetailResultBO.TaskTextFieldResultBO("pick", "选择", "text", "A"),
+                new TaskInstanceDetailResultBO.TaskTextFieldResultBO("empty", "空值", "text", "未填写"),
+                new TaskInstanceDetailResultBO.TaskFileFieldResultBO("file", "附件", "file", null)), detail.getSubmission().fields());
     }
 
     @Test
     void shouldUseScopedBatchAttachmentsAndDatabaseNames() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(new TaskFormField("file", "附件", "file", true, List.of()));
+        List<TaskFormFieldBO> fields = List.of(new TaskFormFieldBO("file", "附件", "file", true, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(1).metaSchema(forms.serializeFields(fields)).build();
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.COMPLETED).build();
         TaskSubmission submission = TaskSubmission.builder().metadata("{\"file\":{\"fileId\":\"9\"}}").build();
-        TaskAttachmentVO attachment = new TaskAttachmentVO();
+        TaskAttachmentResultBO attachment = new TaskAttachmentResultBO();
         attachment.setId("9");
         attachment.setName("database.pdf");
         attachment.setAvailability("unavailable");
         when(taskAttachmentPresenter.present(1L, 10L, List.of(9L))).thenReturn(Map.of(9L, attachment));
 
-        TaskInstanceDetailVO detail = assembler.assembleDetail(instance, node, submission, 10L);
+        TaskInstanceDetailResultBO detail = assembler.assembleDetail(instance, node, submission, 10L);
 
-        assertEquals(List.of(new TaskInstanceDetailVO.FileField("file", "附件", "file", attachment)),
+        assertEquals(List.of(new TaskInstanceDetailResultBO.TaskFileFieldResultBO("file", "附件", "file", attachment)),
                 detail.getSubmission().fields());
         verify(taskAttachmentPresenter).present(1L, 10L, List.of(9L));
         verify(resourceService, never()).getResourceReadUrls(anyList());
@@ -227,8 +227,8 @@ class TaskInstanceAssemblerTest {
     @Test
     void shouldAssembleVersionsWithStatusParticipantsAndFallbackOwnerlessNickname() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()),
-                new TaskFormField("file", "附件", "file", false, List.of()));
+        List<TaskFormFieldBO> fields = List.of(new TaskFormFieldBO("notes", "说明", "text", false, List.of()),
+                new TaskFormFieldBO("file", "附件", "file", false, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(1).metaSchema(forms.serializeFields(fields)).build();
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.COMPLETED).build();
         LocalDateTime rejectedAt = LocalDateTime.of(2026, 10, 8, 9, 0);
@@ -249,11 +249,11 @@ class TaskInstanceAssemblerTest {
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of(submitter, reviewer));
         when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
 
-        List<online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO> versions =
+        List<online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO> versions =
                 assembler.assembleSubmissionVersions(instance, node, List.of(rejected, reset), 10L);
 
         assertEquals(2, versions.size());
-        online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO second = versions.get(0);
+        online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO second = versions.get(0);
         assertEquals(2, second.getVersionNo());
         assertEquals("REJECTED", second.getStatus());
         assertEquals("阿苏", second.getSubmitter().nickname());
@@ -261,9 +261,9 @@ class TaskInstanceAssemblerTest {
         assertEquals(rejectedAt, second.getReviewedAt());
         assertEquals("再改改", second.getReviewComment());
         assertEquals(List.of(
-                new TaskInstanceDetailVO.TextField("notes", "说明", "text", "v2"),
-                new TaskInstanceDetailVO.FileField("file", "附件", "file", null)), second.getFields());
-        online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO first = versions.get(1);
+                new TaskInstanceDetailResultBO.TaskTextFieldResultBO("notes", "说明", "text", "v2"),
+                new TaskInstanceDetailResultBO.TaskFileFieldResultBO("file", "附件", "file", null)), second.getFields());
+        online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO first = versions.get(1);
         assertEquals(1, first.getVersionNo());
         assertEquals("RESET", first.getStatus());
         assertNull(first.getReviewer());
@@ -275,9 +275,9 @@ class TaskInstanceAssemblerTest {
     @Test
     void assembleDraft_showsFilledFieldsWhenRequiredOnesAreEmpty() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(
-                new TaskFormField("notes", "说明", "textarea", true, List.of()),
-                new TaskFormField("count", "数量", "number", true, List.of()));
+        List<TaskFormFieldBO> fields = List.of(
+                new TaskFormFieldBO("notes", "说明", "textarea", true, List.of()),
+                new TaskFormFieldBO("count", "数量", "number", true, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().metaSchema(forms.serializeFields(fields)).build();
         LocalDateTime updatedAt = LocalDateTime.of(2026, 11, 7, 1, 2);
         TaskInstance instance = TaskInstance.builder()
@@ -287,23 +287,23 @@ class TaskInstanceAssemblerTest {
                 .build();
         when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
 
-        TaskInstanceDetailVO.Draft draft = assembler.assembleDraft(node, instance, 10L);
+        TaskInstanceDetailResultBO.TaskDraftResultBO draft = assembler.assembleDraft(node, instance, 10L);
 
         assertFalse(draft.unreadable());
         assertEquals(updatedAt, draft.updatedAt());
         assertEquals(List.of(
-                new TaskInstanceDetailVO.TextField("notes", "说明", "multiline", "已写"),
-                new TaskInstanceDetailVO.TextField("count", "数量", "text", "未填写")), draft.fields());
+                new TaskInstanceDetailResultBO.TaskTextFieldResultBO("notes", "说明", "multiline", "已写"),
+                new TaskInstanceDetailResultBO.TaskTextFieldResultBO("count", "数量", "text", "未填写")), draft.fields());
     }
 
     @Test
     void assembleDraft_marksCorruptContentUnreadable() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()));
+        List<TaskFormFieldBO> fields = List.of(new TaskFormFieldBO("notes", "说明", "text", false, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().metaSchema(forms.serializeFields(fields)).build();
         TaskInstance instance = TaskInstance.builder().id(1L).draftMetadata("{").build();
 
-        TaskInstanceDetailVO.Draft draft = assembler.assembleDraft(node, instance, 10L);
+        TaskInstanceDetailResultBO.TaskDraftResultBO draft = assembler.assembleDraft(node, instance, 10L);
 
         assertTrue(draft.unreadable());
         assertTrue(draft.fields().isEmpty());
@@ -312,7 +312,7 @@ class TaskInstanceAssemblerTest {
     @Test
     void shouldIsolateCorruptedLegacyVersionWithoutBlockingOthers() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()));
+        List<TaskFormFieldBO> fields = List.of(new TaskFormFieldBO("notes", "说明", "text", false, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(1).metaSchema(forms.serializeFields(fields)).build();
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.COMPLETED).build();
         TaskSubmission broken = TaskSubmission.builder()
@@ -330,11 +330,11 @@ class TaskInstanceAssemblerTest {
         when(userMapper.selectBatchIds(anyCollection())).thenReturn(List.of(User.builder().id(5L).nickname("阿苏").build()));
         when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
 
-        List<online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO> versions =
+        List<online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO> versions =
                 assembler.assembleSubmissionVersions(instance, node, List.of(good, broken), 10L);
 
         assertFalse(versions.get(0).isUnreadable());
-        assertEquals("v2", ((TaskInstanceDetailVO.TextField) versions.get(0).getFields().get(0)).text());
+        assertEquals("v2", ((TaskInstanceDetailResultBO.TaskTextFieldResultBO) versions.get(0).getFields().get(0)).text());
         assertTrue(versions.get(1).isUnreadable());
         assertTrue(versions.get(1).getFields().isEmpty());
     }
@@ -343,7 +343,7 @@ class TaskInstanceAssemblerTest {
     @Test
     void shouldResolveAvatarUrlsAndFallBackForDeletedParticipants() {
         TaskFormService forms = new TaskFormService();
-        List<TaskFormField> fields = List.of(new TaskFormField("notes", "说明", "text", false, List.of()));
+        List<TaskFormFieldBO> fields = List.of(new TaskFormFieldBO("notes", "说明", "text", false, List.of()));
         ItemTaskNode node = ItemTaskNode.builder().name("翻译").sort(1).metaSchema(forms.serializeFields(fields)).build();
         TaskInstance instance = TaskInstance.builder().id(1L).status(TaskInstanceStatus.COMPLETED).build();
         TaskSubmission withAvatar = TaskSubmission.builder()
@@ -371,13 +371,13 @@ class TaskInstanceAssemblerTest {
         when(resourceService.getResourceReadUrls(List.of(77L))).thenReturn(Map.of(77L, signed));
         when(taskAttachmentPresenter.present(1L, 10L, List.of())).thenReturn(Map.of());
 
-        List<online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO> versions =
+        List<online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO> versions =
                 assembler.assembleSubmissionVersions(
                         instance, node, List.of(withAvatar, ownerlessReviewer, reviewerAbsent), 10L);
 
         assertEquals("https://cdn.test/77", versions.get(0).getSubmitter().avatarUrl());
         assertEquals("阿苏", versions.get(0).getSubmitter().nickname());
-        online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO rejected = versions.get(1);
+        online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO rejected = versions.get(1);
         assertEquals("999", rejected.getReviewer().id());
         assertNull(rejected.getReviewer().nickname());
         assertNull(rejected.getReviewer().avatarUrl());

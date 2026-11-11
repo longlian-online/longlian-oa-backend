@@ -5,12 +5,12 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
-import online.longlian.app.pojo.bo.app.TaskTemplateOptionsParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionsParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
-import online.longlian.app.pojo.vo.app.TaskTemplateOptionNodeVO;
-import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionNodeResultBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionResultBO;
 import online.longlian.app.service.app.TaskTemplateService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
@@ -33,7 +33,7 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
     private final BaseTaskMapper baseTaskMapper;
 
     @Override
-    public List<TaskTemplateOptionVO> listOptions(TaskTemplateOptionsParamsBO params) {
+    public List<TaskTemplateOptionResultBO> listOptions(TaskTemplateOptionsParamsBO params) {
         List<TaskTemplate> orgTemplates = taskTemplateMapper.selectList(
                 new LambdaQueryWrapper<TaskTemplate>()
                         .eq(TaskTemplate::getOrgId, params.getOrgId())
@@ -56,7 +56,7 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
 
         return allTemplates.stream()
                 .map(template -> {
-                    TaskTemplateOptionVO option = new TaskTemplateOptionVO();
+                    TaskTemplateOptionResultBO option = new TaskTemplateOptionResultBO();
                     option.setId(template.getId());
                     option.setName(template.getName());
                     option.setNodes(toNodes(nodesByTemplate.getOrDefault(template.getId(), List.of()), baseTasks));
@@ -96,11 +96,11 @@ public class TaskTemplateServiceImpl implements TaskTemplateService {
                 .collect(Collectors.toMap(BaseTask::getId, Function.identity()));
     }
 
-    private List<TaskTemplateOptionNodeVO> toNodes(List<TaskTemplateNode> nodes, Map<Long, BaseTask> baseTasks) {
-        List<TaskTemplateOptionNodeVO> result = new ArrayList<>();
+    private List<TaskTemplateOptionNodeResultBO> toNodes(List<TaskTemplateNode> nodes, Map<Long, BaseTask> baseTasks) {
+        List<TaskTemplateOptionNodeResultBO> result = new ArrayList<>();
         for (TaskTemplateNode node : nodes) {
             BaseTask baseTask = baseTasks.get(node.getBaseTaskId());
-            TaskTemplateOptionNodeVO optionNode = new TaskTemplateOptionNodeVO();
+            TaskTemplateOptionNodeResultBO optionNode = new TaskTemplateOptionNodeResultBO();
             optionNode.setBaseTaskId(node.getBaseTaskId());
             optionNode.setBaseTaskName(baseTask == null ? null : baseTask.getName());
             optionNode.setBaseTaskStatus(baseTask == null ? null : baseTask.getStatus());

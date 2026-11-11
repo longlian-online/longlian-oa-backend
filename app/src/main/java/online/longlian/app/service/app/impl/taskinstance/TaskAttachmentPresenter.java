@@ -3,10 +3,10 @@ package online.longlian.app.service.app.impl.taskinstance;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
-import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 
@@ -24,15 +24,15 @@ public class TaskAttachmentPresenter {
 
     private final ResourceService resourceService;
 
-    public Map<Long, TaskAttachmentVO> present(Long taskId, Long orgId, List<Long> resourceIds) {
-        Map<Long, TaskAttachmentVO> attachments = new HashMap<>();
+    public Map<Long, TaskAttachmentResultBO> present(Long taskId, Long orgId, List<Long> resourceIds) {
+        Map<Long, TaskAttachmentResultBO> attachments = new HashMap<>();
         if (resourceIds.isEmpty()) {
             return attachments;
         }
-        Map<Long, ActivatedResource> matched = resourceService.findActivated(TASK_SUBMIT, taskId, orgId, resourceIds);
+        Map<Long, ActivatedResourceResultBO> matched = resourceService.findActivated(TASK_SUBMIT, taskId, orgId, resourceIds);
         for (Long resourceId : resourceIds) {
-            ActivatedResource resource = matched.get(resourceId);
-            TaskAttachmentVO attachment = new TaskAttachmentVO();
+            ActivatedResourceResultBO resource = matched.get(resourceId);
+            TaskAttachmentResultBO attachment = new TaskAttachmentResultBO();
             attachment.setId(resourceId.toString());
             attachment.setAvailability("unavailable");
             attachment.setName("附件不可用");
@@ -49,13 +49,13 @@ public class TaskAttachmentPresenter {
 
     /** 点击预览或下载时签发。详情和版本列表不带读取链接。 */
     public ProjectAttachmentDownloadResultBO download(Long taskId, Long orgId, Long resourceId) {
-        ActivatedResource resource = resourceService
+        ActivatedResourceResultBO resource = resourceService
                 .findActivated(TASK_SUBMIT, taskId, orgId, List.of(resourceId))
                 .get(resourceId);
         if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
         }
-        ActivatedResourceRead read = resourceService.signDownload(resource);
+        ActivatedResourceReadResultBO read = resourceService.signDownload(resource);
         return ProjectAttachmentDownloadResultBO.builder()
                 .readUrl(read.readUrl())
                 .expireAt(read.expiresAt())

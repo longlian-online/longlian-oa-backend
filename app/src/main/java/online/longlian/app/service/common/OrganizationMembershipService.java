@@ -1,5 +1,8 @@
 package online.longlian.app.service.common;
 
+import online.longlian.app.pojo.bo.common.DefaultOrganizationResultBO;
+import online.longlian.app.pojo.bo.common.OrganizationMemberProfileResultBO;
+import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.pojo.entity.OrganizationMember;
 
 /**
@@ -22,7 +25,7 @@ public interface OrganizationMembershipService {
     /**
      * 列出当前组织全部启用组员，供企划负责人选择代提交归属人。
      */
-    java.util.List<OrganizationMemberProfile> listEnabledMembers(Long orgId);
+    java.util.List<OrganizationMemberProfileResultBO> listEnabledMembers(Long orgId);
 
     /**
      * 当前组织启用中的组织管理员和组织所有者。审核通知只发给这些人。
@@ -39,8 +42,8 @@ public interface OrganizationMembershipService {
      * 读取用户默认组织。没有默认组织时组织 ID 为空。
      * 默认组织已禁用或用户不是启用成员时仍返回已保存的组织 ID，角色为空，不改用其他组织。
      */
-    DefaultOrganization findDefault(Long userId);
+    DefaultOrganizationResultBO findDefault(Long userId);
 
     /** 批量读取当前组织未删除的成员及用户档案，缺失或已删除的记录不返回。 */
-    java.util.List<OrganizationMemberDetails> listMemberProfiles(Long orgId, java.util.List<Long> userIds);
+    java.util.List<OrganizationMemberDetailsResultBO> listMemberProfiles(Long orgId, java.util.List<Long> userIds);
 }

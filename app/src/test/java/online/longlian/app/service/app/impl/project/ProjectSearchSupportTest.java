@@ -3,8 +3,8 @@ package online.longlian.app.service.app.impl.project;
 import com.alibaba.fastjson2.JSON;
 import online.longlian.app.common.enumeration.SortByTime;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectSearchParamsBO;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

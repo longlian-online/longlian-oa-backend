@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.common.enumeration.TaskTemplateSortBy;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListParamsBO;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

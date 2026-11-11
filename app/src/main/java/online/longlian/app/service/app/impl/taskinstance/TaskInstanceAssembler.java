@@ -4,18 +4,19 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.common.TaskFormValuesResultBO;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.common.TaskFormField;
-import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
-import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
-import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO;
 
 import online.longlian.app.service.common.TaskFormService;
-import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
@@ -42,7 +43,7 @@ public class TaskInstanceAssembler {
         return taskAttachmentPresenter.download(taskId, orgId, fileId);
     }
 
-    public List<ItemTaskInstanceVO> assembleInstances(List<TaskInstance> instances, Map<Long, ItemTaskNode> nodeMap) {
+    public List<ItemTaskInstanceResultBO> assembleInstances(List<TaskInstance> instances, Map<Long, ItemTaskNode> nodeMap) {
         if (instances.isEmpty()) {
             return Collections.emptyList();
         }
@@ -67,7 +68,7 @@ public class TaskInstanceAssembler {
 
         return instances.stream()
                 .map(instance -> {
-                    ItemTaskInstanceVO.ItemTaskInstanceVOBuilder builder = ItemTaskInstanceVO.builder()
+                    ItemTaskInstanceResultBO.ItemTaskInstanceResultBOBuilder builder = ItemTaskInstanceResultBO.builder()
                             .id(instance.getId())
                             .status(instance.getStatus())
                             .revision(instance.getRevision().toString())
@@ -96,10 +97,10 @@ public class TaskInstanceAssembler {
                 .toList();
     }
 
-    public TaskInstanceDetailVO assembleDetail(
+    public TaskInstanceDetailResultBO assembleDetail(
             TaskInstance instance, ItemTaskNode node, TaskSubmission submission, Long orgId) {
-        TaskInstanceDetailVO result = new TaskInstanceDetailVO();
-        TaskInstanceDetailVO.Assignee assignee = null;
+        TaskInstanceDetailResultBO result = new TaskInstanceDetailResultBO();
+        TaskInstanceDetailResultBO.TaskAssigneeResultBO assignee = null;
         if (instance.getAssigneeId() != null) {
             User user = userMapper.selectById(instance.getAssigneeId());
             if (user != null) {
@@ -107,63 +108,63 @@ public class TaskInstanceAssembler {
                         ? resourceService.getResourceReadUrls(List.of(user.getAvatarFileId()))
                             .values().stream().map(value -> value.getUrl()).findFirst().orElse(null)
                         : null;
-                assignee = new TaskInstanceDetailVO.Assignee(
+                assignee = new TaskInstanceDetailResultBO.TaskAssigneeResultBO(
                         user.getId().toString(), user.getNickname(), avatarUrl);
             }
         }
-        result.setTask(new TaskInstanceDetailVO.Task(
+        result.setTask(new TaskInstanceDetailResultBO.TaskSummaryResultBO(
                 instance.getId().toString(), node.getName(), node.getSort(), instance.getStatus().name(), assignee));
         if (submission == null) {
-            result.setSubmission(new TaskInstanceDetailVO.Submission(
+            result.setSubmission(new TaskInstanceDetailResultBO.TaskSubmissionResultBO(
                     "not_submitted", null, List.of()));
             return result;
         }
 
-        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues validated = taskFormService.parseValues(fields, submission.getMetadata());
-        Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
+        List<TaskFormFieldBO> fields = taskFormService.parseFields(node.getMetaSchema());
+        TaskFormValuesResultBO validated = taskFormService.parseValues(fields, submission.getMetadata());
+        Map<Long, TaskAttachmentResultBO> attachments = taskAttachmentPresenter.present(
                 instance.getId(), orgId, validated.resourceIds());
-        List<TaskInstanceDetailVO.Field> detailFields = displayFields(fields, validated, attachments);
-        result.setSubmission(new TaskInstanceDetailVO.Submission(
+        List<TaskInstanceDetailResultBO.TaskDisplayFieldResultBO> detailFields = displayFields(fields, validated, attachments);
+        result.setSubmission(new TaskInstanceDetailResultBO.TaskSubmissionResultBO(
                 "submitted", submission.getCreatedAt(), detailFields));
         return result;
     }
 
     /** 按版本记录的字段结构组装任务实例上的暂存。附件挂在任务实例上。 */
-    public TaskInstanceDetailVO.Draft assembleDraft(ItemTaskNode node, TaskInstance instance, Long orgId) {
+    public TaskInstanceDetailResultBO.TaskDraftResultBO assembleDraft(ItemTaskNode node, TaskInstance instance, Long orgId) {
         if (instance.getDraftMetadata() == null || instance.getDraftMetadata().isBlank()) {
             return null;
         }
-        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
+        List<TaskFormFieldBO> fields = taskFormService.parseFields(node.getMetaSchema());
         try {
-            TaskFormService.ValidatedValues validated =
+            TaskFormValuesResultBO validated =
                     taskFormService.parseDraftValues(fields, instance.getDraftMetadata());
-            Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
+            Map<Long, TaskAttachmentResultBO> attachments = taskAttachmentPresenter.present(
                     instance.getId(), orgId, validated.resourceIds());
-            return new TaskInstanceDetailVO.Draft(
+            return new TaskInstanceDetailResultBO.TaskDraftResultBO(
                     instance.getDraftUpdatedAt(), displayFields(fields, validated, attachments), false);
         } catch (AppException exception) {
-            return new TaskInstanceDetailVO.Draft(instance.getDraftUpdatedAt(), List.of(), true);
+            return new TaskInstanceDetailResultBO.TaskDraftResultBO(instance.getDraftUpdatedAt(), List.of(), true);
         }
     }
 
     /** 按表单快照顺序产出展示字段；file 字段挂接已授权附件。 */
-    public List<TaskInstanceDetailVO.Field> displayFields(
-            List<TaskFormField> fields,
-            TaskFormService.ValidatedValues validated,
-            Map<Long, TaskAttachmentVO> attachments) {
-        List<TaskInstanceDetailVO.Field> list = new ArrayList<>(fields.size());
-        for (TaskFormField field : fields) {
+    public List<TaskInstanceDetailResultBO.TaskDisplayFieldResultBO> displayFields(
+            List<TaskFormFieldBO> fields,
+            TaskFormValuesResultBO validated,
+            Map<Long, TaskAttachmentResultBO> attachments) {
+        List<TaskInstanceDetailResultBO.TaskDisplayFieldResultBO> list = new ArrayList<>(fields.size());
+        for (TaskFormFieldBO field : fields) {
             Object value = validated.values().get(field.key());
             if (field.type().equals("file")) {
-                TaskAttachmentVO file = null;
+                TaskAttachmentResultBO file = null;
                 if (value != null) {
                     String fileId = (String) ((Map<?, ?>) value).get("fileId");
                     file = attachments.get(taskFormService.parseFileId(fileId));
                 }
-                list.add(new TaskInstanceDetailVO.FileField(field.key(), field.label(), "file", file));
+                list.add(new TaskInstanceDetailResultBO.TaskFileFieldResultBO(field.key(), field.label(), "file", file));
             } else {
-                list.add(new TaskInstanceDetailVO.TextField(
+                list.add(new TaskInstanceDetailResultBO.TaskTextFieldResultBO(
                         field.key(), field.label(), field.type().equals("textarea") ? "multiline" : "text",
                         value == null ? "未填写" : (String) value));
             }
@@ -172,7 +173,7 @@ public class TaskInstanceAssembler {
     }
 
     /** 依次组装每个版本；单个版本存量内容损坏时隔离标记，不影响其它版本展示。 */
-    public List<TaskSubmissionVersionVO> assembleSubmissionVersions(
+    public List<TaskSubmissionVersionResultBO> assembleSubmissionVersions(
             TaskInstance instance, ItemTaskNode node,
             List<TaskSubmission> submissions, Long orgId) {
         if (submissions.isEmpty()) {
@@ -181,18 +182,18 @@ public class TaskInstanceAssembler {
         Map<Long, User> userMap = loadParticipants(submissions);
         Map<Long, String> avatarUrlMap = avatarUrls(userMap.values().stream()
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList());
-        List<TaskFormField> fields = taskFormService.parseFields(node.getMetaSchema());
-        List<TaskSubmissionVersionVO> versions = new ArrayList<>(submissions.size());
+        List<TaskFormFieldBO> fields = taskFormService.parseFields(node.getMetaSchema());
+        List<TaskSubmissionVersionResultBO> versions = new ArrayList<>(submissions.size());
         for (TaskSubmission submission : submissions) {
             versions.add(assembleVersion(instance, orgId, fields, submission, userMap, avatarUrlMap));
         }
         return versions;
     }
 
-    private TaskSubmissionVersionVO assembleVersion(
-            TaskInstance instance, Long orgId, List<TaskFormField> fields,
+    private TaskSubmissionVersionResultBO assembleVersion(
+            TaskInstance instance, Long orgId, List<TaskFormFieldBO> fields,
             TaskSubmission submission, Map<Long, User> userMap, Map<Long, String> avatarUrlMap) {
-        TaskSubmissionVersionVO version = new TaskSubmissionVersionVO();
+        TaskSubmissionVersionResultBO version = new TaskSubmissionVersionResultBO();
         version.setVersionNo(submission.getVersionNo());
         version.setStatus(submission.getStatus().name());
         version.setSubmittedAt(submission.getCreatedAt());
@@ -203,9 +204,9 @@ public class TaskInstanceAssembler {
             version.setReviewComment(submission.getReviewComment());
         }
         try {
-            TaskFormService.ValidatedValues validated =
+            TaskFormValuesResultBO validated =
                     taskFormService.parseValues(fields, submission.getMetadata());
-            Map<Long, TaskAttachmentVO> attachments = taskAttachmentPresenter.present(
+            Map<Long, TaskAttachmentResultBO> attachments = taskAttachmentPresenter.present(
                     instance.getId(), orgId, validated.resourceIds());
             version.setFields(displayFields(fields, validated, attachments));
         } catch (AppException exception) {
@@ -237,7 +238,7 @@ public class TaskInstanceAssembler {
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
     }
 
-    private TaskSubmissionVersionVO.Person participant(
+    private TaskSubmissionVersionResultBO.TaskParticipantResultBO participant(
             Long userId, Map<Long, User> userMap, Map<Long, String> avatarUrlMap) {
         if (userId == null) {
             return null;
@@ -246,7 +247,7 @@ public class TaskInstanceAssembler {
         String avatarUrl = user != null && user.getAvatarFileId() != null && user.getAvatarFileId() > 0
                 ? avatarUrlMap.get(user.getAvatarFileId())
                 : null;
-        return new TaskSubmissionVersionVO.Person(userId.toString(),
+        return new TaskSubmissionVersionResultBO.TaskParticipantResultBO(userId.toString(),
                 user != null ? user.getNickname() : null, avatarUrl);
     }
 }

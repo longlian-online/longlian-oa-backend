@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
+import online.longlian.app.pojo.bo.common.SystemInfoResultBO;
 import online.longlian.app.pojo.vo.common.SystemInfoVO;
 import online.longlian.app.service.common.SystemInfoService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +26,7 @@ public class SystemController {
     @UserSession(OrganizationDeclaration.NONE)
     @GetMapping("/info")
     public SystemInfoVO getSystemInfo() {
-        return systemInfoService.getSystemInfo();
+        SystemInfoResultBO resultBO = systemInfoService.getSystemInfo();
+        return new SystemInfoVO(resultBO.getVersion(), resultBO.getBuildTime(), resultBO.getDisplayName());
     }
 }

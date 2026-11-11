@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectMapper;
-import online.longlian.app.pojo.bo.orgadmin.ProjectChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.project.ProjectChangeStatusParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;

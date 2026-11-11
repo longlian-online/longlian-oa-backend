@@ -2,7 +2,14 @@ package online.longlian.app.service.app.impl.notification;
 
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.UserNotificationMapper;
-import online.longlian.app.pojo.bo.app.*;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationListParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationResolvedSourceBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationStatusParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.UserNotification;
 import online.longlian.app.service.resource.ResourceService;

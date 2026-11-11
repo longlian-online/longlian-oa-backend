@@ -1,7 +1,7 @@
 package online.longlian.app.service.orgadmin;
 
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminGetOrganizationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminUpdateOrganizationInfoParamsBO;
 
 /**
  * 组织管理端组织信息设置服务接口。

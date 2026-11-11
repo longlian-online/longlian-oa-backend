@@ -2,10 +2,10 @@ package online.longlian.app.service.orgadmin.impl.orgmember;
 
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberInfoResultBO;
 import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;

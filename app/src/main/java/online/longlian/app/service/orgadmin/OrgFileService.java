@@ -1,12 +1,12 @@
 package online.longlian.app.service.orgadmin;
 
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileDiscardParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileDownloadParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileEntriesResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileExpansionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileListParamsBO;
 
 public interface OrgFileService {
     int PAGE_SIZE = 50;

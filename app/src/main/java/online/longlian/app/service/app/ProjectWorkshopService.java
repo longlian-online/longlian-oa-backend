@@ -2,13 +2,13 @@ package online.longlian.app.service.app;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateListParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
-import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
 
 /**
  * 用户端个人工坊服务接口。
@@ -33,7 +33,7 @@ public interface ProjectWorkshopService extends IService<ProjectWorkshop> {
      * @param params 包含分页参数、关键词、类型、是否我创建的及用户/组织 ID 的查询参数
      * @return 分页的工坊企划列表
      */
-    PageResultBO<WorkshopProjectInfoVO> getMyWorkshopList(WorkshopListParamsBO params);
+    PageResultBO<WorkshopProjectInfoResultBO> getMyWorkshopList(WorkshopListParamsBO params);
 
     /**
      * 分页查询工坊任务模板列表。
@@ -43,7 +43,7 @@ public interface ProjectWorkshopService extends IService<ProjectWorkshop> {
      * @param params 包含分页参数、关键词、是否我创建的及用户/组织 ID 的查询参数
      * @return 分页的任务模板列表，含模板基本信息和节点数量
      */
-    PageResultBO<WorkshopTaskTemplateVO> getWorkshopTaskTemplateList(WorkshopTaskTemplateListParamsBO params);
+    PageResultBO<WorkshopTaskTemplateResultBO> getWorkshopTaskTemplateList(WorkshopTaskTemplateListParamsBO params);
 
     /**
      * 创建工坊个人任务模板及其节点。

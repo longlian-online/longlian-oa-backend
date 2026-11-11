@@ -1,7 +1,11 @@
 package online.longlian.app.service.app.impl.notification;
 
 import online.longlian.app.mapper.*;
-import online.longlian.app.pojo.bo.app.*;
+import online.longlian.app.pojo.bo.app.notification.NotificationResolvedSourceBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceRefBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceResolveParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.entity.*;
 import online.longlian.common.enumeration.*;
 import org.junit.jupiter.api.BeforeEach;

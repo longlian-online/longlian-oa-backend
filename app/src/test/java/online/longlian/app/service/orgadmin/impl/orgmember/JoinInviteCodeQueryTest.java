@@ -8,7 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import online.longlian.app.common.handler.CodeEnumTypeHandler;
 import online.longlian.app.mapper.OrganizationJoinOtpMapper;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminJoinInviteCodeResultBO;
 import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 import org.apache.ibatis.datasource.unpooled.UnpooledDataSource;

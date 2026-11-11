@@ -5,7 +5,8 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormValuesResultBO;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -29,9 +30,9 @@ public class TaskFormService {
     private static final int MAX_PRECISION = 24;
 
     /** Validates unique field keys and the supported form controls before taking a snapshot. */
-    public List<TaskFormField> validateFields(List<TaskFormField> fields) {
+    public List<TaskFormFieldBO> validateFields(List<TaskFormFieldBO> fields) {
         Set<String> keys = new HashSet<>();
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             validateField(field);
             if (!keys.add(field.key())) {
                 throw invalid("提交字段定义无效");
@@ -40,7 +41,7 @@ public class TaskFormService {
         return fields;
     }
 
-    private void validateField(TaskFormField field) {
+    private void validateField(TaskFormFieldBO field) {
         if (field == null) {
             throw invalid("提交字段定义无效");
         }
@@ -59,7 +60,7 @@ public class TaskFormService {
         }
     }
 
-    private void validateOptions(TaskFormField field) {
+    private void validateOptions(TaskFormFieldBO field) {
         Set<String> options = new HashSet<>();
         for (String option : field.options()) {
             if (option == null || option.isBlank() || !options.add(option)) {
@@ -76,18 +77,18 @@ public class TaskFormService {
     }
 
     /** Stores validated input definitions without exposing the storage encoding to API callers. */
-    public String serializeFields(List<TaskFormField> fields) {
+    public String serializeFields(List<TaskFormFieldBO> fields) {
         return JSON.toJSONString(validateFields(fields));
     }
 
     /** Decodes a current-format snapshot, rejecting corruption rather than returning display fallback data. */
-    public List<TaskFormField> parseFields(String stored) {
+    public List<TaskFormFieldBO> parseFields(String stored) {
         try {
             Object parsed = JSON.parse(stored);
             if (!(parsed instanceof JSONArray array)) {
                 throw invalid("提交字段存储无效");
             }
-            List<TaskFormField> fields = new ArrayList<>(array.size());
+            List<TaskFormFieldBO> fields = new ArrayList<>(array.size());
             for (Object entry : array) {
                 if (!(entry instanceof JSONObject field) || !field.keySet().equals(FIELD_KEYS)
                         || !(field.get("key") instanceof String key)
@@ -104,7 +105,7 @@ public class TaskFormService {
                     }
                     strings.add(value);
                 }
-                fields.add(new TaskFormField(key, label, type, required, strings));
+                fields.add(new TaskFormFieldBO(key, label, type, required, strings));
             }
             return validateFields(fields);
         } catch (AppException exception) {
@@ -115,7 +116,7 @@ public class TaskFormService {
     }
 
     /** Checks submitted values against the server-owned definition and collects authorized file candidates. */
-    public ValidatedValues validateValues(List<TaskFormField> fields, Map<String, Object> values) {
+    public TaskFormValuesResultBO validateValues(List<TaskFormFieldBO> fields, Map<String, Object> values) {
         Set<String> keys = new HashSet<>();
         fields.forEach(field -> keys.add(field.key()));
         if (!keys.containsAll(values.keySet())) {
@@ -123,14 +124,14 @@ public class TaskFormService {
         }
         Map<String, Object> normalized = new LinkedHashMap<>();
         List<Long> resourceIds = new ArrayList<>();
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             normalized.put(field.key(), normalizeValue(field, values.get(field.key()), resourceIds, true));
         }
-        return new ValidatedValues(normalized, resourceIds.stream().distinct().toList());
+        return new TaskFormValuesResultBO(normalized, resourceIds.stream().distinct().toList());
     }
 
     /** 暂存允许缺少必填项，已填写的字段仍按正式提交的类型校验。 */
-    public ValidatedValues validateDraftValues(List<TaskFormField> fields, Map<String, Object> values) {
+    public TaskFormValuesResultBO validateDraftValues(List<TaskFormFieldBO> fields, Map<String, Object> values) {
         Set<String> keys = new HashSet<>();
         fields.forEach(field -> keys.add(field.key()));
         if (values != null && !keys.containsAll(values.keySet())) {
@@ -139,13 +140,13 @@ public class TaskFormService {
         Map<String, Object> normalized = new LinkedHashMap<>();
         List<Long> resourceIds = new ArrayList<>();
         Map<String, Object> source = values == null ? Map.of() : values;
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             normalized.put(field.key(), normalizeValue(field, source.get(field.key()), resourceIds, false));
         }
-        return new ValidatedValues(normalized, resourceIds.stream().distinct().toList());
+        return new TaskFormValuesResultBO(normalized, resourceIds.stream().distinct().toList());
     }
 
-    private Object normalizeValue(TaskFormField field, Object value, List<Long> resourceIds, boolean required) {
+    private Object normalizeValue(TaskFormFieldBO field, Object value, List<Long> resourceIds, boolean required) {
         boolean empty = value == null || value instanceof String text && text.isEmpty();
         if (empty) {
             if (required && field.required()) {
@@ -157,7 +158,7 @@ public class TaskFormService {
                 ? normalizeFile(field, value, resourceIds) : normalizeText(field, value, required);
     }
 
-    private Map<String, String> normalizeFile(TaskFormField field, Object value, List<Long> resourceIds) {
+    private Map<String, String> normalizeFile(TaskFormFieldBO field, Object value, List<Long> resourceIds) {
         if (!(value instanceof Map<?, ?> file) || file.size() != 1
                 || !(file.get("fileId") instanceof String fileId)) {
             throw invalid(field.label() + "必须为文件引用");
@@ -167,7 +168,7 @@ public class TaskFormService {
         return Map.of("fileId", Long.toString(id));
     }
 
-    private String normalizeText(TaskFormField field, Object value, boolean required) {
+    private String normalizeText(TaskFormFieldBO field, Object value, boolean required) {
         if (!(value instanceof String text)) {
             throw invalid(field.label() + "必须为文本");
         }
@@ -180,7 +181,7 @@ public class TaskFormService {
         return field.type().equals("number") ? normalizeNumber(field, text) : text;
     }
 
-    private String normalizeNumber(TaskFormField field, String text) {
+    private String normalizeNumber(TaskFormFieldBO field, String text) {
         try {
             BigDecimal number = new BigDecimal(text).stripTrailingZeros();
             int integerDigits = number.precision() - number.scale();
@@ -195,7 +196,7 @@ public class TaskFormService {
     }
 
     /** 回读暂存。必填项可以空着，已填写的内容仍按字段类型校验。 */
-    public ValidatedValues parseDraftValues(List<TaskFormField> fields, String stored) {
+    public TaskFormValuesResultBO parseDraftValues(List<TaskFormFieldBO> fields, String stored) {
         try {
             Object parsed = JSON.parse(stored);
             if (!(parsed instanceof JSONObject values)) {
@@ -210,7 +211,7 @@ public class TaskFormService {
     }
 
     /** Revalidates persisted submission values against the task's immutable field snapshot. */
-    public ValidatedValues parseValues(List<TaskFormField> fields, String stored) {
+    public TaskFormValuesResultBO parseValues(List<TaskFormFieldBO> fields, String stored) {
         try {
             Object parsed = JSON.parse(stored);
             if (!(parsed instanceof JSONObject values)) {
@@ -240,11 +241,4 @@ public class TaskFormService {
         return new AppException(ResultCode.PARAM_ERROR, message);
     }
 
-    /** Normalized submission data and distinct resource IDs for the enclosing submission transaction. */
-    public record ValidatedValues(Map<String, Object> values, List<Long> resourceIds) {
-        /** Persists business values only; transient file URLs and display data are not stored. */
-        public String serialize() {
-            return JSON.toJSONString(values);
-        }
-    }
 }

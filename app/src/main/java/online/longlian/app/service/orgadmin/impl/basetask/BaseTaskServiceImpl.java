@@ -10,12 +10,12 @@ import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskUpdateParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
@@ -30,8 +30,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskOptionResultBO;
-import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskOptionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.PlazaTaskTypeOptionResultBO;
 
 @Service
 @RequiredArgsConstructor

@@ -9,17 +9,17 @@ import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateListParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
-import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
 import online.longlian.app.service.app.ProjectWorkshopService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
@@ -50,7 +50,7 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
     private final LockService lockService;
 
     @Override
-    public PageResultBO<WorkshopProjectInfoVO> getMyWorkshopList(WorkshopListParamsBO params) {
+    public PageResultBO<WorkshopProjectInfoResultBO> getMyWorkshopList(WorkshopListParamsBO params) {
         Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
 
         Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
@@ -67,7 +67,7 @@ public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMappe
     }
 
     @Override
-    public PageResultBO<WorkshopTaskTemplateVO> getWorkshopTaskTemplateList(WorkshopTaskTemplateListParamsBO params) {
+    public PageResultBO<WorkshopTaskTemplateResultBO> getWorkshopTaskTemplateList(WorkshopTaskTemplateListParamsBO params) {
         Page<TaskTemplate> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
         LambdaQueryWrapper<TaskTemplate> queryWrapper = workshopQueryBuilder.buildCombinedTemplateQuery(
                 params.getOrgId(), params.getUserId(), params.getKeyword(), params.getIsMyCreated());

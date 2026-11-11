@@ -2,7 +2,7 @@ package online.longlian.app.service.orgadmin.impl.presetfield;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldListParamsBO;
 import online.longlian.app.pojo.entity.OrganizationPresetField;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

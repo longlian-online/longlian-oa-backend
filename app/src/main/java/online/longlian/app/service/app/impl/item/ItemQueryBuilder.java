@@ -2,7 +2,7 @@ package online.longlian.app.service.app.impl.item;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.pojo.bo.app.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.TaskInstanceStatus;

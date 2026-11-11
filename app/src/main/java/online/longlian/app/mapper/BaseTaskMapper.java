@@ -5,7 +5,7 @@ import online.longlian.app.pojo.entity.BaseTask;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import java.util.List;
-import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.PlazaTaskTypeOptionResultBO;
 
 /**
  * <p>

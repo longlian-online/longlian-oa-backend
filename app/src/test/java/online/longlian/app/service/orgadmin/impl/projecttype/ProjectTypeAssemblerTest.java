@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeListResultBO;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.common.enumeration.Status;

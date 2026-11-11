@@ -1,20 +1,20 @@
 package online.longlian.app.service.app;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import online.longlian.app.pojo.bo.app.OrgSimpleInfoBO;
-import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoParamsBO;
-import online.longlian.app.pojo.bo.app.UserGetJoinOrgInviteInfoResultBO;
-import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
-import online.longlian.app.pojo.bo.app.UserConfigResultBO;
-import online.longlian.app.pojo.bo.app.UserGetMyInfoResultBO;
-import online.longlian.app.pojo.bo.app.UserRegisterByInviteParamsBO;
-import online.longlian.app.pojo.bo.app.UserResetPasswordParamsBO;
-import online.longlian.app.pojo.bo.app.UserChangePasswordParamsBO;
-import online.longlian.app.pojo.bo.app.UserBindEmailParamsBO;
-import online.longlian.app.pojo.bo.app.UserSwitchOrgParamsBO;
-import online.longlian.app.pojo.bo.app.UserSwitchOrgResultBO;
-import online.longlian.app.pojo.bo.app.UserUpdateMyInfoParamsBO;
-import online.longlian.app.pojo.bo.app.UserConfigParamsBO;
+import online.longlian.app.pojo.bo.app.user.OrgSimpleInfoBO;
+import online.longlian.app.pojo.bo.app.user.UserGetJoinOrgInviteInfoParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserGetJoinOrgInviteInfoResultBO;
+import online.longlian.app.pojo.bo.app.user.UserEmailNotificationRecipientResultBO;
+import online.longlian.app.pojo.bo.app.user.UserConfigResultBO;
+import online.longlian.app.pojo.bo.app.user.UserGetMyInfoResultBO;
+import online.longlian.app.pojo.bo.app.user.UserRegisterByInviteParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserResetPasswordParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserChangePasswordParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserBindEmailParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserSwitchOrgParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserSwitchOrgResultBO;
+import online.longlian.app.pojo.bo.app.user.UserUpdateMyInfoParamsBO;
+import online.longlian.app.pojo.bo.app.user.UserConfigParamsBO;
 import online.longlian.app.pojo.entity.User;
 
 import java.util.Collection;

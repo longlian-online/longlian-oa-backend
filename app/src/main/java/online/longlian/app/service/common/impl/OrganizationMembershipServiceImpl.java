@@ -11,9 +11,9 @@ import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.DefaultOrganization;
-import online.longlian.app.service.common.OrganizationMemberProfile;
-import online.longlian.app.service.common.OrganizationMemberDetails;
+import online.longlian.app.pojo.bo.common.DefaultOrganizationResultBO;
+import online.longlian.app.pojo.bo.common.OrganizationMemberProfileResultBO;
+import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import org.springframework.stereotype.Service;
@@ -91,7 +91,7 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
     }
 
     @Override
-    public List<OrganizationMemberProfile> listEnabledMembers(Long orgId) {
+    public List<OrganizationMemberProfileResultBO> listEnabledMembers(Long orgId) {
         List<OrganizationMember> members = organizationMemberMapper.selectList(
                 new LambdaQueryWrapper<OrganizationMember>()
                         .eq(OrganizationMember::getOrgId, orgId)
@@ -105,9 +105,9 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
         return members.stream()
                 .map(member -> users.get(member.getUserId()))
                 .filter(Objects::nonNull)
-                .map(user -> new OrganizationMemberProfile(user.getId(), displayName(user)))
-                .sorted(Comparator.comparing(OrganizationMemberProfile::nickname, Comparator.nullsLast(String::compareTo))
-                        .thenComparing(OrganizationMemberProfile::userId))
+                .map(user -> new OrganizationMemberProfileResultBO(user.getId(), displayName(user)))
+                .sorted(Comparator.comparing(OrganizationMemberProfileResultBO::nickname, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(OrganizationMemberProfileResultBO::userId))
                 .toList();
     }
 
@@ -127,7 +127,7 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
     }
 
     @Override
-    public List<OrganizationMemberDetails> listMemberProfiles(Long orgId, List<Long> userIds) {
+    public List<OrganizationMemberDetailsResultBO> listMemberProfiles(Long orgId, List<Long> userIds) {
         if (userIds.isEmpty()) {
             return List.of();
         }
@@ -140,8 +140,8 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
             return List.of();
         }
         return userMapper.selectBatchIds(memberIds).stream()
-                .map(user -> new OrganizationMemberDetails(user.getId(), displayName(user), user.getAvatarFileId()))
-                .sorted(Comparator.comparing(OrganizationMemberDetails::userId))
+                .map(user -> new OrganizationMemberDetailsResultBO(user.getId(), displayName(user), user.getAvatarFileId()))
+                .sorted(Comparator.comparing(OrganizationMemberDetailsResultBO::userId))
                 .toList();
     }
 
@@ -170,15 +170,15 @@ public class OrganizationMembershipServiceImpl implements OrganizationMembership
     }
 
     @Override
-    public DefaultOrganization findDefault(Long userId) {
+    public DefaultOrganizationResultBO findDefault(Long userId) {
         User user = userMapper.selectById(userId);
         Long defaultOrgId = user == null ? null : user.getDefaultOrgId();
         if (defaultOrgId == null || defaultOrgId <= 0) {
-            return new DefaultOrganization(null, null);
+            return new DefaultOrganizationResultBO(null, null);
         }
         OrganizationMember member = findEnabledMember(userId, defaultOrgId);
         String orgRole = member != null && StringUtils.hasText(member.getOrgRole()) ? member.getOrgRole() : null;
-        return new DefaultOrganization(defaultOrgId, orgRole);
+        return new DefaultOrganizationResultBO(defaultOrgId, orgRole);
     }
 
     /**

@@ -2,8 +2,8 @@ package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectSearchResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectSearchParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectSearchResultBO;
 import online.longlian.app.pojo.entity.Project;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

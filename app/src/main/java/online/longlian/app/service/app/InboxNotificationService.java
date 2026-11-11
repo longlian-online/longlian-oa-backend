@@ -1,14 +1,14 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationStatusParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationStatusResultBO;
-import online.longlian.app.pojo.bo.app.NotificationListParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationPageResultBO;
-import online.longlian.app.pojo.bo.app.NotificationReadParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationReadResultBO;
-import online.longlian.app.pojo.bo.app.NotificationReadAllParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationReadAllResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationStatusParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationStatusResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationListParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationPageResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadAllParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadAllResultBO;
 
 public interface InboxNotificationService {
     void createBatch(NotificationBatchCreateParamsBO params);

@@ -1,7 +1,7 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadResultBO;
 
 import java.util.List;
 

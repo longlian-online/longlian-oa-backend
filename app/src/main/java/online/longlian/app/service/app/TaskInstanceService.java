@@ -1,20 +1,20 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
-import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
-import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
-import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
-import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskClaimResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceListParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAssignParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionsParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO;
 
 import java.util.List;
 
@@ -53,7 +53,7 @@ public interface TaskInstanceService {
      * @param params 包含任务实例 ID 的查询参数
      * @return 任务实例详情，含提交的 metadata 内容
      */
-    TaskInstanceDetailVO getTaskInstanceDetail(TaskInstanceDetailParamsBO params);
+    TaskInstanceDetailResultBO getTaskInstanceDetail(TaskInstanceDetailParamsBO params);
 
     /**
      * 获取任务实例的全部提交版本，按版本号倒序。
@@ -64,7 +64,7 @@ public interface TaskInstanceService {
      * @param params 包含任务实例 ID 的查询参数
      * @return 版本列表；未提交过时为空列表
      */
-    List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params);
+    List<TaskSubmissionVersionResultBO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params);
 
     /**
      * 为当前可见任务上的一个已绑定附件签发读取链接。详情本身不带链接。
@@ -77,7 +77,7 @@ public interface TaskInstanceService {
      * @param params 包含项目 ID 的查询参数
      * @return 任务实例列表，含节点名称和基础任务信息
      */
-    List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params);
+    List<ItemTaskInstanceResultBO> listItemTaskInstances(TaskInstanceListParamsBO params);
 
     /**
      * 接取任务：{@code PENDING → CLAIMED}，将接取人设为当前用户，并按需加入企划工坊。

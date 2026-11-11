@@ -12,20 +12,21 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
-import online.longlian.app.pojo.bo.common.TaskFormField;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchFileResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
+import online.longlian.app.pojo.bo.common.TaskFormValuesResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileExpansionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileBatchFileResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileBatchTargetParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileDiscardParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileDownloadParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileEntriesResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileEntryResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileTypeItemBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -108,13 +109,13 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (!currentFileIds(instance).contains(params.getFileId())) {
             throw missing("附件不存在");
         }
-        ActivatedResource resource = resourceService
+        ActivatedResourceResultBO resource = resourceService
                 .findActivated(TASK_SUBMIT, instance.getId(), params.getOrgId(), List.of(params.getFileId()))
                 .get(params.getFileId());
         if (resource == null) {
             throw missing("附件不存在");
         }
-        ActivatedResourceRead read = resourceService.signDownload(resource);
+        ActivatedResourceReadResultBO read = resourceService.signDownload(resource);
         return ProjectAttachmentDownloadResultBO.builder()
                 .readUrl(read.readUrl())
                 .expireAt(read.expiresAt())
@@ -166,10 +167,10 @@ public class OrgFileServiceImpl implements OrgFileService {
         requireItem(instance.getItemId(), instance.getProjectId(), params.getOrgId());
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());
         TaskSubmission submission = currentSubmissions(instance.getItemId()).get(instance.getId());
-        List<TaskFormField> fields = node == null ? null : readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = fields == null || submission == null
+        List<TaskFormFieldBO> fields = node == null ? null : readFields(node.getMetaSchema());
+        TaskFormValuesResultBO values = fields == null || submission == null
                 ? null : readValues(fields, submission.getMetadata());
-        TaskFormField field = fields == null ? null : fields.stream()
+        TaskFormFieldBO field = fields == null ? null : fields.stream()
                 .filter(item -> params.getFieldKey().equals(item.key()))
                 .findFirst()
                 .orElse(null);
@@ -378,13 +379,13 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (node == null || submission == null) {
             return List.of();
         }
-        List<TaskFormField> fields = readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
+        List<TaskFormFieldBO> fields = readFields(node.getMetaSchema());
+        TaskFormValuesResultBO values = readValues(fields, submission.getMetadata());
         if (fields == null || values == null) {
             return List.of();
         }
         List<Long> fileIds = new ArrayList<>();
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             Long fileId = fileId(field, values);
             if (fileId != null) {
                 fileIds.add(fileId);
@@ -399,25 +400,25 @@ public class OrgFileServiceImpl implements OrgFileService {
             TaskSubmission submission,
             Long orgId,
             Map<Long, String> nicknames) {
-        List<TaskFormField> fields = readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = fields == null ? null : readValues(fields, submission.getMetadata());
+        List<TaskFormFieldBO> fields = readFields(node.getMetaSchema());
+        TaskFormValuesResultBO values = fields == null ? null : readValues(fields, submission.getMetadata());
         if (fields == null || values == null) {
             return List.of();
         }
         List<Long> fileIds = new ArrayList<>();
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             Long fileId = fileId(field, values);
             if (fileId != null) {
                 fileIds.add(fileId);
             }
         }
-        Map<Long, ActivatedResource> resources = fileIds.isEmpty()
+        Map<Long, ActivatedResourceResultBO> resources = fileIds.isEmpty()
                 ? Map.of()
                 : resourceService.findActivated(TASK_SUBMIT, instance.getId(), orgId, fileIds);
         Set<Long> deprecatedIds = resourceDeprecationService.deprecatedIds(fileIds);
         String submitterName = nicknames.getOrDefault(submission.getSubmitterId(), "");
         List<OrgFileEntryResultBO> entries = new ArrayList<>();
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             Long fileId = fileId(field, values);
             if (fileId == null || deprecatedIds.contains(fileId)) {
                 continue;
@@ -432,9 +433,9 @@ public class OrgFileServiceImpl implements OrgFileService {
             ItemTaskNode node,
             TaskInstance instance,
             TaskSubmission submission,
-            TaskFormField field,
+            TaskFormFieldBO field,
             Long fileId,
-            ActivatedResource resource,
+            ActivatedResourceResultBO resource,
             String submitterName) {
         boolean available = resource != null;
         return OrgFileEntryResultBO.builder()
@@ -503,7 +504,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         return names;
     }
 
-    private Long fileId(TaskFormField field, TaskFormService.ValidatedValues values) {
+    private Long fileId(TaskFormFieldBO field, TaskFormValuesResultBO values) {
         if (!"file".equals(field.type())) {
             return null;
         }
@@ -518,7 +519,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
     }
 
-    private List<TaskFormField> readFields(String schema) {
+    private List<TaskFormFieldBO> readFields(String schema) {
         if (schema == null || schema.isBlank()) {
             return List.of();
         }
@@ -529,7 +530,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
     }
 
-    private TaskFormService.ValidatedValues readValues(List<TaskFormField> fields, String metadata) {
+    private TaskFormValuesResultBO readValues(List<TaskFormFieldBO> fields, String metadata) {
         if (metadata == null || metadata.isBlank()) {
             return null;
         }
@@ -599,7 +600,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (resourceDeprecationService.deprecatedIds(List.of(target.getFileId())).contains(target.getFileId())) {
             return List.of();
         }
-        ActivatedResource resource = resourceService
+        ActivatedResourceResultBO resource = resourceService
                 .findActivated(TASK_SUBMIT, instance.getId(), orgId, List.of(target.getFileId()))
                 .get(target.getFileId());
         if (resource == null) {
@@ -624,12 +625,12 @@ public class OrgFileServiceImpl implements OrgFileService {
         if (node == null || submission == null) {
             throw missing("附件不存在");
         }
-        List<TaskFormField> fields = readFields(node.getMetaSchema());
-        TaskFormService.ValidatedValues values = readValues(fields, submission.getMetadata());
+        List<TaskFormFieldBO> fields = readFields(node.getMetaSchema());
+        TaskFormValuesResultBO values = readValues(fields, submission.getMetadata());
         if (values == null) {
             throw missing("附件不存在");
         }
-        for (TaskFormField field : fields) {
+        for (TaskFormFieldBO field : fields) {
             if (fieldKey.equals(field.key()) && fileId.equals(fileId(field, values))) {
                 return new CurrentFile(field, node.getName());
             }
@@ -694,7 +695,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         for (PendingFile file : pending) {
             byInstance.computeIfAbsent(file.instance().getId(), key -> new ArrayList<>()).add(file);
         }
-        Map<Long, Map<Long, ActivatedResource>> resourcesByInstance = new HashMap<>();
+        Map<Long, Map<Long, ActivatedResourceResultBO>> resourcesByInstance = new HashMap<>();
         for (Map.Entry<Long, List<PendingFile>> entry : byInstance.entrySet()) {
             List<Long> ids = entry.getValue().stream().map(PendingFile::fileId).distinct().toList();
             resourcesByInstance.put(entry.getKey(),
@@ -702,7 +703,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         }
         List<Downloadable> files = new ArrayList<>();
         for (PendingFile file : pending) {
-            ActivatedResource resource = resourcesByInstance
+            ActivatedResourceResultBO resource = resourcesByInstance
                     .getOrDefault(file.instance().getId(), Map.of())
                     .get(file.fileId());
             if (resource == null) {
@@ -753,14 +754,14 @@ public class OrgFileServiceImpl implements OrgFileService {
                     if (submission == null) {
                         continue;
                     }
-                    List<TaskFormField> fields = readFields(node.getMetaSchema());
-                    TaskFormService.ValidatedValues values = fields == null
+                    List<TaskFormFieldBO> fields = readFields(node.getMetaSchema());
+                    TaskFormValuesResultBO values = fields == null
                             ? null : readValues(fields, submission.getMetadata());
                     if (fields == null || values == null) {
                         continue;
                     }
                     String submitterName = nicknames.getOrDefault(submission.getSubmitterId(), "");
-                    for (TaskFormField field : fields) {
+                    for (TaskFormFieldBO field : fields) {
                         Long fileId = fileId(field, values);
                         if (fileId == null) {
                             continue;
@@ -801,7 +802,7 @@ public class OrgFileServiceImpl implements OrgFileService {
         for (PendingFile file : chosen) {
             byInstance.computeIfAbsent(file.instance().getId(), key -> new ArrayList<>()).add(file);
         }
-        Map<Long, ActivatedResource> resources = new HashMap<>();
+        Map<Long, ActivatedResourceResultBO> resources = new HashMap<>();
         for (Map.Entry<Long, List<PendingFile>> entry : byInstance.entrySet()) {
             List<Long> ids = entry.getValue().stream().map(PendingFile::fileId).toList();
             resources.putAll(resourceService.findActivated(TASK_SUBMIT, entry.getKey(), orgId, ids));
@@ -818,7 +819,7 @@ public class OrgFileServiceImpl implements OrgFileService {
             ItemTaskNode node,
             TaskInstance instance,
             TaskSubmission submission,
-            TaskFormField field,
+            TaskFormFieldBO field,
             Long fileId,
             String submitterName,
             String subtitle,
@@ -830,7 +831,7 @@ public class OrgFileServiceImpl implements OrgFileService {
             Long taskInstanceId,
             String fieldKey,
             Long fileId,
-            ActivatedResource resource,
+            ActivatedResourceResultBO resource,
             String typeName,
             String projectTitle,
             String itemTitle,
@@ -838,6 +839,6 @@ public class OrgFileServiceImpl implements OrgFileService {
             String fieldLabel) {
     }
 
-    private record CurrentFile(TaskFormField field, String taskName) {
+    private record CurrentFile(TaskFormFieldBO field, String taskName) {
     }
 }

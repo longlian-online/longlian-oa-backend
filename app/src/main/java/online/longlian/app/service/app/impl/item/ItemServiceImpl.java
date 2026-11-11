@@ -16,18 +16,18 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationCreateBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
-import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
-import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
-import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemOrderEntryResultBO;
+import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
@@ -36,7 +36,7 @@ import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
-import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
 import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ProjectService;
@@ -86,7 +86,7 @@ public class ItemServiceImpl implements ItemService {
     private final InboxNotificationService inboxNotificationService;
 
     @Override
-    public PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params) {
+    public PageResultBO<ProjectItemListResultBO> listProjectItems(ItemListParamsBO params) {
         Project project = projectMapper.selectById(params.getProjectId());
         if (project == null || !project.getOrgId().equals(params.getOrgId())
                 || project.getResourceStatus() != Status.ENABLED) {
@@ -99,7 +99,7 @@ public class ItemServiceImpl implements ItemService {
         if (items.isEmpty()) {
             return new PageResultBO<>(Collections.emptyList(), itemPage.getTotal());
         }
-        List<ProjectItemListVO> list = itemAssembler.assembleList(items);
+        List<ProjectItemListResultBO> list = itemAssembler.assembleList(items);
         markSubmissionRecords(list);
         return new PageResultBO<>(list, itemPage.getTotal());
     }
@@ -232,8 +232,8 @@ public class ItemServiceImpl implements ItemService {
         return requireItem(projectId, itemId).getTitle();
     }
 
-    private void markSubmissionRecords(List<ProjectItemListVO> list) {
-        List<Long> itemIds = list.stream().map(ProjectItemListVO::getId).toList();
+    private void markSubmissionRecords(List<ProjectItemListResultBO> list) {
+        List<Long> itemIds = list.stream().map(ProjectItemListResultBO::getId).toList();
         Set<Long> itemsWithRecord = new HashSet<>(taskSubmissionMapper.selectItemIdsWithSubmissionHistory(itemIds));
         list.forEach(item -> item.setHasSubmissionRecord(itemsWithRecord.contains(item.getId())));
     }

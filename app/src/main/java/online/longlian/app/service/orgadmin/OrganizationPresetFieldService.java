@@ -1,12 +1,12 @@
 package online.longlian.app.service.orgadmin;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldDeleteParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldOptionBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetFieldUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldOptionBO;
+import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldUpdateParamsBO;
 
 import java.util.List;
 

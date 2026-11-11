@@ -1,7 +1,7 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
-import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowResultBO;
 
 /**
  * 用户端项目任务流服务接口。
@@ -27,7 +27,7 @@ public interface ItemTaskFlowService {
      * @param itemId 项目 ID
      * @return 包含任务流名称、描述及各节点状态的可视化数据
      */
-    ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId);
+    ItemTaskFlowResultBO getItemTaskFlow(Long itemId, Long orgId);
 
     /**
      * 企划负责人保存这个项目自己的工作流。

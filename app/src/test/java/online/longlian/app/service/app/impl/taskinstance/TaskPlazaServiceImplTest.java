@@ -4,16 +4,16 @@ import online.longlian.app.common.enumeration.PlazaSortBy;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
-import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
-import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaSearchParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaItemStageBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaSearchParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.ProjectType;
-import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
-import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,7 +62,7 @@ class TaskPlazaServiceImplTest {
     void getTaskPlaza_noProjects_returnsEmptyPageWithoutDetailQueries() {
         when(taskInstanceMapper.selectPlazaProjectCount(any())).thenReturn(0L);
 
-        PageResultVO<PlazaProjectGroupVO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
+        PageResultBO<PlazaProjectGroupResultBO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
 
         assertThat(result.getList()).isEmpty();
         assertThat(result.getTotal()).isZero();
@@ -96,11 +96,11 @@ class TaskPlazaServiceImplTest {
         when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of());
         when(resourceService.getResourceReadUrls(anyList()))
                 .thenReturn(Map.of(7L, new ResourceReadUrlGetResultBO("http://cover/7", 10L, "key-7")));
-        PlazaProjectGroupVO group = PlazaProjectGroupVO.builder().projectId(100L).build();
+        PlazaProjectGroupResultBO group = PlazaProjectGroupResultBO.builder().projectId(100L).build();
         when(taskPlazaAssembler.assembleGroups(anyList(), anyList(), anyMap(), anyMap(), anyMap(), anyMap(), any()))
                 .thenReturn(List.of(group));
 
-        PageResultVO<PlazaProjectGroupVO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
+        PageResultBO<PlazaProjectGroupResultBO> result = service.getTaskPlaza(params(PlazaSortBy.WAIT));
 
         assertThat(result.getList()).containsExactly(group);
         assertThat(result.getTotal()).isEqualTo(1L);

@@ -6,11 +6,11 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.mapper.TaskTemplateMapper;
 import online.longlian.app.mapper.TaskTemplateNodeMapper;
-import online.longlian.app.pojo.bo.app.TaskTemplateOptionsParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionsParamsBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
-import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionResultBO;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +59,7 @@ class TaskTemplateServiceImplTest {
                 TaskTemplateNode.builder().id(12L).taskTemplateId(1L).baseTaskId(22L).sort(2).parallelSort(1).build()));
         when(baseTaskMapper.selectBatchIds(any())).thenReturn(List.of());
 
-        List<TaskTemplateOptionVO> options = service.listOptions(
+        List<TaskTemplateOptionResultBO> options = service.listOptions(
                 TaskTemplateOptionsParamsBO.builder().orgId(1L).userId(1L).build());
 
         assertThat(options).hasSize(1);

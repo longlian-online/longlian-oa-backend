@@ -6,12 +6,13 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.mapper.OrganizationMemberMapper;
 import online.longlian.app.mapper.UserMapper;
+import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.common.DefaultOrganization;
+import online.longlian.app.pojo.bo.common.DefaultOrganizationResultBO;
 import online.longlian.common.enumeration.Status;
-import online.longlian.app.service.common.OrganizationMemberProfile;
+import online.longlian.app.pojo.bo.common.OrganizationMemberProfileResultBO;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,9 +70,9 @@ class OrganizationMembershipServiceImplTest {
                 User.builder().id(2L).nickname("  ").username("second").build()));
 
         var profiles = service.listMemberProfiles(1L, List.of(2L, 3L, 4L));
-        assertThat(profiles).extracting(online.longlian.app.service.common.OrganizationMemberDetails::userId)
+        assertThat(profiles).extracting(online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO::userId)
                 .containsExactly(2L, 3L);
-        assertThat(profiles).extracting(online.longlian.app.service.common.OrganizationMemberDetails::nickname)
+        assertThat(profiles).extracting(online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO::nickname)
                 .containsExactly("second", "昵称");
         assertThat(profiles.get(1).avatarFileId()).isEqualTo(30L);
         ArgumentCaptor<LambdaQueryWrapper<OrganizationMember>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
@@ -138,7 +139,7 @@ class OrganizationMembershipServiceImplTest {
         OrganizationMember member = member(100L, 10L, Status.ENABLED, "ORG_ADMIN");
         when(organizationMemberMapper.selectOne(any())).thenReturn(member);
 
-        DefaultOrganization result = service.findDefault(1L);
+        DefaultOrganizationResultBO result = service.findDefault(1L);
 
         assertThat(result.orgId()).isEqualTo(10L);
         assertThat(result.orgRole()).isEqualTo("ORG_ADMIN");
@@ -150,7 +151,7 @@ class OrganizationMembershipServiceImplTest {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(10L).build());
         when(organizationMapper.selectById(10L)).thenReturn(Organization.builder().id(10L).status(Status.DISABLED).build());
 
-        DefaultOrganization result = service.findDefault(1L);
+        DefaultOrganizationResultBO result = service.findDefault(1L);
 
         assertThat(result.orgId()).isEqualTo(10L);
         assertThat(result.orgRole()).isNull();
@@ -162,7 +163,7 @@ class OrganizationMembershipServiceImplTest {
     void shouldReturnNoDefaultOrgWhenStoredIdIsZero() {
         when(userMapper.selectById(1L)).thenReturn(User.builder().id(1L).defaultOrgId(0L).build());
 
-        DefaultOrganization result = service.findDefault(1L);
+        DefaultOrganizationResultBO result = service.findDefault(1L);
 
         assertThat(result.orgId()).isNull();
         assertThat(result.orgRole()).isNull();
@@ -173,7 +174,7 @@ class OrganizationMembershipServiceImplTest {
     void shouldReturnNoDefaultOrgWhenUserDoesNotExist() {
         when(userMapper.selectById(1L)).thenReturn(null);
 
-        assertThat(service.findDefault(1L)).isEqualTo(new DefaultOrganization(null, null));
+        assertThat(service.findDefault(1L)).isEqualTo(new DefaultOrganizationResultBO(null, null));
         verifyNoInteractions(organizationMapper, organizationMemberMapper);
     }
 
@@ -251,8 +252,8 @@ class OrganizationMembershipServiceImplTest {
                 User.builder().id(1L).username("owner").nickname("").build()));
 
         assertThat(service.listEnabledMembers(10L)).containsExactly(
-                new OrganizationMemberProfile(1L, "owner"),
-                new OrganizationMemberProfile(2L, "小明"));
+                new OrganizationMemberProfileResultBO(1L, "owner"),
+                new OrganizationMemberProfileResultBO(2L, "小明"));
     }
 
     @Test

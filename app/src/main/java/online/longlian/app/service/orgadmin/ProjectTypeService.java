@@ -1,12 +1,12 @@
 package online.longlian.app.service.orgadmin;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeChangeStatusParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeDeleteParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeUpdateParamsBO;
 
 /**
  * 组织管理端企划类型服务接口。

@@ -4,7 +4,7 @@ import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import java.util.List;
 
 @Data
@@ -26,7 +26,7 @@ public class TaskTemplateNodeVO {
     private String baseTaskIcon;
 
     @Schema(description = "提交表单字段")
-    private List<TaskFormField> submitFields;
+    private List<TaskFormFieldBO> submitFields;
 
     @Schema(
         description = "步骤顺序（相同 sort 值表示并行节点）"

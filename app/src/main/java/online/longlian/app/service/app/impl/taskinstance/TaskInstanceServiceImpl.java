@@ -11,26 +11,26 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationCreateBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
-import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
-import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskClaimResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceListParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAssignParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionsParamsBO;
 
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceProxySubmitParamsBO;
 
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
@@ -38,9 +38,9 @@ import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
-import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
-import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO;
 
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.InboxNotificationService;
@@ -90,7 +90,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private final Clock clock;
 
     @Override
-    public List<ItemTaskInstanceVO> listItemTaskInstances(TaskInstanceListParamsBO params) {
+    public List<ItemTaskInstanceResultBO> listItemTaskInstances(TaskInstanceListParamsBO params) {
         Item item = itemMapper.selectById(params.getItemId());
         if (item == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
@@ -378,7 +378,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     @Override
-    public TaskInstanceDetailVO getTaskInstanceDetail(TaskInstanceDetailParamsBO params) {
+    public TaskInstanceDetailResultBO getTaskInstanceDetail(TaskInstanceDetailParamsBO params) {
         TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
 
         TaskSubmission submission = taskSubmissionMapper.selectOne(
@@ -392,7 +392,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         if (node == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "任务节点不存在");
         }
-        TaskInstanceDetailVO detail = taskInstanceAssembler.assembleDetail(
+        TaskInstanceDetailResultBO detail = taskInstanceAssembler.assembleDetail(
                 instance, node, submission, params.getOrgId());
         if (params.getUserId() != null && java.util.Objects.equals(instance.getAssigneeId(), params.getUserId())) {
             detail.setDraft(taskInstanceAssembler.assembleDraft(node, instance, params.getOrgId()));
@@ -407,7 +407,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     }
 
     @Override
-    public List<TaskSubmissionVersionVO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params) {
+    public List<TaskSubmissionVersionResultBO> listSubmissionVersions(TaskSubmissionVersionsParamsBO params) {
         TaskInstance instance = requireVisibleInstance(params.getInstanceId(), params.getOrgId());
 
         ItemTaskNode node = itemTaskNodeMapper.selectById(instance.getItemTaskNodeId());

@@ -1,10 +1,10 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
-import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
-import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
-import online.longlian.app.pojo.vo.app.PlazaTaskVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskResultBO;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 任务广场装配：将企划聚合行与阶段内任务实例行装配为按企划分组的 VO。
+ * 任务广场装配：将企划聚合行与阶段内任务实例行装配为按企划分组的结果 BO。
  */
 @Component
 public class TaskPlazaAssembler {
@@ -30,7 +30,7 @@ public class TaskPlazaAssembler {
      * @param thumbnailUrlByProjectId 企划ID → 缩略图URL
      * @param nodesByItem         条目ID → 全部任务节点。当前页的实例行不一定覆盖更早的同名阶段
      */
-    public List<PlazaProjectGroupVO> assembleGroups(List<PlazaProjectSummaryBO> summaries,
+    public List<PlazaProjectGroupResultBO> assembleGroups(List<PlazaProjectSummaryBO> summaries,
                                                     List<PlazaTaskRowBO> rows,
                                                     Map<Long, List<Integer>> itemSorts,
                                                     Map<Long, String> coverUrlByProjectId,
@@ -51,7 +51,7 @@ public class TaskPlazaAssembler {
                 .toList();
     }
 
-    private PlazaProjectGroupVO assembleGroup(PlazaProjectSummaryBO summary,
+    private PlazaProjectGroupResultBO assembleGroup(PlazaProjectSummaryBO summary,
                                               List<PlazaTaskRowBO> projectRows,
                                               Map<Long, List<Integer>> itemSorts,
                                               Map<Long, String> coverUrlByProjectId,
@@ -63,7 +63,7 @@ public class TaskPlazaAssembler {
                 .collect(Collectors.groupingBy(TaskPlazaAssembler::slotKey,
                         LinkedHashMap::new, Collectors.toList()));
 
-        List<PlazaTaskVO> tasks = new ArrayList<>();
+        List<PlazaTaskResultBO> tasks = new ArrayList<>();
         for (List<PlazaTaskRowBO> groupRows : slotGroups.values()) {
             int parallelTotal = groupRows.size();
             int pendingSlots = (int) groupRows.stream()
@@ -80,7 +80,7 @@ public class TaskPlazaAssembler {
                 List<Integer> sorts = itemSorts.get(row.getItemId());
                 SlotLabels.Position position = slotPosition(row, groupRows,
                         nodesByItem.getOrDefault(row.getItemId(), List.of()));
-                tasks.add(PlazaTaskVO.builder()
+                tasks.add(PlazaTaskResultBO.builder()
                         .instanceId(row.getInstanceId())
                         .itemId(row.getItemId())
                         .itemTitle(row.getItemTitle())
@@ -99,7 +99,7 @@ public class TaskPlazaAssembler {
             }
         }
 
-        return PlazaProjectGroupVO.builder()
+        return PlazaProjectGroupResultBO.builder()
                 .projectId(summary.getProjectId())
                 .title(summary.getTitle())
                 .typeName(summary.getTypeName())

@@ -1,12 +1,12 @@
 package online.longlian.app.service.orgadmin;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateChangeStatusParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateDetailResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateDetailResultBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateUpdateParamsBO;
 
 /**
  * 组织管理端任务模板服务接口。

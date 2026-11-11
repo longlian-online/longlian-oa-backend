@@ -1,22 +1,22 @@
 package online.longlian.app.service.orgadmin;
 
 import lombok.NonNull;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminGenerateJoinOrgInviteCodeResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminJoinInviteCodeResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminRevokeJoinInviteCodeParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeStatusParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberChangeRoleParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberClaimedTaskResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminReviewApplicationParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminApplicationListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminGenerateJoinOrgInviteCodeParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminGenerateJoinOrgInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminJoinInviteCodeListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminJoinInviteCodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminRevokeJoinInviteCodeParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberBaseTaskSubmitCountParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberChangeRoleParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberClaimedTaskParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberClaimedTaskResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminReviewApplicationParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 
 /**

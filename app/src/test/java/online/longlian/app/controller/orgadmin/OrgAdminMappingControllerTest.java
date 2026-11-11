@@ -2,11 +2,11 @@ package online.longlian.app.controller.orgadmin;
 
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountItemBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListNodeResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberBaseTaskSubmitCountItemBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListNodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListResultBO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;

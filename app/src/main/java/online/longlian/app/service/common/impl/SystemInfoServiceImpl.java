@@ -1,7 +1,7 @@
 package online.longlian.app.service.common.impl;
 
 import java.time.Instant;
-import online.longlian.app.pojo.vo.common.SystemInfoVO;
+import online.longlian.app.pojo.bo.common.SystemInfoResultBO;
 import online.longlian.app.service.common.SystemInfoService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
@@ -20,8 +20,8 @@ public class SystemInfoServiceImpl implements SystemInfoService {
     }
 
     @Override
-    public SystemInfoVO getSystemInfo() {
+    public SystemInfoResultBO getSystemInfo() {
         Instant buildTime = buildProperties.getTime();
-        return new SystemInfoVO(buildProperties.getVersion(), buildTime == null ? null : buildTime.toString(), displayName);
+        return new SystemInfoResultBO(buildProperties.getVersion(), buildTime == null ? null : buildTime.toString(), displayName);
     }
 }

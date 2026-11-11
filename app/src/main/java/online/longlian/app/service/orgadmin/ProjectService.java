@@ -2,9 +2,9 @@ package online.longlian.app.service.orgadmin;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectAdminListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectAdminListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.project.ProjectAdminListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.project.ProjectAdminListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.project.ProjectChangeStatusParamsBO;
 import online.longlian.app.pojo.entity.Project;
 
 /**

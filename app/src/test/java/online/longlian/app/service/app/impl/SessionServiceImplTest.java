@@ -6,12 +6,12 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
-import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
-import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.app.session.SessionLogoutParamsBO;
 import online.longlian.app.pojo.bo.common.LoginSessionCacheBO;
 import online.longlian.app.service.TokenBlacklistService;
-import online.longlian.app.service.common.DefaultOrganization;
+import online.longlian.app.pojo.bo.common.DefaultOrganizationResultBO;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.impl.RefreshSessionStore;
 import online.longlian.app.service.impl.RefreshSessionStore.CreatedRefresh;
@@ -90,7 +90,7 @@ class SessionServiceImplTest {
             return new CreatedRefresh("sid-1", tokens.get());
         });
         when(jwtUtil.generateAccessToken(7L, "sid-1")).thenReturn("token");
-        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganization(11L, "ORG_ADMIN"));
+        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganizationResultBO(11L, "ORG_ADMIN"));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
@@ -123,7 +123,7 @@ class SessionServiceImplTest {
         when(refreshSessionStore.create(eq(7L), eq(10L), eq(Duration.ofSeconds(120)), any()))
                 .thenReturn(new CreatedRefresh("sid-1", "refresh"));
         when(jwtUtil.generateAccessToken(7L, "sid-1")).thenReturn("token");
-        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganization(11L, " "));
+        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganizationResultBO(11L, " "));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         SessionLoginResultBO result = service.loginByPwd(SessionLoginByPwdParamsBO.builder()
@@ -170,7 +170,7 @@ class SessionServiceImplTest {
         when(refreshSessionStore.create(eq(7L), eq(10L), eq(Duration.ofSeconds(120)), any()))
                 .thenReturn(new CreatedRefresh("sid-1", "refresh"));
         when(jwtUtil.generateAccessToken(7L, "sid-1")).thenReturn("token");
-        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganization(11L, "ORG_USER"));
+        when(organizationMembershipService.findDefault(7L)).thenReturn(new DefaultOrganizationResultBO(11L, "ORG_USER"));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         doThrow(new IllegalStateException("redis")).when(valueOperations)
                 .set(any(), any(), eq(15L), eq(TimeUnit.SECONDS));

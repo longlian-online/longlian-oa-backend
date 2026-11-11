@@ -2,10 +2,10 @@ package online.longlian.app.service.app.impl.taskinstance;
 
 import online.longlian.app.common.enumeration.MyTaskBucket;
 import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadResultBO;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadResultBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadRowBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

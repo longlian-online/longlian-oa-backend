@@ -1,7 +1,7 @@
 package online.longlian.app.service.orgadmin;
 
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldBO;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeCustomFieldBO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeCustomFieldResultBO;
 
 import java.util.List;
 import java.util.Map;

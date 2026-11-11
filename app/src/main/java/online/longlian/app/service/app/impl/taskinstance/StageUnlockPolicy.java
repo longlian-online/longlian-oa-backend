@@ -1,6 +1,6 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
 
 import java.util.Collection;
 import java.util.Comparator;

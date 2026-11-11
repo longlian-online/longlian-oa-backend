@@ -5,9 +5,9 @@ import online.longlian.app.pojo.bo.admin.AdminOrganizationIdentityBO;
 import online.longlian.app.pojo.bo.admin.AdminOrganizationListParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.common.ResourceUsageSummaryBO;
-import online.longlian.app.pojo.vo.admin.StorageCategoryStatsVO;
-import online.longlian.app.pojo.vo.admin.StorageStateStatsVO;
-import online.longlian.app.pojo.vo.admin.StorageStatsVO;
+import online.longlian.app.pojo.bo.admin.StorageCategoryStatsResultBO;
+import online.longlian.app.pojo.bo.admin.StorageStateStatsResultBO;
+import online.longlian.app.pojo.bo.admin.StorageStatsResultBO;
 import online.longlian.app.service.admin.OrganizationService;
 import online.longlian.app.service.admin.StorageStatsService;
 import online.longlian.app.service.resource.ResourceService;
@@ -24,14 +24,14 @@ public class StorageStatsServiceImpl implements StorageStatsService {
     private final ResourceService resourceService;
 
     @Override
-    public PageResultBO<StorageStatsVO> list(AdminOrganizationListParamsBO params) {
+    public PageResultBO<StorageStatsResultBO> list(AdminOrganizationListParamsBO params) {
         PageResultBO<AdminOrganizationIdentityBO> organizations = organizationService.pageIdentities(params);
         if (organizations.getList().isEmpty()) {
             return new PageResultBO<>(List.of(), organizations.getTotal());
         }
         Map<Long, Map<String, Map<String, ResourceUsageSummaryBO>>> usage = index(resourceService.summarizeUsage(
                 organizations.getList().stream().map(AdminOrganizationIdentityBO::getId).toList()));
-        List<StorageStatsVO> list = organizations.getList().stream()
+        List<StorageStatsResultBO> list = organizations.getList().stream()
                 .map(organization -> toStats(organization, usage.getOrDefault(organization.getId(), Map.of())))
                 .toList();
         return new PageResultBO<>(list, organizations.getTotal());
@@ -47,12 +47,12 @@ public class StorageStatsServiceImpl implements StorageStatsService {
         return usage;
     }
 
-    private StorageStatsVO toStats(AdminOrganizationIdentityBO organization,
+    private StorageStatsResultBO toStats(AdminOrganizationIdentityBO organization,
                                    Map<String, Map<String, ResourceUsageSummaryBO>> byType) {
-        StorageCategoryStatsVO cover = category(byType.get("cover"));
-        StorageCategoryStatsVO thumbnail = category(byType.get("thumbnail"));
-        StorageCategoryStatsVO taskSubmit = category(byType.get("task_submit"));
-        return new StorageStatsVO(
+        StorageCategoryStatsResultBO cover = category(byType.get("cover"));
+        StorageCategoryStatsResultBO thumbnail = category(byType.get("thumbnail"));
+        StorageCategoryStatsResultBO taskSubmit = category(byType.get("task_submit"));
+        return new StorageStatsResultBO(
                 organization.getId(),
                 organization.getName(),
                 organization.getStatus(),
@@ -63,32 +63,32 @@ public class StorageStatsServiceImpl implements StorageStatsService {
                 taskSubmit);
     }
 
-    private StorageCategoryStatsVO category(Map<String, ResourceUsageSummaryBO> byState) {
-        return new StorageCategoryStatsVO(
+    private StorageCategoryStatsResultBO category(Map<String, ResourceUsageSummaryBO> byState) {
+        return new StorageCategoryStatsResultBO(
                 state(byState, "unbound"),
                 state(byState, "active"),
                 state(byState, "retention"),
                 state(byState, "recycled"));
     }
 
-    private StorageStateStatsVO state(Map<String, ResourceUsageSummaryBO> byState, String name) {
+    private StorageStateStatsResultBO state(Map<String, ResourceUsageSummaryBO> byState, String name) {
         if (byState == null) {
-            return new StorageStateStatsVO(0, 0);
+            return new StorageStateStatsResultBO(0, 0);
         }
         ResourceUsageSummaryBO row = byState.get(name);
         if (row == null) {
-            return new StorageStateStatsVO(0, 0);
+            return new StorageStateStatsResultBO(0, 0);
         }
         long count = row.getFileCount() == null ? 0 : row.getFileCount();
         long bytes = row.getBytes() == null ? 0 : row.getBytes();
-        return new StorageStateStatsVO(count, bytes);
+        return new StorageStateStatsResultBO(count, bytes);
     }
 
-    private long occupied(StorageCategoryStatsVO category) {
+    private long occupied(StorageCategoryStatsResultBO category) {
         return category.getUnbound().getBytes() + category.getActive().getBytes() + category.getRetention().getBytes();
     }
 
-    private long reclaimed(StorageCategoryStatsVO category) {
+    private long reclaimed(StorageCategoryStatsResultBO category) {
         return category.getRecycled().getBytes();
     }
 }

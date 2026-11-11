@@ -1,0 +1,26 @@
+package online.longlian.app.pojo.bo.orgadmin.projecttype;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.Status;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProjectTypeListResultBO {
+    private Long id;
+    private String name;
+    private Integer priority;
+    private Integer refCount;
+    private Status status;
+    private Long creatorId;
+    private String creatorNickname;
+    private LocalDateTime createdAt;
+    private List<ProjectTypeCustomFieldResultBO> customFields;
+}

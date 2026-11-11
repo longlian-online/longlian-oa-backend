@@ -11,8 +11,8 @@ import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
-import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
-import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowResultBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskNodeResultBO;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,7 +93,7 @@ class ItemTaskFlowServiceImplTest {
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of());
         when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of());
 
-        ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
+        ItemTaskFlowResultBO flowVO = service.getItemTaskFlow(1L, 1L);
 
         assertThat(flowVO.getItemTitle()).isEqualTo("第3话");
         assertThat(flowVO.getNodes()).isEmpty();
@@ -112,9 +112,9 @@ class ItemTaskFlowServiceImplTest {
                 .id(4L).itemTaskFlowId(3L).name("翻译").sort(1).parallelSort(1).build()));
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of());
         when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of(
-                ItemTaskNodeVO.builder().id(5L).name("翻译").sort(1).parallelSort(1).build()));
+                ItemTaskNodeResultBO.builder().id(5L).name("翻译").sort(1).parallelSort(1).build()));
 
-        ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
+        ItemTaskFlowResultBO flowVO = service.getItemTaskFlow(1L, 1L);
 
         assertThat(flowVO.getItemTitle()).isEqualTo("第3话");
         assertThat(flowVO.getName()).isEqualTo("漫画汉化流程");
@@ -136,7 +136,7 @@ class ItemTaskFlowServiceImplTest {
         when(itemService.hasSubmissionRecord(1L)).thenReturn(true);
         when(itemTaskFlowAssembler.assembleNodes(anyList(), anyList(), anySet())).thenReturn(List.of());
 
-        ItemTaskFlowVO flowVO = service.getItemTaskFlow(1L, 1L);
+        ItemTaskFlowResultBO flowVO = service.getItemTaskFlow(1L, 1L);
 
         assertThat(flowVO.getHasSubmissionRecord()).isTrue();
         verify(itemService).hasSubmissionRecord(1L);

@@ -11,8 +11,8 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -117,7 +117,7 @@ class ItemTaskFlowEditorTest {
     @ValueSource(strings = {"baseTask", "sort", "parallelSort"})
     void rejectsEachMissingPositionField(String field) {
         lockedFlow(List.of(), List.of());
-        ItemTaskFlowUpdateParamsBO.Node node = ItemTaskFlowUpdateParamsBO.Node.builder()
+        ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO node = ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO.builder()
                 .baseTaskId(field.equals("baseTask") ? null : 20L)
                 .sort(field.equals("sort") ? null : 1)
                 .parallelSort(field.equals("parallelSort") ? null : 1).build();
@@ -135,7 +135,7 @@ class ItemTaskFlowEditorTest {
     @ValueSource(strings = {"id", "revision"})
     void rejectsEachMissingRemovalField(String field) {
         lockedFlow(List.of(), List.of());
-        ItemTaskFlowUpdateParamsBO.Removed removed = ItemTaskFlowUpdateParamsBO.Removed.builder()
+        ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO removed = ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO.builder()
                 .id(field.equals("id") ? null : 10L).revision(field.equals("revision") ? null : 0L).build();
         expectFailure(params(List.of(desired(null, null)), List.of(removed)), ResultCode.PARAM_ERROR, "任务修订号不能为空");
         verifyNoInteractions(baseTaskService);
@@ -217,7 +217,7 @@ class ItemTaskFlowEditorTest {
             invocation.getArgument(0, ItemTaskNode.class).setId(40L);
             return 1;
         });
-        editor.update(params(List.of(ItemTaskFlowUpdateParamsBO.Node.builder()
+        editor.update(params(List.of(ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO.builder()
                 .baseTaskId(20L).sort(5).parallelSort(3).name(name).build()), List.of()));
         ArgumentCaptor<ItemTaskNode> node = ArgumentCaptor.forClass(ItemTaskNode.class);
         verify(nodeMapper).insert(node.capture());
@@ -267,18 +267,18 @@ class ItemTaskFlowEditorTest {
         return BaseTask.builder().id(20L).name("原子任务").metaSchema("[]").build();
     }
 
-    private ItemTaskFlowUpdateParamsBO.Node desired(Long id, Long revision) {
-        return ItemTaskFlowUpdateParamsBO.Node.builder().id(id).baseTaskId(20L)
+    private ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO desired(Long id, Long revision) {
+        return ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO.builder().id(id).baseTaskId(20L)
                 .sort(1).parallelSort(1).revision(revision).build();
     }
 
     private ItemTaskFlowUpdateParamsBO replaceParams() {
         return params(List.of(desired(null, null)), List.of(
-                ItemTaskFlowUpdateParamsBO.Removed.builder().id(10L).revision(0L).build()));
+                ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO.builder().id(10L).revision(0L).build()));
     }
 
-    private ItemTaskFlowUpdateParamsBO params(List<ItemTaskFlowUpdateParamsBO.Node> nodes,
-                                             List<ItemTaskFlowUpdateParamsBO.Removed> removed) {
+    private ItemTaskFlowUpdateParamsBO params(List<ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO> nodes,
+                                             List<ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO> removed) {
         return ItemTaskFlowUpdateParamsBO.builder().itemId(1L).orgId(2L).operatorId(3L)
                 .nodes(nodes).removed(removed).build();
     }

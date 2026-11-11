@@ -1,7 +1,8 @@
 package online.longlian.app.service.common;
 
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormValuesResultBO;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -17,29 +18,29 @@ class TaskFormServiceTest {
 
     @Test
     void shouldRejectDuplicateUnknownAndInvalidSchemaFields() {
-        TaskFormField text = field("title", "text", false);
+        TaskFormFieldBO text = field("title", "text", false);
         assertThatThrownBy(() -> service.validateFields(java.util.Collections.singletonList(null)))
                 .isInstanceOf(AppException.class);
         assertThatThrownBy(() -> service.validateFields(List.of(text, text))).isInstanceOf(AppException.class);
         assertThatThrownBy(() -> service.validateFields(List.of(field("old", "group", false))))
                 .isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> service.validateFields(List.of(new TaskFormField("", "Label", "text", false, List.of()))))
+        assertThatThrownBy(() -> service.validateFields(List.of(new TaskFormFieldBO("", "Label", "text", false, List.of()))))
                 .isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> service.validateFields(List.of(new TaskFormField("pick", "Label", "select", false, List.of()))))
+        assertThatThrownBy(() -> service.validateFields(List.of(new TaskFormFieldBO("pick", "Label", "select", false, List.of()))))
                 .isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> service.validateFields(List.of(new TaskFormField("title", "Label", "text", false, List.of("bad")))))
+        assertThatThrownBy(() -> service.validateFields(List.of(new TaskFormFieldBO("title", "Label", "text", false, List.of("bad")))))
                 .isInstanceOf(AppException.class);
     }
 
     @Test
     void shouldPreserveMultilineAndZeroWhileNormalizingOptionalEmptyValues() {
-        List<TaskFormField> fields = List.of(field("notes", "textarea", true), field("count", "number", true),
+        List<TaskFormFieldBO> fields = List.of(field("notes", "textarea", true), field("count", "number", true),
                 field("empty", "text", false), field("missing", "file", false));
         Map<String, Object> values = new HashMap<>();
         values.put("notes", " first\n  second \n");
         values.put("count", "0.00");
         values.put("empty", "");
-        TaskFormService.ValidatedValues result = service.validateValues(fields, values);
+        TaskFormValuesResultBO result = service.validateValues(fields, values);
         assertThat(result.values()).containsEntry("notes", " first\n  second \n").containsEntry("count", "0")
                 .containsEntry("empty", null).containsEntry("missing", null);
         assertThat(result.resourceIds()).isEmpty();
@@ -48,15 +49,15 @@ class TaskFormServiceTest {
 
     @Test
     void shouldPreserveOptionalWhitespaceAndAcceptNonblankFieldKeys() {
-        TaskFormField field = new TaskFormField("备注字段", "备注", "textarea", false, List.of());
+        TaskFormFieldBO field = new TaskFormFieldBO("备注字段", "备注", "textarea", false, List.of());
         assertThat(service.parseFields(service.serializeFields(List.of(field)))).containsExactly(field);
-        TaskFormService.ValidatedValues result = service.validateValues(List.of(field), Map.of("备注字段", " \n\t "));
+        TaskFormValuesResultBO result = service.validateValues(List.of(field), Map.of("备注字段", " \n\t "));
         assertThat(result.values()).containsEntry("备注字段", " \n\t ");
     }
 
     @Test
     void shouldRejectRequiredUnknownNonStringAndNonfiniteValues() {
-        List<TaskFormField> fields = List.of(field("count", "number", true));
+        List<TaskFormFieldBO> fields = List.of(field("count", "number", true));
         for (Map<String, Object> values : List.<Map<String, Object>>of(Map.of(), Map.of("count", ""),
                 Map.of("count", "NaN"), Map.of("count", "Infinity"), Map.of("count", "1e999"),
                 Map.of("count", 0), Map.of("count", "0", "unknown", "secret"))) {
@@ -66,7 +67,7 @@ class TaskFormServiceTest {
 
     @Test
     void shouldRejectNumbersWhoseDisplayFormWouldExpandWithoutBound() {
-        List<TaskFormField> fields = List.of(field("count", "number", true));
+        List<TaskFormFieldBO> fields = List.of(field("count", "number", true));
         for (String huge : List.of("1e-1000000", "1e1000000", "1e-13", "0.0000000000001",
                 "1234567890123456789", "1234567890123456789012345")) {
             assertThatThrownBy(() -> service.validateValues(fields, Map.of("count", huge)))
@@ -80,12 +81,12 @@ class TaskFormServiceTest {
 
     @Test
     void shouldEnforceSelectChoicesAndFileOnlyReferences() {
-        TaskFormField choice = new TaskFormField("pick", "Choice", "select", true, List.of("A", "B"));
+        TaskFormFieldBO choice = new TaskFormFieldBO("pick", "Choice", "select", true, List.of("A", "B"));
         assertThat(service.validateValues(List.of(choice), Map.of("pick", "A")).values()).containsEntry("pick", "A");
         assertThatThrownBy(() -> service.validateValues(List.of(choice), Map.of("pick", "C")))
                 .isInstanceOf(AppException.class);
-        List<TaskFormField> files = List.of(field("attachment", "file", true), field("other", "file", false));
-        TaskFormService.ValidatedValues result = service.validateValues(files,
+        List<TaskFormFieldBO> files = List.of(field("attachment", "file", true), field("other", "file", false));
+        TaskFormValuesResultBO result = service.validateValues(files,
                 Map.of("attachment", Map.of("fileId", "9007199254740993"), "other", Map.of("fileId", "9007199254740993")));
         assertThat(result.resourceIds()).containsExactly(9007199254740993L);
         for (Object bad : List.of("url", Map.of("fileId", 1), Map.of("fileId", "0"),
@@ -107,8 +108,8 @@ class TaskFormServiceTest {
 
     @Test
     void shouldReadPartialDraftWithoutRequiringEveryField() {
-        List<TaskFormField> fields = List.of(field("title", "text", true), field("notes", "textarea", true));
-        TaskFormService.ValidatedValues saved = service.validateDraftValues(fields, Map.of("title", "  "));
+        List<TaskFormFieldBO> fields = List.of(field("title", "text", true), field("notes", "textarea", true));
+        TaskFormValuesResultBO saved = service.validateDraftValues(fields, Map.of("title", "  "));
 
         assertThat(service.parseDraftValues(fields, saved.serialize()).values())
                 .containsEntry("title", "  ")
@@ -120,13 +121,13 @@ class TaskFormServiceTest {
 
     @Test
     void shouldRejectCorruptedSubmissionSnapshotsWithoutParserExceptions() {
-        List<TaskFormField> fields = List.of(field("title", "text", true));
+        List<TaskFormFieldBO> fields = List.of(field("title", "text", true));
         for (String stored : List.of("[]", "{", "{\"title\":123}")) {
             assertThatThrownBy(() -> service.parseValues(fields, stored)).isInstanceOf(AppException.class);
         }
     }
 
-    private TaskFormField field(String key, String type, boolean required) {
-        return new TaskFormField(key, key, type, required, List.of());
+    private TaskFormFieldBO field(String key, String type, boolean required) {
+        return new TaskFormFieldBO(key, key, type, required, List.of());
     }
 }

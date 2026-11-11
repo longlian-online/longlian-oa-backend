@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.enumeration.SortByTime;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;

@@ -7,7 +7,7 @@ import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.ItemTaskNode;
-import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
 import online.longlian.common.enumeration.ItemNodeState;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +55,7 @@ class ItemAssemblerTest {
                 ItemTaskNode.builder().id(10L).itemId(1L).name("锁定").sort(1).parallelSort(1).build()));
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of());
 
-        List<ProjectItemListVO> result = assembler.assembleList(List.of(
+        List<ProjectItemListResultBO> result = assembler.assembleList(List.of(
                 Item.builder().id(1L).title("项目").build()));
 
         assertThat(result).singleElement().satisfies(item ->

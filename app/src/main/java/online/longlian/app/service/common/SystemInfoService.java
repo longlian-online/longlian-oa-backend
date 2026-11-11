@@ -1,6 +1,6 @@
 package online.longlian.app.service.common;
 
-import online.longlian.app.pojo.vo.common.SystemInfoVO;
+import online.longlian.app.pojo.bo.common.SystemInfoResultBO;
 
 /**
  * 系统信息服务接口。
@@ -17,5 +17,5 @@ public interface SystemInfoService {
      *
      * @return 系统信息，包含后端版本号、构建时间与系统显示名称
      */
-    SystemInfoVO getSystemInfo();
+    SystemInfoResultBO getSystemInfo();
 }

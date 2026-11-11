@@ -3,7 +3,7 @@ package online.longlian.app.service.orgadmin.impl.project;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.orgadmin.ProjectAdminListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.project.ProjectAdminListParamsBO;
 import online.longlian.app.pojo.entity.Project;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

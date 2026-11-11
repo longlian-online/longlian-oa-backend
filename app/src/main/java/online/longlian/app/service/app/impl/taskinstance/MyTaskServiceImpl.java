@@ -4,11 +4,11 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.enumeration.MyTaskBucket;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
-import online.longlian.app.pojo.bo.app.MyTaskRowBO;
-import online.longlian.app.pojo.vo.app.MyTaskVO;
-import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskRowBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.service.app.MyTaskService;
 import org.springframework.stereotype.Service;
 
@@ -30,11 +30,11 @@ public class MyTaskServiceImpl implements MyTaskService {
     private final TaskInstanceMapper taskInstanceMapper;
 
     @Override
-    public PageResultVO<MyTaskVO> listMyTasks(MyTaskParamsBO params) {
+    public PageResultBO<MyTaskResultBO> listMyTasks(MyTaskParamsBO params) {
         boolean desc = params.getSortDirection() == SortDirection.DESC;
         List<MyTaskRowBO> rows = taskInstanceMapper.selectMyClaimedTasks(params.getUserId(), params.getOrgId(), desc);
         if (rows.isEmpty()) {
-            return new PageResultVO<>(Collections.emptyList(), 0L);
+            return new PageResultBO<>(Collections.emptyList(), 0L);
         }
 
         List<Long> itemIds = rows.stream().map(MyTaskRowBO::getItemId).distinct().toList();
@@ -42,26 +42,26 @@ public class MyTaskServiceImpl implements MyTaskService {
                 .stream().collect(Collectors.groupingBy(ItemStageNodeStatusBO::getItemId));
 
         boolean wantWaiting = params.getBucket() == MyTaskBucket.WAITING;
-        List<MyTaskVO> bucket = rows.stream()
-                .map(row -> toVO(row, nodesByItem.getOrDefault(row.getItemId(), Collections.emptyList())))
-                .filter(vo -> (vo.getWaitingStageName() != null) == wantWaiting)
+        List<MyTaskResultBO> bucket = rows.stream()
+                .map(row -> toResultBO(row, nodesByItem.getOrDefault(row.getItemId(), Collections.emptyList())))
+                .filter(resultBO -> (resultBO.getWaitingStageName() != null) == wantWaiting)
                 .toList();
 
         int pageNum = params.getPage().getPageNum();
         int pageSize = params.getPage().getPageSize();
         int from = Math.min((pageNum - 1) * pageSize, bucket.size());
         int to = Math.min(from + pageSize, bucket.size());
-        return new PageResultVO<>(bucket.subList(from, to), (long) bucket.size());
+        return new PageResultBO<>(bucket.subList(from, to), (long) bucket.size());
     }
 
-    private MyTaskVO toVO(MyTaskRowBO row, List<ItemStageNodeStatusBO> itemNodes) {
+    private MyTaskResultBO toResultBO(MyTaskRowBO row, List<ItemStageNodeStatusBO> itemNodes) {
         Optional<ItemStageNodeStatusBO> waiting = StageUnlockPolicy.nearestIncompletePredecessor(
                 row.getStageSort(), itemNodes);
         SlotLabels.Position self = SlotLabels.of(row.getNodeId(), itemNodes);
         SlotLabels.Position blocked = waiting
                 .map(node -> SlotLabels.of(node.getNodeId(), itemNodes))
                 .orElse(null);
-        return MyTaskVO.builder()
+        return MyTaskResultBO.builder()
                 .instanceId(row.getInstanceId())
                 .itemId(row.getItemId())
                 .projectId(row.getProjectId())

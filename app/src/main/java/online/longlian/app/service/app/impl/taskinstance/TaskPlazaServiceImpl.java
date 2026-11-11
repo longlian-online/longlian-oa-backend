@@ -8,16 +8,16 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
-import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
-import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaSearchParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaItemStageBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaSearchParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.ProjectType;
-import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
-import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.service.app.TaskPlazaService;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Service;
@@ -46,7 +46,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
     private final TaskPlazaAssembler taskPlazaAssembler;
 
     @Override
-    public PageResultVO<PlazaProjectGroupVO> getTaskPlaza(TaskPlazaParamsBO params) {
+    public PageResultBO<PlazaProjectGroupResultBO> getTaskPlaza(TaskPlazaParamsBO params) {
         TaskPlazaSearchParamsBO searchParams = TaskPlazaSearchParamsBO.builder()
                 .orgId(params.getOrgId())
                 .baseTaskId(params.getBaseTaskId())
@@ -58,14 +58,14 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
 
         long total = taskInstanceMapper.selectPlazaProjectCount(searchParams);
         if (total == 0) {
-            return new PageResultVO<>(Collections.emptyList(), 0L);
+            return new PageResultBO<>(Collections.emptyList(), 0L);
         }
 
         int offset = (params.getPage().getPageNum() - 1) * params.getPage().getPageSize();
         List<PlazaProjectSummaryBO> summaries = taskInstanceMapper.selectPlazaProjectSummaries(
                 searchParams, offset, params.getPage().getPageSize());
         if (summaries.isEmpty()) {
-            return new PageResultVO<>(Collections.emptyList(), total);
+            return new PageResultBO<>(Collections.emptyList(), total);
         }
 
         List<Long> projectIds = summaries.stream().map(PlazaProjectSummaryBO::getProjectId).toList();
@@ -85,12 +85,12 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 : taskInstanceMapper.selectItemStageNodeStatuses(itemIds).stream()
                         .collect(Collectors.groupingBy(ItemStageNodeStatusBO::getItemId));
 
-        List<PlazaProjectGroupVO> groups = taskPlazaAssembler.assembleGroups(
+        List<PlazaProjectGroupResultBO> groups = taskPlazaAssembler.assembleGroups(
                 summaries, rows, itemSorts,
                 loadImageUrls(summaries, PlazaProjectSummaryBO::getCoverFileId),
                 resizeThumbnailUrls(loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId)),
                 nodesByItem, params.getBaseTaskId());
-        return new PageResultVO<>(groups, total);
+        return new PageResultBO<>(groups, total);
     }
 
     /** 与企划列表一致：按名称精确匹配当前组织下启用中的类型，未命中视为参数错误 */

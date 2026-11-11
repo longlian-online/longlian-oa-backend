@@ -5,12 +5,12 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
-import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
-import online.longlian.app.service.common.OrganizationMemberDetails;
+import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
@@ -49,8 +49,8 @@ class ProjectMembersTest {
         when(projectWorkshopMapper.selectList(any())).thenReturn(List.of(
                 association(1L), association(1L), association(2L), association(3L)));
         when(organizationMembershipService.listMemberProfiles(1L, List.of(1L, 2L, 3L))).thenReturn(List.of(
-                new OrganizationMemberDetails(1L, "creator", 11L),
-                new OrganizationMemberDetails(2L, "member", 12L)));
+                new OrganizationMemberDetailsResultBO(1L, "creator", 11L),
+                new OrganizationMemberDetailsResultBO(2L, "member", 12L)));
         when(resourceService.getResourceReadUrls(List.of(12L))).thenReturn(
                 Map.of(12L, new ResourceReadUrlGetResultBO("avatar", 1L, "key")));
 
@@ -72,7 +72,7 @@ class ProjectMembersTest {
         visibleProject();
         when(projectWorkshopMapper.selectList(any())).thenReturn(List.of(association(1L)));
         when(organizationMembershipService.listMemberProfiles(1L, List.of(1L)))
-                .thenReturn(List.of(new OrganizationMemberDetails(1L, "creator", null)));
+                .thenReturn(List.of(new OrganizationMemberDetailsResultBO(1L, "creator", null)));
         when(resourceService.getResourceReadUrls(List.of())).thenReturn(Map.of());
         var result = service.getProjectMembers(params(1, 12));
         assertThat(result.getList()).singleElement().satisfies(member -> {

@@ -8,22 +8,22 @@ import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
-import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectResultBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitResultBO;
-import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskClaimResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceListParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAssignParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
 import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -33,8 +33,8 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
-import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.app.impl.UserOperationLogService;
 import online.longlian.app.service.common.OrganizationMembershipService;
@@ -145,7 +145,7 @@ class TaskInstanceServiceImplTest {
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(taskInstanceMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-        List<ItemTaskInstanceVO> result = service.listItemTaskInstances(params);
+        List<ItemTaskInstanceResultBO> result = service.listItemTaskInstances(params);
 
         assertThat(result).isEmpty();
     }
@@ -162,9 +162,9 @@ class TaskInstanceServiceImplTest {
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of(instance));
         ItemTaskNode node = ItemTaskNode.builder().id(5L).build();
         when(itemTaskNodeMapper.selectBatchIds(anyList())).thenReturn(List.of(node));
-        when(taskInstanceAssembler.assembleInstances(anyList(), anyMap())).thenReturn(List.of(new ItemTaskInstanceVO()));
+        when(taskInstanceAssembler.assembleInstances(anyList(), anyMap())).thenReturn(List.of(new ItemTaskInstanceResultBO()));
 
-        List<ItemTaskInstanceVO> result = service.listItemTaskInstances(params);
+        List<ItemTaskInstanceResultBO> result = service.listItemTaskInstances(params);
 
         assertThat(result).hasSize(1);
     }
@@ -640,7 +640,7 @@ class TaskInstanceServiceImplTest {
         when(itemTaskNodeMapper.selectById(3L)).thenReturn(node);
         TaskSubmission submission = TaskSubmission.builder().metadata("{}").build();
         when(taskSubmissionMapper.selectOne(any())).thenReturn(submission);
-        TaskInstanceDetailVO expected = new TaskInstanceDetailVO();
+        TaskInstanceDetailResultBO expected = new TaskInstanceDetailResultBO();
         when(taskInstanceAssembler.assembleDetail(instance, node, submission, 10L)).thenReturn(expected);
 
         assertThat(service.getTaskInstanceDetail(params)).isSameAs(expected);
@@ -655,7 +655,7 @@ class TaskInstanceServiceImplTest {
         when(itemMapper.selectById(1L)).thenReturn(Item.builder().id(1L).projectId(2L).build());
         when(projectMapper.selectById(2L)).thenReturn(enabledProject());
         when(itemTaskNodeMapper.selectById(3L)).thenReturn(node);
-        TaskInstanceDetailVO expected = new TaskInstanceDetailVO();
+        TaskInstanceDetailResultBO expected = new TaskInstanceDetailResultBO();
         when(taskInstanceAssembler.assembleDetail(instance, node, null, 10L)).thenReturn(expected);
 
         assertThat(service.getTaskInstanceDetail(params)).isSameAs(expected);

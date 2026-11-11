@@ -5,15 +5,15 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ProjectAttachmentMapper;
-import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentResultBO;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentCreateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.ProjectAttachment;
 import online.longlian.app.service.app.ProjectAttachmentService;
@@ -54,14 +54,14 @@ public class ProjectAttachmentServiceImpl implements ProjectAttachmentService {
             return List.of();
         }
         List<Long> fileIds = attachments.stream().map(ProjectAttachment::getFileId).distinct().toList();
-        Map<Long, ActivatedResource> resources = resourceService.findActivated(
+        Map<Long, ActivatedResourceResultBO> resources = resourceService.findActivated(
                 BIZ_TYPE, params.getProjectId(), params.getOrgId(), fileIds);
         Map<Long, String> uploaderNames = userService.displayNames(
                 attachments.stream().map(ProjectAttachment::getUploaderId).distinct().toList());
         return attachments.stream()
                 .filter(attachment -> resources.containsKey(attachment.getFileId()))
                 .map(attachment -> {
-                    ActivatedResource resource = resources.get(attachment.getFileId());
+                    ActivatedResourceResultBO resource = resources.get(attachment.getFileId());
                     return ProjectAttachmentResultBO.builder()
                             .id(attachment.getId())
                             .fileId(attachment.getFileId())
@@ -109,13 +109,13 @@ public class ProjectAttachmentServiceImpl implements ProjectAttachmentService {
     public ProjectAttachmentDownloadResultBO getProjectAttachmentDownload(ProjectAttachmentDownloadParamsBO params) {
         projectService.requireVisibleProject(new ProjectAccessParamsBO(params.getProjectId(), params.getOrgId()));
         ProjectAttachment attachment = requireAttachment(params.getProjectId(), params.getAttachmentId());
-        Map<Long, ActivatedResource> matched = resourceService.findActivated(
+        Map<Long, ActivatedResourceResultBO> matched = resourceService.findActivated(
                 BIZ_TYPE, params.getProjectId(), params.getOrgId(), List.of(attachment.getFileId()));
-        ActivatedResource resource = matched.get(attachment.getFileId());
+        ActivatedResourceResultBO resource = matched.get(attachment.getFileId());
         if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
         }
-        ActivatedResourceRead read = resourceService.signDownload(resource);
+        ActivatedResourceReadResultBO read = resourceService.signDownload(resource);
         return ProjectAttachmentDownloadResultBO.builder()
                 .readUrl(read.readUrl())
                 .expireAt(read.expiresAt())

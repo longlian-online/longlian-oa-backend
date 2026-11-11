@@ -11,11 +11,14 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowResultBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowUpdateParamsBO;
 import online.longlian.app.pojo.dto.app.ItemTaskFlowRemovedNodeDTO;
 import online.longlian.app.pojo.dto.app.ItemTaskFlowUpdateDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
+import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
 import online.longlian.app.service.app.ItemTaskFlowService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,7 +41,16 @@ public class ItemTaskFlowController {
     @ResponseMessage("查询成功")
     public ItemTaskFlowVO getItemTaskFlow(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                            @PathVariable Long itemId) {
-        return itemTaskFlowService.getItemTaskFlow(itemId, sessionContext.orgId());
+        ItemTaskFlowResultBO resultBO = itemTaskFlowService.getItemTaskFlow(itemId, sessionContext.orgId());
+
+        ItemTaskFlowVO itemTaskFlowVO = new ItemTaskFlowVO();
+        BeanUtils.copyProperties(resultBO, itemTaskFlowVO, "nodes");
+        itemTaskFlowVO.setNodes(resultBO.getNodes().stream().map(nodeBO -> {
+            ItemTaskNodeVO nodeVO = new ItemTaskNodeVO();
+            BeanUtils.copyProperties(nodeBO, nodeVO);
+            return nodeVO;
+        }).toList());
+        return itemTaskFlowVO;
     }
 
     @Operation(
@@ -55,7 +67,7 @@ public class ItemTaskFlowController {
                 .itemId(itemId)
                 .orgId(sessionContext.orgId())
                 .operatorId(sessionContext.userId())
-                .nodes(dto.getNodes().stream().map(node -> ItemTaskFlowUpdateParamsBO.Node.builder()
+                .nodes(dto.getNodes().stream().map(node -> ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO.builder()
                         .id(node.getId())
                         .baseTaskId(node.getBaseTaskId())
                         .sort(node.getSort())
@@ -69,8 +81,8 @@ public class ItemTaskFlowController {
                 .build());
     }
 
-    private ItemTaskFlowUpdateParamsBO.Removed toRemoved(ItemTaskFlowRemovedNodeDTO node) {
-        return ItemTaskFlowUpdateParamsBO.Removed.builder()
+    private ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO toRemoved(ItemTaskFlowRemovedNodeDTO node) {
+        return ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO.builder()
                 .id(node.getId())
                 .revision(parseRevision(node.getRevision(), true))
                 .build();

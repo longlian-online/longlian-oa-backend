@@ -12,31 +12,30 @@ import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ProjectProgressBO;
-import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectProgressBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
-import online.longlian.app.service.common.OrganizationMemberDetails;
-import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
-import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
-import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectListResultBO;
-import online.longlian.app.pojo.bo.app.ProjectSearchResultBO;
-import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectDetailResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectSearchResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
-import online.longlian.app.pojo.bo.orgadmin.ProjectTypeCustomFieldResultBO;
-import online.longlian.app.pojo.vo.app.ProjectTypeCustomFieldVO;
-import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
+import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeCustomFieldResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectTypeInfoResultBO;
 import online.longlian.app.service.app.ProjectService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
@@ -78,10 +77,10 @@ public class ProjectServiceImpl implements ProjectService {
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId()))
                 .stream().map(ProjectWorkshop::getUserId).distinct().toList();
         // 先过滤已删除的组织成员及用户，再分页，确保 total 和页内条数都基于当前成员。
-        List<OrganizationMemberDetails> members = organizationMembershipService.listMemberProfiles(params.getOrgId(), userIds);
+        List<OrganizationMemberDetailsResultBO> members = organizationMembershipService.listMemberProfiles(params.getOrgId(), userIds);
         long offset = ((long) params.getPage().getPageNum() - 1) * params.getPage().getPageSize();
-        List<OrganizationMemberDetails> page = members.stream().skip(offset).limit(params.getPage().getPageSize()).toList();
-        List<Long> avatarIds = page.stream().map(OrganizationMemberDetails::avatarFileId)
+        List<OrganizationMemberDetailsResultBO> page = members.stream().skip(offset).limit(params.getPage().getPageSize()).toList();
+        List<Long> avatarIds = page.stream().map(OrganizationMemberDetailsResultBO::avatarFileId)
                 .filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, ResourceReadUrlGetResultBO> avatars = resourceService.getResourceReadUrls(avatarIds);
         List<ProjectMemberResultBO> results = page.stream().map(member -> {
@@ -93,7 +92,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    public List<ProjectTypeInfoVO> getProjectTypes(Long orgId) {
+    public List<ProjectTypeInfoResultBO> getProjectTypes(Long orgId) {
         List<ProjectType> types = projectTypeMapper.selectList(
                 new LambdaQueryWrapper<ProjectType>()
                         .eq(ProjectType::getOrgId, orgId)
@@ -107,11 +106,11 @@ public class ProjectServiceImpl implements ProjectService {
         Map<Long, List<ProjectTypeCustomFieldResultBO>> forms = projectTypeCustomFormService.listByTypeIds(
                 orgId, types.stream().map(ProjectType::getId).toList());
         return types.stream()
-                .map(type -> ProjectTypeInfoVO.builder()
+                .map(type -> ProjectTypeInfoResultBO.builder()
                         .id(type.getId())
                         .name(type.getName())
                         .customFields(forms.getOrDefault(type.getId(), List.of()).stream()
-                                .map(field -> ProjectTypeCustomFieldVO.builder()
+                                .map(field -> ProjectTypeCustomFieldResultBO.builder()
                                         .presetFieldId(field.getPresetFieldId())
                                         .name(field.getName())
                                         .required(field.getRequired())

@@ -1,11 +1,11 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.ProjectAttachmentCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentCreateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentResultBO;
 
 import java.util.List;
 

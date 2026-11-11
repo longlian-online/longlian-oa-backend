@@ -5,8 +5,8 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
 import com.github.houbb.opencc4j.util.ZhConverterUtil;
-import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectSearchParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectSearchParamsBO;
 
 import java.util.LinkedHashSet;
 import java.util.List;

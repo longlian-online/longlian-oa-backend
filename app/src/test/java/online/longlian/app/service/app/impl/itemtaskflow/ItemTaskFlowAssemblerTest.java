@@ -5,7 +5,7 @@ import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.common.enumeration.TaskInstanceStatus;
-import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskNodeResultBO;
 import online.longlian.app.service.common.TaskFormService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,10 +48,10 @@ class ItemTaskFlowAssemblerTest {
         TaskInstance instance = TaskInstance.builder().id(100L).itemTaskNodeId(2L)
                 .status(TaskInstanceStatus.CLAIMED).build();
 
-        List<ItemTaskNodeVO> result = assembler.assembleNodes(
+        List<ItemTaskNodeResultBO> result = assembler.assembleNodes(
                 List.of(first, second), List.of(instance), Set.of());
 
-        assertThat(result).extracting(ItemTaskNodeVO::getName)
+        assertThat(result).extracting(ItemTaskNodeResultBO::getName)
                 .containsExactly("自定义翻译", "历史审核");
         assertThat(result.get(0).getBaseTaskIcon()).isEqualTo("Camera");
         assertThat(result.get(0).getSubmitFields()).extracting(field -> field.label())

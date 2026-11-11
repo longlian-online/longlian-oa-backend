@@ -2,7 +2,7 @@ package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectLatestSubmissionBO;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
@@ -50,6 +50,6 @@ public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
             WHERE latest.row_num = 1
             </script>
             """)
-    List<WorkshopProjectInfoVO> selectLatestForProjects(@Param("projectIds") List<Long> projectIds);
+    List<ProjectLatestSubmissionBO> selectLatestForProjects(@Param("projectIds") List<Long> projectIds);
 
 }

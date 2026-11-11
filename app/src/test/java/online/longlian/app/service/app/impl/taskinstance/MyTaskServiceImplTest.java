@@ -3,12 +3,12 @@ package online.longlian.app.service.app.impl.taskinstance;
 import online.longlian.app.common.enumeration.MyTaskBucket;
 import online.longlian.app.common.enumeration.SortDirection;
 import online.longlian.app.mapper.TaskInstanceMapper;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
-import online.longlian.app.pojo.bo.app.MyTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskRowBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
-import online.longlian.app.pojo.vo.app.MyTaskVO;
-import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,10 +70,10 @@ class MyTaskServiceImplTest {
     void submittableBucket_keepsUnlockedInClaimOrder() {
         givenTwoItems();
 
-        PageResultVO<MyTaskVO> result = service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 1, 5));
+        PageResultBO<MyTaskResultBO> result = service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 1, 5));
 
         assertThat(result.getTotal()).isEqualTo(2L);
-        assertThat(result.getList()).extracting(MyTaskVO::getInstanceId).containsExactly(11L, 12L);
+        assertThat(result.getList()).extracting(MyTaskResultBO::getInstanceId).containsExactly(11L, 12L);
         assertThat(result.getList()).allMatch(vo -> vo.getWaitingStageName() == null);
     }
 
@@ -81,10 +81,10 @@ class MyTaskServiceImplTest {
     void waitingBucket_carriesWaitingStageName() {
         givenTwoItems();
 
-        PageResultVO<MyTaskVO> result = service.listMyTasks(params(MyTaskBucket.WAITING, 1, 5));
+        PageResultBO<MyTaskResultBO> result = service.listMyTasks(params(MyTaskBucket.WAITING, 1, 5));
 
         assertThat(result.getTotal()).isEqualTo(1L);
-        MyTaskVO vo = result.getList().get(0);
+        MyTaskResultBO vo = result.getList().get(0);
         assertThat(vo.getInstanceId()).isEqualTo(21L);
         assertThat(vo.getWaitingStageName()).isEqualTo("上色");
         assertThat(vo.getItemId()).isEqualTo(2L);
@@ -100,18 +100,18 @@ class MyTaskServiceImplTest {
 
         assertThat(service.listMyTasks(params(MyTaskBucket.WAITING, 1, 5)).getTotal()).isZero();
         assertThat(service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 1, 5)).getList())
-                .extracting(MyTaskVO::getInstanceId).containsExactly(21L);
+                .extracting(MyTaskResultBO::getInstanceId).containsExactly(21L);
     }
 
     @Test
     void pagesWithinBucket() {
         givenTwoItems();
 
-        PageResultVO<MyTaskVO> page2 = service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 2, 1));
-        PageResultVO<MyTaskVO> page3 = service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 3, 1));
+        PageResultBO<MyTaskResultBO> page2 = service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 2, 1));
+        PageResultBO<MyTaskResultBO> page3 = service.listMyTasks(params(MyTaskBucket.SUBMITTABLE, 3, 1));
 
         assertThat(page2.getTotal()).isEqualTo(2L);
-        assertThat(page2.getList()).extracting(MyTaskVO::getInstanceId).containsExactly(12L);
+        assertThat(page2.getList()).extracting(MyTaskResultBO::getInstanceId).containsExactly(12L);
         assertThat(page3.getList()).isEmpty();
     }
 
@@ -119,7 +119,7 @@ class MyTaskServiceImplTest {
     void descSortDirection_passedToMapper() {
         when(taskInstanceMapper.selectMyClaimedTasks(7L, 9L, true)).thenReturn(List.of());
 
-        PageResultVO<MyTaskVO> result = service.listMyTasks(MyTaskParamsBO.builder().userId(7L).orgId(9L)
+        PageResultBO<MyTaskResultBO> result = service.listMyTasks(MyTaskParamsBO.builder().userId(7L).orgId(9L)
                 .bucket(MyTaskBucket.SUBMITTABLE).sortDirection(SortDirection.DESC)
                 .page(new PageParamsBO(1, 5)).build());
 
@@ -139,7 +139,7 @@ class MyTaskServiceImplTest {
                 new ItemStageNodeStatusBO(2L, 4L, "翻译", 3, 2, false),
                 new ItemStageNodeStatusBO(2L, 5L, "校对", 4, 1, false)));
 
-        MyTaskVO vo = service.listMyTasks(params(MyTaskBucket.WAITING, 1, 5)).getList().getFirst();
+        MyTaskResultBO vo = service.listMyTasks(params(MyTaskBucket.WAITING, 1, 5)).getList().getFirst();
 
         assertThat(vo.getSlotIndex()).isEqualTo(1);
         assertThat(vo.getSlotTotal()).isEqualTo(1);

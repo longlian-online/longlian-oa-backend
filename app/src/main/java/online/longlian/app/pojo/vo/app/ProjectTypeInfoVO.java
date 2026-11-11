@@ -1,6 +1,7 @@
 package online.longlian.app.pojo.vo.app;
 
 import online.longlian.app.common.annotation.JsonLongIdString;
+import online.longlian.app.pojo.vo.common.ProjectTypeCustomFieldVO;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

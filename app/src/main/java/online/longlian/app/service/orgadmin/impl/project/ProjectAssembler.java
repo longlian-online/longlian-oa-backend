@@ -3,7 +3,7 @@ package online.longlian.app.service.orgadmin.impl.project;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.orgadmin.ProjectAdminListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.project.ProjectAdminListResultBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;

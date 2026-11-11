@@ -2,10 +2,10 @@ package online.longlian.app.api.notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import online.longlian.app.common.util.MailUtil;
-import online.longlian.app.pojo.bo.app.NotificationResolvedSourceBO;
-import online.longlian.app.pojo.bo.app.NotificationSourceResultBO;
-import online.longlian.app.pojo.bo.app.NotificationTaskSlotBO;
-import online.longlian.app.pojo.bo.app.UserEmailNotificationRecipientResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationResolvedSourceBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationTaskSlotBO;
+import online.longlian.app.pojo.bo.app.user.UserEmailNotificationRecipientResultBO;
 import online.longlian.app.pojo.entity.OutboxMessage;
 import online.longlian.app.service.app.UserService;
 import online.longlian.app.service.app.impl.notification.InboxEmailOutboxHandler;

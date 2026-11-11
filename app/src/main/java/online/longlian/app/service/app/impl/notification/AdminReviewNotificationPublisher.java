@@ -1,8 +1,8 @@
 package online.longlian.app.service.app.impl.notification;
 
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.pojo.bo.app.NotificationBatchCreateParamsBO;
-import online.longlian.app.pojo.bo.app.NotificationCreateBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
 import online.longlian.app.service.app.InboxNotificationService;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.common.enumeration.InboxNotificationKind;

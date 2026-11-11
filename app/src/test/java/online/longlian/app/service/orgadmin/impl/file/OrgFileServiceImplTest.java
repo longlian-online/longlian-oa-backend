@@ -10,16 +10,16 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.mapper.UserMapper;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileDiscardParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileExpansionResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileBatchTargetParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileDiscardParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileExpansionParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileExpansionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileBatchTargetParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileDownloadParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileEntriesResultBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileTypeItemBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -187,7 +187,7 @@ class OrgFileServiceImplTest {
         when(resourceService.findActivated("task_submit", 8L, 1L, List.of(101L)))
                 .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
         when(resourceService.signDownload(any())).thenReturn(
-                new ActivatedResourceRead(101L, "第一话译稿.pdf", 2048L, "application/pdf", "https://files/101", 50L));
+                new ActivatedResourceReadResultBO(101L, "第一话译稿.pdf", 2048L, "application/pdf", "https://files/101", 50L));
 
         var result = service.download(OrgFileDownloadParamsBO.builder()
                 .orgId(1L).taskInstanceId(8L).fileId(101L).build());
@@ -517,7 +517,7 @@ class OrgFileServiceImplTest {
                 .build();
     }
 
-    private ActivatedResource resource(Long id, String name) {
-        return new ActivatedResource(id, name, 2048L, "application/pdf", StorageType.COS, "task_submit/" + id + ".pdf", 1L);
+    private ActivatedResourceResultBO resource(Long id, String name) {
+        return new ActivatedResourceResultBO(id, name, 2048L, "application/pdf", StorageType.COS, "task_submit/" + id + ".pdf", 1L);
     }
 }

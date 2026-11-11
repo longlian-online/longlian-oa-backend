@@ -1,20 +1,20 @@
 package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
-import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
-import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectListResultBO;
-import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
-import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddResultBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
-import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectDetailResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectTypeInfoResultBO;
 
 import java.util.List;
 
@@ -63,7 +63,7 @@ public interface ProjectService {
      * @param orgId 组织 ID
      * @return 企划类型 ID 和名称列表
      */
-    List<ProjectTypeInfoVO> getProjectTypes(Long orgId);
+    List<ProjectTypeInfoResultBO> getProjectTypes(Long orgId);
 
     /**
      * 创建企划，默认状态为「进行中」，并自动加入创建者的个人工坊。

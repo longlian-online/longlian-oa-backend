@@ -1,10 +1,10 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.SessionLoginByCodeParamsBO;
-import online.longlian.app.pojo.bo.app.SessionLoginByPwdParamsBO;
-import online.longlian.app.pojo.bo.app.SessionLoginResultBO;
-import online.longlian.app.pojo.bo.app.SessionLogoutParamsBO;
-import online.longlian.app.pojo.bo.app.SessionRefreshResultBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginByCodeParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginByPwdParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionLoginResultBO;
+import online.longlian.app.pojo.bo.app.session.SessionLogoutParamsBO;
+import online.longlian.app.pojo.bo.app.session.SessionRefreshResultBO;
 
 
 /**

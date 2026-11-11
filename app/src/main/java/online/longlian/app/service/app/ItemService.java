@@ -1,13 +1,13 @@
 package online.longlian.app.service.app;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOrderEntryResultBO;
-import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
-import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
-import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemOrderEntryResultBO;
+import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
 
 import java.util.List;
 
@@ -36,7 +36,7 @@ public interface ItemService {
      * @param params 包含分页参数、企划 ID 及组织 ID 的查询参数
      * @return 分页的项目列表
      */
-    PageResultBO<ProjectItemListVO> listProjectItems(ItemListParamsBO params);
+    PageResultBO<ProjectItemListResultBO> listProjectItems(ItemListParamsBO params);
 
     /**
      * 创建项目并实例化任务流。

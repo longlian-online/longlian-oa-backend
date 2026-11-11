@@ -5,7 +5,7 @@ import online.longlian.app.mapper.BaseTaskMapper;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskNodeResultBO;
 import online.longlian.app.service.common.TaskFormService;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +25,7 @@ public class ItemTaskFlowAssembler {
     private final BaseTaskMapper baseTaskMapper;
     private final TaskFormService taskFormService;
 
-    public List<ItemTaskNodeVO> assembleNodes(List<ItemTaskNode> nodes, List<TaskInstance> instances,
+    public List<ItemTaskNodeResultBO> assembleNodes(List<ItemTaskNode> nodes, List<TaskInstance> instances,
                                                Set<Long> submittedInstanceIds) {
         if (nodes.isEmpty()) {
             return Collections.emptyList();
@@ -42,7 +42,7 @@ public class ItemTaskFlowAssembler {
                 .map(node -> {
                     BaseTask baseTask = baseTaskMap.get(node.getBaseTaskId());
 
-                    ItemTaskNodeVO.ItemTaskNodeVOBuilder builder = ItemTaskNodeVO.builder()
+                    ItemTaskNodeResultBO.ItemTaskNodeResultBOBuilder builder = ItemTaskNodeResultBO.builder()
                             .id(node.getId())
                             .baseTaskId(node.getBaseTaskId())
                             .name(node.getName())

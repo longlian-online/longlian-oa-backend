@@ -1,6 +1,6 @@
 package online.longlian.app.service.app.impl.notification;
 
-import online.longlian.app.pojo.bo.app.NotificationSourceResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationSourceResultBO;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import org.springframework.web.util.UriComponentsBuilder;
 

@@ -1,9 +1,9 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
-import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
-import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +19,7 @@ class TaskPlazaAssemblerTest {
 
     @Test
     void assembleGroups_emptySummaries_returnsEmpty() {
-        List<PlazaProjectGroupVO> result = assembler.assembleGroups(
+        List<PlazaProjectGroupResultBO> result = assembler.assembleGroups(
                 List.of(), List.of(), Map.of(), Map.of(), Map.of(), Map.of(), null);
 
         assertThat(result).isEmpty();
@@ -33,12 +33,12 @@ class TaskPlazaAssemblerTest {
         PlazaProjectSummaryBO summary = summary(100L, "企划A", 2L, 1L);
         Map<Long, List<Integer>> itemSorts = Map.of(200L, List.of(1, 2));
 
-        List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
+        List<PlazaProjectGroupResultBO> groups = assembler.assembleGroups(
                 List.of(summary), List.of(completed, pending), itemSorts,
                 Map.of(100L, "http://cover/100"), Map.of(100L, "http://thumb/100"), Map.of(), null);
 
         assertThat(groups).hasSize(1);
-        PlazaProjectGroupVO group = groups.getFirst();
+        PlazaProjectGroupResultBO group = groups.getFirst();
         assertThat(group.getProjectId()).isEqualTo(100L);
         assertThat(group.getTitle()).isEqualTo("企划A");
         assertThat(group.getCoverUrl()).isEqualTo("http://cover/100");
@@ -70,7 +70,7 @@ class TaskPlazaAssemblerTest {
                 200L, List.of(1, 2),
                 201L, List.of(1));
 
-        List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
+        List<PlazaProjectGroupResultBO> groups = assembler.assembleGroups(
                 List.of(summary), List.of(itemAStage1, itemAStage2, itemBStage1), itemSorts, Map.of(), Map.of(), Map.of(), null);
 
         assertThat(groups).hasSize(1);
@@ -90,7 +90,7 @@ class TaskPlazaAssemblerTest {
         PlazaTaskRowBO projectBTask = row(21L, 101L, 210L, "翻译", 1, 1, TaskInstanceStatus.PENDING);
         Map<Long, List<Integer>> itemSorts = Map.of(200L, List.of(1), 210L, List.of(1));
 
-        List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
+        List<PlazaProjectGroupResultBO> groups = assembler.assembleGroups(
                 List.of(summary(100L, "企划A", 1L, 1L), summary(101L, "企划B", 1L, 1L)),
                 List.of(projectATask, projectBTask), itemSorts, Map.of(), Map.of(), Map.of(), null);
 
@@ -112,7 +112,7 @@ class TaskPlazaAssemblerTest {
                 new ItemStageNodeStatusBO(200L, 3L, "校对", 3, 1, false),
                 new ItemStageNodeStatusBO(200L, 4L, "校对", 3, 2, false));
 
-        List<PlazaProjectGroupVO> groups = assembler.assembleGroups(
+        List<PlazaProjectGroupResultBO> groups = assembler.assembleGroups(
                 List.of(summary), List.of(pending), Map.of(200L, List.of(1, 2, 3)),
                 Map.of(), Map.of(), Map.of(200L, nodes), null);
 

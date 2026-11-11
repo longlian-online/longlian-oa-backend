@@ -10,8 +10,8 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskTemplate;
 import online.longlian.app.pojo.entity.TaskTemplateNode;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
-import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import online.longlian.common.enumeration.TaskTemplateScope;
@@ -63,7 +63,7 @@ class WorkshopAssemblerTest {
 
     @Test
     void assembleProjectList_emptyList_returnsEmptyList() {
-        List<WorkshopProjectInfoVO> result = assembler.assembleProjectList(Collections.emptyList());
+        List<WorkshopProjectInfoResultBO> result = assembler.assembleProjectList(Collections.emptyList());
 
         assertTrue(result.isEmpty());
         verify(resourceService, never()).getResourceReadUrls(anyList());
@@ -86,10 +86,10 @@ class WorkshopAssemblerTest {
         when(resourceService.getResourceReadUrls(List.of(300L)))
                 .thenReturn(Map.of(300L, new ResourceReadUrlGetResultBO("https://cdn/avatar.png", 1L, "a")));
 
-        List<WorkshopProjectInfoVO> result = assembler.assembleProjectList(List.of(project));
+        List<WorkshopProjectInfoResultBO> result = assembler.assembleProjectList(List.of(project));
 
         assertEquals(1, result.size());
-        WorkshopProjectInfoVO vo = result.get(0);
+        WorkshopProjectInfoResultBO vo = result.get(0);
         assertEquals(1L, vo.getId());
         assertEquals("Project A", vo.getTitle());
         assertEquals("https://cdn/cover.png", vo.getCoverUrl());
@@ -108,7 +108,7 @@ class WorkshopAssemblerTest {
 
         when(userMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(creator));
 
-        List<WorkshopProjectInfoVO> result = assembler.assembleProjectList(List.of(project));
+        List<WorkshopProjectInfoResultBO> result = assembler.assembleProjectList(List.of(project));
 
         assertEquals(1, result.size());
         assertNull(result.get(0).getCoverUrl());
@@ -129,7 +129,7 @@ class WorkshopAssemblerTest {
 
         when(userMapper.selectBatchIds(List.of(10L))).thenReturn(List.of(creator));
 
-        List<WorkshopProjectInfoVO> result = assembler.assembleProjectList(List.of(project));
+        List<WorkshopProjectInfoResultBO> result = assembler.assembleProjectList(List.of(project));
 
         assertEquals(1, result.size());
         assertNull(result.get(0).getCoverUrl());
@@ -163,7 +163,7 @@ class WorkshopAssemblerTest {
         when(resourceService.getResourceReadUrls(List.of(300L)))
                 .thenReturn(Map.of(300L, new ResourceReadUrlGetResultBO("https://cdn/avatar.png", 1L, "a")));
 
-        List<WorkshopProjectInfoVO> result = assembler.assembleProjectList(List.of(plain, signed));
+        List<WorkshopProjectInfoResultBO> result = assembler.assembleProjectList(List.of(plain, signed));
 
         assertEquals("https://cdn/thumb.png?eo-img.resize=w/144/h/144", result.get(0).getThumbnailUrl());
         assertEquals("https://cdn/cover.png", result.get(0).getCoverUrl());
@@ -177,7 +177,7 @@ class WorkshopAssemblerTest {
 
     @Test
     void assembleTemplateList_emptyList_returnsEmptyList() {
-        List<WorkshopTaskTemplateVO> result = assembler.assembleTemplateList(Collections.emptyList(), 1L);
+        List<WorkshopTaskTemplateResultBO> result = assembler.assembleTemplateList(Collections.emptyList(), 1L);
 
         assertTrue(result.isEmpty());
         verify(taskTemplateNodeMapper, never()).selectList(any());
@@ -208,10 +208,10 @@ class WorkshopAssemblerTest {
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
         when(baseTaskMapper.selectBatchIds(List.of(200L))).thenReturn(List.of(baseTask));
 
-        List<WorkshopTaskTemplateVO> result = assembler.assembleTemplateList(List.of(template), 99L);
+        List<WorkshopTaskTemplateResultBO> result = assembler.assembleTemplateList(List.of(template), 99L);
 
         assertEquals(1, result.size());
-        WorkshopTaskTemplateVO vo = result.get(0);
+        WorkshopTaskTemplateResultBO vo = result.get(0);
         assertEquals(1L, vo.getId());
         assertEquals("漫画模板", vo.getName());
         assertEquals(1, vo.getTaskCount());
@@ -233,7 +233,7 @@ class WorkshopAssemblerTest {
 
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-        List<WorkshopTaskTemplateVO> result = assembler.assembleTemplateList(List.of(template), 77L);
+        List<WorkshopTaskTemplateResultBO> result = assembler.assembleTemplateList(List.of(template), 77L);
 
         assertEquals(true, result.get(0).getIsMine());
     }
@@ -257,7 +257,7 @@ class WorkshopAssemblerTest {
         when(taskTemplateNodeMapper.selectList(any())).thenReturn(List.of(node));
         when(baseTaskMapper.selectBatchIds(List.of(999L))).thenReturn(Collections.emptyList());
 
-        List<WorkshopTaskTemplateVO> result = assembler.assembleTemplateList(List.of(template), 1L);
+        List<WorkshopTaskTemplateResultBO> result = assembler.assembleTemplateList(List.of(template), 1L);
 
         assertEquals(1, result.get(0).getTaskCount());
         assertNull(result.get(0).getNodes().get(0).getBaseTaskName());

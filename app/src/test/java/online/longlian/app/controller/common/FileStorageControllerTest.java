@@ -3,7 +3,8 @@ package online.longlian.app.controller.common;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
-import online.longlian.app.pojo.bo.common.LocalFileReadResult;
+import online.longlian.app.pojo.bo.common.LocalFileReadResultBO;
+import online.longlian.app.pojo.bo.common.ResourceCreateResultBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
@@ -39,7 +40,7 @@ class FileStorageControllerTest {
     void shouldReturnResourceForSignedReadRequest() {
         ByteArrayResource resource = new ByteArrayResource(new byte[]{7});
         LocalFileReadDTO dto = signedDto();
-        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(resource, null));
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResultBO(resource, null));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, null);
 
@@ -57,7 +58,7 @@ class FileStorageControllerTest {
         storageProperties.setCdn(cdn);
         LocalFileReadDTO dto = signedDto();
         dto.setExpires(1_260L);
-        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(new ByteArrayResource(new byte[]{7}), null));
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResultBO(new ByteArrayResource(new byte[]{7}), null));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, 960L);
 
@@ -73,7 +74,7 @@ class FileStorageControllerTest {
         storageProperties.setCdn(cdn);
         LocalFileReadDTO dto = signedDto();
         dto.setExpires(1_260L);
-        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(new ByteArrayResource(new byte[]{7}), null));
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResultBO(new ByteArrayResource(new byte[]{7}), null));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(dto, 700L);
 
@@ -84,7 +85,7 @@ class FileStorageControllerTest {
     @Test
     void shouldSetContentDispositionWhenPresent() {
         ByteArrayResource resource = new ByteArrayResource(new byte[]{7});
-        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResult(
+        when(ingress.read(anyParams())).thenReturn(new LocalFileReadResultBO(
                 resource, "attachment; filename=\"f.pdf\"; filename*=UTF-8''f.pdf"));
 
         ResponseEntity<org.springframework.core.io.Resource> response = controller.readLocalFile(signedDto(), null);
@@ -96,12 +97,17 @@ class FileStorageControllerTest {
     @Test
     void shouldForwardUploadMetadataAndSession() {
         CreateFileReqDTO request = new CreateFileReqDTO("avatar.png", "png", 7L, "image/png", "avatar");
-        ResourceCreateVO expected = new ResourceCreateVO(1L, "upload", "avatar/1.png", StorageType.LOCAL, null);
+        ResourceCreateResultBO expected = new ResourceCreateResultBO(1L, "upload", "avatar/1.png", StorageType.LOCAL, null);
         when(resources.create(argThat(params -> params.getCreatorId().equals(5L)
                 && params.getOrgId().equals(6L)
                 && params.getFileName().equals("avatar.png")))).thenReturn(expected);
 
-        assertThat(controller.createFileUpload(request, new SessionContext(5L, 6L))).isSameAs(expected);
+        ResourceCreateVO result = controller.createFileUpload(request, new SessionContext(5L, 6L));
+
+        assertThat(result.getFileId()).isEqualTo(1L);
+        assertThat(result.getUploadUrl()).isEqualTo("upload");
+        assertThat(result.getKey()).isEqualTo("avatar/1.png");
+        assertThat(result.getStorageType()).isEqualTo(StorageType.LOCAL);
     }
 
     @Test

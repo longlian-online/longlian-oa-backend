@@ -1,12 +1,12 @@
 package online.longlian.app.service.orgadmin;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagDeleteParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagOptionBO;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagOptionBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagUpdateParamsBO;
 
 import java.util.List;
 

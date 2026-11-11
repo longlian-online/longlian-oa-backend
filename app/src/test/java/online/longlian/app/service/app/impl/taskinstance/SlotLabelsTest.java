@@ -1,6 +1,6 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

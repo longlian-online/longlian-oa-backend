@@ -9,7 +9,7 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.app.DeletionRequestInfoBO;
+import online.longlian.app.pojo.bo.app.deletion.DeletionRequestInfoBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.dto.orgadmin.DeletionRequestListDTO;
 import online.longlian.app.pojo.dto.orgadmin.DeletionRequestReviewDTO;

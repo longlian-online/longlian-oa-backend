@@ -12,18 +12,23 @@ import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.WorkshopListParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateCreateParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateListParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateNodeCreateParamsBO;
-import online.longlian.app.pojo.bo.app.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateNodeResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateUpdateParamsBO;
 import online.longlian.app.pojo.dto.app.WorkshopListDTO;
 import online.longlian.app.pojo.dto.app.WorkshopTaskTemplateCreateDTO;
 import online.longlian.app.pojo.dto.app.WorkshopTaskTemplateDTO;
 import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
+import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateNodeVO;
 import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.service.app.ProjectWorkshopService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,7 +51,7 @@ public class ProjectWorkshopController {
     public PageResultVO<WorkshopProjectInfoVO> getMyWorkshopList(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid WorkshopListDTO workshopListDTO) {
-        PageResultBO<WorkshopProjectInfoVO> resultBO = projectWorkshopService.getMyWorkshopList(
+        PageResultBO<WorkshopProjectInfoResultBO> resultBO = projectWorkshopService.getMyWorkshopList(
                 WorkshopListParamsBO.builder()
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
@@ -56,7 +61,13 @@ public class ProjectWorkshopController {
                         .sortBy(workshopListDTO.getSortBy())
                         .page(new PageParamsBO(workshopListDTO.getPageNum(), workshopListDTO.getPageSize()))
                         .build());
-        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
+
+        List<WorkshopProjectInfoVO> projectInfoVOList = resultBO.getList().stream().map(bo -> {
+            WorkshopProjectInfoVO projectInfoVO = new WorkshopProjectInfoVO();
+            BeanUtils.copyProperties(bo, projectInfoVO);
+            return projectInfoVO;
+        }).toList();
+        return new PageResultVO<>(projectInfoVOList, resultBO.getTotal());
     }
 
     @Operation(
@@ -68,7 +79,7 @@ public class ProjectWorkshopController {
     public PageResultVO<WorkshopTaskTemplateVO> getWorkshopTaskTemplateList(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @RequestBody @Valid WorkshopTaskTemplateDTO workshopTaskTemplateDTO) {
-        PageResultBO<WorkshopTaskTemplateVO> resultBO = projectWorkshopService.getWorkshopTaskTemplateList(
+        PageResultBO<WorkshopTaskTemplateResultBO> resultBO = projectWorkshopService.getWorkshopTaskTemplateList(
                 WorkshopTaskTemplateListParamsBO.builder()
                         .orgId(sessionContext.orgId())
                         .userId(sessionContext.userId())
@@ -76,7 +87,18 @@ public class ProjectWorkshopController {
                         .isMyCreated(workshopTaskTemplateDTO.getIsMyCreated())
                         .page(new PageParamsBO(workshopTaskTemplateDTO.getPageNum(), workshopTaskTemplateDTO.getPageSize()))
                         .build());
-        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
+
+        List<WorkshopTaskTemplateVO> templateVOList = resultBO.getList().stream().map(bo -> {
+            WorkshopTaskTemplateVO templateVO = new WorkshopTaskTemplateVO();
+            BeanUtils.copyProperties(bo, templateVO, "nodes");
+            templateVO.setNodes(bo.getNodes().stream().map(nodeBO -> {
+                WorkshopTaskTemplateNodeVO nodeVO = new WorkshopTaskTemplateNodeVO();
+                BeanUtils.copyProperties(nodeBO, nodeVO);
+                return nodeVO;
+            }).toList());
+            return templateVO;
+        }).toList();
+        return new PageResultVO<>(templateVOList, resultBO.getTotal());
     }
 
     @Operation(

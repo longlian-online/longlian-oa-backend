@@ -1,8 +1,8 @@
 package online.longlian.app.service.app;
 
-import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
-import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
-import online.longlian.app.pojo.vo.common.PageResultVO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 
 /**
  * 任务广场（缺人任务）服务接口。
@@ -22,5 +22,5 @@ public interface TaskPlazaService {
      * @param params 查询参数（组织、关键词、类型、排序、分页）
      * @return 按企划分组的缺人任务分页结果，total 为缺人企划数
      */
-    PageResultVO<PlazaProjectGroupVO> getTaskPlaza(TaskPlazaParamsBO params);
+    PageResultBO<PlazaProjectGroupResultBO> getTaskPlaza(TaskPlazaParamsBO params);
 }

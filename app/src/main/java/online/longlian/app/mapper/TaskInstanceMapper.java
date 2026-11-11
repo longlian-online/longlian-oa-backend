@@ -1,13 +1,13 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.MyTaskRowBO;
-import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
-import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
-import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaSearchParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadRowBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaItemStageBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaSearchParamsBO;
 import online.longlian.app.pojo.entity.TaskInstance;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

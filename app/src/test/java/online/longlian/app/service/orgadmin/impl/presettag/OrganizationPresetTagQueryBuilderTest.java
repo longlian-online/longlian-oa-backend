@@ -3,7 +3,7 @@ package online.longlian.app.service.orgadmin.impl.presettag;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagListParamsBO;
 import online.longlian.app.pojo.entity.OrganizationPresetTag;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;

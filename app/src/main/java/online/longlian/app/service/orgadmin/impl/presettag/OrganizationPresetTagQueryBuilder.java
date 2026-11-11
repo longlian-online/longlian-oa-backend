@@ -2,7 +2,7 @@ package online.longlian.app.service.orgadmin.impl.presettag;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import online.longlian.app.common.enumeration.SortDirection;
-import online.longlian.app.pojo.bo.orgadmin.OrganizationPresetTagListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.presettag.OrganizationPresetTagListParamsBO;
 import online.longlian.app.pojo.entity.OrganizationPresetTag;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

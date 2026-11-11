@@ -11,9 +11,9 @@ import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessResultBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO;
 import online.longlian.app.pojo.entity.BaseTask;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
@@ -135,7 +135,7 @@ public class ItemTaskFlowEditor {
     }
 
     /** 没有节点 id 的是新增；已有节点必须带上打开编辑时看到的修订号。 */
-    private ItemTaskFlowEditPlanner.DesiredNode toDesired(ItemTaskFlowUpdateParamsBO.Node node) {
+    private ItemTaskFlowEditPlanner.DesiredNode toDesired(ItemTaskFlowUpdateParamsBO.TaskFlowNodeParamsBO node) {
         if (node.getBaseTaskId() == null || node.getSort() == null || node.getParallelSort() == null) {
             throw new AppException(ResultCode.PARAM_ERROR, "流程位置无效");
         }
@@ -147,7 +147,7 @@ public class ItemTaskFlowEditor {
     }
 
     /** 删除同样要带修订号，避免删掉页面打开之后才被接取的任务。 */
-    private ItemTaskFlowEditPlanner.RemovedNode toRemoved(ItemTaskFlowUpdateParamsBO.Removed node) {
+    private ItemTaskFlowEditPlanner.RemovedNode toRemoved(ItemTaskFlowUpdateParamsBO.TaskFlowNodeDeleteParamsBO node) {
         if (node.getId() == null || node.getRevision() == null) {
             throw new AppException(ResultCode.PARAM_ERROR, "任务修订号不能为空");
         }

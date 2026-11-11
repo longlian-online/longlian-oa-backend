@@ -1,16 +1,16 @@
 package online.longlian.app.service.orgadmin;
 
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskChangeStatusParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskCreateParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskDeleteParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskListResultBO;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskUpdateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskDeleteParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskListParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskUpdateParamsBO;
 
 import java.util.List;
-import online.longlian.app.pojo.bo.orgadmin.BaseTaskOptionResultBO;
-import online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.BaseTaskOptionResultBO;
+import online.longlian.app.pojo.bo.orgadmin.basetask.PlazaTaskTypeOptionResultBO;
 
 /**
  * 组织管理端基础任务（原子任务）服务接口。

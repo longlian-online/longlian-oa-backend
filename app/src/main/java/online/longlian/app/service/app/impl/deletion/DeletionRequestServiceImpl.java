@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.DeletionRequestMapper;
-import online.longlian.app.pojo.bo.app.DeletionRequestInfoBO;
+import online.longlian.app.pojo.bo.app.deletion.DeletionRequestInfoBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.DeletionRequest;
 import online.longlian.app.service.app.DeletionRequestService;

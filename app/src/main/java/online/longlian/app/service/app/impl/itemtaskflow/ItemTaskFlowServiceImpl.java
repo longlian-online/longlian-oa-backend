@@ -10,14 +10,14 @@ import online.longlian.app.mapper.ItemTaskNodeMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.mapper.TaskSubmissionMapper;
-import online.longlian.app.pojo.bo.app.ItemTaskFlowUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowUpdateParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
+import online.longlian.app.pojo.bo.app.itemtaskflow.ItemTaskFlowResultBO;
 import online.longlian.app.service.app.ItemService;
 import online.longlian.app.service.app.ItemTaskFlowService;
 import online.longlian.common.enumeration.Status;
@@ -44,7 +44,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
     private final ItemService itemService;
 
     @Override
-    public ItemTaskFlowVO getItemTaskFlow(Long itemId, Long orgId) {
+    public ItemTaskFlowResultBO getItemTaskFlow(Long itemId, Long orgId) {
         Item item = itemMapper.selectById(itemId);
         if (item == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "项目不存在");
@@ -86,7 +86,7 @@ public class ItemTaskFlowServiceImpl implements ItemTaskFlowService {
                         .map(TaskSubmission::getTaskInstanceId)
                         .collect(Collectors.toSet());
 
-        return ItemTaskFlowVO.builder()
+        return ItemTaskFlowResultBO.builder()
                 .itemTitle(item.getTitle())
                 .name(flow.getName())
                 .description(flow.getDescription())
