@@ -20,7 +20,6 @@ import online.longlian.app.pojo.bo.orgadmin.OrgFileDownloadParamsBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntriesResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileEntryResultBO;
 import online.longlian.app.pojo.bo.orgadmin.OrgFileListParamsBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
@@ -102,19 +101,22 @@ class OrgFileServiceImplTest {
     }
 
     @Test
-    void shouldListProjectsFromTheDatabasePage() {
+    void shouldListPlanningsUnderAType() {
         Page<Project> page = new Page<>(1, OrgFileService.PAGE_SIZE);
         page.setTotal(2);
         page.setRecords(List.of(project(2L, "白企划"), project(1L, "阿企划")));
+        when(projectTypeMapper.selectById(2L))
+                .thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
         when(projectMapper.selectPage(any(), any())).thenReturn(page);
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+                .orgId(1L).typeId(2L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getTotal()).isEqualTo(2);
+        assertThat(result.getTypeName()).isEqualTo("漫画");
+        assertThat(result.getProjectId()).isNull();
         assertThat(result.getEntries()).extracting("name").containsExactly("白企划", "阿企划");
         assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FOLDER);
-        assertThat(result.getProjectId()).isNull();
     }
 
     @Test
@@ -171,7 +173,7 @@ class OrgFileServiceImplTest {
                 submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}")));
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).itemId(3L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+                .orgId(1L).projectId(1L).itemId(3L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getEntries()).isEmpty();
     }
@@ -277,10 +279,10 @@ class OrgFileServiceImplTest {
 
     @Test
     void shouldReturnTheSecondPageOfFolders() {
-        Page<Project> page = new Page<>(2, OrgFileService.PAGE_SIZE);
+        Page<ProjectType> page = new Page<>(2, OrgFileService.PAGE_SIZE);
         page.setTotal(51);
-        page.setRecords(List.of(project(51L, "051")));
-        when(projectMapper.selectPage(any(), any())).thenReturn(page);
+        page.setRecords(List.of(ProjectType.builder().id(51L).orgId(1L).name("051").build()));
+        when(projectTypeMapper.selectPage(any(), any())).thenReturn(page);
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
                 .orgId(1L).pageNum(2).pageSize(OrgFileService.PAGE_SIZE).build());
@@ -297,7 +299,7 @@ class OrgFileServiceImplTest {
         when(projectTypeMapper.selectPage(any(), any())).thenReturn(page);
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.type).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+                .orgId(1L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
 
         assertThat(result.getTotal()).isEqualTo(1);
         assertThat(result.getTypeId()).isNull();
@@ -311,50 +313,56 @@ class OrgFileServiceImplTest {
                 .thenReturn(ProjectType.builder().id(4L).orgId(2L).name("外组织").build());
 
         assertThatThrownBy(() -> service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.type).typeId(4L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
+                .orgId(1L).typeId(4L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
                 .isInstanceOf(AppException.class)
                 .extracting("code")
                 .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
     }
 
     @Test
-    void shouldListTypeFilesWithoutNestedFolders() {
-        when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
-        when(itemMapper.selectByProjectType(eq(1L), eq(2L), anyLong(), anyInt()))
-                .thenReturn(List.of(new OrgFileTypeItemBO(3L, "第一话", 1L, "阿企划")))
-                .thenReturn(List.of());
-        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
-                ItemTaskNode.builder().id(7L).itemId(3L).name("翻译").metaSchema(SCHEMA).sort(1).build()));
-        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
-                TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build()));
-        when(taskSubmissionMapper.selectList(any())).thenReturn(List.of(
-                submission(2L, 2, "{\"script\":{\"fileId\":\"101\"}}")));
-        when(userMapper.selectList(any())).thenReturn(List.of(User.builder().id(4L).nickname("小林").build()));
-        when(resourceService.findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L))))
-                .thenReturn(Map.of(101L, resource(101L, "第一话译稿.pdf")));
+    void shouldRejectPlanningThatBelongsToAnotherType() {
+        when(projectMapper.selectById(9L)).thenReturn(Project.builder().id(9L).orgId(1L).typeId(1L).title("小说企划").build());
 
-        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.type).typeId(2L).projectId(9L)
-                .pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
-
-        assertThat(result.getTypeName()).isEqualTo("漫画");
-        assertThat(result.getProjectId()).isNull();
-        assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FILE);
-        assertThat(result.getEntries()).extracting("name").containsExactly("第一话译稿.pdf");
-        assertThat(result.getEntries()).extracting("subtitle").containsExactly("阿企划 · 第一话");
+        assertThatThrownBy(() -> service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).typeId(2L).projectId(9L).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
     }
 
     @Test
-    void shouldLoadOnlyTheRequestedPageOfTypeFiles() {
-        when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
-        when(itemMapper.selectByProjectType(eq(1L), eq(2L), anyLong(), anyInt()))
-                .thenReturn(List.of(
-                        new OrgFileTypeItemBO(3L, "第一话", 1L, "阿企划"),
-                        new OrgFileTypeItemBO(4L, "第二话", 1L, "阿企划")))
-                .thenReturn(List.of());
+    void shouldUnionTasksFromProjectNodesWithoutReadingTaskTypes() {
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                Item.builder().id(3L).projectId(1L).title("第一话").sort(1L).build(),
+                Item.builder().id(4L).projectId(1L).title("第二话").sort(2L).build()));
         when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
-                ItemTaskNode.builder().id(7L).itemId(3L).name("翻译").metaSchema(SCHEMA).sort(1).build(),
-                ItemTaskNode.builder().id(8L).itemId(4L).name("校对").metaSchema(SCHEMA).sort(1).build()));
+                ItemTaskNode.builder().id(10L).itemId(4L).baseTaskId(11L).name("  ").sort(0).build(),
+                ItemTaskNode.builder().id(8L).itemId(4L).baseTaskId(5L).name("旧翻译").sort(2).parallelSort(1).build(),
+                ItemTaskNode.builder().id(7L).itemId(3L).baseTaskId(5L).name("翻译").sort(1).parallelSort(1).build(),
+                ItemTaskNode.builder().id(9L).itemId(3L).baseTaskId(9L).name("校对").sort(3).build()));
+
+        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.task).projectId(1L)
+                .pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
+
+        assertThat(result.getEntries()).extracting(OrgFileEntryResultBO::getName)
+                .containsExactly("未命名", "翻译", "校对");
+        assertThat(result.getEntries()).extracting(OrgFileEntryResultBO::getId)
+                .containsExactly("11", "5", "9");
+        assertThat(result.getEntries()).allMatch(entry -> entry.getKind() == OrgFileEntryKind.FOLDER);
+    }
+
+    @Test
+    void shouldPageTaskFilesAcrossItemsUsingTheNodeName() {
+        when(projectMapper.selectById(1L)).thenReturn(Project.builder().id(1L).orgId(1L).typeId(2L).title("阿企划").build());
+        when(projectTypeMapper.selectById(2L)).thenReturn(ProjectType.builder().id(2L).orgId(1L).name("漫画").build());
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                Item.builder().id(3L).projectId(1L).title("第一话").sort(1L).build(),
+                Item.builder().id(4L).projectId(1L).title("第二话").sort(2L).build()));
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
+                ItemTaskNode.builder().id(8L).itemId(4L).baseTaskId(5L).name("旧翻译").metaSchema(SCHEMA).sort(2).build(),
+                ItemTaskNode.builder().id(7L).itemId(3L).baseTaskId(5L).name("翻译").metaSchema(SCHEMA).sort(1).build()));
         when(taskInstanceMapper.selectList(any())).thenReturn(List.of(
                 TaskInstance.builder().id(8L).itemId(3L).projectId(1L).itemTaskNodeId(7L).build(),
                 TaskInstance.builder().id(9L).itemId(4L).projectId(1L).itemTaskNodeId(8L).build()));
@@ -368,30 +376,33 @@ class OrgFileServiceImplTest {
                 .thenReturn(Map.of(202L, resource(202L, "第二话译稿.pdf")));
 
         OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.type).typeId(2L)
+                .orgId(1L).view(OrgFileView.task).projectId(1L).taskId(5L)
                 .pageNum(2).pageSize(1).build());
 
+        assertThat(result.getTaskName()).isEqualTo("翻译");
+        assertThat(result.getTaskId()).isEqualTo(5L);
         assertThat(result.getTotal()).isEqualTo(2);
         assertThat(result.getEntries()).extracting("name").containsExactly("第二话译稿.pdf");
-        assertThat(result.getEntries()).extracting("subtitle").containsExactly("阿企划 · 第二话");
+        assertThat(result.getEntries()).extracting("subtitle").containsExactly("第二话");
         verify(resourceService, never()).findActivated(eq("task_submit"), eq(8L), eq(1L), eq(List.of(101L)));
     }
 
     @Test
-    void shouldListItemsAcrossPlanningsWithPlanningName() {
-        Page<Item> page = new Page<>(1, OrgFileService.PAGE_SIZE);
-        page.setTotal(1);
-        page.setRecords(List.of(Item.builder().id(10L).projectId(2L).title("第一话").build()));
-        when(itemMapper.selectPage(any(), any())).thenReturn(page);
-        when(projectMapper.selectList(any())).thenReturn(List.of(project(2L, "阿企划")));
+    void shouldRejectTaskThatNoProjectNodeUses() {
+        when(projectMapper.selectById(1L)).thenReturn(project(1L, "阿企划"));
+        when(itemMapper.selectList(any())).thenReturn(List.of(
+                Item.builder().id(3L).projectId(1L).title("第一话").sort(1L).build()));
+        when(itemTaskNodeMapper.selectList(any())).thenReturn(List.of(
+                ItemTaskNode.builder().id(7L).itemId(3L).baseTaskId(5L).name("翻译").sort(1).build()));
 
-        OrgFileEntriesResultBO result = service.list(OrgFileListParamsBO.builder()
-                .orgId(1L).view(OrgFileView.item).pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build());
-
-        assertThat(result.getProjectId()).isNull();
-        assertThat(result.getEntries()).extracting("name").containsExactly("第一话");
-        assertThat(result.getEntries()).extracting("subtitle").containsExactly("阿企划");
+        assertThatThrownBy(() -> service.list(OrgFileListParamsBO.builder()
+                .orgId(1L).view(OrgFileView.task).projectId(1L).taskId(99L)
+                .pageNum(1).pageSize(OrgFileService.PAGE_SIZE).build()))
+                .isInstanceOf(AppException.class)
+                .extracting("code")
+                .isEqualTo(ResultCode.DATA_NOT_EXIT.getCode());
     }
+
 
     @Test
     void shouldListCurrentFileOnceWhenSelectedWithItsProject() {

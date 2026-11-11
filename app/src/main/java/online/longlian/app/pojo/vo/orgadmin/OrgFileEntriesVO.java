@@ -30,6 +30,13 @@ public class OrgFileEntriesVO {
     @Schema(description = "当前项目名称")
     private String itemTitle;
 
+    @JsonLongIdString
+    @Schema(type = "string", description = "当前任务标识；任务文件夹内才有。取自项目任务节点，不是任务类型表")
+    private Long taskId;
+
+    @Schema(description = "当前任务名称")
+    private String taskName;
+
     @Schema(description = "当前文件夹的条目总数")
     private Long total;
 
