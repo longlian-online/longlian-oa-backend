@@ -3,6 +3,8 @@ package online.longlian.app.pojo.bo.app;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 public class ProjectMemberResultBO {
@@ -10,4 +12,6 @@ public class ProjectMemberResultBO {
     private String nickname;
     private String avatarUrl;
     private Boolean isCreator;
+    private LocalDateTime lastSubmittedAt;
+    private Integer completedCount;
 }

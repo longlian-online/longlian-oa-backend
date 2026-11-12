@@ -10,6 +10,7 @@ import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
+import online.longlian.app.service.app.impl.taskinstance.ProjectMemberSubmissionStats;
 import online.longlian.app.service.common.OrganizationMemberDetails;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.resource.ResourceService;
@@ -35,11 +36,13 @@ class ProjectMembersTest {
     @Mock private ProjectWorkshopMapper projectWorkshopMapper;
     @Mock private OrganizationMembershipService organizationMembershipService;
     @Mock private ResourceService resourceService;
+    @Mock private ProjectMemberSubmissionStats projectMemberSubmissionStats;
     @InjectMocks private ProjectServiceImpl service;
 
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ProjectWorkshop.class);
+        lenient().when(projectMemberSubmissionStats.forMembers(any(), any())).thenReturn(Map.of());
     }
 
     /** 关联先去重，档案过滤后分页，资源只批量加载当前页。 */
@@ -61,6 +64,8 @@ class ProjectMembersTest {
             assertThat(member.getNickname()).isEqualTo("member");
             assertThat(member.getAvatarUrl()).isEqualTo("avatar");
             assertThat(member.getIsCreator()).isFalse();
+            assertThat(member.getLastSubmittedAt()).isNull();
+            assertThat(member.getCompletedCount()).isZero();
         });
         verify(resourceService).getResourceReadUrls(List.of(12L));
         verify(resourceService, never()).getResourceReadUrl(any());
@@ -101,7 +106,7 @@ class ProjectMembersTest {
             when(projectMapper.selectById(1L)).thenReturn(project);
             assertThatThrownBy(() -> service.getProjectMembers(params(1, 12))).isInstanceOf(AppException.class);
         }
-        verifyNoInteractions(projectWorkshopMapper, organizationMembershipService, resourceService);
+        verifyNoInteractions(projectWorkshopMapper, organizationMembershipService, resourceService, projectMemberSubmissionStats);
     }
 
     private void visibleProject() {
