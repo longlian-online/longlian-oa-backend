@@ -1,7 +1,9 @@
 package online.longlian.app.common.handler;
 
+import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.core.MethodParameter;
@@ -18,10 +20,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
  * 兼容策略：若 body 已是 Result 实例（如异常处理器返回的失败结果），直接返回不做二次包装。
  */
 @ControllerAdvice(basePackages = "online.longlian.app.controller")
+@RequiredArgsConstructor
 public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
 
     /** 未标注 @ResponseMessage 时的兜底消息 */
     private static final String DEFAULT_SUCCESS_MSG = ResultCode.SUCCESS.getMsg();
+
+    private final ApiResultMetrics apiResultMetrics;
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
@@ -37,7 +42,8 @@ public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
                                    MediaType selectedContentType,
                                    Class<? extends HttpMessageConverter<?>> selectedConverterType,
                                    ServerHttpRequest request, ServerHttpResponse response) {
-        // 已是 Result 则跳过（兼容旧 Controller 和异常处理器）
+        int code = body instanceof Result<?> result ? result.getCode() : ResultCode.SUCCESS.getCode();
+        apiResultMetrics.record(request, code);
         if (body instanceof Result) {
             return body;
         }
