@@ -26,7 +26,7 @@ import online.longlian.app.pojo.dto.orgadmin.ProjectTypeUpdateDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ProjectTypeAdminVO;
 import online.longlian.app.pojo.vo.common.ProjectTypeCustomFieldVO;
-import online.longlian.app.service.orgadmin.ProjectTypeService;
+import online.longlian.app.service.orgadmin.projecttype.ProjectTypeService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

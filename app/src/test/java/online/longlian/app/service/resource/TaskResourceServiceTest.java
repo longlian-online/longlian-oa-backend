@@ -9,7 +9,7 @@ import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
-import online.longlian.app.service.app.impl.taskinstance.TaskAttachmentPresenter;
+import online.longlian.app.service.app.taskinstance.impl.TaskAttachmentPresenter;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
 import org.apache.ibatis.builder.MapperBuilderAssistant;

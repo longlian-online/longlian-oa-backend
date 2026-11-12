@@ -21,7 +21,7 @@ import online.longlian.app.pojo.bo.productrelease.ProductReleaseSaveParamsBO;
 import online.longlian.app.pojo.bo.productrelease.ProductReleaseUpdateParamsBO;
 import online.longlian.app.pojo.entity.ProductRelease;
 import online.longlian.app.pojo.entity.UserProductReleaseState;
-import online.longlian.app.service.common.LockService;
+import online.longlian.app.service.lock.LockService;
 import online.longlian.app.service.productrelease.ProductReleaseContent;
 import online.longlian.app.service.productrelease.ProductReleaseRules;
 import online.longlian.app.service.productrelease.ProductReleaseService;

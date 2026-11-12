@@ -3,7 +3,7 @@ package online.longlian.app.controller.common;
 import com.alibaba.fastjson2.support.spring6.http.converter.FastJsonHttpMessageConverter;
 import online.longlian.app.common.handler.ResultResponseBodyAdvice;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.common.impl.SystemInfoServiceImpl;
+import online.longlian.app.service.system.impl.SystemInfoServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.http.MediaType;

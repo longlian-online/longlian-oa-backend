@@ -20,7 +20,7 @@ import online.longlian.app.pojo.dto.orgadmin.OrganizationPresetFieldListDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrganizationPresetFieldUpdateDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.OrganizationPresetFieldAdminVO;
-import online.longlian.app.service.orgadmin.OrganizationPresetFieldService;
+import online.longlian.app.service.orgadmin.presetfield.OrganizationPresetFieldService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;

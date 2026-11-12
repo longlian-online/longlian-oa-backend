@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.app.impl.UserOperationLogService;
+import online.longlian.app.service.audit.UserOperationLogService;
 import online.longlian.app.mapper.ItemTaskFlowMapper;
 import online.longlian.app.pojo.entity.ItemTaskFlow;
 import online.longlian.common.enumeration.UserOperationType;

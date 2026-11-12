@@ -17,7 +17,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.OrganizationScope;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.organization.OrganizationMembershipService;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

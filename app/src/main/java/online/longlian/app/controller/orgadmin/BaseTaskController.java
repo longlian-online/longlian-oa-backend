@@ -22,7 +22,7 @@ import online.longlian.app.pojo.dto.orgadmin.BaseTaskCreateDTO;
 import online.longlian.app.pojo.dto.orgadmin.BaseTaskListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.BaseTaskVO;
-import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

@@ -36,4 +36,12 @@ public interface OneTimePasswordService {
      * @param otpId 一次性密码 ID
      */
     void useOTP(Long otpId);
+
+    /**
+     * 将仍处于待使用状态的验证码置为失效（到期时间改为当前时间）。
+     *
+     * @param otpId 一次性密码 ID
+     * @return 是否失效成功；已使用、已过期或已被并发修改时返回 false
+     */
+    boolean revokeOTP(Long otpId);
 }

@@ -20,15 +20,35 @@ longlian-oa-backend/
 
 ## Service 层
 
-| 目录 | 说明 |
-|------|------|
-| `service/user/` | 用户/会话/项目/工作坊/会话服务 |
-| `service/admin/` | 系统管理服务 |
-| `service/orgadmin/` | 组织管理服务 |
-| `service/notify/` | 通知服务（邮件） |
-| `service/resource/` | 文件存储服务 |
-| `service/scheduled/` | 定时任务日志服务 |
-| `service/common/` | 通用服务 |
+业务目录在前，实现统一放在业务目录下的 `impl/`：
+
+```text
+service/
+├── app/<业务域>/          # 用户端：session、user、project、projectworkshop、
+│                          # item、itemtaskflow、taskinstance、mytask、
+│                          # taskplaza、tasktemplate、notification、deletion
+├── app/taskstage/         # 任务阶段共享规则（SlotLabels、StageUnlockPolicy）
+├── orgadmin/<业务域>/     # 组织管理端：organization、member、basetask、presetfield、
+│                          # presettag、project、projecttype、tasktemplate、file
+├── admin/<业务域>/        # 平台管理端：account、session、organization、storage
+├── auth/                  # 令牌黑名单与刷新会话存储
+├── organization/          # 跨端组织成员能力
+├── audit/                 # 用户操作审计
+├── taskform/              # 任务表单契约与校验
+├── system/                # 系统信息
+├── lock/                  # 分布式锁封装
+├── resource/              # 文件存储与资源生命周期
+├── notify/                # 通知发送
+├── otp/                   # 验证码与邀请策略
+├── outbox/                # 事务外异步投递
+├── productrelease/        # 产品版本发布
+└── scheduled/             # 定时任务日志
+```
+
+- 每个业务域的接口放在业务目录根，实现在 `impl/`；同域的 Assembler、Handler、QueryBuilder 等辅助类放在同一个 `impl/`。
+- `app`、`orgadmin` 之外的模块没有独立 Controller，由各端接口复用，属于支撑域，不要求与 Controller 的端别一一对应。
+- 只有需要多实现或跨模块替换的组件才定义接口；单一实现的内部支撑类可以保持具体类，不为形式补接口。OTP 策略统一实现 `OTPStrategyService`。
+- `taskstage` 只放被 taskinstance、mytask、taskplaza、notification 共用的阶段计算规则，不承载业务状态。
 
 ## POJO 层
 

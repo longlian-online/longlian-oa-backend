@@ -44,7 +44,7 @@ import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberClaimedTaskItemVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberClaimedTaskVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberInfoVO;
-import online.longlian.app.service.orgadmin.OrganizationMemberService;
+import online.longlian.app.service.orgadmin.member.OrganizationMemberService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

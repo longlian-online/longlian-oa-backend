@@ -8,7 +8,7 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.vo.app.BaseTaskOptionVO;
-import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

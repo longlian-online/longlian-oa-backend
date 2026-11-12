@@ -4,7 +4,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.auth.TokenBlacklistService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.mock.mockito.SpyBean;

@@ -7,7 +7,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
 import online.longlian.app.mapper.TokenBlacklistMapper;
-import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.auth.TokenBlacklistService;
 import online.longlian.common.enumeration.TokenType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

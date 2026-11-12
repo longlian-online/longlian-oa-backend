@@ -16,7 +16,7 @@ import online.longlian.app.pojo.vo.admin.StorageCategoryStatsVO;
 import online.longlian.app.pojo.vo.admin.StorageStateStatsVO;
 import online.longlian.app.pojo.vo.admin.StorageStatsVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.admin.StorageStatsService;
+import online.longlian.app.service.admin.storage.StorageStatsService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

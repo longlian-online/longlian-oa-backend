@@ -26,7 +26,7 @@ import online.longlian.app.pojo.vo.orgadmin.OrgFileBatchFileVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileDownloadVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntriesVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgFileEntryVO;
-import online.longlian.app.service.orgadmin.OrgFileService;
+import online.longlian.app.service.orgadmin.file.OrgFileService;
 import online.longlian.common.enumeration.OrgFileView;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;

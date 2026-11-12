@@ -20,7 +20,7 @@ import online.longlian.app.pojo.dto.orgadmin.OrganizationPresetTagListDTO;
 import online.longlian.app.pojo.dto.orgadmin.OrganizationPresetTagUpdateDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.OrganizationPresetTagAdminVO;
-import online.longlian.app.service.orgadmin.OrganizationPresetTagService;
+import online.longlian.app.service.orgadmin.presettag.OrganizationPresetTagService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;

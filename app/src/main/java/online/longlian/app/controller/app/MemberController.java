@@ -8,7 +8,7 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.vo.app.MemberOptionVO;
-import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.organization.OrganizationMembershipService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

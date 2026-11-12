@@ -13,8 +13,8 @@ import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
-import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.service.orgadmin.TaskTemplateService;
+import online.longlian.app.service.orgadmin.member.OrganizationMemberService;
+import online.longlian.app.service.orgadmin.tasktemplate.TaskTemplateService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -6,10 +6,10 @@ import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
 import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
-import online.longlian.app.service.app.MyTaskService;
-import online.longlian.app.service.app.TaskInstanceService;
-import online.longlian.app.service.app.TaskPlazaService;
-import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.service.app.mytask.MyTaskService;
+import online.longlian.app.service.app.taskinstance.TaskInstanceService;
+import online.longlian.app.service.app.taskplaza.TaskPlazaService;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;

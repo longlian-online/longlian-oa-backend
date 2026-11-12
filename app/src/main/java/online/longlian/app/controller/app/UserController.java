@@ -36,7 +36,7 @@ import online.longlian.app.pojo.vo.app.UserOrgSwitchVO;
 import online.longlian.app.pojo.vo.app.InviteInfoVO;
 import online.longlian.app.pojo.vo.app.UserInfoVO;
 import online.longlian.app.pojo.vo.app.UserConfigVO;
-import online.longlian.app.service.app.UserService;
+import online.longlian.app.service.app.user.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

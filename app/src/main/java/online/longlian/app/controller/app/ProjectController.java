@@ -25,7 +25,7 @@ import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
-import online.longlian.app.service.app.DeletionRequestService;
+import online.longlian.app.service.app.deletion.DeletionRequestService;
 import online.longlian.app.pojo.dto.app.ProjectCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectListDTO;
 import online.longlian.app.pojo.dto.app.ProjectUpdateDTO;
@@ -35,7 +35,7 @@ import online.longlian.app.pojo.vo.app.ProjectInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.common.ProjectTypeCustomFieldVO;
-import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.service.app.project.ProjectService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

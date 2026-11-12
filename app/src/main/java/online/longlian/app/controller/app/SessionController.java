@@ -23,7 +23,7 @@ import online.longlian.app.pojo.dto.app.RefreshSessionDTO;
 import online.longlian.app.pojo.vo.app.LoginVO;
 import online.longlian.app.pojo.vo.app.SessionRefreshVO;
 import online.longlian.app.service.otp.OTPServiceFactory;
-import online.longlian.app.service.app.SessionService;
+import online.longlian.app.service.app.session.SessionService;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;

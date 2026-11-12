@@ -17,7 +17,7 @@ import online.longlian.app.pojo.dto.app.ItemTaskFlowRemovedNodeDTO;
 import online.longlian.app.pojo.dto.app.ItemTaskFlowUpdateDTO;
 import online.longlian.app.pojo.vo.app.ItemTaskFlowVO;
 import online.longlian.app.pojo.vo.app.ItemTaskNodeVO;
-import online.longlian.app.service.app.ItemTaskFlowService;
+import online.longlian.app.service.app.itemtaskflow.ItemTaskFlowService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

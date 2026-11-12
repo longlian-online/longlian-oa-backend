@@ -27,7 +27,7 @@ import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
 import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateNodeVO;
 import online.longlian.app.pojo.vo.app.WorkshopTaskTemplateVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.app.ProjectWorkshopService;
+import online.longlian.app.service.app.projectworkshop.ProjectWorkshopService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

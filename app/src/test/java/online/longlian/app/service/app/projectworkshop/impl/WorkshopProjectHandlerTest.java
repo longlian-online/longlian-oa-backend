@@ -1,0 +1,147 @@
+package online.longlian.app.service.app.projectworkshop.impl;
+
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.ProjectTypeMapper;
+import online.longlian.app.mapper.TaskTemplateMapper;
+import online.longlian.app.mapper.TaskTemplateNodeMapper;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.entity.ProjectType;
+import online.longlian.app.pojo.entity.TaskTemplate;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
+import online.longlian.common.enumeration.TaskTemplateScope;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Clock;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class WorkshopProjectHandlerTest {
+
+    @Mock
+    private ProjectTypeMapper projectTypeMapper;
+    @Mock
+    private BaseTaskService baseTaskService;
+    @Mock
+    private TaskTemplateMapper taskTemplateMapper;
+    @Mock
+    private TaskTemplateNodeMapper taskTemplateNodeMapper;
+
+    private WorkshopProjectHandler handler;
+
+    @BeforeEach
+    void setUp() {
+        handler = new WorkshopProjectHandler(
+                projectTypeMapper, taskTemplateMapper, baseTaskService, taskTemplateNodeMapper, Clock.systemUTC());
+    }
+
+    @Test
+    void resolveTypeId_blankProjectType_returnsNoFilter() {
+        assertThat(handler.resolveTypeId(1L, "  ")).isNull();
+
+        verify(projectTypeMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void resolveTypeId_enabledProjectType_returnsTypeId() {
+        when(projectTypeMapper.selectOne(any())).thenReturn(ProjectType.builder().id(10L).build());
+
+        assertThat(handler.resolveTypeId(1L, "  漫画  ")).isEqualTo(10L);
+    }
+
+    @Test
+    void resolveTypeId_unknownOrDisabledProjectType_throwsParameterError() {
+        when(projectTypeMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> handler.resolveTypeId(1L, "不存在的类型"))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode()));
+    }
+
+    @Test
+    void updateWorkshopTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), TaskTemplate.class);
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L)
+                .orgId(4L)
+                .scope(TaskTemplateScope.PERSONAL)
+                .creatorId(3L)
+                .build());
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(4L), any());
+
+        assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
+                .templateId(8L)
+                .orgId(1L)
+                .userId(3L)
+                .name("修订模板")
+                .description("说明")
+                .nodes(List.of(
+                        node(20L, 1),
+                        node(10L, 2)))
+                .build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                });
+
+        verifyNoInteractions(taskTemplateNodeMapper);
+    }
+
+    @Test
+    void updateWorkshopTaskTemplate_organizationScope_rejects() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(4L).scope(TaskTemplateScope.ORGANIZATION).creatorId(3L).build());
+
+        assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).userId(3L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMessage()).contains("仅可编辑个人模板");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
+    @Test
+    void updateWorkshopTaskTemplate_otherCreator_rejects() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(4L).scope(TaskTemplateScope.PERSONAL).creatorId(9L).build());
+
+        assertThatThrownBy(() -> handler.updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO.builder()
+                .templateId(8L).orgId(1L).userId(3L).name("修订模板").description("说明")
+                .nodes(List.of(node(10L, 1))).build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
+                    assertThat(ex.getMessage()).contains("仅创建者可编辑该模板");
+                });
+
+        verifyNoInteractions(baseTaskService, taskTemplateNodeMapper);
+    }
+
+    private static WorkshopTaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {
+        return WorkshopTaskTemplateNodeCreateParamsBO.builder()
+                .baseTaskId(baseTaskId)
+                .sort(sort)
+                .parallelSort(1)
+                .build();
+    }
+}

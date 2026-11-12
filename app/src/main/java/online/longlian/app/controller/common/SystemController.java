@@ -8,7 +8,7 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.pojo.bo.common.SystemInfoResultBO;
 import online.longlian.app.pojo.vo.common.SystemInfoVO;
-import online.longlian.app.service.common.SystemInfoService;
+import online.longlian.app.service.system.SystemInfoService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

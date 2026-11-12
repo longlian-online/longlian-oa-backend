@@ -107,6 +107,17 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
         }
     }
 
+    @Override
+    public boolean revokeOTP(Long otpId) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        int rows = oneTimePasswordMapper.update(null, new LambdaUpdateWrapper<OneTimePassword>()
+                .eq(OneTimePassword::getId, otpId)
+                .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
+                .set(OneTimePassword::getExpiredAt, now)
+                .set(OneTimePassword::getUpdatedAt, now));
+        return rows > 0;
+    }
+
     private boolean isFinalUse(OneTimePassword oneTimePassword) {
         int useCount = oneTimePassword.getUseCount() == null ? 0 : oneTimePassword.getUseCount();
         return oneTimePassword.getMaxUses() != null && useCount + 1 >= oneTimePassword.getMaxUses();

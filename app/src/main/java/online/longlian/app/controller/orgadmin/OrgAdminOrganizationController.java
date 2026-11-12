@@ -13,7 +13,7 @@ import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminGetOrganization
 import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminUpdateOrganizationInfoParamsBO;
 import online.longlian.app.pojo.dto.orgadmin.OrgAdminUpdateOrganizationInfoDTO;
 import online.longlian.app.pojo.vo.orgadmin.OrgAdminOrganizationInfoVO;
-import online.longlian.app.service.orgadmin.OrgAdminOrganizationService;
+import online.longlian.app.service.orgadmin.organization.OrgAdminOrganizationService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;

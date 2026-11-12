@@ -18,7 +18,7 @@ import online.longlian.app.pojo.bo.app.project.ProjectAttachmentListParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectAttachmentCreateDTO;
 import online.longlian.app.pojo.vo.app.ProjectAttachmentDownloadVO;
 import online.longlian.app.pojo.vo.app.ProjectAttachmentVO;
-import online.longlian.app.service.app.ProjectAttachmentService;
+import online.longlian.app.service.app.project.ProjectAttachmentService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

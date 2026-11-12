@@ -15,7 +15,7 @@ import online.longlian.app.pojo.dto.orgadmin.DeletionRequestListDTO;
 import online.longlian.app.pojo.dto.orgadmin.DeletionRequestReviewDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.DeletionRequestInfoVO;
-import online.longlian.app.service.app.DeletionRequestService;
+import online.longlian.app.service.app.deletion.DeletionRequestService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;

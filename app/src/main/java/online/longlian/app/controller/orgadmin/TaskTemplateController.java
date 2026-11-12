@@ -28,7 +28,7 @@ import online.longlian.app.pojo.vo.orgadmin.TaskTemplateDetailVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListNodeVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateNodeVO;
-import online.longlian.app.service.orgadmin.TaskTemplateService;
+import online.longlian.app.service.orgadmin.tasktemplate.TaskTemplateService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
