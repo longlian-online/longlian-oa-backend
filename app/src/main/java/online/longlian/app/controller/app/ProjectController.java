@@ -25,7 +25,7 @@ import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
-import online.longlian.app.service.app.deletion.DeletionRequestService;
+import online.longlian.app.service.deletion.DeletionRequestService;
 import online.longlian.app.pojo.dto.app.ProjectCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectListDTO;
 import online.longlian.app.pojo.dto.app.ProjectUpdateDTO;

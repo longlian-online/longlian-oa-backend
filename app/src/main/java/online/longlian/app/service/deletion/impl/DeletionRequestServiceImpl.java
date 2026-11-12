@@ -1,4 +1,4 @@
-package online.longlian.app.service.app.deletion.impl;
+package online.longlian.app.service.deletion.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -7,10 +7,10 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.DeletionRequestMapper;
-import online.longlian.app.pojo.bo.app.deletion.DeletionRequestInfoBO;
+import online.longlian.app.pojo.bo.deletion.DeletionRequestInfoBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.entity.DeletionRequest;
-import online.longlian.app.service.app.deletion.DeletionRequestService;
+import online.longlian.app.service.deletion.DeletionRequestService;
 import online.longlian.app.service.app.item.ItemService;
 import online.longlian.app.service.app.project.ProjectService;
 import online.longlian.app.service.app.user.UserService;

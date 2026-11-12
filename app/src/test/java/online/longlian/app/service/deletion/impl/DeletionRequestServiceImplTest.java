@@ -1,4 +1,4 @@
-package online.longlian.app.service.app.deletion.impl;
+package online.longlian.app.service.deletion.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;

@@ -26,7 +26,7 @@ longlian-oa-backend/
 service/
 ├── app/<业务域>/          # 用户端：session、user、project、projectworkshop、
 │                          # item、itemtaskflow、taskinstance、mytask、
-│                          # taskplaza、tasktemplate、notification、deletion
+│                          # taskplaza、tasktemplate、notification
 ├── app/taskstage/         # 任务阶段共享规则（SlotLabels、StageUnlockPolicy）
 ├── orgadmin/<业务域>/     # 组织管理端：organization、member、basetask、presetfield、
 │                          # presettag、project、projecttype、tasktemplate、file
@@ -37,6 +37,7 @@ service/
 ├── taskform/              # 任务表单契约与校验
 ├── system/                # 系统信息
 ├── lock/                  # 分布式锁封装
+├── deletion/              # 删除申请（用户端发起、组织管理端审核）
 ├── resource/              # 文件存储与资源生命周期
 ├── notify/                # 通知发送
 ├── otp/                   # 验证码与邀请策略
@@ -46,9 +47,9 @@ service/
 ```
 
 - 每个业务域的接口放在业务目录根，实现在 `impl/`；同域的 Assembler、Handler、QueryBuilder 等辅助类放在同一个 `impl/`。
-- `app`、`orgadmin` 之外的模块没有独立 Controller，由各端接口复用，属于支撑域，不要求与 Controller 的端别一一对应。
+- `app`、`orgadmin` 之外的模块没有独立 Controller，由各端接口复用，属于支撑域，不要求与 Controller 的端别一一对应。同时被多个端别调用的服务（如 `deletion` 用户端发起 + 组织管理端审核、`productrelease` 平台管理 + 用户查看）放在顶层业务域，不放任一端别包下。
 - 只有需要多实现或跨模块替换的组件才定义接口；单一实现的内部支撑类可以保持具体类，不为形式补接口。OTP 策略统一实现 `OTPStrategyService`。
-- `taskstage` 只放被 taskinstance、mytask、taskplaza、notification 共用的阶段计算规则，不承载业务状态。
+- `taskstage` 只放被 taskinstance、mytask、taskplaza、notification 共用的阶段计算规则，不承载业务状态，该域不设 `impl/`。
 
 ## POJO 层
 
@@ -81,8 +82,7 @@ pojo/
     │   ├── taskplaza/      # 任务广场查询及分组结果
     │   ├── mytask/         # 本人待办及成员已接取任务负载
     │   ├── tasktemplate/   # 任务模板选项及工坊模板维护
-    │   ├── notification/   # 通知创建、来源解析和已读状态
-    │   └── deletion/       # 删除申请
+    │   └── notification/   # 通知创建、来源解析和已读状态
     ├── orgadmin/           # 组织管理业务对象
     │   ├── organization/   # 组织信息读取和编辑
     │   ├── member/         # 成员、入组申请、邀请码和提交统计
@@ -94,6 +94,7 @@ pojo/
     │   ├── presettag/      # 组织预设标签
     │   └── file/           # 组织文件列表、展开、下载和废弃
     ├── productrelease/     # 跨端产品发布业务对象
+    ├── deletion/           # 跨端删除申请（用户端发起、组织管理端审核）
     └── common/             # 跨端共享对象，含分页、组织成员、资源、
                             # 会话、验证码、调度定义及任务表单
 ```

@@ -1,4 +1,4 @@
-package online.longlian.app.pojo.bo.app.deletion;
+package online.longlian.app.pojo.bo.deletion;
 
 import lombok.Builder;
 import lombok.Data;

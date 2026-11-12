@@ -1,6 +1,6 @@
-package online.longlian.app.service.app.deletion;
+package online.longlian.app.service.deletion;
 
-import online.longlian.app.pojo.bo.app.deletion.DeletionRequestInfoBO;
+import online.longlian.app.pojo.bo.deletion.DeletionRequestInfoBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.common.enumeration.DeletionRequestStatus;
 
