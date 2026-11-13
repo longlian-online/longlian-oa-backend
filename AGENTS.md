@@ -108,7 +108,7 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 | JWT 黑名单 | 登出时 JWT 加入 MariaDB 黑名单表 `token_blacklist` (`TokenBlacklistService`)，按 `expired_at` 实现 TTL 过期 |
 | 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
-| 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点 |
+| 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点；API 结果计数是 `ApiResultMetrics`（`app.result`） |
 | 定时任务 | `ScheduledTask` 接口定义任务，`ScheduledTaskEngine` 调度引擎（Spring Cron），手动触发通过 `admin/ScheduledTaskController` |
 | 分布式锁 | `RedissonConfig` 提供 `RedissonClient`，`DistributedLockService` 和 `LockService` 封装业务锁 |
 
