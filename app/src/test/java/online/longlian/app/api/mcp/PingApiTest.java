@@ -49,15 +49,20 @@ public class PingApiTest extends BaseApiTest {
         sessions.add(new Session(token, response.header("Mcp-Session-Id"), PROTOCOL_VERSION));
     }
 
-    // 列表只能暴露业务工具 ping，且 schema 不能要求组织或其他参数。
+    // ping 保持无参；任务工具上线后也不能混入正式提交或管理操作。
     @Test
-    void shouldListOnlyPingWithNoArguments() {
+    void shouldListToolsAndKeepPingWithoutArguments() {
         Session session = createSession();
         JSONObject result = rpcResponse(send(session, 2, "tools/list", Map.of()), 2)
                 .getJSONObject("result");
 
-        assertThat(result.getJSONArray("tools")).hasSize(1);
-        JSONObject tool = result.getJSONArray("tools").getJSONObject(0);
+        assertThat(result.getJSONArray("tools").stream()
+                .map(value -> ((JSONObject) value).getString("name")))
+                .containsExactlyInAnyOrder("ping", "find_projects", "list_project_items", "get_project_tasks",
+                        "get_task", "claim_task", "get_task_file_url", "create_task_upload", "save_task_draft",
+                        "list_my_tasks", "list_claimable_tasks", "abandon_task");
+        JSONObject tool = result.getJSONArray("tools").stream().map(value -> (JSONObject) value)
+                .filter(value -> "ping".equals(value.getString("name"))).findFirst().orElseThrow();
         assertThat(tool.getString("name")).isEqualTo("ping");
         JSONObject schema = tool.getJSONObject("inputSchema");
         assertThat(schema.getString("type")).isEqualTo("object");
