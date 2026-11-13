@@ -1,15 +1,21 @@
 package online.longlian.app.common.handler;
 
 import com.alibaba.fastjson2.JSON;
+import io.opentelemetry.api.OpenTelemetry;
 import online.longlian.app.common.annotation.NotWrap;
 import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.metrics.ApiResultMetrics;
+import online.longlian.app.common.metrics.ResultMetricCapture;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.ProjectStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
+import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.servlet.HandlerMapping;
 
 import java.lang.reflect.Method;
 
@@ -17,7 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ResultResponseBodyAdviceTest {
 
-    private final ResultResponseBodyAdvice advice = new ResultResponseBodyAdvice();
+    private final ResultResponseBodyAdvice advice =
+            new ResultResponseBodyAdvice(new ApiResultMetrics(OpenTelemetry.noop()));
 
     @Test
     void shouldWrapValueWithAnnotatedMessage() throws Exception {
@@ -51,6 +58,36 @@ class ResultResponseBodyAdviceTest {
 
         assertThat(result).isSameAs(existing);
     }
+
+    @Test
+    void shouldRecordExistingFailureCodeAndRouteTemplate() throws Exception {
+        try (ResultMetricCapture capture = ResultMetricCapture.open()) {
+            ResultResponseBodyAdvice recording = new ResultResponseBodyAdvice(capture.metrics());
+            MockHttpServletRequest servletRequest = new MockHttpServletRequest("GET", "/app/projects/99");
+            servletRequest.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/app/projects/{projectId}");
+            Result<Void> existing = Result.fail(ResultCode.FAIL);
+
+            Object result = recording.beforeBodyWrite(existing, methodParameter("empty"), MediaType.APPLICATION_JSON,
+                    null, new ServletServerHttpRequest(servletRequest), null);
+
+            assertThat(result).isSameAs(existing);
+            assertThat(capture.count(ResultCode.FAIL.getCode(), "/app/projects/{projectId}")).isEqualTo(1);
+            assertThat(capture.count(ResultCode.FAIL.getCode(), "/app/projects/99")).isZero();
+        }
+    }
+
+    @Test
+    void shouldRecordSuccessWhenWrapping() throws Exception {
+        try (ResultMetricCapture capture = ResultMetricCapture.open()) {
+            ResultResponseBodyAdvice recording = new ResultResponseBodyAdvice(capture.metrics());
+
+            recording.beforeBodyWrite("完成", methodParameter("message"), MediaType.APPLICATION_JSON,
+                    null, null, null);
+
+            assertThat(capture.count(ResultCode.SUCCESS.getCode(), ApiResultMetrics.UNMATCHED_ROUTE)).isEqualTo(1);
+        }
+    }
+
 
     @Test
     void shouldSkipNotWrapEndpoint() throws Exception {
@@ -89,6 +126,7 @@ class ResultResponseBodyAdviceTest {
             return "raw";
         }
     }
+
 
     private static class SerializationFixture {
         @JsonLongIdString

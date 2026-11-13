@@ -1,7 +1,9 @@
 package online.longlian.app.controller.common;
 
 import com.alibaba.fastjson2.support.spring6.http.converter.FastJsonHttpMessageConverter;
+import io.opentelemetry.api.OpenTelemetry;
 import online.longlian.app.common.handler.ResultResponseBodyAdvice;
+import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.service.common.impl.SystemInfoServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -33,7 +35,7 @@ class SystemControllerTest {
         var converter = new FastJsonHttpMessageConverter();
         converter.setSupportedMediaTypes(List.of(MediaType.APPLICATION_JSON));
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new SystemController(service))
-                .setControllerAdvice(new ResultResponseBodyAdvice())
+                .setControllerAdvice(new ResultResponseBodyAdvice(new ApiResultMetrics(OpenTelemetry.noop())))
                 .setMessageConverters(converter)
                 .build();
 
