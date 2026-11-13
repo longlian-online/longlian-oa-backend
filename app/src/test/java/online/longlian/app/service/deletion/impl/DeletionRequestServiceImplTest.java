@@ -9,7 +9,7 @@ import online.longlian.app.pojo.entity.DeletionRequest;
 import online.longlian.app.service.app.item.ItemService;
 import online.longlian.app.service.app.project.ProjectService;
 import online.longlian.app.service.app.user.UserService;
-import online.longlian.app.service.app.notification.impl.AdminReviewNotificationPublisher;
+import online.longlian.app.service.app.notification.AdminReviewNotificationPublisher;
 import online.longlian.common.enumeration.DeletionRequestStatus;
 import online.longlian.common.enumeration.DeletionTargetType;
 import online.longlian.common.enumeration.InboxNotificationKind;

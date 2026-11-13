@@ -17,42 +17,7 @@
 
 ## 包结构
 
-```
-app/src/main/java/online/longlian/app/
-├── controller/
-│   ├── admin/           # 管理端接口
-│   ├── app/             # 用户端接口
-│   ├── orgadmin/        # 组织管理端接口
-│   └── common/          # 通用接口（文件上传等）
-├── service/
-│   ├── user/            # 用户/组织/项目/工作坊/会话服务
-│   ├── admin/           # 系统管理服务
-│   ├── notify/          # 通知服务（邮件等）
-│   ├── resource/        # 文件存储服务
-│   ├── scheduled/       # 定时任务服务
-│   └── common/          # 通用服务
-├── scheduled/           # 定时任务调度核心（接口+引擎+任务实现）
-│   ├── ScheduledTask.java      # 任务接口
-│   ├── ScheduledTaskEngine.java # 调度引擎（实现 ApplicationRunner）
-│   └── task/                   # 任务实现（如 HeartbeatTask）
-├── mapper/              # MyBatis Mapper 接口 + XML
-├── pojo/
-│   ├── entity/          # 数据库实体（与表一一对应）
-│   ├── dto/             # 请求体 DTO（按 admin/app/orgadmin 分包）
-│   ├── vo/              # 响应体 VO（按 admin/app/orgadmin 分包）
-│   └── bo/              # 业务对象（多入参时用于 service 层传参）
-└── common/
-    ├── config/          # Spring 配置类
-    ├── constants/       # 常量定义
-    ├── enumeration/     # 枚举类
-    ├── exception/       # 自定义异常 AppException
-    ├── filter/          # JwtAuthenticationFilter（核心鉴权）, TraceIdFilter
-    ├── handler/         # GlobalExceptionHandler, 认证/授权失败处理器
-    ├── properties/      # @ConfigurationProperties 配置类
-    ├── result/          # Result<T>（通用返回体）, ResultCode
-    ├── security/        # 认证 Provider, UserDetailsService 实现, Token 类
-    └── util/            # 工具类（JWT, 邮件, Redis, 随机码等）
-```
+完整目录与各层职责见 [`docs/structure.md`](docs/structure.md)。Controller 按端别组织，Service 按端别与业务域组织，跨端业务位于 Service 顶层；Mapper、POJO 与公共基础设施按各自职责分层。
 
 ## 分层架构约定
 
@@ -63,7 +28,7 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface)（优先
 ```
 
 - Controller 只做参数提取和调用 Service，不做业务逻辑
-- Service 接口与实现分离，impl 子包存放实现
+- 有接口与实现分离的 Service，接口在业务域根目录、实现在 impl 子包；直接提供能力的具体类可以位于域根
 - Service 层使用 MyBatis Plus 的 `ServiceImpl<Mapper, Entity>` 基类。Service 只处理本领域，跨模块调用对应 Service，不直接使用其他领域的 Mapper。详细规则见 [`docs/standard.md`](docs/standard.md) 的「Service」章节。
 - Mapper 接口继承 MyBatis Plus 的 `BaseMapper<Entity>`；查询优先在 Java 中使用 `LambdaQueryWrapper`，常规查询不另写 SQL 注解或 XML。仅在 Wrapper 无法清晰表达所需 SQL 或有明确性能需求时使用注解/XML，并说明原因；XML 文件同名放在 `resources/mapper/` 下。详细规则见 [`docs/standard.md`](docs/standard.md) 的「Mapper」章节。
 

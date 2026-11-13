@@ -1,4 +1,6 @@
 package online.longlian.app.service.app.taskinstance.impl;
+
+import online.longlian.app.service.organization.MemberSubmissionStatisticsService;
 import online.longlian.app.service.app.taskstage.StageUnlockPolicy;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -42,7 +44,7 @@ public class TaskInstanceCommandHandler {
     private final TaskInstanceMapper taskInstanceMapper;
     private final TaskSubmissionMapper taskSubmissionMapper;
     private final ItemTaskNodeMapper itemTaskNodeMapper;
-    private final MemberSubmitCountHandler memberSubmitCountHandler;
+    private final MemberSubmissionStatisticsService memberSubmissionStatisticsService;
     private final Clock clock;
     private final TaskFormService taskFormService;
     private final ResourceService resourceService;
@@ -167,7 +169,7 @@ public class TaskInstanceCommandHandler {
         markSubmitted(instance, userId, now, now, TaskInstanceStatus.CLAIMED, false);
         TaskSubmission submission = insertSubmission(instance, userId, validated.serialize(), now, now);
         clearDraft(instance);
-        memberSubmitCountHandler.incrementSubmitCount(userId, instance.getProjectId());
+        memberSubmissionStatisticsService.incrementSubmitCount(userId, instance.getProjectId());
         return new TaskInstanceSubmitResultBO(submission.getId(), now, beforeNodes);
     }
 
@@ -270,9 +272,9 @@ public class TaskInstanceCommandHandler {
                 instance, submitterId, validated.serialize(), submittedAt, updatedAt);
         clearDraft(instance);
         if (claimAndAssign) {
-            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId(), submittedAt);
+            memberSubmissionStatisticsService.incrementSubmitCount(submitterId, instance.getProjectId(), submittedAt);
         } else {
-            memberSubmitCountHandler.incrementSubmitCount(submitterId, instance.getProjectId());
+            memberSubmissionStatisticsService.incrementSubmitCount(submitterId, instance.getProjectId());
         }
         return new TaskInstanceSubmitResultBO(submission.getId(),
                 claimAndAssign ? updatedAt : submission.getCreatedAt(), beforeNodes);
@@ -358,7 +360,7 @@ public class TaskInstanceCommandHandler {
                         .set(TaskSubmission::getStatus, TaskSubmissionStatus.RESET)
                         .set(TaskSubmission::getUpdatedAt, now));
 
-        memberSubmitCountHandler.revertSubmitCount(userId, instance.getProjectId());
+        memberSubmissionStatisticsService.revertSubmitCount(userId, instance.getProjectId());
     }
 
 
@@ -431,7 +433,7 @@ public class TaskInstanceCommandHandler {
         if (submissionUpdated != 1) {
             throw new AppException(ResultCode.OPERATION_FAIL, "当前提交状态已变更，请刷新后重试");
         }
-        memberSubmitCountHandler.revertSubmitCount(currentSubmission.getSubmitterId(), instance.getProjectId());
+        memberSubmissionStatisticsService.revertSubmitCount(currentSubmission.getSubmitterId(), instance.getProjectId());
         return new TaskInstanceRejectResultBO(currentSubmission.getId(), now);
     }
 

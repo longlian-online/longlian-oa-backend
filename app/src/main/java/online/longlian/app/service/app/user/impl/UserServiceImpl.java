@@ -43,7 +43,7 @@ import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.auth.TokenBlacklistService;
 import online.longlian.app.service.app.session.SessionService;
 import online.longlian.app.service.app.user.UserService;
-import online.longlian.app.service.app.notification.impl.AdminReviewNotificationPublisher;
+import online.longlian.app.service.app.notification.AdminReviewNotificationPublisher;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.ApplicationType;

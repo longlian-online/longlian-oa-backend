@@ -1,5 +1,6 @@
 package online.longlian.app.service.app.taskinstance.impl;
 
+
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
@@ -11,6 +12,7 @@ import online.longlian.app.pojo.entity.TaskSubmission;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.bo.common.ResourceBindBatchParamsBO;
+import online.longlian.app.service.organization.MemberSubmissionStatisticsService;
 import online.longlian.app.service.taskform.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -48,7 +50,7 @@ class TaskInstanceCommandHandlerTest {
     @Mock
     private ItemTaskNodeMapper itemTaskNodeMapper;
     @Mock
-    private MemberSubmitCountHandler memberSubmitCountHandler;
+    private MemberSubmissionStatisticsService memberSubmissionStatisticsService;
     @Mock
     private ResourceService resourceService;
 
@@ -61,7 +63,7 @@ class TaskInstanceCommandHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskSubmission.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), ItemTaskNode.class);
         handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper,
-                itemTaskNodeMapper, memberSubmitCountHandler, clock, new TaskFormService(), resourceService);
+                itemTaskNodeMapper, memberSubmissionStatisticsService, clock, new TaskFormService(), resourceService);
         lenient().when(taskInstanceMapper.selectItemStageNodeStatuses(anyList())).thenReturn(List.of());
     }
 
@@ -226,7 +228,7 @@ class TaskInstanceCommandHandlerTest {
         handler.submit(instance, 10L, 5L, Map.of());
 
         verify(taskSubmissionMapper).insert(any(TaskSubmission.class));
-        verify(memberSubmitCountHandler).incrementSubmitCount(10L, 2L);
+        verify(memberSubmissionStatisticsService).incrementSubmitCount(10L, 2L);
         assertRevisionIncrement(TaskInstanceStatus.CLAIMED);
     }
 
@@ -255,7 +257,7 @@ class TaskInstanceCommandHandlerTest {
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of()))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining("请先完成前置阶段");
-        verifyNoInteractions(resourceService, taskSubmissionMapper, memberSubmitCountHandler);
+        verifyNoInteractions(resourceService, taskSubmissionMapper, memberSubmissionStatisticsService);
         verify(taskInstanceMapper, never()).update(isNull(), any());
     }
 
@@ -278,14 +280,14 @@ class TaskInstanceCommandHandlerTest {
         handler.submit(instance, 10L, 5L, Map.of());
 
         verify(taskSubmissionMapper).insert(any(TaskSubmission.class));
-        verify(memberSubmitCountHandler).incrementSubmitCount(10L, 2L);
+        verify(memberSubmissionStatisticsService).incrementSubmitCount(10L, 2L);
     }
 
     @Test
     void shouldRejectWrongSubmitterBeforeParsingOrBinding() {
         TaskInstance instance = TaskInstance.builder().revision(0L).id(1L).status(TaskInstanceStatus.CLAIMED).assigneeId(20L).build();
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of())).isInstanceOf(AppException.class);
-        verifyNoInteractions(itemTaskNodeMapper, resourceService, taskSubmissionMapper, memberSubmitCountHandler);
+        verifyNoInteractions(itemTaskNodeMapper, resourceService, taskSubmissionMapper, memberSubmissionStatisticsService);
         verify(taskInstanceMapper, never()).update(isNull(), any());
     }
 
@@ -296,7 +298,7 @@ class TaskInstanceCommandHandlerTest {
         when(itemTaskNodeMapper.selectById(4L)).thenReturn(ItemTaskNode.builder().sort(1).metaSchema("[]").build());
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of("unknown", "value")))
                 .isInstanceOf(AppException.class);
-        verifyNoInteractions(resourceService, taskSubmissionMapper, memberSubmitCountHandler);
+        verifyNoInteractions(resourceService, taskSubmissionMapper, memberSubmissionStatisticsService);
         verify(taskInstanceMapper, never()).update(isNull(), any());
     }
 
@@ -311,7 +313,7 @@ class TaskInstanceCommandHandlerTest {
 
         handler.submit(instance, 10L, 5L, Map.of("file", Map.of("fileId", "9")));
 
-        org.mockito.InOrder order = inOrder(resourceService, taskInstanceMapper, taskSubmissionMapper, memberSubmitCountHandler);
+        org.mockito.InOrder order = inOrder(resourceService, taskInstanceMapper, taskSubmissionMapper, memberSubmissionStatisticsService);
         order.verify(resourceService).bindBizResources(org.mockito.ArgumentMatchers.<ResourceBindBatchParamsBO>argThat(bind ->
                 List.of(9L).equals(bind.getResourceIds())
                         && "task_submit".equals(bind.getBizType())
@@ -321,7 +323,7 @@ class TaskInstanceCommandHandlerTest {
         order.verify(taskInstanceMapper).update(isNull(), any());
         order.verify(taskSubmissionMapper).insert(org.mockito.ArgumentMatchers.<TaskSubmission>argThat(
                 submission -> submission.getMetadata().equals("{\"file\":{\"fileId\":\"9\"}}")));
-        order.verify(memberSubmitCountHandler).incrementSubmitCount(10L, 2L);
+        order.verify(memberSubmissionStatisticsService).incrementSubmitCount(10L, 2L);
     }
 
     @Test
@@ -335,7 +337,7 @@ class TaskInstanceCommandHandlerTest {
 
         assertThatThrownBy(() -> handler.submit(instance, 10L, 5L, Map.of("file", Map.of("fileId", "9"))))
                 .isInstanceOf(AppException.class);
-        verifyNoInteractions(taskSubmissionMapper, memberSubmitCountHandler);
+        verifyNoInteractions(taskSubmissionMapper, memberSubmissionStatisticsService);
         verify(taskInstanceMapper, never()).update(isNull(), any());
     }
 
@@ -351,7 +353,7 @@ class TaskInstanceCommandHandlerTest {
         handler.reset(instance, 10L);
 
         verify(taskSubmissionMapper).update(isNull(), any());
-        verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
+        verify(memberSubmissionStatisticsService).revertSubmitCount(10L, 2L);
         assertRevisionIncrement(TaskInstanceStatus.COMPLETED);
     }
 
@@ -415,7 +417,7 @@ class TaskInstanceCommandHandlerTest {
 
         handler.reject(instance, 20L, false, "0", "需要修改");
 
-        verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
+        verify(memberSubmissionStatisticsService).revertSubmitCount(10L, 2L);
         assertRevisionIncrement(TaskInstanceStatus.COMPLETED);
     }
 
@@ -438,7 +440,7 @@ class TaskInstanceCommandHandlerTest {
         handler.reject(instance, 10L, false, "0", "自己打回");
 
         verify(taskSubmissionMapper).update(isNull(), any());
-        verify(memberSubmitCountHandler).revertSubmitCount(10L, 2L);
+        verify(memberSubmissionStatisticsService).revertSubmitCount(10L, 2L);
     }
 
     @Test
@@ -553,7 +555,7 @@ class TaskInstanceCommandHandlerTest {
                 submission.getSubmitterId().equals(20L)
                         && submission.getCreatedAt().equals(submittedAt)
                         && submission.getVersionNo() == 1));
-        verify(memberSubmitCountHandler).incrementSubmitCount(20L, 2L, submittedAt);
+        verify(memberSubmissionStatisticsService).incrementSubmitCount(20L, 2L, submittedAt);
         verify(resourceService).bindBizResources(org.mockito.ArgumentMatchers.<ResourceBindBatchParamsBO>argThat(bind ->
                 bind.getCreatorId().equals(10L)));
         assertThat(capturedSqlSet()).contains("submitted_at", "claimed_at", "completed_at", "assignee_id");

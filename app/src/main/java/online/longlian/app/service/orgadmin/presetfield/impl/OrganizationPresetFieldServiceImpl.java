@@ -18,8 +18,7 @@ import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldU
 import online.longlian.app.pojo.entity.OrganizationPresetField;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.orgadmin.presetfield.OrganizationPresetFieldService;
-import online.longlian.app.service.orgadmin.projecttype.ProjectTypeCustomFormService;
-import org.springframework.beans.factory.ObjectProvider;
+import online.longlian.app.service.orgadmin.projecttype.ProjectTypePresetFieldService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -39,7 +38,7 @@ public class OrganizationPresetFieldServiceImpl implements OrganizationPresetFie
     private final UserMapper userMapper;
     private final Clock clock;
     private final OrganizationPresetFieldQueryBuilder organizationPresetFieldQueryBuilder;
-    private final ObjectProvider<ProjectTypeCustomFormService> projectTypeCustomFormService;
+    private final ProjectTypePresetFieldService projectTypePresetFieldService;
 
     @Override
     public PageResultBO<OrganizationPresetFieldListResultBO> listPresetFields(OrganizationPresetFieldListParamsBO params) {
@@ -87,7 +86,7 @@ public class OrganizationPresetFieldServiceImpl implements OrganizationPresetFie
     public void deletePresetField(OrganizationPresetFieldDeleteParamsBO params) {
         OrganizationPresetField field = requireOwnedField(params.getFieldId(), params.getOrgId());
         organizationPresetFieldMapper.deleteById(field.getId());
-        projectTypeCustomFormService.getObject().detachPresetField(params.getOrgId(), field.getId());
+        projectTypePresetFieldService.detachPresetField(params.getOrgId(), field.getId());
     }
 
     @Override

@@ -21,6 +21,4 @@ public interface ProjectTypeCustomFormService {
     List<String> requiredFieldNames(Long orgId, Long typeId);
 
     void deleteByType(Long orgId, Long typeId);
-
-    void detachPresetField(Long orgId, Long presetFieldId);
 }

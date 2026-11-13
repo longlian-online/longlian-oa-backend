@@ -1,4 +1,4 @@
-package online.longlian.app.service.app.taskinstance.impl;
+package online.longlian.app.service.organization;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class MemberSubmitCountHandlerTest {
+class MemberSubmissionStatisticsServiceTest {
 
     @Mock
     private OrganizationMemberMapper organizationMemberMapper;
@@ -37,13 +37,13 @@ class MemberSubmitCountHandlerTest {
     private ProjectMapper projectMapper;
 
     private final Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("UTC"));
-    private MemberSubmitCountHandler handler;
+    private MemberSubmissionStatisticsService handler;
 
     @BeforeEach
     void setUp() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
-        handler = new MemberSubmitCountHandler(organizationMemberMapper, projectMapper, clock);
+        handler = new MemberSubmissionStatisticsService(organizationMemberMapper, projectMapper, clock);
     }
 
     @Test

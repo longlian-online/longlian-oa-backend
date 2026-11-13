@@ -14,7 +14,7 @@ import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldD
 import online.longlian.app.pojo.bo.orgadmin.presetfield.OrganizationPresetFieldListParamsBO;
 import online.longlian.app.pojo.entity.OrganizationPresetField;
 import online.longlian.app.pojo.entity.User;
-import online.longlian.app.service.orgadmin.projecttype.ProjectTypeCustomFormService;
+import online.longlian.app.service.orgadmin.projecttype.ProjectTypePresetFieldService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -46,9 +45,7 @@ class OrganizationPresetFieldServiceImplTest {
     @Mock
     private OrganizationPresetFieldQueryBuilder queryBuilder;
     @Mock
-    private ObjectProvider<ProjectTypeCustomFormService> projectTypeCustomFormService;
-    @Mock
-    private ProjectTypeCustomFormService customFormService;
+    private ProjectTypePresetFieldService customFormService;
 
     private OrganizationPresetFieldServiceImpl service;
 
@@ -58,7 +55,7 @@ class OrganizationPresetFieldServiceImplTest {
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationPresetField.class);
         Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
         service = new OrganizationPresetFieldServiceImpl(
-                organizationPresetFieldMapper, userMapper, clock, queryBuilder, projectTypeCustomFormService);
+                organizationPresetFieldMapper, userMapper, clock, queryBuilder, customFormService);
     }
 
     @Test
@@ -82,7 +79,6 @@ class OrganizationPresetFieldServiceImplTest {
     void deletePresetField_removesFieldAndDetachesTypeForms() {
         when(organizationPresetFieldMapper.selectById(8L)).thenReturn(OrganizationPresetField.builder()
                 .id(8L).orgId(1L).name("作者").build());
-        when(projectTypeCustomFormService.getObject()).thenReturn(customFormService);
 
         service.deletePresetField(OrganizationPresetFieldDeleteParamsBO.builder().fieldId(8L).orgId(1L).build());
 

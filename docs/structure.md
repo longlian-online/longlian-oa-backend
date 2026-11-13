@@ -4,7 +4,7 @@
 
 ```
 longlian-oa-backend/
-├── common/          # 公共模块：枚举、注解
+├── common/          # 公共模块：枚举、注解与分布式锁基础能力
 ├── generator/       # 代码生成器模块
 └── app/             # 主应用模块
 ```
@@ -51,7 +51,7 @@ app/                                   # 主应用的构建、生产源码与测
 
 ## Service 层
 
-业务目录在前，实现统一放在业务目录下的 `impl/`：
+业务目录在前。有接口与实现分离的服务，接口放在域根，实现在域内 `impl/`；直接提供能力的具体类可以位于域根：
 
 ```text
 service/
@@ -63,7 +63,7 @@ service/
 │                          # presettag、project、projecttype、tasktemplate、file
 ├── admin/<业务域>/        # 平台管理端：account、session、organization、storage
 ├── auth/                  # 令牌黑名单与刷新会话存储
-├── organization/          # 跨端组织成员能力
+├── organization/          # 跨端组织成员能力与有效提交统计
 ├── audit/                 # 用户操作审计
 ├── taskform/              # 任务表单契约与校验
 ├── system/                # 系统信息
@@ -77,7 +77,7 @@ service/
 └── scheduled/             # 定时任务日志
 ```
 
-- 每个业务域的接口放在业务目录根，实现在 `impl/`；同域的 Assembler、Handler、QueryBuilder 等辅助类放在同一个 `impl/`。
+- 有接口与实现分离的业务域，其接口放在域根、实现在 `impl/`；实现内部的 Assembler、Handler、QueryBuilder 等辅助类随实现存放。跨域调用的具体服务放在域根，避免依赖其他域的 `impl/`。
 - Service 业务域不要求与 Controller 的端别一一对应：`admin` 承载平台管理业务，顶层共享域由各端接口或其他服务调用。同时被多个端别调用的服务（如 `deletion` 用户端发起 + 组织管理端审核、`productrelease` 平台管理 + 用户查看）放在顶层业务域，不放任一端别包下。
 - 只有需要多实现或跨模块替换的组件才定义接口；单一实现的内部支撑类可以保持具体类，不为形式补接口。OTP 策略统一实现 `OTPStrategyService`。
 - `taskstage` 只放被 taskinstance、mytask、taskplaza、notification 共用的阶段计算规则，不承载业务状态，该域不设 `impl/`。
@@ -94,7 +94,7 @@ service/
 | `projectworkshop/` | 个人工坊列表、企划加入与退出 | `ProjectWorkshopService` / `ProjectWorkshopServiceImpl`、`WorkshopAssembler`、`WorkshopProjectHandler`、`WorkshopQueryBuilder` |
 | `item/` | 项目创建、列表、排序、删除 | `ItemService` / `ItemServiceImpl`、`ItemAssembler`、`ItemQueryBuilder` |
 | `itemtaskflow/` | 项目任务流查询与编辑 | `ItemTaskFlowService` / `ItemTaskFlowServiceImpl`、`ItemTaskFlowAssembler`、`ItemTaskFlowEditor`、`ItemTaskFlowEditPlanner` |
-| `taskinstance/` | 任务接取、提交、打回、重置、详情 | `TaskInstanceService` / `TaskInstanceServiceImpl`、`TaskInstanceAssembler`、`TaskInstanceCommandHandler`、`TaskAttachmentPresenter`、`MemberSubmitCountHandler` |
+| `taskinstance/` | 任务接取、提交、打回、重置、详情 | `TaskInstanceService` / `TaskInstanceServiceImpl`、`TaskInstanceAssembler`、`TaskInstanceCommandHandler`、`TaskAttachmentPresenter` |
 | `mytask/` | 我的待办与组员已接取任务负载 | `MyTaskService`、`ClaimedTaskLoadService` / `MyTaskServiceImpl`、`ClaimedTaskLoadServiceImpl` |
 | `taskplaza/` | 任务广场（缺人任务）查询与分组 | `TaskPlazaService` / `TaskPlazaServiceImpl`、`TaskPlazaAssembler` |
 | `tasktemplate/` | 创建项目可用的流程模板选项 | `TaskTemplateService` / `TaskTemplateServiceImpl` |
@@ -102,11 +102,12 @@ service/
 | `taskstage/` | 任务阶段前置判定与槽位计算（跨域共享规则） | `SlotLabels`、`StageUnlockPolicy` |
 
 - `notification/impl` 中的 `InboxEmailLink`、`InboxEmailCopy` 是邮件文案的纯静态工具，`InboxEmailPayload` 是 outbox 投递的内部载荷，均随实现存放，不搬入 `pojo/bo`。
+- `notification/AdminReviewNotificationPublisher` 是供入组与删除申请流程调用的审核通知发布能力，位于域根。
 - `taskstage` 被 `taskinstance`、`mytask`、`taskplaza`、`notification` 四个域引用，是纯静态规则类，因此不设接口与 `impl/`。
 
 ### service/admin 与 service/orgadmin 业务域
 
-`service/admin/` 承载平台管理服务，`service/orgadmin/` 承载组织管理服务。两者均在各业务域根目录定义服务接口，在该域的 `impl/` 存放实现及辅助类。
+`service/admin/` 承载平台管理服务，`service/orgadmin/` 承载组织管理服务。两者在各业务域根目录定义服务接口，在该域的 `impl/` 存放实现及辅助类；可直接复用的具体服务也位于域根。
 
 | 目录 | 职责 |
 |------|------|
@@ -129,9 +130,11 @@ service/
 `service/` 是业务层；其下的 `app/`、`admin/`、`orgadmin/` 表达使用场景，各业务域目录表达职责边界，`impl/` 表达实现细节。顶层共享域与端别目录并列，供各端业务复用。域的具体职责见本节目录树。
 
 - 域根目录存放对外使用的服务契约；`impl/` 中的 ServiceImpl 编排业务操作，Assembler 组装数据，QueryBuilder 构建查询，Handler 等辅助类分担域内处理。这些辅助类按当前业务需要设置，不要求每个域都具备。
-- `auth`、`deletion`、`notify`、`organization`、`otp`、`outbox`、`productrelease`、`resource`、`scheduled`、`system` 均有 `impl/`。其中 `otp/impl/` 存放验证码及邀请策略实现，`resource/impl/` 同时存放资源服务与存储实现。
+- `auth`、`deletion`、`notify`、`organization`、`otp`、`outbox`、`productrelease`、`resource`、`scheduled`、`system` 均有 `impl/`。其中 `otp/impl/` 存放验证码及邀请策略实现；`resource/impl/` 存放存储策略实现，`ResourceService`、资源清理与签名等具体服务位于 `resource/` 根目录。
+- `organization/MemberSubmissionStatisticsService` 统一维护组织成员有效提交次数和最近提交时间，任务域负责调用，不直接维护成员统计。
+- `orgadmin/projecttype/ProjectTypePresetFieldService` 负责删除预设字段时清理类型表单引用，不依赖预设字段服务；表单读取与编辑仍由 `ProjectTypeCustomFormService` 负责。
 - `audit/`、`lock/`、`taskform/` 当前直接存放具体服务类，没有 `impl/`；`app/taskstage/` 存放纯规则类。目录说明反映现有结构，不为这些类额外增加接口或实现包。
-- 域内的 `package-info.java` 用于说明该包职责；它是包文档，不承担运行逻辑。
+- 包职责以本文为目录索引；存在 `package-info.java` 时，它仅承担包文档职责。
 
 ## POJO 层
 
@@ -309,16 +312,10 @@ Mapper 接口位于 `app/src/main/java/online/longlian/app/mapper/`，XML 只放
 - 开发文档：`db/DEVELOPMENT.md`
 
 主要表结构：
-- **RBAC**: permission, role, role_permission, user, user_role
+- **用户与授权**: user；当前授权使用 organization_member.org_role 与 admin.role。permission、role、role_permission、user_role 属于冻结的历史 RBAC 模型，不参与当前鉴权
 - **Organization**: organization, organization_member, group_application
 - **OTP**: one_time_password, email_verify_otp, organization_create_otp, organization_join_otp
 - **Project/Work**: project, project_type, item, base_task, task_template, task_template_node, item_task_flow, item_task_node, task_instance, task_submission, user_operation_log, project_workshop
 - **Resource**: resource
 - **Admin**: admin, token_blacklist
 - **Scheduled**: scheduled_task_log
-
-## 任务大厅查询
-
-`GET /app/task/instance/plaza` 按企划分页；`stageScope=CURRENT`（默认）只返回首个未完成阶段的待接取任务，`ALL` 返回所有阶段的待接取任务。
-`isCurrentStage` 标记任务是否位于首个未完成阶段；后续阶段可以通过现有 claim 接口提前认领。
-组织隔离、进行中企划/条目及软删除过滤在两种视图下保持一致。组内任务全量返回，前端默认展示 6 项并支持展开。

@@ -1,5 +1,6 @@
 package online.longlian.app.service.app.taskinstance.impl;
 
+
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
@@ -13,6 +14,7 @@ import online.longlian.app.mapper.TaskSubmissionMapper;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.TaskInstance;
 import online.longlian.app.pojo.entity.TaskSubmission;
+import online.longlian.app.service.organization.MemberSubmissionStatisticsService;
 import online.longlian.app.service.taskform.TaskFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.TaskInstanceStatus;
@@ -60,7 +62,7 @@ class TaskInstanceOwnerCommandHandlerTest {
     @Mock
     private ItemTaskNodeMapper itemTaskNodeMapper;
     @Mock
-    private MemberSubmitCountHandler memberSubmitCountHandler;
+    private MemberSubmissionStatisticsService memberSubmissionStatisticsService;
     @Mock
     private ResourceService resourceService;
 
@@ -74,7 +76,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, ""), ItemTaskNode.class);
         handler = new TaskInstanceCommandHandler(taskInstanceMapper, taskSubmissionMapper,
                 itemTaskNodeMapper,
-                memberSubmitCountHandler, Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC),
+                memberSubmissionStatisticsService, Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC),
                 new TaskFormService(), resourceService);
     }
 
@@ -91,7 +93,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertThat(parameter(update, update.getSqlSet(), "assignee_id")).isNull();
         assertThat(parameter(update, update.getSqlSet(), "claimed_at")).isNull();
         assertThat(parameter(update, update.getSqlSet(), "updated_at")).isEqualTo(NOW);
-        verifyNoInteractions(taskSubmissionMapper, memberSubmitCountHandler, resourceService);
+        verifyNoInteractions(taskSubmissionMapper, memberSubmissionStatisticsService, resourceService);
         verifyNoMoreInteractions(taskInstanceMapper);
     }
 
@@ -127,8 +129,8 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertThat(parameter(submissionUpdate, submissionUpdate.getSqlSet(), "reviewed_at")).isEqualTo(NOW);
         assertThat(parameter(submissionUpdate, submissionUpdate.getSqlSet(), "updated_at")).isEqualTo(NOW);
         // The submission's author is deliberately different from the preserved assignee.
-        verify(memberSubmitCountHandler).revertSubmitCount(11L, 2L);
-        verifyNoMoreInteractions(memberSubmitCountHandler);
+        verify(memberSubmissionStatisticsService).revertSubmitCount(11L, 2L);
+        verifyNoMoreInteractions(memberSubmissionStatisticsService);
         verify(taskSubmissionMapper, never()).insert(any(TaskSubmission.class));
         assertThat(previous.getStatus()).isEqualTo(TaskSubmissionStatus.REJECTED);
         assertThat(reset.getStatus()).isEqualTo(TaskSubmissionStatus.RESET);
@@ -144,7 +146,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertOperationFails(() -> operate(reject, instance, "7"));
 
         verifyNoInteractions(taskInstanceMapper, itemTaskNodeMapper, taskSubmissionMapper,
-                memberSubmitCountHandler, resourceService);
+                memberSubmissionStatisticsService, resourceService);
         assertThat(instance.getStatus()).isEqualTo(status);
         assertThat(instance.getRevision()).isEqualTo(7L);
     }
@@ -157,7 +159,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertOperationFails(() -> operate(reject, instance, expectedRevision));
 
         verifyNoInteractions(taskInstanceMapper, itemTaskNodeMapper, taskSubmissionMapper,
-                memberSubmitCountHandler, resourceService);
+                memberSubmissionStatisticsService, resourceService);
         assertThat(instance.getRevision()).isEqualTo(7L);
         assertThat(instance.getStatus()).isEqualTo(reject ? TaskInstanceStatus.COMPLETED : TaskInstanceStatus.CLAIMED);
     }
@@ -171,7 +173,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertOperationFails(() -> operate(reject, instance, "9007199254740992"));
 
         verifyNoInteractions(taskInstanceMapper, itemTaskNodeMapper, taskSubmissionMapper,
-                memberSubmitCountHandler, resourceService);
+                memberSubmissionStatisticsService, resourceService);
         assertThat(instance.getRevision()).isEqualTo(9_007_199_254_740_993L);
     }
 
@@ -185,7 +187,7 @@ class TaskInstanceOwnerCommandHandlerTest {
                 .isInstanceOfSatisfying(AppException.class,
                         exception -> assertThat(exception.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
 
-        verifyNoInteractions(taskInstanceMapper, taskSubmissionMapper, memberSubmitCountHandler, resourceService);
+        verifyNoInteractions(taskInstanceMapper, taskSubmissionMapper, memberSubmissionStatisticsService, resourceService);
         assertThat(instance.getRevision()).isEqualTo(7L);
         assertThat(instance.getStatus()).isEqualTo(reject ? TaskInstanceStatus.COMPLETED : TaskInstanceStatus.CLAIMED);
     }
@@ -200,7 +202,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertOperationFails(() -> operate(reject, instance, "7"));
 
         verify(taskInstanceMapper, never()).update(isNull(), any());
-        verifyNoInteractions(taskSubmissionMapper, memberSubmitCountHandler, resourceService);
+        verifyNoInteractions(taskSubmissionMapper, memberSubmissionStatisticsService, resourceService);
         assertThat(instance.getRevision()).isEqualTo(7L);
     }
 
@@ -221,7 +223,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertThat(later.getClaimedAt()).isEqualTo(CLAIMED_AT);
         assertThat(later.getRevision()).isEqualTo(3L);
         if (!reject) {
-            verifyNoInteractions(taskSubmissionMapper, memberSubmitCountHandler);
+            verifyNoInteractions(taskSubmissionMapper, memberSubmissionStatisticsService);
         }
         verifyNoInteractions(resourceService);
     }
@@ -242,7 +244,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertThat(parallel.getStatus()).isEqualTo(TaskInstanceStatus.COMPLETED);
         assertThat(parallel.getRevision()).isEqualTo(3L);
         if (!reject) {
-            verifyNoInteractions(taskSubmissionMapper, memberSubmitCountHandler);
+            verifyNoInteractions(taskSubmissionMapper, memberSubmissionStatisticsService);
         }
     }
 
@@ -262,7 +264,7 @@ class TaskInstanceOwnerCommandHandlerTest {
                 reject ? TaskInstanceStatus.CLAIMED : TaskInstanceStatus.PENDING, 7L);
         verify(taskSubmissionMapper, never()).update(isNull(), any());
         verify(taskSubmissionMapper, never()).insert(any(TaskSubmission.class));
-        verifyNoInteractions(memberSubmitCountHandler, resourceService);
+        verifyNoInteractions(memberSubmissionStatisticsService, resourceService);
         assertThat(instance.getRevision()).isEqualTo(7L);
         assertThat(instance.getStatus()).isEqualTo(instance(reject).getStatus());
     }
@@ -317,7 +319,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         LambdaUpdateWrapper<TaskSubmission> update = capturedSubmissionUpdate();
         assertThat(parameter(update, update.getSqlSegment(), "id")).isEqualTo(41L);
         assertThat(parameter(update, update.getSqlSegment(), "status")).isEqualTo(TaskSubmissionStatus.SUBMITTED);
-        verifyNoInteractions(memberSubmitCountHandler, resourceService);
+        verifyNoInteractions(memberSubmissionStatisticsService, resourceService);
     }
 
     @ParameterizedTest
@@ -333,10 +335,10 @@ class TaskInstanceOwnerCommandHandlerTest {
         assertTransition(capturedInstanceUpdate(), instance(reject).getStatus(),
                 reject ? TaskInstanceStatus.CLAIMED : TaskInstanceStatus.PENDING, revision);
         if (reject) {
-            verify(memberSubmitCountHandler).revertSubmitCount(11L, 2L);
-            verifyNoMoreInteractions(memberSubmitCountHandler);
+            verify(memberSubmissionStatisticsService).revertSubmitCount(11L, 2L);
+            verifyNoMoreInteractions(memberSubmissionStatisticsService);
         } else {
-            verifyNoInteractions(taskSubmissionMapper, memberSubmitCountHandler);
+            verifyNoInteractions(taskSubmissionMapper, memberSubmissionStatisticsService);
         }
     }
 
@@ -427,7 +429,7 @@ class TaskInstanceOwnerCommandHandlerTest {
         verify(taskInstanceMapper, never()).update(isNull(), any());
         verify(taskSubmissionMapper, never()).update(isNull(), any());
         verify(taskSubmissionMapper, never()).insert(any(TaskSubmission.class));
-        verifyNoInteractions(memberSubmitCountHandler, resourceService);
+        verifyNoInteractions(memberSubmissionStatisticsService, resourceService);
     }
 
     private void assertTransition(LambdaUpdateWrapper<TaskInstance> update, TaskInstanceStatus from,

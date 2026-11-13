@@ -1,4 +1,4 @@
-package online.longlian.app.service.app.taskinstance.impl;
+package online.longlian.app.service.organization;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -13,9 +13,13 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
+/**
+ * 组织成员的有效提交统计，由任务提交、打回和重置流程调用。
+ * 仅通过企划读取组织归属，不修改企划；保留按企划定位成员的调用语义。
+ */
 @Component
 @RequiredArgsConstructor
-public class MemberSubmitCountHandler {
+public class MemberSubmissionStatisticsService {
 
     private final OrganizationMemberMapper organizationMemberMapper;
     private final ProjectMapper projectMapper;

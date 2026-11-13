@@ -143,11 +143,4 @@ public class ProjectTypeCustomFormServiceImpl implements ProjectTypeCustomFormSe
                 .eq(ProjectTypeCustomField::getTypeId, typeId));
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void detachPresetField(Long orgId, Long presetFieldId) {
-        projectTypeCustomFieldMapper.delete(new LambdaQueryWrapper<ProjectTypeCustomField>()
-                .eq(ProjectTypeCustomField::getOrgId, orgId)
-                .eq(ProjectTypeCustomField::getPresetFieldId, presetFieldId));
-    }
 }

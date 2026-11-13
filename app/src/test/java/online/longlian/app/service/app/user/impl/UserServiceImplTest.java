@@ -32,7 +32,7 @@ import online.longlian.app.pojo.bo.app.user.UserSwitchOrgParamsBO;
 import online.longlian.app.pojo.bo.app.user.UserSwitchOrgResultBO;
 import online.longlian.app.service.auth.TokenBlacklistService;
 import online.longlian.app.service.app.session.SessionService;
-import online.longlian.app.service.app.notification.impl.AdminReviewNotificationPublisher;
+import online.longlian.app.service.app.notification.AdminReviewNotificationPublisher;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;

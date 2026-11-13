@@ -1,9 +1,8 @@
-package online.longlian.app.service.app.notification.impl;
+package online.longlian.app.service.app.notification;
 
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
 import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
-import online.longlian.app.service.app.notification.InboxNotificationService;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import org.springframework.stereotype.Component;
