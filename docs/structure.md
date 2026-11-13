@@ -9,7 +9,38 @@ longlian-oa-backend/
 └── app/             # 主应用模块
 ```
 
+## app 模块总览
+
+`app/` 是可运行的 Spring Boot 主应用模块。以下路径均相对后端仓库根目录；Java 包内路径相对 `app/src/main/java/online/longlian/app/`。
+
+```text
+app/                                   # 主应用的构建、生产源码与测试
+├── pom.xml                            # 应用依赖、打包与测试构建配置
+└── src/                               # 源码与资源
+    ├── main/                          # 随应用构建的生产内容
+    │   ├── java/                      # Java 源码根目录
+    │   │   └── online/longlian/app/    # 应用根包，online/longlian 为命名空间
+    │   │       ├── AppApplication.java # Spring Boot 应用启动入口
+    │   │       ├── common/            # 应用公共基础设施
+    │   │       ├── controller/        # 按端别组织的 HTTP 接口
+    │   │       ├── service/           # 按端别、业务域组织的业务服务
+    │   │       ├── mapper/            # 数据访问接口
+    │   │       ├── pojo/              # 实体、请求、响应和业务对象
+    │   │       ├── mcp/               # MCP 工具入口
+    │   │       └── scheduled/         # 定时任务调度核心与任务入口
+    │   └── resources/                 # 运行配置、SQL 映射与邮件模板
+    └── test/                          # 测试内容，不随生产应用发布
+        ├── java/online/longlian/app/   # 测试根包，按测试对象与类型分包
+        └── resources/                 # 测试配置与 Spring 测试扩展注册
+```
+
+`app/common/` Java 包属于主应用内部基础设施，与仓库根目录的 `common/` Maven 公共模块不同。Controller、Service、Mapper 是处理请求的分层；POJO 承载各层数据，公共基础设施为各层提供运行支持。
+
+典型请求经过认证过滤器、会话参数解析与组织范围校验后，由 Controller 接收 DTO、调用 Service，Service 使用 BO 表达业务输入与结果并通过 Mapper 访问 Entity；Controller 将结果转换为 VO，由响应处理器统一包装。具体规范见 [项目规范](standard.md)。
+
 ## Controller 层
+
+`controller/` 是 HTTP 入口层，负责路由、参数绑定与校验、权限声明、DTO/BO/VO 转换和服务调用；业务规则放在 Service。各端目录直接存放控制器，目前没有进一步的业务子包。
 
 | 目录 | 说明 |
 |------|------|
@@ -47,9 +78,60 @@ service/
 ```
 
 - 每个业务域的接口放在业务目录根，实现在 `impl/`；同域的 Assembler、Handler、QueryBuilder 等辅助类放在同一个 `impl/`。
-- `app`、`orgadmin` 之外的模块没有独立 Controller，由各端接口复用，属于支撑域，不要求与 Controller 的端别一一对应。同时被多个端别调用的服务（如 `deletion` 用户端发起 + 组织管理端审核、`productrelease` 平台管理 + 用户查看）放在顶层业务域，不放任一端别包下。
+- Service 业务域不要求与 Controller 的端别一一对应：`admin` 承载平台管理业务，顶层共享域由各端接口或其他服务调用。同时被多个端别调用的服务（如 `deletion` 用户端发起 + 组织管理端审核、`productrelease` 平台管理 + 用户查看）放在顶层业务域，不放任一端别包下。
 - 只有需要多实现或跨模块替换的组件才定义接口；单一实现的内部支撑类可以保持具体类，不为形式补接口。OTP 策略统一实现 `OTPStrategyService`。
 - `taskstage` 只放被 taskinstance、mytask、taskplaza、notification 共用的阶段计算规则，不承载业务状态，该域不设 `impl/`。
+
+### service/app 业务域
+
+用户端业务服务按业务域组织，接口在域根、实现在 `impl/`。共 11 个业务域 + 1 个共享规则域：
+
+| 域 | 职责 | 关键类型 |
+|------|------|----------|
+| `session/` | 登录、登出、刷新会话 | `SessionService` / `SessionServiceImpl` |
+| `user/` | 用户资料、配置、密码、注册与入组 | `UserService` / `UserServiceImpl`、`NotificationKindPreference` |
+| `project/` | 企划、企划附件、成员与搜索 | `ProjectService`、`ProjectAttachmentService` / `ProjectServiceImpl`、`ProjectAttachmentServiceImpl`、`ProjectAssembler`、`ProjectQueryBuilder`、`ProjectSearchSupport`、`ProjectProgressHandler`、`ProjectAttachmentHandler`、`ProjectMetadataValidator`、`ProjectCustomFieldRequirements` |
+| `projectworkshop/` | 个人工坊列表、企划加入与退出 | `ProjectWorkshopService` / `ProjectWorkshopServiceImpl`、`WorkshopAssembler`、`WorkshopProjectHandler`、`WorkshopQueryBuilder` |
+| `item/` | 项目创建、列表、排序、删除 | `ItemService` / `ItemServiceImpl`、`ItemAssembler`、`ItemQueryBuilder` |
+| `itemtaskflow/` | 项目任务流查询与编辑 | `ItemTaskFlowService` / `ItemTaskFlowServiceImpl`、`ItemTaskFlowAssembler`、`ItemTaskFlowEditor`、`ItemTaskFlowEditPlanner` |
+| `taskinstance/` | 任务接取、提交、打回、重置、详情 | `TaskInstanceService` / `TaskInstanceServiceImpl`、`TaskInstanceAssembler`、`TaskInstanceCommandHandler`、`TaskAttachmentPresenter`、`MemberSubmitCountHandler` |
+| `mytask/` | 我的待办与组员已接取任务负载 | `MyTaskService`、`ClaimedTaskLoadService` / `MyTaskServiceImpl`、`ClaimedTaskLoadServiceImpl` |
+| `taskplaza/` | 任务广场（缺人任务）查询与分组 | `TaskPlazaService` / `TaskPlazaServiceImpl`、`TaskPlazaAssembler` |
+| `tasktemplate/` | 创建项目可用的流程模板选项 | `TaskTemplateService` / `TaskTemplateServiceImpl` |
+| `notification/` | 站内通知、邮件载荷与 outbox 处理 | `InboxNotificationService` / `InboxNotificationServiceImpl`、`NotificationSourceResolver`、`AdminReviewNotificationPublisher`、`InboxEmailOutboxHandler`、`InboxEmailOutboxWriter`、`InboxEmailLink`、`InboxEmailCopy`、`InboxEmailPayload` |
+| `taskstage/` | 任务阶段前置判定与槽位计算（跨域共享规则） | `SlotLabels`、`StageUnlockPolicy` |
+
+- `notification/impl` 中的 `InboxEmailLink`、`InboxEmailCopy` 是邮件文案的纯静态工具，`InboxEmailPayload` 是 outbox 投递的内部载荷，均随实现存放，不搬入 `pojo/bo`。
+- `taskstage` 被 `taskinstance`、`mytask`、`taskplaza`、`notification` 四个域引用，是纯静态规则类，因此不设接口与 `impl/`。
+
+### service/admin 与 service/orgadmin 业务域
+
+`service/admin/` 承载平台管理服务，`service/orgadmin/` 承载组织管理服务。两者均在各业务域根目录定义服务接口，在该域的 `impl/` 存放实现及辅助类。
+
+| 目录 | 职责 |
+|------|------|
+| `admin/account/` | 平台管理员账号维护 |
+| `admin/session/` | 平台管理员登录与会话 |
+| `admin/organization/` | 平台侧组织管理 |
+| `admin/storage/` | 平台侧存储用量统计 |
+| `orgadmin/organization/` | 当前组织信息读取与维护 |
+| `orgadmin/member/` | 组织成员、入组审核、邀请码与提交统计 |
+| `orgadmin/basetask/` | 原子任务维护与查询 |
+| `orgadmin/project/` | 组织侧企划管理 |
+| `orgadmin/projecttype/` | 企划类型与类型自定义表单 |
+| `orgadmin/tasktemplate/` | 组织流程模板及节点维护 |
+| `orgadmin/presetfield/` | 组织预设字段维护 |
+| `orgadmin/presettag/` | 组织预设标签维护 |
+| `orgadmin/file/` | 组织文件查询、下载与废弃 |
+
+### Service 内部层次与共享域
+
+`service/` 是业务层；其下的 `app/`、`admin/`、`orgadmin/` 表达使用场景，各业务域目录表达职责边界，`impl/` 表达实现细节。顶层共享域与端别目录并列，供各端业务复用。域的具体职责见本节目录树。
+
+- 域根目录存放对外使用的服务契约；`impl/` 中的 ServiceImpl 编排业务操作，Assembler 组装数据，QueryBuilder 构建查询，Handler 等辅助类分担域内处理。这些辅助类按当前业务需要设置，不要求每个域都具备。
+- `auth`、`deletion`、`notify`、`organization`、`otp`、`outbox`、`productrelease`、`resource`、`scheduled`、`system` 均有 `impl/`。其中 `otp/impl/` 存放验证码及邀请策略实现，`resource/impl/` 同时存放资源服务与存储实现。
+- `audit/`、`lock/`、`taskform/` 当前直接存放具体服务类，没有 `impl/`；`app/taskstage/` 存放纯规则类。目录说明反映现有结构，不为这些类额外增加接口或实现包。
+- 域内的 `package-info.java` 用于说明该包职责；它是包文档，不承担运行逻辑。
 
 ## POJO 层
 
@@ -150,7 +232,34 @@ Mapper 接口位于 `app/src/main/java/online/longlian/app/mapper/`，XML 只放
 - Mapper 只读写本实体对应的表。需要其他领域的数据时由所属 Service 提供，不在调用方 Mapper 中拼接对方表。
 - 分页优先使用 MyBatis Plus 的 `Page` 参数；聚合查询无法套用分页插件时，手工分页统一写成 `LIMIT #{size} OFFSET #{offset}`。
 
+## 公共基础设施
+
+`common/` 按技术职责分包，为接口、业务服务和数据访问提供统一支持；不在这里集中存放业务域实现。当前各子包直接存放类，没有更深的子目录。
+
+| 目录 | 职责与现有示例 |
+|------|----------------|
+| `common/annotation/` | 会话注入、响应包装及序列化标记，如 `UserSession`、`NotWrap`、`JsonLongIdString` |
+| `common/config/` | Spring 配置与组件注册，包括安全、MVC、数据源、MyBatis、Redis、异步执行及调度 |
+| `common/constants/` | 安全、Redis、正则及邀请码等常量 |
+| `common/enumeration/` | 应用侧角色、排序、任务视图与通知类型等枚举 |
+| `common/exception/` | 统一业务异常 `AppException` |
+| `common/filter/` | 请求过滤链中的 JWT 认证与 TraceId 处理 |
+| `common/handler/` | 异常与认证失败处理、响应包装，以及枚举数据库类型转换 |
+| `common/interceptor/` | MVC 组织范围校验拦截器 `OrganizationScopeInterceptor` |
+| `common/mybatis/` | MyBatis 分页扩展 `OffsetPage` |
+| `common/properties/` | 应用、存储与跨域等类型化配置属性 |
+| `common/resolver/` | 控制器会话参数解析及会话上下文定义 |
+| `common/result/` | 统一返回体 `Result` 与结果码 `ResultCode` |
+| `common/security/` | 用户与管理员认证策略、认证 Provider、Token 类型、用户详情与当前用户上下文 |
+| `common/util/` | JWT、邮件、随机码、TraceId 和下载文件名等工具 |
+
+## MCP 入口
+
+`mcp/` 直接存放 MCP 工具类，目前只有 `PingTools`，通过 `@McpTool` 暴露 `ping` 连通性检查，返回 `pong`。本目录是工具协议入口；当前检查不读写业务数据。
+
 ## 定时任务
+
+`scheduled/` 存放调度契约和引擎，`scheduled/task/` 存放具体任务入口；业务能力由对应 Service 提供。它与 `service/scheduled/` 的日志服务职责不同。
 
 | 路径 | 说明 |
 |------|------|
@@ -161,6 +270,35 @@ Mapper 接口位于 `app/src/main/java/online/longlian/app/mapper/`，XML 只放
 | `controller/admin/ScheduledTaskController.java` | 手动触发定时任务 API |
 | `pojo/bo/common/ScheduledTaskDefinitionBO.java` | 任务定义 BO |
 | `pojo/entity/ScheduledTaskLog.java` | 任务执行日志实体 |
+
+## 运行资源
+
+`app/src/main/resources/` 是应用运行时的类路径资源根目录。
+
+| 路径 | 职责 |
+|------|------|
+| `application.properties` | 应用基础属性配置 |
+| `application.yml.example` | 部署配置示例 |
+| `application-dev.yml`、`application-local.yml` | 对应环境的配置文件 |
+| `logback-spring.xml` | 日志输出配置 |
+| `mapper/` | MyBatis XML 映射，文件与 Java Mapper 接口同名，当前直接平铺存放 |
+| `templates/` | 邮件 HTML 模板，当前包含验证码与站内通知邮件模板 |
+
+## 测试目录
+
+`app/src/test/java/online/longlian/app/` 是测试根包。`online/longlian/app` 与生产包共享命名空间；下面按测试对象或测试类型组织。
+
+| 目录 | 职责与下层组织 |
+|------|----------------|
+| `api/` | HTTP API 集成测试；`admin/`、`app/`、`orgadmin/`、`common/` 按端别组织，`mcp/`、`notification/`、`session/` 验证对应协议或场景，`util/` 提供测试辅助设施 |
+| `controller/` | 控制器层测试，下分 `app/`、`orgadmin/`、`common/` |
+| `service/` | 业务服务测试；按端别、业务域及存在的 `impl/` 对应生产服务组织，当前只为有测试的域建目录 |
+| `common/` | 公共基础设施测试，下分 `annotation/`、`config/`、`constants/`、`filter/`、`handler/`、`interceptor/`、`security/`、`util/`、`validation/`；测试包不要求与生产目录完全对称 |
+| `pojo/` | 数据对象测试；`bo/common/` 验证共享业务对象，`dto/app/` 验证用户端请求对象 |
+| `mcp/` | MCP 工具类测试 |
+| `scheduled/task/` | 具体定时任务测试 |
+
+`app/src/test/resources/` 存放 `application-test.yml` 测试环境配置；其下 `META-INF/spring.factories` 注册 Spring 测试执行监听器。单元测试与 API 测试的编写规则分别见 [单元测试规范](unit_test.md) 和 [API 测试规范](api_test_standard.md)。
 
 ## 数据库
 
