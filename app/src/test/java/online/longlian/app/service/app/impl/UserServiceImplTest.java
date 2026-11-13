@@ -117,6 +117,7 @@ class UserServiceImplTest {
                 Clock.systemUTC(),
                 sessionService,
                 tokenBlacklistService,
+                mock(online.longlian.app.service.app.UserOrgApiKeyService.class),
                 adminReviewNotificationPublisher
         );
     }
