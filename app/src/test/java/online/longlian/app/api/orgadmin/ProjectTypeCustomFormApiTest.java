@@ -110,7 +110,7 @@ public class ProjectTypeCustomFormApiTest extends BaseApiTest {
                 Map.of("presetFieldId", "9", "required", true))))
                 .put("/orgadmin/project-types/1")
                 .then().body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,预置表单字段不存在"));
+                .body("msg", equalTo("参数错误，预置表单字段不存在"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM project_type_custom_field WHERE deleted_at IS NULL", Integer.class)).isZero();
     }
@@ -137,7 +137,7 @@ public class ProjectTypeCustomFormApiTest extends BaseApiTest {
         Map<String, Object> missing = projectBody("{\"tags\":[],\"fields\":[{\"name\":\"状态\",\"value\":\"连载\"}]}");
         authRequest(token).body(missing).post("/app/projects")
                 .then().body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,请填写必填字段：作者"));
+                .body("msg", equalTo("参数错误，请填写必填字段：作者"));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM project", Integer.class)).isZero();
 
         authRequest(token).body(projectBody(

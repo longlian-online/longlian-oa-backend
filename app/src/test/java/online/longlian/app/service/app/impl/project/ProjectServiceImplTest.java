@@ -30,7 +30,9 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
+import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.app.ClaimedTaskLoadService;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
@@ -83,6 +85,8 @@ class ProjectServiceImplTest {
     private ProjectAttachmentHandler projectAttachmentHandler;
     @Mock
     private OrganizationMembershipService organizationMembershipService;
+    @Mock
+    private ClaimedTaskLoadService claimedTaskLoadService;
 
     private ProjectServiceImpl service;
 
@@ -92,6 +96,8 @@ class ProjectServiceImplTest {
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), Project.class);
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), ProjectWorkshop.class);
         service = new ProjectServiceImpl(
                 projectMapper,
                 projectTypeMapper,
@@ -104,6 +110,7 @@ class ProjectServiceImplTest {
                 projectTypeCustomFormService,
                 projectAttachmentHandler,
                 organizationMembershipService,
+                claimedTaskLoadService,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
         lenient().when(organizationMembershipService.isEnabledAdministrator(any(), any())).thenReturn(false);
@@ -489,6 +496,34 @@ class ProjectServiceImplTest {
         verify(projectWorkshopMapper, never()).update(any(), any());
     }
 
+    /** 主动退出前必须处理未完成任务，由事务回滚成员关联的删除。 */
+    @Test
+    void shouldRejectLeavingWithClaimedTasks() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(1L).resourceStatus(Status.ENABLED).build());
+        when(claimedTaskLoadService.hasClaimedTasksInProject(any())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.removeFromWorkshop(ProjectWorkshopRemoveParamsBO.builder()
+                .projectId(100L).userId(2L).orgId(1L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode()));
+    }
+
+    /** 已完成责任不会阻止退出，任务历史的保留由任务模块负责。 */
+    @Test
+    void shouldAllowLeavingWithoutClaimedTasks() {
+        when(projectMapper.selectById(100L)).thenReturn(Project.builder()
+                .id(100L).orgId(1L).creatorId(1L).resourceStatus(Status.ENABLED).build());
+
+        service.removeFromWorkshop(ProjectWorkshopRemoveParamsBO.builder()
+                .projectId(100L).userId(2L).orgId(1L).build());
+
+        verify(projectWorkshopMapper).update(any(), any());
+        verify(claimedTaskLoadService).hasClaimedTasksInProject(
+                online.longlian.app.pojo.bo.app.ProjectClaimedTaskParamsBO.builder()
+                        .projectId(100L).assigneeId(2L).build());
+    }
+
     @Test
     void getProjectDetail_disabledProject_throwsNotFound() {
         when(projectMapper.selectById(100L)).thenReturn(Project.builder()
@@ -668,7 +703,7 @@ class ProjectServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
                     assertThat(ex.getMsg()).isEqualTo(
-                            "参数错误,企划已存在项目，请提交删除申请");
+                            "参数错误，企划已存在项目，请提交删除申请");
                 });
         verify(projectMapper, never()).deleteById(any());
     }
@@ -692,7 +727,7 @@ class ProjectServiceImplTest {
 
         assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
                 .isInstanceOfSatisfying(AppException.class, ex ->
-                        assertThat(ex.getMsg()).isEqualTo("参数错误,企划已存在项目，请提交删除申请"));
+                        assertThat(ex.getMsg()).isEqualTo("参数错误，企划已存在项目，请提交删除申请"));
         verify(projectMapper, never()).deleteById(any());
     }
 
@@ -717,7 +752,7 @@ class ProjectServiceImplTest {
         assertThatThrownBy(() -> service.deleteProject(deleteParams(2L)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode());
-                    assertThat(ex.getMsg()).isEqualTo("无权操作,仅企划负责人可删除企划");
+                    assertThat(ex.getMsg()).isEqualTo("无权操作，仅企划负责人可删除企划");
                 });
         verify(projectMapper, never()).deleteById(any());
         verify(itemMapper, never()).selectCount(any());

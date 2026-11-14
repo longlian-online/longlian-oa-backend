@@ -1,5 +1,10 @@
 package online.longlian.app.service.app.impl.taskinstance;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import online.longlian.app.pojo.bo.app.ProjectClaimedTaskParamsBO;
+import online.longlian.app.pojo.entity.TaskInstance;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import online.longlian.app.common.enumeration.MyTaskBucket;
 import online.longlian.app.mapper.TaskInstanceMapper;
 import online.longlian.app.pojo.bo.app.ClaimedTaskLoadParamsBO;
@@ -17,6 +22,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,7 +38,26 @@ class ClaimedTaskLoadServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), TaskInstance.class);
         service = new ClaimedTaskLoadServiceImpl(taskInstanceMapper);
+    }
+
+    /** 存在待处理责任时拒绝退出，无需加载全部待办或计算阶段。 */
+    @Test
+    void shouldFindClaimedResponsibilityInProject() {
+        when(taskInstanceMapper.selectOne(any())).thenReturn(TaskInstance.builder().id(1L).build());
+
+        assertThat(service.hasClaimedTasksInProject(ProjectClaimedTaskParamsBO.builder()
+                .projectId(10L).assigneeId(2L).build())).isTrue();
+        verify(taskInstanceMapper, never()).selectItemStageNodeStatuses(anyList());
+    }
+
+    /** 没有未完成责任时允许退出。 */
+    @Test
+    void shouldFindNoClaimedResponsibilityInProject() {
+        assertThat(service.hasClaimedTasksInProject(ProjectClaimedTaskParamsBO.builder()
+                .projectId(10L).assigneeId(2L).build())).isFalse();
     }
 
     @Test

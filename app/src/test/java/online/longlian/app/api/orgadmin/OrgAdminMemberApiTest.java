@@ -500,11 +500,11 @@ public class OrgAdminMemberApiTest extends BaseApiTest {
         authRequest(token).body(Map.of("orgRole", "ORG_USER")).patch("/orgadmin/members/1/role")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,不能修改组织所有者的角色"));
+                .body("msg", equalTo("操作失败，不能修改组织所有者的角色"));
         authRequest(token).body(Map.of("orgRole", "ORG_OWNER")).patch("/orgadmin/members/2/role")
                 .then().statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,不能分配组织所有者"));
+                .body("msg", equalTo("操作失败，不能分配组织所有者"));
         authRequest(loginAs("orgadmin", "123456")).body(Map.of("orgRole", "ORG_USER"))
                 .patch("/orgadmin/members/2/role")
                 .then().statusCode(200)

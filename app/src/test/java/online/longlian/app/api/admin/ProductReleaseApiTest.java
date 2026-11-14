@@ -48,7 +48,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,这次没有更换前端或后端版本"));
+                .body("msg", equalTo("操作失败，这次没有更换前端或后端版本"));
 
         publish(admin, "1.3.0", "0.0.19", "1.0.52", true);
         assertThat(statusOf("1.3.0")).isEqualTo(1);
@@ -75,7 +75,7 @@ class ProductReleaseApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,已发布的产品版本不能修改版本号或两端绑定"));
+                .body("msg", equalTo("操作失败，已发布的产品版本不能修改版本号或两端绑定"));
         assertThat(column("1.0.0", "frontend_version")).isEqualTo("0.0.18");
 
         authRequest(admin)
