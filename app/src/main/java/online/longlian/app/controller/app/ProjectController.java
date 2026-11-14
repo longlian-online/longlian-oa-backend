@@ -95,7 +95,7 @@ public class ProjectController {
         return vo;
     }
 
-    @Operation(summary = "分页查询企划当前成员", description = "仅返回未退出成员，按用户 ID 升序；建议 pageSize=12")
+    @Operation(summary = "分页查询企划当前成员", description = "仅返回未退出成员，按用户 ID 升序。completedCount 是当前仍有效的提交所对应的任务数，同一任务只计一次；lastSubmittedAt 是这些提交里最晚的时间。已打回或已重置的提交不计入。建议 pageSize=12")
     @GetMapping("/{projectId}/members")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectMemberVO> getProjectMembers(
