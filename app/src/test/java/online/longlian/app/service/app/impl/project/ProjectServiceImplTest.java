@@ -30,6 +30,7 @@ import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
+import online.longlian.app.service.app.impl.taskinstance.ProjectMemberSubmissionStats;
 import online.longlian.app.service.common.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.ProjectTypeCustomFormService;
 import online.longlian.app.service.resource.ResourceService;
@@ -83,6 +84,8 @@ class ProjectServiceImplTest {
     private ProjectAttachmentHandler projectAttachmentHandler;
     @Mock
     private OrganizationMembershipService organizationMembershipService;
+    @Mock
+    private ProjectMemberSubmissionStats projectMemberSubmissionStats;
 
     private ProjectServiceImpl service;
 
@@ -104,6 +107,7 @@ class ProjectServiceImplTest {
                 projectTypeCustomFormService,
                 projectAttachmentHandler,
                 organizationMembershipService,
+                projectMemberSubmissionStats,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
         lenient().when(organizationMembershipService.isEnabledAdministrator(any(), any())).thenReturn(false);
