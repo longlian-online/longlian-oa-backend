@@ -30,6 +30,9 @@ public class PlazaTaskVO {
     @Schema(description = "任务名称（节点名）")
     private String nodeName;
 
+    @Schema(description = "原子任务图标（Lucide 组件名），读取当前原子任务，不快照；原子任务缺失时为 null")
+    private String baseTaskIcon;
+
     @Schema(description = "任务所属阶段序号（1 开始）")
     private Integer stageIndex;
 

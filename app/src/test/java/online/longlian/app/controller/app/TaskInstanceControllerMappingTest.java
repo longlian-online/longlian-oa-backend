@@ -1,6 +1,10 @@
 package online.longlian.app.controller.app;
 
 import online.longlian.app.common.resolver.SessionContext;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
 import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
 import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO;
@@ -25,6 +29,22 @@ class TaskInstanceControllerMappingTest {
     private final TaskInstanceService taskInstanceService = mock(TaskInstanceService.class);
     private final TaskInstanceController controller = new TaskInstanceController(
             taskInstanceService, mock(TaskPlazaService.class), mock(BaseTaskService.class), mock(MyTaskService.class));
+
+    @Test
+    void shouldPreserveBaseTaskIconInPlazaResponse() {
+        TaskPlazaService plazaService = mock(TaskPlazaService.class);
+        TaskInstanceController plazaController = new TaskInstanceController(
+                taskInstanceService, plazaService, mock(BaseTaskService.class), mock(MyTaskService.class));
+        PlazaProjectGroupResultBO group = new PlazaProjectGroupResultBO();
+        group.setTasks(List.of(PlazaTaskResultBO.builder().baseTaskIcon("BookOpen").build()));
+        when(plazaService.getTaskPlaza(any())).thenReturn(new PageResultBO<>(List.of(group), 1L));
+
+        var response = plazaController.getTaskPlaza(new SessionContext(7L, 1L), new TaskPlazaListDTO());
+
+        assertThat(response.getList()).singleElement().satisfies(result ->
+                assertThat(result.getTasks()).singleElement().satisfies(task ->
+                        assertThat(task.getBaseTaskIcon()).isEqualTo("BookOpen")));
+    }
 
     @Test
     void shouldMapTaskInstanceDetailResultToVO() {

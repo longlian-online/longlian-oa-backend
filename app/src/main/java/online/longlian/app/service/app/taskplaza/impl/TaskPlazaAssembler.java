@@ -87,6 +87,7 @@ public class TaskPlazaAssembler {
                         .itemId(row.getItemId())
                         .itemTitle(row.getItemTitle())
                         .nodeName(row.getNodeName())
+                        .baseTaskIcon(row.getBaseTaskIcon())
                         .isCurrentStage(row.getIsCurrentStage())
                         .stageIndex(sorts.indexOf(row.getSort()) + 1)
                         .stageTotal(sorts.size())

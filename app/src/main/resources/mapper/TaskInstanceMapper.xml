@@ -102,12 +102,14 @@
                n.name AS nodeName,
                n.id AS nodeId,
                n.base_task_id AS baseTaskId,
+               bt.icon AS baseTaskIcon,
                n.sort AS sort,
                n.parallel_sort AS parallelSort,
                (n.sort = cur.current_sort) AS isCurrentStage,
                i.title AS itemTitle
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
+        LEFT JOIN base_task bt ON bt.id = n.base_task_id AND bt.deleted_at IS NULL
         JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
         JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL
             AND p.resource_status = 1 AND p.status = 1

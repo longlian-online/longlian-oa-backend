@@ -21,6 +21,8 @@ public class PlazaTaskResultBO {
 
     private String nodeName;
 
+    private String baseTaskIcon;
+
     private Integer stageIndex;
 
     private Integer stageTotal;
