@@ -13,7 +13,7 @@ import online.longlian.app.pojo.bo.admin.AdminLoginResultBO;
 import online.longlian.app.pojo.bo.admin.AdminLogoutParamsBO;
 import online.longlian.app.pojo.dto.admin.AdminLoginDTO;
 import online.longlian.app.pojo.vo.admin.AdminLoginVO;
-import online.longlian.app.service.admin.AdminSessionService;
+import online.longlian.app.service.admin.session.AdminSessionService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 

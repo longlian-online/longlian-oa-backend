@@ -24,24 +24,24 @@ public class TaskSubmissionVersionVO {
     private LocalDateTime submittedAt;
 
     @Schema(description = "提交人")
-    private Person submitter;
+    private TaskParticipantVO submitter;
 
     @Schema(description = "打回时间，仅 REJECTED 存在")
     private LocalDateTime reviewedAt;
 
     @Schema(description = "打回人，仅 REJECTED 存在")
-    private Person reviewer;
+    private TaskParticipantVO reviewer;
 
     @Schema(description = "打回意见，仅 REJECTED 存在")
     private String reviewComment;
 
     @Schema(description = "按表单快照组织的展示字段")
-    private List<TaskInstanceDetailVO.Field> fields;
+    private List<TaskInstanceDetailVO.TaskDisplayFieldVO> fields;
 
     @Schema(description = "存量数据内容解析失败；fields 为空不代表该版本没有内容")
     private boolean unreadable;
 
     /** 参与人：提交人或打回人，附可选的已授权头像读取链接。 */
-    public record Person(String id, String nickname, String avatarUrl) {
+    public record TaskParticipantVO(String id, String nickname, String avatarUrl) {
     }
 }

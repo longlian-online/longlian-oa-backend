@@ -7,7 +7,7 @@ import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.service.DistributedLockService;
 import online.longlian.app.common.util.TraceIdUtil;
-import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinitionBO;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
 import online.longlian.common.enumeration.ScheduledTaskStatus;
 import online.longlian.common.enumeration.TriggerSource;
@@ -90,7 +90,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
 
         for (TaskRegistration registration : registrations.values()) {
             ScheduledTask task = registration.task();
-            ScheduledTaskDefinition def = registration.definition();
+            ScheduledTaskDefinitionBO def = registration.definition();
             taskMap.put(def.getTaskName(), task);
             if (def.isEnabled()) {
                 scheduleCron(task, def);
@@ -104,7 +104,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
         log.info("定时任务注册完成，共注册 {} 个任务，其中 {} 个已启用自动调度",
                 registrations.size(), registrations.values().stream()
                         .map(TaskRegistration::definition)
-                        .filter(ScheduledTaskDefinition::isEnabled)
+                        .filter(ScheduledTaskDefinitionBO::isEnabled)
                         .count());
     }
 
@@ -197,7 +197,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
             return;
         }
         ScheduledTask task = getTask(taskName);
-        ScheduledTaskDefinition definition = task.getDefinition();
+        ScheduledTaskDefinitionBO definition = task.getDefinition();
         LocalDateTime execTime = executeTime != null ? executeTime : LocalDateTime.now(clock);
         Long userId = getCurrentUserIdSafely();
 
@@ -206,7 +206,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
 
     // ==================== 内部实现 ====================
 
-    private void scheduleCron(ScheduledTask task, ScheduledTaskDefinition definition) {
+    private void scheduleCron(ScheduledTask task, ScheduledTaskDefinitionBO definition) {
         String cronExpression = definition.getCronExpression();
         taskScheduler.schedule(
                 () -> {
@@ -223,7 +223,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
      * 执行任务并记录日志，同时将执行线程注册到 runningTasks 以支持停机等待。
      * 调用定时任务的统一入口，负责获取分布式锁、记录日志、捕获异常等公共逻辑，确保无论是 cron 触发还是手动触发都能正确记录和管理执行状态。
      */
-    private void executeAndLog(ScheduledTask task, ScheduledTaskDefinition definition, LocalDateTime executeTime,
+    private void executeAndLog(ScheduledTask task, ScheduledTaskDefinitionBO definition, LocalDateTime executeTime,
             TriggerSource source, Long triggeredBy) {
         String taskName = definition.getTaskName();
         String lockKey = "scheduled-task:" + taskName;
@@ -247,7 +247,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
      * 执行任务并记录日志。
      * 不应该方法直接调用，而应通过 executeAndLog 获取分布式锁和管理执行线程，确保日志记录和停机等待的正确性。
      */
-    private void doExecuteAndLog(ScheduledTask task, ScheduledTaskDefinition definition, LocalDateTime executeTime,
+    private void doExecuteAndLog(ScheduledTask task, ScheduledTaskDefinitionBO definition, LocalDateTime executeTime,
             TriggerSource source, Long triggeredBy) {
         String taskName = definition.getTaskName();
         LocalDateTime startedAt = LocalDateTime.now(clock);
@@ -289,7 +289,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
     private Map<String, TaskRegistration> collectRegistrations(Map<String, ScheduledTask> beans) {
         Map<String, TaskRegistration> registrations = new LinkedHashMap<>();
         for (Map.Entry<String, ScheduledTask> entry : beans.entrySet()) {
-            ScheduledTaskDefinition definition = entry.getValue().getDefinition();
+            ScheduledTaskDefinitionBO definition = entry.getValue().getDefinition();
             if (definition == null) {
                 throw new IllegalStateException("定时任务注册失败：任务定义不能为空，Bean名称=" + entry.getKey());
             }
@@ -307,7 +307,7 @@ public class ScheduledTaskEngine implements SmartLifecycle {
         return task == null ? taskName : task.getDefinition().getLabel();
     }
 
-    private record TaskRegistration(ScheduledTask task, ScheduledTaskDefinition definition) {
+    private record TaskRegistration(ScheduledTask task, ScheduledTaskDefinitionBO definition) {
     }
 
     /**

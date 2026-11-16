@@ -28,7 +28,12 @@ public class StorageStatsVO {
     @Schema(description = "已物理回收的字节，不含头像")
     private long reclaimedBytes;
 
+    @Schema(description = "封面存储")
     private StorageCategoryStatsVO cover;
+
+    @Schema(description = "缩略图存储")
     private StorageCategoryStatsVO thumbnail;
+
+    @Schema(description = "任务附件存储")
     private StorageCategoryStatsVO taskSubmit;
 }

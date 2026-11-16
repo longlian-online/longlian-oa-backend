@@ -7,9 +7,19 @@ import lombok.Data;
 @Data
 @Schema(description = "任务提交附件；不包含读取链接")
 public class TaskAttachmentVO {
+
+    @Schema(description = "附件文件ID")
     private String id;
+
+    @Schema(description = "文件名")
     private String name;
+
+    @Schema(description = "文件大小展示文本")
     private String sizeText;
+
+    @Schema(description = "媒体类型：image/document/archive/other")
     private String mediaType;
+
+    @Schema(description = "可读状态：available-可读，unavailable-不可用")
     private String availability;
 }

@@ -7,7 +7,7 @@ import lombok.Data;
 import online.longlian.common.enumeration.Status;
 
 import java.time.LocalDateTime;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import java.util.List;
 
 @Data
@@ -28,7 +28,7 @@ public class BaseTaskVO {
     private String icon;
 
     @Schema(description = "提交表单字段")
-    private List<TaskFormField> submitFields;
+    private List<TaskFormFieldBO> submitFields;
 
     @Schema(description = "引用次数（该任务被引用到任务流模板节点中的次数）")
     private Integer refCount;

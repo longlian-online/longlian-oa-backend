@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -16,7 +15,6 @@ public class TaskProxySubmitDTO {
 
     @NotNull(message = "组员不能为空")
     @Positive(message = "组员不能为空")
-    @JsonLongIdString
     @Schema(type = "string", description = "归属组员的用户ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long assigneeId;
 

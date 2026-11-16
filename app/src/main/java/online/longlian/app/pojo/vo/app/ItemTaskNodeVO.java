@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.common.enumeration.TaskInstanceStatus;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,7 +33,7 @@ public class ItemTaskNodeVO {
     private String baseTaskIcon;
 
     @Schema(description = "节点提交表单字段快照")
-    private List<TaskFormField> submitFields;
+    private List<TaskFormFieldBO> submitFields;
 
     @Schema(description = "步骤顺序（相同 sort 值为并行节点）")
     private Integer sort;

@@ -12,7 +12,7 @@ import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.security.OrganizationScope;
 import online.longlian.app.common.security.UserDetailImpl;
 import online.longlian.app.pojo.entity.OrganizationMember;
-import online.longlian.app.service.common.OrganizationMembershipService;
+import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.common.enumeration.Status;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

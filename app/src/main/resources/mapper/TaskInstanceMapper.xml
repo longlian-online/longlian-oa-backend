@@ -20,7 +20,7 @@
         </if>
     </sql>
 
-    <select id="selectPlazaProjectSummaries" resultType="online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO">
+    <select id="selectPlazaProjectSummaries" resultType="online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO">
         SELECT p.id AS projectId,
                p.title AS title,
                pt.name AS typeName,
@@ -64,7 +64,7 @@
                 ORDER BY oldestCreatedAt ASC, p.id DESC
             </otherwise>
         </choose>
-        LIMIT #{offset}, #{size}
+        LIMIT #{size} OFFSET #{offset}
     </select>
 
     <select id="selectPlazaProjectCount" resultType="long">
@@ -92,8 +92,8 @@
         </if>
     </select>
 
-    <!-- Keep sibling slots here: task-type filtering happens after slot labels and counts are computed. -->
-    <select id="selectPlazaTaskRows" resultType="online.longlian.app.pojo.bo.app.PlazaTaskRowBO">
+    <!-- 同阶段的其它槽位必须保留：先计算槽位编号和数量，再按任务类型过滤。 -->
+    <select id="selectPlazaTaskRows" resultType="online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO">
         SELECT ti.id AS instanceId,
                ti.project_id AS projectId,
                ti.item_id AS itemId,
@@ -126,20 +126,11 @@
         ORDER BY ti.project_id, ti.item_id, n.sort, n.parallel_sort, ti.created_at, ti.id
     </select>
 
-    <select id="selectPlazaItemStages" resultType="online.longlian.app.pojo.bo.app.PlazaItemStageBO">
-        SELECT n.item_id AS itemId, n.sort AS sort
-        FROM item_task_node n
-        WHERE n.deleted_at IS NULL
-          AND n.item_id IN
-          <foreach collection="itemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
-        ORDER BY n.item_id, n.sort
-    </select>
-
     <!--
       我的待办候选：状态码 task_instance 2-CLAIMED；排除已删除项目；
       project resource_status 1-ENABLED。前置分组不在此处判定，见 StageUnlockPolicy。
     -->
-    <select id="selectMyClaimedTasks" resultType="online.longlian.app.pojo.bo.app.MyTaskRowBO">
+    <select id="selectMyClaimedTasks" resultType="online.longlian.app.pojo.bo.app.mytask.MyTaskRowBO">
         SELECT ti.id AS instanceId,
                ti.item_id AS itemId,
                ti.project_id AS projectId,
@@ -172,7 +163,7 @@
       与我的待办一致，仅返回启用企划（resource_status 1）上的任务；列表与数量共用该筛选。
       已删除的企划、项目、节点不返回。
     -->
-    <select id="selectClaimedTasksByAssignees" resultType="online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO">
+    <select id="selectClaimedTasksByAssignees" resultType="online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadRowBO">
         SELECT ti.id AS instanceId,
                ti.assignee_id AS assigneeId,
                ti.item_id AS itemId,
@@ -196,7 +187,7 @@
     </select>
 
     <!-- 节点完成：存在未删除实例且全部为 COMPLETED(3)，与前端节点 taskStatus 口径一致 -->
-    <select id="selectItemStageNodeStatuses" resultType="online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO">
+    <select id="selectItemStageNodeStatuses" resultType="online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO">
         SELECT n.item_id AS itemId,
                n.id AS nodeId,
                n.name AS nodeName,

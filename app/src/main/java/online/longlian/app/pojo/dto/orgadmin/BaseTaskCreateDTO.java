@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import online.longlian.app.pojo.bo.common.TaskFormField;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
 import java.util.List;
 
 @Data
@@ -27,5 +27,5 @@ public class BaseTaskCreateDTO {
 
     @NotNull
     @Schema(description = "提交表单字段", requiredMode = Schema.RequiredMode.REQUIRED)
-    private List<TaskFormField> submitFields;
+    private List<TaskFormFieldBO> submitFields;
 }

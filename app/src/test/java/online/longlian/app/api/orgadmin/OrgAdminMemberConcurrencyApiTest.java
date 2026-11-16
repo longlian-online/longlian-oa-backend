@@ -3,7 +3,7 @@ package online.longlian.app.api.orgadmin;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.common.LockService;
+import online.longlian.app.service.lock.LockService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 
