@@ -21,6 +21,9 @@ public class PlazaTaskResultBO {
 
     private String nodeName;
 
+    /** 原子任务当前图标（Lucide 组件名），活读不快照；原子任务缺失时为 null */
+    private String baseTaskIcon;
+
     private Integer stageIndex;
 
     private Integer stageTotal;
