@@ -30,6 +30,7 @@ class TaskPlazaAssemblerTest {
         // 阶段1并行双槽：1个已完成 + 1个待接取 → 槽位 1 实 / 1 空
         PlazaTaskRowBO completed = row(11L, 100L, 200L, "翻译", 1, 1, TaskInstanceStatus.COMPLETED);
         PlazaTaskRowBO pending = row(12L, 100L, 200L, "校对", 1, 2, TaskInstanceStatus.PENDING);
+        pending.setBaseTaskIcon("BookOpen");
         PlazaProjectSummaryBO summary = summary(100L, "企划A", 2L, 1L);
         Map<Long, List<Integer>> itemSorts = Map.of(200L, List.of(1, 2));
 
@@ -49,6 +50,7 @@ class TaskPlazaAssemblerTest {
         var task = group.getTasks().getFirst();
         assertThat(task.getInstanceId()).isEqualTo(12L);
         assertThat(task.getNodeName()).isEqualTo("校对");
+        assertThat(task.getBaseTaskIcon()).isEqualTo("BookOpen");
         assertThat(task.getStageIndex()).isEqualTo(1);
         assertThat(task.getStageTotal()).isEqualTo(2);
         assertThat(task.getParallelTotal()).isEqualTo(2);
