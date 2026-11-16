@@ -24,6 +24,10 @@ public class PlazaTaskRowBO {
     private Long nodeId;
 
     private Long baseTaskId;
+
+    /** 原子任务当前图标（Lucide 组件名），活读不快照；原子任务缺失时为 null */
+    private String baseTaskIcon;
+
     private Integer sort;
 
     private Integer parallelSort;

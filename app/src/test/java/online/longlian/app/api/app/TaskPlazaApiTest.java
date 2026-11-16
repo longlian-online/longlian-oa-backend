@@ -93,19 +93,20 @@ public class TaskPlazaApiTest extends BaseApiTest {
 
     private void seedTaskTypes() {
         seedPlazaFixture();
-        insertBaseTask(4101L, 4000L, "translate", 1);
-        insertBaseTask(4102L, 4000L, "review", 0);
-        insertBaseTask(4103L, 4000L, "unused-disabled", 0);
-        insertBaseTask(4104L, 4000L, "deleted", 1);
-        insertBaseTask(4105L, 4999L, "foreign", 1);
+        insertBaseTask(4101L, 4000L, "translate", "Languages", 1);
+        insertBaseTask(4102L, 4000L, "review", "SquarePen", 0);
+        insertBaseTask(4103L, 4000L, "unused-disabled", null, 0);
+        insertBaseTask(4104L, 4000L, "deleted", null, 1);
+        insertBaseTask(4105L, 4999L, "foreign", null, 1);
         jdbcTemplate.update("UPDATE base_task SET deleted_at = NOW() WHERE id = 4104");
         jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4101 WHERE id IN (4001,4004,4005)");
         jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4102, name = 'custom-review' WHERE id IN (4002,4003)");
     }
 
-    private void insertBaseTask(long id, long orgId, String name, int status) {
-        jdbcTemplate.update("INSERT INTO base_task (id, org_id, name, status, creator_id) VALUES (?, ?, ?, ?, 4001)",
-                id, orgId, name, status);
+    private void insertBaseTask(long id, long orgId, String name, String icon, int status) {
+        jdbcTemplate.update(
+                "INSERT INTO base_task (id, org_id, name, icon, status, creator_id) VALUES (?, ?, ?, ?, ?, 4001)",
+                id, orgId, name, icon, status);
     }
 
     @Test
@@ -142,6 +143,7 @@ public class TaskPlazaApiTest extends BaseApiTest {
                 .body("data.list[0].tasks.size()", equalTo(1))
                 .body("data.list[0].tasks[0].instanceId", equalTo("4002"))
                 .body("data.list[0].tasks[0].nodeName", equalTo("custom-review"))
+                .body("data.list[0].tasks[0].baseTaskIcon", equalTo("SquarePen"))
                 .body("data.list[0].tasks[0].slotIndex", equalTo(2))
                 .body("data.list[0].tasks[0].slotTotal", equalTo(2))
                 .body("data.list[0].tasks[0].parallelTotal", equalTo(2))
@@ -235,7 +237,7 @@ public class TaskPlazaApiTest extends BaseApiTest {
         authRequest(token).get("/app/task/instance/plaza/task-types").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.size()", equalTo(0));
-        insertBaseTask(4102L, 4000L, "review", 0);
+        insertBaseTask(4102L, 4000L, "review", null, 0);
         jdbcTemplate.update("UPDATE item_task_node SET base_task_id = 4102 WHERE id = 4002");
         authRequest(token).post("/app/task/instance/4002/claim").then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()));
