@@ -57,7 +57,7 @@ public class ItemOrderApiTest extends BaseApiTest {
     @Test
     void shouldFilterTheGlobalOrderBeforePagination() {
         String token = seed();
-        jdbcTemplate.update("INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, status) VALUES (1,1,3,1,1,3)");
+        jdbcTemplate.update("UPDATE item SET status = 2 WHERE id = 3");
         save(token, INITIAL, REORDERED).then().body("code", equalTo(0));
 
         authRequest(token).queryParam("status", "IN_PROGRESS").queryParam("pageSize", 4)

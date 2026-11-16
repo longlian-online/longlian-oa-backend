@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSON;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.metrics.ApiResultMetrics;
+import online.longlian.app.common.metrics.ResultMetricCapture;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.common.security.AdminUserDetails;
@@ -39,12 +41,14 @@ class OrganizationScopeInterceptorTest {
     private OrganizationMembershipService organizationMembershipService;
 
     private OrganizationScopeInterceptor interceptor;
+    private ResultMetricCapture capture;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
-        interceptor = new OrganizationScopeInterceptor(organizationMembershipService);
+        capture = ResultMetricCapture.open();
+        interceptor = new OrganizationScopeInterceptor(organizationMembershipService, capture.metrics());
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         SecurityContextHolder.clearContext();
@@ -53,7 +57,9 @@ class OrganizationScopeInterceptorTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        capture.close();
     }
+
 
     @Test
     void shouldReplaceAuthoritiesWhenMethodRequiresOrganization() throws Exception {
@@ -72,6 +78,7 @@ class OrganizationScopeInterceptorTest {
                 .containsExactly("ROLE_ORG_USER");
         assertThat(request.getAttribute(OrganizationScopeInterceptor.SCOPE_ATTRIBUTE))
                 .isEqualTo(new OrganizationScope(12L, 9L, "ORG_USER"));
+        assertThat(capture.isEmpty()).isTrue();
     }
 
     @Test
@@ -98,6 +105,8 @@ class OrganizationScopeInterceptorTest {
         assertThat(JSON.parseObject(response.getContentAsString()).getIntValue("code"))
                 .isEqualTo(ResultCode.OPERATION_FAIL.getCode());
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(capture.count(ResultCode.OPERATION_FAIL.getCode(), ApiResultMetrics.UNMATCHED_ROUTE)).isEqualTo(1);
+        assertThat(capture.count(ResultCode.FAIL.getCode(), ApiResultMetrics.UNMATCHED_ROUTE)).isZero();
     }
 
     @Test
@@ -182,6 +191,7 @@ class OrganizationScopeInterceptorTest {
 
         assertThat(JSON.parseObject(response.getContentAsString()).getIntValue("code"))
                 .isEqualTo(ResultCode.FAIL.getCode());
+        assertThat(capture.count(ResultCode.FAIL.getCode(), ApiResultMetrics.UNMATCHED_ROUTE)).isEqualTo(1);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
@@ -207,6 +217,7 @@ class OrganizationScopeInterceptorTest {
         assertThat(interceptor.preHandle(request, response, handler("required", SessionContext.class))).isFalse();
 
         assertThat(response.getContentAsString()).isEqualTo("already");
+        assertThat(capture.isEmpty()).isTrue();
     }
 
     @Test

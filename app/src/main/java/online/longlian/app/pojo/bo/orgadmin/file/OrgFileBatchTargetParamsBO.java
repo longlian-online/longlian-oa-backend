@@ -14,4 +14,5 @@ public class OrgFileBatchTargetParamsBO {
     private Long itemId;
     private Long projectId;
     private Long typeId;
+    private Long taskId;
 }

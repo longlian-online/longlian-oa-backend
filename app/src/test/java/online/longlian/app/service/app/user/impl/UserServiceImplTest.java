@@ -553,14 +553,14 @@ class UserServiceImplTest {
         assertThat(service.getMyOrganizations(1L)).isEmpty();
     }
 
-    /** 组织列表过滤禁用组织，并按资源 ID 匹配头像；没有头像的组织保留空值。 */
+    /** 组织列表过滤禁用组织，按资源 ID 匹配头像，并带回当前成员角色；没有头像的组织保留空值。 */
     @Test
     void shouldListEnabledOrganizationsWithMatchingAvatars() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), OrganizationMember.class);
         when(organizationMemberMapper.selectList(any())).thenReturn(List.of(
-                OrganizationMember.builder().orgId(10L).build(),
-                OrganizationMember.builder().orgId(20L).build(),
-                OrganizationMember.builder().orgId(30L).build()));
+                OrganizationMember.builder().orgId(10L).orgRole("ORG_OWNER").build(),
+                OrganizationMember.builder().orgId(20L).orgRole("ORG_USER").build(),
+                OrganizationMember.builder().orgId(30L).orgRole("ORG_ADMIN").build()));
         when(organizationMapper.selectBatchIds(any())).thenReturn(List.of(
                 Organization.builder().id(10L).name("with avatar").status(Status.ENABLED).avatarFileId(100L).build(),
                 Organization.builder().id(20L).name("disabled").status(Status.DISABLED).avatarFileId(200L).build(),
@@ -569,11 +569,11 @@ class UserServiceImplTest {
                 100L, new ResourceReadUrlGetResultBO("https://cdn.example/avatar.png", 10L, "avatar.png")));
 
         assertThat(service.getMyOrganizations(1L))
-                .extracting("id", "name", "avatarUrl")
+                .extracting("id", "name", "avatarUrl", "role")
                 .containsExactly(
                         org.assertj.core.api.Assertions.tuple(10L, "with avatar",
-                                "https://cdn.example/avatar.png?eo-img.resize=w/64/h/64"),
-                        org.assertj.core.api.Assertions.tuple(30L, "without avatar", null));
+                                "https://cdn.example/avatar.png?eo-img.resize=w/64/h/64", "ORG_OWNER"),
+                        org.assertj.core.api.Assertions.tuple(30L, "without avatar", null, "ORG_ADMIN"));
     }
 
     @Test

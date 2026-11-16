@@ -9,6 +9,7 @@ import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemStageSortResultBO;
 import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
+import online.longlian.app.pojo.bo.app.item.ItemCompleteParamsBO;
 
 import java.util.List;
 
@@ -64,6 +65,11 @@ public interface ItemService {
      * 企划负责人直接软删除没有提交记录的项目。
      */
     void deleteProjectItem(ItemDeleteParamsBO params);
+
+    /**
+     * 将项目标为已完成并记录完成时间。必须已有任务且全部任务已完成。已完成时保持原完成时间。
+     */
+    void completeProjectItem(ItemCompleteParamsBO params);
 
     /**
      * 审核通过后软删除项目，不再检查创建者或是否已有提交。

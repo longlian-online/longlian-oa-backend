@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import online.longlian.app.common.annotation.JsonLongIdString;
 
+import java.time.LocalDateTime;
+
 @Data
 @Schema(description = "项目成员")
 public class ProjectMemberVO {
@@ -20,4 +22,6 @@ public class ProjectMemberVO {
 
     @Schema(description = "是否企划负责人")
     private Boolean isCreator;
+    private LocalDateTime lastSubmittedAt;
+    private Integer completedCount;
 }

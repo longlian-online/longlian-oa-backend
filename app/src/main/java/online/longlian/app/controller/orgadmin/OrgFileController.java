@@ -50,15 +50,16 @@ public class OrgFileController {
 
     private final OrgFileService orgFileService;
 
-    @Operation(summary = "浏览组织文件", description = "view 省略或 planning：不传 ID 为全部企划，传 projectId 为该企划下的项目，再传 itemId 为该项目当前有效提交文件。view=type：不传 ID 为全部企划类型，传 typeId 为该类型下全部当前有效提交文件，不再返回文件夹。view=item：不传 ID 为全部项目，传 itemId 为该项目当前有效提交文件。企划、类型和类型下的文件分页，项目下的提交文件不分页")
+    @Operation(summary = "浏览组织文件", description = "不传 ID 为全部企划类型。传 typeId 为该类型下的企划。再传 projectId 后，view 省略或 item 为该企划下的项目，再传 itemId 为该项目全部版本的提交文件；view=task 为该企划下当前任务节点的并集，再传 taskId 为这些节点全部版本的提交文件。任务并集按节点上的原子任务标识归并，不读取原子任务表。类型、企划、任务和任务下的文件分页，项目下的提交文件不分页")
     @GetMapping
     @ResponseMessage("查询成功")
     public OrgFileEntriesVO list(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
-            @Parameter(description = "目录分层，默认 planning") @RequestParam(required = false) OrgFileView view,
-            @Parameter(description = "企划类型 ID，仅 type 分层") @RequestParam(required = false) Long typeId,
+            @Parameter(description = "打开企划后的视图，默认 item") @RequestParam(required = false) OrgFileView view,
+            @Parameter(description = "企划类型 ID") @RequestParam(required = false) Long typeId,
             @Parameter(description = "企划 ID") @RequestParam(required = false) Long projectId,
-            @Parameter(description = "项目 ID") @RequestParam(required = false) Long itemId,
+            @Parameter(description = "项目 ID，仅项目视图") @RequestParam(required = false) Long itemId,
+            @Parameter(description = "任务标识，仅任务视图。取自项目任务节点上的原子任务 ID") @RequestParam(required = false) Long taskId,
             @Parameter(description = "页码，从 1 开始") @RequestParam(required = false) Integer pageNum) {
         OrgFileEntriesResultBO result = orgFileService.list(OrgFileListParamsBO.builder()
                 .orgId(sessionContext.orgId())
@@ -66,6 +67,7 @@ public class OrgFileController {
                 .typeId(typeId)
                 .projectId(projectId)
                 .itemId(itemId)
+                .taskId(taskId)
                 .pageNum(pageNum == null || pageNum < 1 ? 1 : pageNum)
                 .pageSize(OrgFileService.PAGE_SIZE)
                 .build());
@@ -93,7 +95,7 @@ public class OrgFileController {
         return vo;
     }
 
-    @Operation(summary = "展开选中的提交文件", description = "展开选中的文件、项目、企划或企划类型。只返回当前有效且可用的提交文件身份和原名，不签发读取链接")
+    @Operation(summary = "展开选中的提交文件", description = "展开选中的文件、项目、企划、企划类型或任务。只返回当前有效且可用的提交文件身份和原名，不签发读取链接")
     @PostMapping("/expansions")
     @ResponseMessage("获取成功")
     public OrgFileExpansionVO expand(
@@ -147,6 +149,7 @@ public class OrgFileController {
                 .itemId(target.getItemId())
                 .projectId(target.getProjectId())
                 .typeId(target.getTypeId())
+                .taskId(target.getTaskId())
                 .build();
     }
 

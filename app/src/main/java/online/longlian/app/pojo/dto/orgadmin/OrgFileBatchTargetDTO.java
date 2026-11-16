@@ -3,6 +3,7 @@ package online.longlian.app.pojo.dto.orgadmin;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.common.enumeration.OrgFileBatchTargetKind;
 
 @Data
@@ -10,7 +11,7 @@ import online.longlian.common.enumeration.OrgFileBatchTargetKind;
 public class OrgFileBatchTargetDTO {
 
     @NotNull(message = "展开目标不能为空")
-    @Schema(description = "FILE-提交文件，ITEM-项目，PROJECT-企划，TYPE-企划类型", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "FILE-提交文件，ITEM-项目，PROJECT-企划，TYPE-企划类型，TASK-企划下的一个任务", requiredMode = Schema.RequiredMode.REQUIRED)
     private OrgFileBatchTargetKind kind;
 
     @Schema(type = "string", description = "任务实例 ID，仅 FILE")
@@ -30,4 +31,7 @@ public class OrgFileBatchTargetDTO {
 
     @Schema(type = "string", description = "企划类型 ID，仅 TYPE")
     private Long typeId;
+
+    @Schema(type = "string", description = "任务标识，仅 TASK。取自项目任务节点上的原子任务 ID")
+    private Long taskId;
 }

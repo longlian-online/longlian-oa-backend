@@ -12,6 +12,7 @@ import online.longlian.app.common.annotation.UserSessionDeclarations;
 import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.OrganizationScope;
@@ -40,6 +41,7 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
     public static final String SCOPE_ATTRIBUTE = OrganizationScopeInterceptor.class.getName() + ".SCOPE";
 
     private final OrganizationMembershipService organizationMembershipService;
+    private final ApiResultMetrics apiResultMetrics;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
@@ -53,7 +55,7 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
         if (declarations.size() != 1 || declarations.get(0).value() != OrganizationDeclaration.REQUIRED) {
             if (declarations.size() != 1) {
                 SecurityContextHolder.clearContext();
-                writeFailure(response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织声明重复"));
+                writeFailure(request, response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织声明重复"));
                 return false;
             }
             return true;
@@ -61,13 +63,13 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication != null && authentication.getPrincipal() instanceof UserDetailImpl user)) {
             SecurityContextHolder.clearContext();
-            writeFailure(response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织不能为空"));
+            writeFailure(request, response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织不能为空"));
             return false;
         }
         String header = request.getHeader(ORG_ID_HEADER);
         if (header == null) {
             SecurityContextHolder.clearContext();
-            writeFailure(response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织不能为空"));
+            writeFailure(request, response, Result.fail(ResultCode.OPERATION_FAIL.getCode(), "组织不能为空"));
             return false;
         }
         try {
@@ -89,12 +91,12 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
             return true;
         } catch (AppException e) {
             SecurityContextHolder.clearContext();
-            writeFailure(response, Result.fail(e.getCode(), e.getMsg()));
+            writeFailure(request, response, Result.fail(e.getCode(), e.getMsg()));
             return false;
         } catch (DataAccessException e) {
             SecurityContextHolder.clearContext();
             log.error("组织作用域查询失败 | type={}", e.getClass().getName());
-            writeFailure(response, Result.fail(ResultCode.FAIL));
+            writeFailure(request, response, Result.fail(ResultCode.FAIL));
             return false;
         }
     }
@@ -118,10 +120,11 @@ public class OrganizationScopeInterceptor implements HandlerInterceptor {
         }
     }
 
-    private void writeFailure(HttpServletResponse response, Result<?> result) throws IOException {
+    private void writeFailure(HttpServletRequest request, HttpServletResponse response, Result<?> result) throws IOException {
         if (response.isCommitted()) {
             return;
         }
+        apiResultMetrics.record(request, result.getCode());
         response.setStatus(HttpStatus.OK.value());
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.getWriter().write(JSON.toJSONString(result));

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.RequestAuthenticationException;
@@ -29,6 +30,7 @@ import java.io.IOException;
 public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
 
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
+    private final ApiResultMetrics apiResultMetrics;
 
     @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
     private String mcpEndpoint = "/mcp";
@@ -52,6 +54,7 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
                         request.getMethod());
                 response.setContentType(CommonConstants.CONTENT_TYPE);
                 response.setStatus(HttpStatus.OK.value());
+                apiResultMetrics.record(request, ResultCode.NOT_FOUND.getCode());
                 response.getWriter().write(JSON.toJSONString(Result.fail(ResultCode.NOT_FOUND)));
                 return;
             }
@@ -59,6 +62,7 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
             log.error("获取对应 handler 失败, err: {}", e.getMessage());
             response.setContentType(CommonConstants.CONTENT_TYPE);
             response.setStatus(HttpStatus.OK.value());
+            apiResultMetrics.record(request, ResultCode.FAIL.getCode());
             response.getWriter().write(JSON.toJSONString(Result.fail(ResultCode.FAIL)));
             return;
         }
@@ -73,6 +77,7 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
         );
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.setStatus(HttpStatus.OK.value());
+        apiResultMetrics.record(request, code);
         response.getWriter().write(JSON.toJSONString(Result.fail(code, msg)));
     }
 }

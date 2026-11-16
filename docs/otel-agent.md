@@ -60,6 +60,37 @@ environment:
 
 `devops/docker-compose.prod.yml` 使用同一 OTLP/HTTP endpoint，并设置 `deployment.environment=prod`。发布工作流构建生产镜像时已设置 `INCLUDE_OTEL=true`；不要替换为未包含 Agent 的镜像。
 
+## API 结果指标
+
+REST 接口的 HTTP 状态码恒为 200，错误在响应体 `Result.code`。`ApiResultMetrics` 记录计数器 `app.result`：
+
+- `result.code`：`Result.code` 的十进制字符串。`8` 是系统内部异常；`0` 成功；`1`–`7` 是认证、参数和业务结果，不算服务失败。
+- `http.route`：Spring 匹配模板。鉴权或拦截器还没有模板时为 `none`，不用原始 URI。
+
+写出 `Result` 时记一次：`ResultResponseBodyAdvice`（含 `GlobalExceptionHandler`）、`AuthenticationEntryPointImpl`、`AccessDeniedHandlerImpl`、`OrganizationScopeInterceptor` 的失败响应。响应已经提交时不再记。`JwtAuthenticationFilter` 交给入口点写响应，不单独记。MCP 端点返回 HTTP 401/403，不写 `Result`，不进入这个计数器。
+
+`OTEL_METRICS_EXPORTER` 目前是 `none`，计数留在进程内。接到 Prometheus 时只加下面的指标变量，不要设置 `OTEL_EXPORTER_OTLP_ENDPOINT`，否则会覆盖现有的日志端点。Agent 2.26 把信号专用端点原样使用，路径要写完整：
+
+```yaml
+OTEL_METRICS_EXPORTER: otlp
+OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: http/protobuf
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://prometheus:9090/api/v1/otlp/v1/metrics
+OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: cumulative
+```
+
+Prometheus 需要 `--web.enable-otlp-receiver`，并且只暴露在集群内。默认名称翻译（`UnderscoreEscapingWithSuffixes`）后计数器是 `app_result_total`，标签是 `result_code`、`http_route`。可用性：
+
+```promql
+1 - (
+  sum(rate(app_result_total{result_code="8"}[5m]))
+  /
+  sum(rate(app_result_total[5m]))
+)
+```
+
+进程退出后这个比例不会变成失败，只是不再有新样本。不要把夜间没有流量当成故障；存活用进程或探针单独告警。
+
+
 ## 常用 OTel 环境变量
 
 | 变量 | 说明 | 示例 |
@@ -69,6 +100,10 @@ environment:
 | `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | 日志 OTLP 端点 | `http://victorialogs:9428/insert/opentelemetry/v1/logs` |
 | `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` | 日志导出协议 | `http/protobuf` |
 | `OTEL_LOGS_EXPORTER` | 日志导出器 | `otlp` |
+| `OTEL_METRICS_EXPORTER` | 指标导出器 | `otlp` / `none` |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | 指标 OTLP 端点，写完整路径 | `http://prometheus:9090/api/v1/otlp/v1/metrics` |
+| `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL` | 指标导出协议 | `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` | 指标时间性，Prometheus 用累计 | `cumulative` |
 | `OTEL_TRACES_SAMPLER` | 采样策略 | `always_on` / `traceidratio` |
 | `OTEL_TRACES_SAMPLER_ARG` | 采样参数（ratio 时为 0~1） | `0.5` |
 | `OTEL_RESOURCE_ATTRIBUTES` | 附加资源属性 | `deployment.environment=prod` |

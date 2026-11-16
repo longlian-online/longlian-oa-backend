@@ -12,6 +12,7 @@ public class OrgFileListParamsBO {
     private Long typeId;
     private Long projectId;
     private Long itemId;
+    private Long taskId;
     private Integer pageNum;
     private Integer pageSize;
 }

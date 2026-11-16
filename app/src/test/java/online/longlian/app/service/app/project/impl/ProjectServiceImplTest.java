@@ -32,6 +32,7 @@ import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.projecttype.ProjectTypeCustomFormService;
+import online.longlian.app.service.app.taskinstance.impl.ProjectMemberSubmissionStats;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.Status;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -83,6 +84,8 @@ class ProjectServiceImplTest {
     private ProjectAttachmentHandler projectAttachmentHandler;
     @Mock
     private OrganizationMembershipService organizationMembershipService;
+    @Mock
+    private ProjectMemberSubmissionStats projectMemberSubmissionStats;
 
     private ProjectServiceImpl service;
 
@@ -104,6 +107,7 @@ class ProjectServiceImplTest {
                 projectTypeCustomFormService,
                 projectAttachmentHandler,
                 organizationMembershipService,
+                projectMemberSubmissionStats,
                 Clock.fixed(Instant.parse("2026-09-19T00:00:00Z"), ZoneOffset.UTC)
         );
         lenient().when(organizationMembershipService.isEnabledAdministrator(any(), any())).thenReturn(false);

@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import online.longlian.common.enumeration.ItemStatus;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -14,6 +17,10 @@ import java.util.List;
 public class ItemTaskFlowResultBO {
 
     private String itemTitle;
+
+    private ItemStatus status;
+
+    private LocalDateTime completedAt;
 
     private String name;
 

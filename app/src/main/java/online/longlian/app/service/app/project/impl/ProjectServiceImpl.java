@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectProgressBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberSubmissionStatBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
@@ -39,6 +40,7 @@ import online.longlian.app.pojo.bo.app.project.ProjectTypeInfoResultBO;
 import online.longlian.app.service.app.project.ProjectService;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.projecttype.ProjectTypeCustomFormService;
+import online.longlian.app.service.app.taskinstance.impl.ProjectMemberSubmissionStats;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
@@ -68,6 +70,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectTypeCustomFormService projectTypeCustomFormService;
     private final ProjectAttachmentHandler projectAttachmentHandler;
     private final OrganizationMembershipService organizationMembershipService;
+    private final ProjectMemberSubmissionStats projectMemberSubmissionStats;
     private final Clock clock;
 
     @Override
@@ -83,10 +86,14 @@ public class ProjectServiceImpl implements ProjectService {
         List<Long> avatarIds = page.stream().map(OrganizationMemberDetailsResultBO::avatarFileId)
                 .filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, ResourceReadUrlGetResultBO> avatars = resourceService.getResourceReadUrls(avatarIds);
+        Map<Long, ProjectMemberSubmissionStatBO> submissionStats = projectMemberSubmissionStats.forMembers(
+                params.getProjectId(), page.stream().map(OrganizationMemberDetailsResultBO::userId).toList());
         List<ProjectMemberResultBO> results = page.stream().map(member -> {
             ResourceReadUrlGetResultBO avatar = member.avatarFileId() == null ? null : avatars.get(member.avatarFileId());
+            ProjectMemberSubmissionStatBO stat = submissionStats.get(member.userId());
             return new ProjectMemberResultBO(member.userId(), member.nickname(),
-                    avatar == null ? null : avatar.getUrl(), project.getCreatorId().equals(member.userId()));
+                    avatar == null ? null : avatar.getUrl(), project.getCreatorId().equals(member.userId()),
+                    stat == null ? null : stat.lastSubmittedAt(), stat == null ? 0 : stat.completedCount());
         }).toList();
         return new PageResultBO<>(results, (long) members.size());
     }

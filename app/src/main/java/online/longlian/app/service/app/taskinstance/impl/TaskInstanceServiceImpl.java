@@ -3,6 +3,7 @@ import online.longlian.app.service.app.taskstage.StageUnlockPolicy;
 
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
@@ -47,6 +48,7 @@ import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultB
 import online.longlian.app.service.app.project.ProjectService;
 import online.longlian.app.service.app.notification.InboxNotificationService;
 import online.longlian.common.enumeration.InboxNotificationKind;
+import online.longlian.common.enumeration.ItemStatus;
 import online.longlian.common.enumeration.TaskInstanceStatus;
 import online.longlian.app.service.app.taskinstance.TaskInstanceService;
 import online.longlian.app.service.audit.UserOperationLogService;
@@ -293,6 +295,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     public void resetTask(TaskInstanceOperateParamsBO params) {
         mutateTask(params.getInstanceId(), params.getOrgId(), null, (instance, project) -> {
             taskInstanceCommandHandler.reset(instance, params.getUserId());
+            reopenCompletedItem(instance.getItemId());
             operationLogService.log(params.getUserId(), instance.getProjectId(),
                     instance.getItemId(), UserOperationType.TASK_RESET, params);
             return null;
@@ -305,6 +308,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             boolean projectCreator = managesPlanning(project, params.getUserId());
             TaskInstanceRejectResultBO result = taskInstanceCommandHandler.reject(instance, params.getUserId(),
                     projectCreator, params.getExpectedRevision(), params.getReviewComment());
+            reopenCompletedItem(instance.getItemId());
             if (instance.getAssigneeId() != null) {
                 inboxNotificationService.createBatch(new NotificationBatchCreateParamsBO(project.getOrgId(),
                         List.of(new NotificationCreateBO(instance.getAssigneeId(), InboxNotificationKind.TASK_REJECTED,
@@ -349,6 +353,16 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     private boolean managesPlanning(Project project, Long userId) {
         return java.util.Objects.equals(userId, project.getCreatorId())
                 || organizationMembershipService.isEnabledAdministrator(userId, project.getOrgId());
+    }
+
+    /** 已完成项目下的任务被重置或打回后，项目不再满足全部完成，回到进行中。 */
+    private void reopenCompletedItem(Long itemId) {
+        itemMapper.update(null, new LambdaUpdateWrapper<Item>()
+                .eq(Item::getId, itemId)
+                .eq(Item::getStatus, ItemStatus.COMPLETED)
+                .set(Item::getStatus, ItemStatus.IN_PROGRESS)
+                .set(Item::getCompletedAt, null)
+                .set(Item::getUpdatedAt, LocalDateTime.now(clock)));
     }
 
     private <T> T mutateTask(Long instanceId, Long orgId, Long validatedUserId,
