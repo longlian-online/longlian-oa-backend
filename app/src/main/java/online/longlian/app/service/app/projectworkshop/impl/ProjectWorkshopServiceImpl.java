@@ -1,0 +1,127 @@
+package online.longlian.app.service.app.projectworkshop.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
+import online.longlian.app.mapper.ProjectMapper;
+import online.longlian.app.mapper.ProjectWorkshopMapper;
+import online.longlian.app.mapper.TaskTemplateMapper;
+import online.longlian.app.mapper.TaskTemplateNodeMapper;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateListParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.WorkshopTaskTemplateUpdateParamsBO;
+import online.longlian.app.pojo.entity.Project;
+import online.longlian.app.pojo.entity.ProjectWorkshop;
+import online.longlian.app.pojo.entity.TaskTemplate;
+import online.longlian.app.pojo.entity.TaskTemplateNode;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
+import online.longlian.app.service.app.projectworkshop.ProjectWorkshopService;
+import online.longlian.common.enumeration.Status;
+import online.longlian.common.enumeration.TaskTemplateScope;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
+import online.longlian.app.service.lock.LockService;
+import online.longlian.common.service.DistributedLockService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+@Service
+@RequiredArgsConstructor
+public class ProjectWorkshopServiceImpl extends ServiceImpl<ProjectWorkshopMapper, ProjectWorkshop> implements ProjectWorkshopService {
+
+    private final ProjectMapper projectMapper;
+    private final BaseTaskService baseTaskService;
+    private final TaskTemplateMapper taskTemplateMapper;
+    private final TaskTemplateNodeMapper taskTemplateNodeMapper;
+    private final Clock clock;
+    private final WorkshopQueryBuilder workshopQueryBuilder;
+    private final WorkshopAssembler workshopAssembler;
+    private final WorkshopProjectHandler workshopProjectHandler;
+    private final LockService lockService;
+
+    @Override
+    public PageResultBO<WorkshopProjectInfoResultBO> getMyWorkshopList(WorkshopListParamsBO params) {
+        Long typeId = workshopProjectHandler.resolveTypeId(params.getOrgId(), params.getProjectType());
+
+        Page<Project> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<Project> queryWrapper = workshopQueryBuilder.buildWorkshopProjectQuery(params, typeId);
+        Page<Project> projectPage = projectMapper.selectPage(page, queryWrapper);
+
+        if (projectPage.getRecords().isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), projectPage.getTotal());
+        }
+
+        return new PageResultBO<>(
+                workshopAssembler.assembleProjectList(projectPage.getRecords()),
+                projectPage.getTotal());
+    }
+
+    @Override
+    public PageResultBO<WorkshopTaskTemplateResultBO> getWorkshopTaskTemplateList(WorkshopTaskTemplateListParamsBO params) {
+        Page<TaskTemplate> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<TaskTemplate> queryWrapper = workshopQueryBuilder.buildCombinedTemplateQuery(
+                params.getOrgId(), params.getUserId(), params.getKeyword(), params.getIsMyCreated());
+        Page<TaskTemplate> templatePage = taskTemplateMapper.selectPage(page, queryWrapper);
+
+        if (templatePage.getRecords().isEmpty()) {
+            return new PageResultBO<>(Collections.emptyList(), templatePage.getTotal());
+        }
+
+        return new PageResultBO<>(
+                workshopAssembler.assembleTemplateList(templatePage.getRecords(), params.getUserId()),
+                templatePage.getTotal());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void createWorkshopTaskTemplate(WorkshopTaskTemplateCreateParamsBO params) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        TaskTemplate template = TaskTemplate.builder()
+                .orgId(params.getOrgId())
+                .name(params.getName())
+                .description(params.getDescription())
+                .status(Status.ENABLED)
+                .scope(TaskTemplateScope.PERSONAL)
+                .refCount(0)
+                .creatorId(params.getCreatorId())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        taskTemplateMapper.insert(template);
+        baseTaskService.lockBaseTasks(params.getOrgId(), params.getNodes().stream().map(WorkshopTaskTemplateNodeCreateParamsBO::getBaseTaskId).toList());
+        for (WorkshopTaskTemplateNodeCreateParamsBO node : params.getNodes()) {
+            TaskTemplateNode taskTemplateNode = buildNode(template.getId(), node, now);
+            taskTemplateNodeMapper.insert(taskTemplateNode);
+        }
+    }
+
+    @Override
+    public void updateWorkshopTaskTemplate(WorkshopTaskTemplateUpdateParamsBO params) {
+        String lockKey = "template:edit:" + params.getTemplateId();
+        try (DistributedLockService.Lock lock = lockService.tryAcquireOrThrow(lockKey, 0, 5, TimeUnit.SECONDS)) {
+            workshopProjectHandler.updateWorkshopTaskTemplate(params);
+        }
+    }
+
+    private TaskTemplateNode buildNode(Long templateId, WorkshopTaskTemplateNodeCreateParamsBO node, LocalDateTime now) {
+        return TaskTemplateNode.builder()
+                .taskTemplateId(templateId)
+                .baseTaskId(node.getBaseTaskId())
+                .sort(node.getSort())
+                .parallelSort(node.getParallelSort())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+    }
+
+}

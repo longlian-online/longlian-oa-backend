@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
-import online.longlian.app.pojo.bo.common.LocalFileReadResult;
+import online.longlian.app.pojo.bo.common.LocalFileReadResultBO;
 import online.longlian.app.pojo.bo.common.LocalFileWriteParamsBO;
 import online.longlian.app.pojo.entity.Resource;
 import online.longlian.app.service.resource.impl.LocalStorageService;
@@ -37,14 +37,14 @@ public class LocalFileIngress {
                 .build());
     }
 
-    public LocalFileReadResult read(LocalFileReadParamsBO signed) {
+    public LocalFileReadResultBO read(LocalFileReadParamsBO signed) {
         signer.verify(signed);
         Resource resource = requireLocal(resourceService.loadActivated(signed.key()), ResultCode.DATA_NOT_EXIT);
         // 附件类业务需要还原原文件名；本地存储不写对象头，由读取接口回写 Content-Disposition。
         String contentDisposition = ResourceService.isAttachmentBusiness(resource.getBizType())
                 ? ContentDispositionUtil.attachment(resource.getFileName())
                 : null;
-        return new LocalFileReadResult(localStorageService.getResource(signed.key()), contentDisposition);
+        return new LocalFileReadResultBO(localStorageService.getResource(signed.key()), contentDisposition);
     }
 
     private static Resource requireLocal(Resource resource, ResultCode code) {

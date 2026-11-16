@@ -14,20 +14,25 @@ public class ProductReleaseSaveDTO {
 
     @NotBlank(message = "产品版本不能为空")
     @Pattern(regexp = VERSION, message = "版本格式不正确")
+    @Schema(description = "版本号（语义化版本）")
     private String version;
 
     @NotBlank(message = "前端版本不能为空")
     @Pattern(regexp = VERSION, message = "版本格式不正确")
+    @Schema(description = "前端版本号")
     private String frontendVersion;
 
     @NotBlank(message = "后端版本不能为空")
     @Pattern(regexp = VERSION, message = "版本格式不正确")
+    @Schema(description = "后端版本号")
     private String backendVersion;
 
     @Size(max = 40, message = "标题最多 40 字")
+    @Schema(description = "标题")
     private String title;
 
     @Size(max = 120, message = "摘要最多 120 字")
+    @Schema(description = "摘要")
     private String summary;
 
     @Size(max = 4000, message = "更新说明最多 4000 字")

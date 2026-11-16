@@ -2,7 +2,7 @@ package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import online.longlian.app.pojo.entity.TaskSubmission;
-import online.longlian.app.pojo.vo.app.WorkshopProjectInfoVO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectLatestSubmissionBO;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
@@ -32,6 +32,10 @@ public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
             """)
     List<Long> selectItemIdsWithSubmissionHistory(@Param("itemIds") List<Long> itemIds);
 
+    /**
+     * 每个企划取最近一次提交，需要窗口函数，LambdaQueryWrapper 无法表达。
+     * 只输出工坊列表需要的提交人和时间，不加载完整提交记录。
+     */
     @Select("""
             <script>
             SELECT latest.project_id AS id,
@@ -50,6 +54,6 @@ public interface TaskSubmissionMapper extends BaseMapper<TaskSubmission> {
             WHERE latest.row_num = 1
             </script>
             """)
-    List<WorkshopProjectInfoVO> selectLatestForProjects(@Param("projectIds") List<Long> projectIds);
+    List<ProjectLatestSubmissionBO> selectLatestForProjects(@Param("projectIds") List<Long> projectIds);
 
 }

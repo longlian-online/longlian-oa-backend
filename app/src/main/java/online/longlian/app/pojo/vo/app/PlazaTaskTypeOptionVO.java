@@ -14,5 +14,6 @@ public class PlazaTaskTypeOptionVO {
     @Schema(type = "string", description = "原子任务ID")
     private Long id;
 
+    @Schema(description = "原子任务名称")
     private String name;
 }

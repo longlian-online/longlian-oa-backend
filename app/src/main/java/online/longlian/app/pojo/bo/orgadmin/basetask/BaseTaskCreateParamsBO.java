@@ -1,0 +1,21 @@
+package online.longlian.app.pojo.bo.orgadmin.basetask;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import online.longlian.app.pojo.bo.common.TaskFormFieldBO;
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class BaseTaskCreateParamsBO {
+    private Long orgId;
+    private Long creatorId;
+    private String name;
+    private String description;
+    private String icon;
+    private List<TaskFormFieldBO> submitFields;
+}

@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.annotation.ResponseMessage;
-import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinitionBO;
 import online.longlian.app.pojo.dto.admin.ScheduleTriggerDTO;
 import online.longlian.app.pojo.vo.admin.ScheduledTaskVO;
 import online.longlian.app.scheduled.ScheduledTask;
@@ -35,7 +35,7 @@ public class ScheduledTaskController {
         List<ScheduledTaskVO> vos = new ArrayList<>();
         for (Map.Entry<String, ScheduledTask> entry : tasks.entrySet()) {
             String name = entry.getKey();
-            ScheduledTaskDefinition def = entry.getValue().getDefinition();
+            ScheduledTaskDefinitionBO def = entry.getValue().getDefinition();
 
             vos.add(ScheduledTaskVO.builder()
                     .taskName(name)

@@ -8,7 +8,7 @@
       status：1-启用 0-禁用。启用类型都返回；停用类型仅当本组织未删除的项目流程仍引用时保留。
       不看任务实例状态，接取后选项仍在；已删除类型排除。
     -->
-    <select id="selectPlazaTaskTypes" resultType="online.longlian.app.pojo.bo.orgadmin.PlazaTaskTypeOptionResultBO">
+    <select id="selectPlazaTaskTypes" resultType="online.longlian.app.pojo.bo.orgadmin.basetask.PlazaTaskTypeOptionResultBO">
         SELECT b.id, b.name
         FROM base_task b
         WHERE b.org_id = #{orgId} AND b.deleted_at IS NULL

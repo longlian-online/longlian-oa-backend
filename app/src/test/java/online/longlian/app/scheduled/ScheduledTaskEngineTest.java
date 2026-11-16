@@ -1,6 +1,6 @@
 package online.longlian.app.scheduled;
 
-import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinitionBO;
 import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.service.scheduled.ScheduledTaskLogService;
 import online.longlian.common.enumeration.ScheduledTaskStatus;
@@ -58,7 +58,7 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldUseWatchdogLockForScheduledTask() {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO definition = new ScheduledTaskDefinitionBO(
                 "long-running", "执行长时间运行任务", null, false);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         when(task.getDefinition()).thenReturn(definition);
@@ -95,9 +95,9 @@ class ScheduledTaskEngineTest {
     void shouldRejectDuplicateTaskNameBeforeScheduling() {
         ScheduledTask firstTask = mock(ScheduledTask.class);
         ScheduledTask secondTask = mock(ScheduledTask.class);
-        ScheduledTaskDefinition firstDefinition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO firstDefinition = new ScheduledTaskDefinitionBO(
                 "duplicate-task", "第一个重复任务", "0 0/5 * * * ?", true);
-        ScheduledTaskDefinition secondDefinition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO secondDefinition = new ScheduledTaskDefinitionBO(
                 "duplicate-task", "第二个重复任务", null, false);
         when(firstTask.getDefinition()).thenReturn(firstDefinition);
         when(secondTask.getDefinition()).thenReturn(secondDefinition);
@@ -119,9 +119,9 @@ class ScheduledTaskEngineTest {
     void shouldRejectInvalidCronBeforeRegisteringAnyTask() {
         ScheduledTask validTask = mock(ScheduledTask.class);
         ScheduledTask invalidTask = mock(ScheduledTask.class);
-        when(validTask.getDefinition()).thenReturn(new ScheduledTaskDefinition(
+        when(validTask.getDefinition()).thenReturn(new ScheduledTaskDefinitionBO(
                 "valid-task", "有效任务", "0 0/5 * * * ?", true));
-        when(invalidTask.getDefinition()).thenAnswer(invocation -> new ScheduledTaskDefinition(
+        when(invalidTask.getDefinition()).thenAnswer(invocation -> new ScheduledTaskDefinitionBO(
                 "invalid-task", "无效任务", "invalid", true));
         Map<String, ScheduledTask> beans = new LinkedHashMap<>();
         beans.put("validTask", validTask);
@@ -141,7 +141,7 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldRegisterAndExecuteEnabledCronTask() {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO definition = new ScheduledTaskDefinitionBO(
                 "cron-task", "执行自动调度任务", "0 0/5 * * * ?", true);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
@@ -169,7 +169,7 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldSkipTaskWhenDistributedLockIsUnavailable(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO definition = new ScheduledTaskDefinitionBO(
                 "locked-task", "执行互斥任务", null, false);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("lockedTask", task));
@@ -188,7 +188,7 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldRecordFailedExecutionWithoutCurrentUser(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO definition = new ScheduledTaskDefinitionBO(
                 "failed-task", "执行失败任务", null, false);
         DistributedLockService.Lock lock = mock(DistributedLockService.Lock.class);
         LocalDateTime executeTime = LocalDateTime.now(CLOCK);
@@ -215,7 +215,7 @@ class ScheduledTaskEngineTest {
     @Test
     void shouldRejectManualTriggerAfterShutdown(CapturedOutput output) {
         ScheduledTask task = mock(ScheduledTask.class);
-        ScheduledTaskDefinition definition = new ScheduledTaskDefinition(
+        ScheduledTaskDefinitionBO definition = new ScheduledTaskDefinitionBO(
                 "shutdown-task", "执行停机测试任务", null, false);
         when(task.getDefinition()).thenReturn(definition);
         when(applicationContext.getBeansOfType(ScheduledTask.class)).thenReturn(Map.of("shutdownTask", task));

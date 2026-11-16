@@ -15,7 +15,7 @@ import online.longlian.app.pojo.dto.common.PageRequestDTO;
 public class TaskPlazaListDTO extends PageRequestDTO {
 
     @Positive(message = "任务类型ID必须为正整数")
-    @Schema(description = "原子任务ID，空表示全部任务类型")
+    @Schema(type = "string", description = "原子任务ID，空表示全部任务类型")
     private Long baseTaskId;
 
     @Size(max = 50, message = "搜索关键词长度不能超过50")

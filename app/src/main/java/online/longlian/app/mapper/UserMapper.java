@@ -17,6 +17,9 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface UserMapper extends BaseMapper<User> {
 
+    /**
+     * 写入整个 config JSON 列，LambdaQueryWrapper 无法表达 JSON_EXTRACT。
+     */
     @Update("""
             UPDATE `user`
             SET config = JSON_EXTRACT(#{config}, '$')
@@ -24,7 +27,10 @@ public interface UserMapper extends BaseMapper<User> {
             """)
     int replaceConfig(@Param("userId") Long userId, @Param("config") String config);
 
-    // JSON_MERGE_PATCH 在数据库内合并本次字段；null 删除对应字段，未出现的字段保持原值。
+    /**
+     * JSON_MERGE_PATCH 在数据库内合并本次字段；null 删除对应字段，未出现的字段保持原值。
+     * 字段级合并无法用 LambdaQueryWrapper 表达。
+     */
     @Update("""
             UPDATE `user`
             SET config = JSON_MERGE_PATCH(config, JSON_EXTRACT(#{config}, '$'))

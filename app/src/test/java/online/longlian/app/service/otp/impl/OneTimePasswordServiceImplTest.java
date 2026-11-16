@@ -274,4 +274,20 @@ class OneTimePasswordServiceImplTest {
 
         verify(oneTimePasswordMapper).update(isNull(), any());
     }
+
+    @Test
+    void revokeOTP_pendingCode_updatesAndReturnsTrue() {
+        when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(1);
+
+        assertThat(service.revokeOTP(1L)).isTrue();
+
+        verify(oneTimePasswordMapper).update(isNull(), any());
+    }
+
+    @Test
+    void revokeOTP_lostUpdate_returnsFalse() {
+        when(oneTimePasswordMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThat(service.revokeOTP(1L)).isFalse();
+    }
 }

@@ -5,13 +5,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 @Data
 @Schema(description = "项目工作流节点")
 public class ItemTaskFlowNodeUpdateDTO {
 
-    @JsonLongIdString
     @Schema(type = "string", description = "已有节点 ID。新节点不传")
     private Long id;
 
@@ -19,7 +17,6 @@ public class ItemTaskFlowNodeUpdateDTO {
     private String revision;
 
     @NotNull(message = "任务不能为空")
-    @JsonLongIdString
     @Schema(type = "string", description = "原子任务 ID", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long baseTaskId;
 

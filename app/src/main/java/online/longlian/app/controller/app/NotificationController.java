@@ -8,10 +8,14 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.app.*;
+import online.longlian.app.pojo.bo.app.notification.NotificationListParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadAllParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationReadParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationResultBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationStatusParamsBO;
 import online.longlian.app.pojo.dto.app.NotificationListDTO;
 import online.longlian.app.pojo.vo.app.*;
-import online.longlian.app.service.app.InboxNotificationService;
+import online.longlian.app.service.app.notification.InboxNotificationService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 

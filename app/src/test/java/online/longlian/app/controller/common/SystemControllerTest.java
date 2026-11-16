@@ -5,7 +5,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import online.longlian.app.common.handler.ResultResponseBodyAdvice;
 import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.service.common.impl.SystemInfoServiceImpl;
+import online.longlian.app.service.system.impl.SystemInfoServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.http.MediaType;
