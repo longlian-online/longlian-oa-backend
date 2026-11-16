@@ -2,7 +2,6 @@ package online.longlian.app.pojo.vo.app;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 import java.time.LocalDateTime;
 
@@ -10,7 +9,6 @@ import java.time.LocalDateTime;
 @Schema(description = "项目成员")
 public class ProjectMemberVO {
 
-    @JsonLongIdString
     @Schema(type = "string", description = "成员用户ID")
     private Long userId;
 

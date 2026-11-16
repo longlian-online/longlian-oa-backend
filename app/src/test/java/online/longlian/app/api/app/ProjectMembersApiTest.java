@@ -30,7 +30,7 @@ class ProjectMembersApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(2))
                 .body("data.list", hasSize(2))
-                .body("data.list[0].userId", equalTo("1"))
+                .body("data.list[0].userId", equalTo(1))
                 .body("data.list[0].nickname", equalTo("昵称"))
                 .body("data.list[0].avatarUrl", containsString("avatar/10.png"))
                 .body("data.list[0].isCreator", equalTo(true))
@@ -64,7 +64,7 @@ class ProjectMembersApiTest extends BaseApiTest {
         authRequest(token).get(MEMBERS).then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(1)).body("data.list", hasSize(1))
-                .body("data.list[0].userId", equalTo("2"));
+                .body("data.list[0].userId", equalTo(2));
     }
 
     /** 已删除组织成员/用户、其他企划及其他组织的成员不得混入。 */
@@ -97,11 +97,11 @@ class ProjectMembersApiTest extends BaseApiTest {
         authRequest(token).queryParam("pageSize", 12).get(MEMBERS).then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(13)).body("data.list", hasSize(12))
-                .body("data.list[0].userId", equalTo("2"));
+                .body("data.list[0].userId", equalTo(2));
         authRequest(token).queryParam("pageSize", 12).queryParam("pageNum", 2).get(MEMBERS).then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(13)).body("data.list", hasSize(1))
-                .body("data.list[0].userId", equalTo("14"));
+                .body("data.list[0].userId", equalTo(14));
         authRequest(token).queryParam("pageSize", 12).queryParam("pageNum", Integer.MAX_VALUE).get(MEMBERS).then()
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.total", equalTo(13)).body("data.list", hasSize(0));
