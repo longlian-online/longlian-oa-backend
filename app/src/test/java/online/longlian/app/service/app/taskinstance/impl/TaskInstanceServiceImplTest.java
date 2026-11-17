@@ -1,5 +1,9 @@
 package online.longlian.app.service.app.taskinstance.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
@@ -99,6 +103,9 @@ class TaskInstanceServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // reopenCompletedItem 在单元测试里使用 LambdaUpdateWrapper，
+        // 需要先注册涉及实体的 lambda 缓存，否则按实体解析 lambda 时报错。
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Item.class);
         service = new TaskInstanceServiceImpl(taskInstanceMapper,
                 taskSubmissionMapper,
                 itemMapper, projectMapper, itemTaskNodeMapper,

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import com.alibaba.fastjson2.support.config.FastJsonConfig;
 import com.alibaba.fastjson2.support.spring6.http.converter.FastJsonHttpMessageConverter;
 import online.longlian.app.common.constants.PatternConstants;
+import online.longlian.app.common.interceptor.CaptchaInterceptor;
 import online.longlian.app.common.interceptor.OrganizationScopeInterceptor;
 import online.longlian.app.common.resolver.UserSessionArgumentResolver;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final UserSessionArgumentResolver userSessionArgumentResolver;
     private final OrganizationScopeInterceptor organizationScopeInterceptor;
+    private final CaptchaInterceptor captchaInterceptor;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
@@ -33,6 +35,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(organizationScopeInterceptor);
+        registry.addInterceptor(captchaInterceptor);
     }
 
     /**

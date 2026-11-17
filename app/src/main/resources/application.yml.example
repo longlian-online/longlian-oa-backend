@@ -35,6 +35,19 @@ longlian:
   cache:
     # redis | local。local 仅适合单机，多实例必须 redis
     type: redis
+  captcha:
+    # 先部署 FCaptcha 和携带票据的前端，再设为 true 强制校验。
+    enabled: false
+    server-url: http://localhost:13000
+    site-key: longlian-oa-local
+    verify-url: http://localhost:13000/siteverify
+    # 与 FCaptcha 的 FCAPTCHA_VERIFY_SECRET 一致，不使用签名密钥。
+    verify-secret: ""
+    allowed-hostnames: [localhost, 127.0.0.1]
+    connect-timeout: 2s
+    read-timeout: 5s
+    # 仅在容器可信代理配置可还原访客地址时开启；不直接信任 X-Forwarded-For。
+    bind-ip: false
 
 spring:
   application:
