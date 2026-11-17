@@ -128,6 +128,17 @@ class CaptchaServiceTest {
     }
 
     @Test
+    void shouldRejectInterruptedVerificationAndPreserveInterruptStatus() {
+        Thread.currentThread().interrupt();
+        try {
+            assertFailure(ResultCode.CAPTCHA_UNAVAILABLE);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
     void shouldExposeOnlyDisabledStateWhenDisabled() {
         properties.setEnabled(false);
         assertThatCode(() -> service.verify(params())).doesNotThrowAnyException();

@@ -37,6 +37,26 @@ class CaptchaPropertiesTest {
     }
 
     @Test
+    void shouldRejectEnabledConfigurationWithoutAllowedHostnames() {
+        validContext().withPropertyValues("longlian.captcha.allowed-hostnames=")
+                .run(application -> {
+                    assertThat(application).hasFailed();
+                    assertThat(application.getStartupFailure())
+                            .hasRootCauseMessage("启用人机验证必须配置 allowed-hostnames");
+                });
+    }
+
+    @Test
+    void shouldRejectBlankHostnameInAllowlist() {
+        validContext().withPropertyValues("longlian.captcha.allowed-hostnames=oa.test, ")
+                .run(application -> {
+                    assertThat(application).hasFailed();
+                    assertThat(application.getStartupFailure())
+                            .hasRootCauseMessage("allowed-hostnames 必须是前端页面主机名");
+                });
+    }
+
+    @Test
     void shouldNormalizeConfiguredFrontendHostname() {
         validContext().withPropertyValues("longlian.captcha.allowed-hostnames=OA.TEST")
                 .run(application -> {
