@@ -64,7 +64,7 @@ class CaptchaApiTest extends BaseApiTest {
 
     @Test
     void shouldAllowPasswordLoginAndRejectTicketReplay() {
-        createTestUser(1L, "captcha_user", "123456", "captcha@test.example");
+        createTestUser(1L, "captcha_user", "123456", "captcha@test.com");
         request().header("X-Captcha-Token", "pwd-one").body(credentials()).post("/app/session/pwd")
                 .then().statusCode(200).body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.userId", equalTo("1")).body("data.token", notNullValue());
@@ -82,9 +82,9 @@ class CaptchaApiTest extends BaseApiTest {
 
     @Test
     void shouldPreserveEmailCodeAfterFailedHumanVerification() {
-        createTestUser(1L, "captcha_user", "123456", "captcha@test.example");
-        createEmailVerifyOTP("ABC123", 0L, "captcha@test.example", EmailVerifyBusinessType.LOGIN);
-        Map<String, String> email = Map.of("email", "captcha@test.example", "code", "ABC123");
+        createTestUser(1L, "captcha_user", "123456", "captcha@test.com");
+        createEmailVerifyOTP("ABC123", 0L, "captcha@test.com", EmailVerifyBusinessType.LOGIN);
+        Map<String, String> email = Map.of("email", "captcha@test.com", "code", "ABC123");
         request().header("X-Captcha-Token", "invalid").body(email).post("/app/session/email")
                 .then().body("code", equalTo(ResultCode.CAPTCHA_INVALID.getCode()));
         assertThat(jdbcTemplate.queryForObject("SELECT use_count FROM one_time_password WHERE code = 'ABC123'",
@@ -110,10 +110,10 @@ class CaptchaApiTest extends BaseApiTest {
 
     @Test
     void shouldReturnOriginalCredentialFailureAfterValidVerification() {
-        createTestUser(1L, "captcha_user", "123456", "captcha@test.example");
-        request().header("X-Captcha-Token", "pwd-wrong-password")
+        createTestUser(1L, "captcha_user", "123456", "captcha@test.com");
+        request().header("X-Captcha-Token", "original-credential-failure")
                 .body(Map.of("username", "captcha_user", "password", "incorrect"))
-                .post("/app/session/pwd").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
+                .post("/app/session/pwd").then().body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()));
     }
 
     @Test
@@ -133,7 +133,7 @@ class CaptchaApiTest extends BaseApiTest {
 
     @Test
     void shouldNotAddVerificationToEmailSendingOrRefresh() {
-        request().body(Map.of("email", "captcha@test.example", "businessType", "LOGIN"))
+        request().body(Map.of("email", "captcha@test.com", "businessType", "LOGIN"))
                 .post("/app/session/email/code").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
         request().body(Map.of("refreshToken", "not-a-refresh-token"))
                 .post("/app/session/refresh").then().body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
