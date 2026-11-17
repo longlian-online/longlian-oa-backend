@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CaptchaServiceTest {
@@ -76,7 +77,7 @@ class CaptchaServiceTest {
 
     @Test
     void shouldVerifyWithPrivateCredentialAndOmitUnassertedIp() {
-        service.verify(params());
+        assertThatCode(() -> service.verify(params())).doesNotThrowAnyException();
         assertThat(submitted.get()).containsEntry("secret", "private-verify-credential")
                 .containsEntry("response", "browser-token").doesNotContainKey("remoteip");
         assertThat(service.getConfig().getServerUrl()).isEqualTo("https://captcha.test");
@@ -86,7 +87,7 @@ class CaptchaServiceTest {
     @Test
     void shouldBindExplicitVisitorIpWhenEnabled() {
         properties.setBindIp(true);
-        service.verify(params());
+        assertThatCode(() -> service.verify(params())).doesNotThrowAnyException();
         assertThat(submitted.get()).containsEntry("remoteip", "192.0.2.5");
     }
 
@@ -129,7 +130,7 @@ class CaptchaServiceTest {
     @Test
     void shouldExposeOnlyDisabledStateWhenDisabled() {
         properties.setEnabled(false);
-        service.verify(params());
+        assertThatCode(() -> service.verify(params())).doesNotThrowAnyException();
         assertThat(service.getConfig().isEnabled()).isFalse();
         assertThat(service.getConfig().getServerUrl()).isNull();
         assertThat(service.getConfig().getSiteKey()).isNull();

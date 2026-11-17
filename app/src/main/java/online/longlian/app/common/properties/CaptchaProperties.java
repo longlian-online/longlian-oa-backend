@@ -40,23 +40,26 @@ public class CaptchaProperties {
         if (allowedHostnames == null || allowedHostnames.isEmpty()) {
             throw new IllegalStateException("启用人机验证必须配置 allowed-hostnames");
         }
-        allowedHostnames = allowedHostnames.stream().map(host -> {
-            if (!StringUtils.hasText(host)) {
-                throw new IllegalStateException("allowed-hostnames 必须是前端页面主机名");
-            }
-            String normalized = host.trim().toLowerCase(Locale.ROOT);
-            URI parsed = URI.create("https://" + normalized);
-            if (!normalized.equals(parsed.getHost()) || parsed.getPort() != -1
-                    || parsed.getRawUserInfo() != null || !parsed.getRawPath().isEmpty()
-                    || parsed.getRawQuery() != null || parsed.getRawFragment() != null) {
-                throw new IllegalStateException("allowed-hostnames 必须是前端页面主机名");
-            }
-            return normalized;
-        }).collect(Collectors.toUnmodifiableSet());
+        allowedHostnames = allowedHostnames.stream()
+                .map(this::normalizeHostname).collect(Collectors.toUnmodifiableSet());
         if (connectTimeout == null || connectTimeout.isNegative() || connectTimeout.isZero()
                 || readTimeout == null || readTimeout.isNegative() || readTimeout.isZero()) {
             throw new IllegalStateException("人机验证超时必须大于零");
         }
+    }
+
+    private String normalizeHostname(String host) {
+        if (!StringUtils.hasText(host)) {
+            throw new IllegalStateException("allowed-hostnames 必须是前端页面主机名");
+        }
+        String normalized = host.trim().toLowerCase(Locale.ROOT);
+        URI parsed = URI.create("https://" + normalized);
+        if (!normalized.equals(parsed.getHost()) || parsed.getPort() != -1
+                || parsed.getRawUserInfo() != null || !parsed.getRawPath().isEmpty()
+                || parsed.getRawQuery() != null || parsed.getRawFragment() != null) {
+            throw new IllegalStateException("allowed-hostnames 必须是前端页面主机名");
+        }
+        return normalized;
     }
 
     private void requireHttpUrl(URI uri, String name) {

@@ -50,27 +50,7 @@ public class CaptchaService {
 
     public void verify(CaptchaVerifyParamsBO params) {
         if (!properties.isEnabled()) return;
-        JSONObject body = new JSONObject();
-        body.put("secret", properties.getVerifySecret());
-        body.put("response", params.getToken());
-        if (properties.isBindIp()) body.put("remoteip", params.getRemoteIp());
-        HttpRequest request = HttpRequest.newBuilder(properties.getVerifyUrl())
-                .timeout(properties.getReadTimeout())
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body.toJSONString(), StandardCharsets.UTF_8))
-                .build();
-        JSONObject verdict;
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() != 200) throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
-            verdict = JSON.parseObject(response.body());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
-        } catch (IOException | JSONException e) {
-            log.warn("人机验证服务请求失败 | type={}", e.getClass().getSimpleName());
-            throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
-        }
+        JSONObject verdict = requestVerdict(params);
         if (verdict == null || !(verdict.get("success") instanceof Boolean)) {
             throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
         }
@@ -88,6 +68,29 @@ public class CaptchaService {
                 || !properties.getAllowedHostnames().contains(host.toLowerCase(Locale.ROOT))
                 || !params.getAction().getValue().equals(verdict.get("action"))) {
             throw new AppException(ResultCode.CAPTCHA_INVALID);
+        }
+    }
+
+    private JSONObject requestVerdict(CaptchaVerifyParamsBO params) {
+        JSONObject body = new JSONObject();
+        body.put("secret", properties.getVerifySecret());
+        body.put("response", params.getToken());
+        if (properties.isBindIp()) body.put("remoteip", params.getRemoteIp());
+        HttpRequest request = HttpRequest.newBuilder(properties.getVerifyUrl())
+                .timeout(properties.getReadTimeout())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body.toJSONString(), StandardCharsets.UTF_8))
+                .build();
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() != 200) throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
+            return JSON.parseObject(response.body());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
+        } catch (IOException | JSONException e) {
+            log.warn("人机验证服务请求失败 | type={}", e.getClass().getSimpleName());
+            throw new AppException(ResultCode.CAPTCHA_UNAVAILABLE);
         }
     }
 
