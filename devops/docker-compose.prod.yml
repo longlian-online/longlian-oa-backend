@@ -2,6 +2,7 @@
 #
 # 部署 Atlas 迁移、后端和 VictoriaLogs。MariaDB、Redis、邮件等由外部提供，
 # 本文件不创建这些组件。
+# FCaptcha 可选，独立部署见 docker-compose.fcaptcha.yml。
 #
 # 准备：
 #   cp devops/application-prod.yml.example devops/application-prod.yml
@@ -22,24 +23,6 @@
 name: longlian-oa-prod
 
 services:
-  fcaptcha:
-    # 通用自建人机验证服务。浏览器走 HTTPS 反代；后端经内网验票。
-    image: ghcr.io/webdecoy/fcaptcha:1.50.1
-    container_name: longlian-oa-fcaptcha-prod
-    restart: unless-stopped
-    environment:
-      FCAPTCHA_SECRET: ${FCAPTCHA_SECRET:?FCAPTCHA_SECRET 必填，用 openssl rand -hex 32 生成}
-      FCAPTCHA_VERIFY_SECRET: ${FCAPTCHA_VERIFY_SECRET:?FCAPTCHA_VERIFY_SECRET 必填，单独生成}
-      FCAPTCHA_SITE_KEYS: ${FCAPTCHA_SITE_KEYS:-longlian-oa-prod}
-      FCAPTCHA_ALLOWED_HOSTNAMES: ${FCAPTCHA_ALLOWED_HOSTNAMES:?FCAPTCHA_ALLOWED_HOSTNAMES 必填，填页面域名}
-      # 按实际反代网段填写；错误设置会让访客都归到代理地址上
-      TRUSTED_PROXIES: ${FCAPTCHA_TRUSTED_PROXIES:-}
-      # 挑战与已消费票据放到 Redis，避免重启或多实例丢失状态
-      REDIS_URL: ${FCAPTCHA_REDIS_URL:-}
-    # 仅内网验票与健康检查使用；对外访问一律走 HTTPS 反代
-    ports:
-      - "127.0.0.1:13000:3000"
-
   migrate:
     image: ghcr.io/longlian-online/longlian-oa-backend:migration-latest
     container_name: longlian-oa-migrate-prod

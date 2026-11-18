@@ -30,12 +30,13 @@ longlian:
   cache:
     type: redis
   captcha:
-    # 完成 FCaptcha 部署及前端升级后启用。启用时缺少必要配置会拒绝启动。
+    # 可选：使用已有 FCaptcha 或单独启动 docker-compose.fcaptcha.yml 后再启用。
     enabled: false
     server-url: https://captcha.example.com
     site-key: longlian-oa-prod
-    verify-url: http://fcaptcha:3000/siteverify
-    verify-secret: ""
+    # 填 OA 容器可访问的验票地址；独立 Compose 项目不共享服务名。
+    verify-url: https://captcha.example.com/siteverify
+    verify-secret: "" # 与 FCAPTCHA_VERIFY_SECRET 一致
     # 填页面所在主机名，不是 API 或验证码服务的主机名。
     allowed-hostnames: [oa.example.com]
     connect-timeout: 2s
