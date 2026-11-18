@@ -20,7 +20,13 @@ public enum ResultCode {
 
     USER_NOT_EXIT(7,"用户不存在"),
 
-    FAIL(8, "系统内部异常");
+    FAIL(8, "系统内部异常"),
+
+    CAPTCHA_REQUIRED(9, "请完成人机验证"),
+
+    CAPTCHA_INVALID(10, "人机验证未通过，请重试"),
+
+    CAPTCHA_UNAVAILABLE(11, "人机验证暂时不可用，请稍后重试");
     private final int code;
     private final String msg;
     ResultCode(int code, String msg) {

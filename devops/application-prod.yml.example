@@ -29,6 +29,20 @@ longlian:
     type: mariadb
   cache:
     type: redis
+  captcha:
+    # 可选：使用已有 FCaptcha 或单独启动 docker-compose.fcaptcha.yml 后再启用。
+    enabled: false
+    server-url: https://captcha.example.com
+    site-key: longlian-oa-prod
+    # 填 OA 容器可访问的验票地址；独立 Compose 项目不共享服务名。
+    verify-url: https://captcha.example.com/siteverify
+    verify-secret: "" # 与 FCAPTCHA_VERIFY_SECRET 一致
+    # 填页面所在主机名，不是 API 或验证码服务的主机名。
+    allowed-hostnames: [oa.example.com]
+    connect-timeout: 2s
+    read-timeout: 5s
+    # 必须先在容器配置受信任代理，确保 getRemoteAddr() 为真实访客 IP。
+    bind-ip: false
 
 spring:
   application:
