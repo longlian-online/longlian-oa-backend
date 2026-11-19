@@ -40,6 +40,7 @@ public class CaptchaProperties {
         } else {
             requireHttpUrl(scriptUrl, "script-url");
         }
+        requireHttpUrl(verifyUrl, "verify-url");
         if (!StringUtils.hasText(siteKey) || !StringUtils.hasText(verifySecret)) {
             throw new IllegalStateException("启用人机验证必须配置 site-key 和 verify-secret");
         }
