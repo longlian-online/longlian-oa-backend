@@ -124,6 +124,7 @@ class CaptchaApiTest extends BaseApiTest {
                     .body("data.enabled", equalTo(true))
                     .body("data.siteKey", equalTo("oa-test"))
                     .body("data.serverUrl", equalTo("https://captcha.public.test"))
+                    .body("data.scriptUrl", equalTo("https://captcha.public.test/fcaptcha.js"))
                     .extract().asString();
             assertThat(body).doesNotContain(SECRET, "127.0.0.1", "verifySecret", "verifyUrl", "allowedHostnames");
         }

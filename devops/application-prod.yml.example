@@ -33,6 +33,8 @@ longlian:
     # 可选：使用已有 FCaptcha 或单独启动 docker-compose.fcaptcha.yml 后再启用。
     enabled: false
     server-url: https://captcha.example.com
+    # 浏览器加载 fcaptcha.js 的完整地址；脚本托管在别处时填写，缺省用 server-url 拼接。
+    # script-url: https://cdn.example.com/fcaptcha.js
     site-key: longlian-oa-prod
     # 填 OA 容器可访问的验票地址；独立 Compose 项目不共享服务名。
     verify-url: https://captcha.example.com/siteverify

@@ -21,6 +21,8 @@ import java.util.stream.Collectors;
 public class CaptchaProperties {
     private boolean enabled;
     private URI serverUrl;
+    /** 前端加载 fcaptcha.js 的完整地址；脚本可托管在任意位置，缺省时用服务地址拼接。 */
+    private URI scriptUrl;
     private String siteKey;
     private URI verifyUrl;
     private String verifySecret;
@@ -33,7 +35,11 @@ public class CaptchaProperties {
     public void validate() {
         if (!enabled) return;
         requireHttpUrl(serverUrl, "server-url");
-        requireHttpUrl(verifyUrl, "verify-url");
+        if (scriptUrl == null) {
+            scriptUrl = serverUrl.resolve("fcaptcha.js");
+        } else {
+            requireHttpUrl(scriptUrl, "script-url");
+        }
         if (!StringUtils.hasText(siteKey) || !StringUtils.hasText(verifySecret)) {
             throw new IllegalStateException("启用人机验证必须配置 site-key 和 verify-secret");
         }

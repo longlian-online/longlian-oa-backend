@@ -44,6 +44,7 @@ public class CaptchaService {
         return CaptchaConfigResultBO.builder()
                 .enabled(true)
                 .serverUrl(properties.getServerUrl().toString())
+                .scriptUrl(properties.getScriptUrl().toString())
                 .siteKey(properties.getSiteKey())
                 .build();
     }

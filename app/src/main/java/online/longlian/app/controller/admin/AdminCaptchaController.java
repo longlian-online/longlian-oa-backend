@@ -23,6 +23,6 @@ public class AdminCaptchaController {
     @GetMapping("/config")
     public CaptchaConfigVO getConfig() {
         CaptchaConfigResultBO config = captchaService.getConfig();
-        return new CaptchaConfigVO(config.isEnabled(), config.getServerUrl(), config.getSiteKey());
+        return new CaptchaConfigVO(config.isEnabled(), config.getServerUrl(), config.getScriptUrl(), config.getSiteKey());
     }
 }

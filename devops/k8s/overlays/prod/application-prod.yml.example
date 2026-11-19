@@ -29,6 +29,8 @@ longlian:
   captcha:
     enabled: false
     server-url: https://captcha.example.com
+    # 浏览器加载 fcaptcha.js 的完整地址；脚本托管在别处时填写，缺省用 server-url 拼接。
+    # script-url: https://cdn.example.com/fcaptcha.js
     site-key: longlian-oa-prod
     verify-url: http://fcaptcha:3000/siteverify
     verify-secret: ""

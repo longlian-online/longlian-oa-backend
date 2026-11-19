@@ -81,6 +81,7 @@ class CaptchaServiceTest {
         assertThat(submitted.get()).containsEntry("secret", "private-verify-credential")
                 .containsEntry("response", "browser-token").doesNotContainKey("remoteip");
         assertThat(service.getConfig().getServerUrl()).isEqualTo("https://captcha.test");
+        assertThat(service.getConfig().getScriptUrl()).isEqualTo("https://captcha.test/fcaptcha.js");
         assertThat(service.getConfig().getSiteKey()).isEqualTo("oa-test");
     }
 
@@ -144,6 +145,7 @@ class CaptchaServiceTest {
         assertThatCode(() -> service.verify(params())).doesNotThrowAnyException();
         assertThat(service.getConfig().isEnabled()).isFalse();
         assertThat(service.getConfig().getServerUrl()).isNull();
+        assertThat(service.getConfig().getScriptUrl()).isNull();
         assertThat(service.getConfig().getSiteKey()).isNull();
         assertThat(submitted.get()).isNull();
     }

@@ -1,5 +1,6 @@
 package online.longlian.app.common.properties;
 
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -29,6 +30,7 @@ class CaptchaPropertiesTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"verify-secret=", "server-url=ftp://captcha.test",
+            "script-url=ftp://cdn.test/fcaptcha.js",
             "verify-url=http://user:secret@private.test/siteverify",
             "allowed-hostnames=https://oa.test", "allowed-hostnames=oa.test/path", "read-timeout=0s"})
     void shouldRejectUnsafeOrIncompleteEnabledConfiguration(String override) {
@@ -62,6 +64,21 @@ class CaptchaPropertiesTest {
                 .run(application -> {
                     assertThat(application).hasNotFailed();
                     assertThat(application.getBean(CaptchaProperties.class).getAllowedHostnames()).containsExactly("oa.test");
+                });
+    }
+
+    @Test
+    void shouldDeriveScriptUrlFromServerUrlAndAcceptExplicitOverride() {
+        validContext().run(application -> {
+            assertThat(application).hasNotFailed();
+            assertThat(application.getBean(CaptchaProperties.class).getScriptUrl())
+                    .isEqualTo(URI.create("https://captcha.test/fcaptcha.js"));
+        });
+        validContext().withPropertyValues("longlian.captcha.script-url=https://cdn.test/widget.js")
+                .run(application -> {
+                    assertThat(application).hasNotFailed();
+                    assertThat(application.getBean(CaptchaProperties.class).getScriptUrl())
+                            .isEqualTo(URI.create("https://cdn.test/widget.js"));
                 });
     }
 
