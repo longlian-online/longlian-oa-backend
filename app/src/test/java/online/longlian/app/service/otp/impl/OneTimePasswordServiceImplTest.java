@@ -290,4 +290,33 @@ class OneTimePasswordServiceImplTest {
 
         assertThat(service.revokeOTP(1L)).isFalse();
     }
+
+    @Test
+    void generateUniqueCode_returnsCodeWhenNoConflict() {
+        when(oneTimePasswordMapper.selectCount(any())).thenReturn(0L);
+
+        String code = service.generateUniqueCode(6, OTPType.EmailVerify);
+
+        assertThat(code).hasSize(6).matches("[0-9A-Z]+");
+    }
+
+    @Test
+    void generateUniqueCode_retriesOnConflictThenReturns() {
+        when(oneTimePasswordMapper.selectCount(any())).thenReturn(1L, 0L);
+
+        String code = service.generateUniqueCode(6, OTPType.EmailVerify);
+
+        assertThat(code).hasSize(6).matches("[0-9A-Z]+");
+        verify(oneTimePasswordMapper, times(2)).selectCount(any());
+    }
+
+    @Test
+    void generateUniqueCode_throwsWhenConflictsPersist() {
+        when(oneTimePasswordMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.generateUniqueCode(6, OTPType.EmailVerify))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("验证码生成冲突");
+        verify(oneTimePasswordMapper, times(5)).selectCount(any());
+    }
 }

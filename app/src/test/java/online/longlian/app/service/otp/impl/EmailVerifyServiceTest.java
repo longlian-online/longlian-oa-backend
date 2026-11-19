@@ -4,6 +4,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OneTimePasswordService;
@@ -11,15 +12,19 @@ import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -47,6 +52,7 @@ class EmailVerifyServiceTest {
     @Test
     void shouldSendEmailOnlyAfterTransactionCommit() {
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
         assignEmailVerifyOtpId();
@@ -140,6 +146,39 @@ class EmailVerifyServiceTest {
 
         verify(oneTimePasswordService).generateOTP(any());
         verify(emailVerifyOtpMapper).insert(any(EmailVerifyOtp.class));
+    }
+
+    @Test
+    void shouldRevokePreviousCodeForSameReceiverAndBusinessWhenResending() {
+        EmailVerifyOtp previous = EmailVerifyOtp.builder().otpId(11L).receiver("user@example.com").build();
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(emailVerifyOtpMapper.selectList(any())).thenReturn(List.of(previous));
+        when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params());
+
+        verify(oneTimePasswordService).revokeOTP(11L);
+    }
+
+    @Test
+    void shouldPersistUniqueCodeGeneratedByOtpService() {
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("UNIQ01");
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params());
+
+        ArgumentCaptor<OneTimePasswordCreateParamsBO> captor =
+                ArgumentCaptor.forClass(OneTimePasswordCreateParamsBO.class);
+        verify(oneTimePasswordService).generateOTP(captor.capture());
+        assertThat(captor.getValue().getCode()).isEqualTo("UNIQ01");
     }
 
     private EmailVerifyService service() {
