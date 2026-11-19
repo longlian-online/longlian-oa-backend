@@ -5,6 +5,8 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Map;
 
@@ -210,6 +212,7 @@ public class SessionApiTest extends BaseApiTest {
      */
     @Test
     void shouldSendEmailCodeSuccessfully() {
+        createTestUser(1L, "testuser", "123456", "test@example.com");
         Response response = request()
                 .body(Map.of("email", "test@example.com", "businessType", "LOGIN"))
                 .post("/app/session/email/code");
@@ -218,6 +221,21 @@ public class SessionApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(0));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EmailVerifyBusinessType.class, names = {"LOGIN", "FORGOT_PASSWORD"})
+    void shouldRejectCodeForUnregisteredEmail(EmailVerifyBusinessType businessType) {
+        request().body(Map.of("email", "new@example.com", "businessType", businessType.name()))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.USER_NOT_EXIT.getCode()))
+                .body("msg", containsString("该邮箱尚未注册，请先注册"))
+                .body("data", nullValue());
+
+        assertEquals(0L, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `one_time_password`", Long.class));
+        assertEquals(0L, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `email_verify_otp`", Long.class));
     }
 
     /**
