@@ -39,6 +39,8 @@ longlian:
     # 先部署 FCaptcha 和携带票据的前端，再设为 true 强制校验。
     enabled: false
     server-url: http://localhost:13000
+    # 浏览器加载 fcaptcha.js 的完整地址；脚本托管在别处时填写，缺省用 server-url 拼接。
+    # script-url: http://localhost:13000/fcaptcha.js
     site-key: longlian-oa-local
     verify-url: http://localhost:13000/siteverify
     # 与 FCaptcha 的 FCAPTCHA_VERIFY_SECRET 一致，不使用签名密钥。

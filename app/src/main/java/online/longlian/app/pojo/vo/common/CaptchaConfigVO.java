@@ -18,6 +18,9 @@ public class CaptchaConfigVO {
     @Schema(description = "浏览器访问的人机验证服务地址，仅启用时返回")
     private String serverUrl;
 
+    @Schema(description = "浏览器加载人机验证脚本的完整地址，仅启用时返回")
+    private String scriptUrl;
+
     @Schema(description = "公开站点标识，仅启用时返回")
     private String siteKey;
 }

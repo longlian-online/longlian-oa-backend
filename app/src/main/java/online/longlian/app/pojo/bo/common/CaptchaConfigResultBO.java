@@ -8,5 +8,6 @@ import lombok.Value;
 public class CaptchaConfigResultBO {
     boolean enabled;
     String serverUrl;
+    String scriptUrl;
     String siteKey;
 }
