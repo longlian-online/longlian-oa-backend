@@ -44,4 +44,13 @@ public interface OneTimePasswordService {
      * @return 是否失效成功；已使用、已过期或已被并发修改时返回 false
      */
     boolean revokeOTP(Long otpId);
+
+    /**
+     * 生成与同业务类型下现有有效记录（待使用且未过期）不冲突的随机码。
+     *
+     * @param length  随机码长度
+     * @param bizType 业务类型
+     * @return 不与现有有效记录重复的随机码
+     */
+    String generateUniqueCode(int length, OTPType bizType);
 }

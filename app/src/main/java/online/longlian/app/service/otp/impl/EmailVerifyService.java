@@ -7,7 +7,6 @@ import online.longlian.app.common.constants.CommonConstants;
 import online.longlian.app.common.constants.PatternConstants;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
@@ -80,7 +79,16 @@ public class EmailVerifyService implements OTPStrategyService {
             throw new AppException(ResultCode.OPERATION_FAIL, "发送验证码过于频繁");
         }
 
-        String code = RandomCodeUtil.generateCode(CommonConstants.CODE_LENGTH);
+        // 重发后旧验证码立即作废，避免同一邮箱同一业务同时存在多个有效验证码；
+        // 只需处理有效期窗口内的记录，更早的记录必然已过期，revokeOTP 对其幂等。
+        emailVerifyOtpMapper.selectList(
+                        new LambdaQueryWrapper<EmailVerifyOtp>()
+                                .eq(EmailVerifyOtp::getReceiver, receiver)
+                                .eq(EmailVerifyOtp::getBusinessType, businessType)
+                                .gt(EmailVerifyOtp::getCreatedAt, now.minusSeconds(CommonConstants.CODE_EXPIRE)))
+                .forEach(otp -> oneTimePasswordService.revokeOTP(otp.getOtpId()));
+
+        String code = oneTimePasswordService.generateUniqueCode(CommonConstants.CODE_LENGTH, OTPType.EmailVerify);
         OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
                 OneTimePasswordCreateParamsBO.builder()
                         .code(code)
