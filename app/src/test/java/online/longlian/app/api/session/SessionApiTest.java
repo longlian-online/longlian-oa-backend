@@ -300,6 +300,32 @@ public class SessionApiTest extends BaseApiTest {
     }
 
     /**
+     * 重发验证码后，旧验证码立即失效，不再可用于登录。
+     */
+    @Test
+    void shouldInvalidatePreviousCodeAfterResending() {
+        createTestUser(1L, "testuser", "123456", "test@example.com");
+        createEmailVerifyOTP("OLD123", 1L, "test@example.com", EmailVerifyBusinessType.LOGIN);
+        // 回退创建时间绕过 60 秒发送频控，让重发请求走到废弃旧验证码的逻辑
+        jdbcTemplate.update(
+                "UPDATE `email_verify_otp` SET created_at = DATE_SUB(NOW(), INTERVAL 2 MINUTE) WHERE receiver = ?",
+                "test@example.com");
+
+        request().body(Map.of("email", "test@example.com", "businessType", "LOGIN"))
+                .post("/app/session/email/code")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+
+        request().body(Map.of("email", "test@example.com", "code", "OLD123"))
+                .post("/app/session/email")
+                .then()
+                .statusCode(200)
+                .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
+                .body("msg", containsString("已过期"));
+    }
+
+    /**
      * 邮箱为空时发送验证码失败
      */
     @Test
