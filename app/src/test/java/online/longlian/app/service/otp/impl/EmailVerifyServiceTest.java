@@ -12,6 +12,8 @@ import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -51,6 +53,7 @@ class EmailVerifyServiceTest {
 
     @Test
     void shouldSendEmailOnlyAfterTransactionCommit() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
         when(oneTimePasswordService.generateOTP(any()))
@@ -68,6 +71,7 @@ class EmailVerifyServiceTest {
 
     @Test
     void shouldRejectGenerateWithoutTransactionSynchronization() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
@@ -107,18 +111,34 @@ class EmailVerifyServiceTest {
         verify(emailVerifyOtpMapper).insert(any(EmailVerifyOtp.class));
     }
 
-    @Test
-    void shouldAllowForgotPasswordCodeWithoutCheckingRegistration() {
+    @ParameterizedTest
+    @EnumSource(value = EmailVerifyBusinessType.class, names = {"LOGIN", "FORGOT_PASSWORD"})
+    void shouldAllowCodeForRegisteredEmail(EmailVerifyBusinessType businessType) {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
         assignEmailVerifyOtpId();
 
         TransactionSynchronizationManager.initSynchronization();
-        service().generate(params(EmailVerifyBusinessType.FORGOT_PASSWORD));
+        service().generate(params(businessType));
 
-        verify(userMapper, never()).selectCount(any());
         verify(oneTimePasswordService).generateOTP(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EmailVerifyBusinessType.class, names = {"LOGIN", "FORGOT_PASSWORD"})
+    void shouldRejectCodeForUnregisteredEmailBeforeCreatingOtp(EmailVerifyBusinessType businessType) {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+
+        assertThatThrownBy(() -> service().generate(params(businessType)))
+                .isInstanceOf(AppException.class)
+                .hasMessage("该邮箱尚未注册，请先注册");
+
+        verify(emailVerifyOtpMapper, never()).selectCount(any());
+        verify(oneTimePasswordService, never()).generateOTP(any());
+        verify(emailVerifyOtpMapper, never()).insert(any(EmailVerifyOtp.class));
+        verify(emailVerifyCodeAsyncSender, never()).send(any(), anyString(), anyString());
     }
 
     @Test
@@ -151,6 +171,7 @@ class EmailVerifyServiceTest {
     @Test
     void shouldRevokePreviousCodeForSameReceiverAndBusinessWhenResending() {
         EmailVerifyOtp previous = EmailVerifyOtp.builder().otpId(11L).receiver("user@example.com").build();
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(emailVerifyOtpMapper.selectList(any())).thenReturn(List.of(previous));
         when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
@@ -166,6 +187,7 @@ class EmailVerifyServiceTest {
 
     @Test
     void shouldPersistUniqueCodeGeneratedByOtpService() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("UNIQ01");
         when(oneTimePasswordService.generateOTP(any()))

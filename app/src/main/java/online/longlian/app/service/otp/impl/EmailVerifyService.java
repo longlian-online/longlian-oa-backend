@@ -55,10 +55,16 @@ public class EmailVerifyService implements OTPStrategyService {
         if (!isValidEmail(receiver)) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱格式不合法");
         }
+        boolean emailExists = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getEmail, receiver)) > 0;
         if ((businessType == EmailVerifyBusinessType.REGISTER
                 || businessType == EmailVerifyBusinessType.BIND_EMAIL)
-                && userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getEmail, receiver)) > 0) {
+                && emailExists) {
             throw new AppException(ResultCode.OPERATION_FAIL, "邮箱已存在");
+        }
+        if ((businessType == EmailVerifyBusinessType.LOGIN
+                || businessType == EmailVerifyBusinessType.FORGOT_PASSWORD)
+                && !emailExists) {
+            throw new AppException(ResultCode.USER_NOT_EXIT, "该邮箱尚未注册，请先注册");
         }
 
         // 限制60s内发送验证码
