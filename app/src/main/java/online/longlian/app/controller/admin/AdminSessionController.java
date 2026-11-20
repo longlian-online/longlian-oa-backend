@@ -6,7 +6,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.RequireCaptcha;
 import online.longlian.app.common.annotation.ResponseMessage;
+import online.longlian.app.common.enumeration.CaptchaAction;
 import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.admin.AdminLoginParamsBO;
 import online.longlian.app.pojo.bo.admin.AdminLoginResultBO;
@@ -29,6 +31,7 @@ public class AdminSessionController {
 
     @Operation(summary = "管理员登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("")
+    @RequireCaptcha(CaptchaAction.ADMIN_LOGIN)
     @ResponseMessage("登录成功")
     public AdminLoginVO login(@RequestBody @Valid AdminLoginDTO dto) {
         AdminLoginResultBO resultBO = adminSessionService.login(
