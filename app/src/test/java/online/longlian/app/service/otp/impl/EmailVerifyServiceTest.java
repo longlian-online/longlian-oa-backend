@@ -9,6 +9,7 @@ import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
+import online.longlian.common.enumeration.OTPStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +20,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -149,10 +149,8 @@ class EmailVerifyServiceTest {
     }
 
     @Test
-    void shouldRevokePreviousCodeForSameReceiverAndBusinessWhenResending() {
-        EmailVerifyOtp previous = EmailVerifyOtp.builder().otpId(11L).receiver("user@example.com").build();
+    void shouldExpirePreviousCodesForSameReceiverAndBusinessWhenResending() {
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
-        when(emailVerifyOtpMapper.selectList(any())).thenReturn(List.of(previous));
         when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
@@ -161,7 +159,9 @@ class EmailVerifyServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         service().generate(params());
 
-        verify(oneTimePasswordService).revokeOTP(11L);
+        verify(emailVerifyOtpMapper).expirePreviousCodes(
+                eq("user@example.com"), eq(EmailVerifyBusinessType.LOGIN), any(), any(), eq(OTPStatus.PENDING));
+        verify(oneTimePasswordService, never()).revokeOTP(any());
     }
 
     @Test

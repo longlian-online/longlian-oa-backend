@@ -20,6 +20,7 @@ import online.longlian.app.service.otp.OTPStrategyService;
 import online.longlian.app.service.otp.OneTimePasswordService;
 import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import online.longlian.common.enumeration.EmailVerifySendStatus;
+import online.longlian.common.enumeration.OTPStatus;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,13 +75,9 @@ public class EmailVerifyService implements OTPStrategyService {
         }
 
         // 重发后旧验证码立即作废，避免同一邮箱同一业务同时存在多个有效验证码；
-        // 只需处理有效期窗口内的记录，更早的记录必然已过期，revokeOTP 对其幂等。
-        emailVerifyOtpMapper.selectList(
-                        new LambdaQueryWrapper<EmailVerifyOtp>()
-                                .eq(EmailVerifyOtp::getReceiver, receiver)
-                                .eq(EmailVerifyOtp::getBusinessType, businessType)
-                                .gt(EmailVerifyOtp::getCreatedAt, now.minusSeconds(CommonConstants.CODE_EXPIRE)))
-                .forEach(otp -> oneTimePasswordService.revokeOTP(otp.getOtpId()));
+        // 只需处理有效期窗口内的记录，更早的记录必然已过期，重复置失效幂等。
+        emailVerifyOtpMapper.expirePreviousCodes(
+                receiver, businessType, now.minusSeconds(CommonConstants.CODE_EXPIRE), now, OTPStatus.PENDING);
 
         String code = oneTimePasswordService.generateUniqueCode(CommonConstants.CODE_LENGTH, OTPType.EmailVerify);
         OneTimePassword oneTimePassword = oneTimePasswordService.generateOTP(
