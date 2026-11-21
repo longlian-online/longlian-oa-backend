@@ -9,6 +9,8 @@ import online.longlian.app.pojo.bo.app.project.ProjectDeleteParamsBO;
 import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
 import online.longlian.app.pojo.bo.app.project.ProjectListResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberKeysetParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberKeysetResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
@@ -35,6 +37,13 @@ public interface ProjectService {
 
     /** 当前企划未退出成员，过滤已删除的组织成员和用户后按用户 ID 升序分页。 */
     PageResultBO<ProjectMemberResultBO> getProjectMembers(ProjectMemberListParamsBO params);
+
+    /**
+     * 企划成员键集分页：口径与 {@link #getProjectMembers(ProjectMemberListParamsBO)} 一致
+     * （过滤已删除的组织成员和用户、按用户 ID 升序），afterUserId 之后取 limit+1 行判定 hasMore。
+     * 供开放面顺序翻页使用。
+     */
+    ProjectMemberKeysetResultBO getProjectMembersKeyset(ProjectMemberKeysetParamsBO params);
 
     /**
      * 分页查询企划列表，支持关键词搜索、类型筛选和排序。

@@ -12,6 +12,8 @@ import online.longlian.app.pojo.bo.app.item.ItemStageSortResultBO;
 import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaKeysetParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaKeysetResultBO;
 import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaSearchParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -93,6 +95,54 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 resizeThumbnailUrls(loadImageUrls(summaries, PlazaProjectSummaryBO::getThumbnailFileId)),
                 nodesByItem, params.getBaseTaskId());
         return new PageResultBO<>(groups, total);
+    }
+
+    /**
+     * 开放面任务广场的键集分页：筛选与装配完全复用 getTaskPlaza 的私有件
+     * （类型解析、关键词转义、装配器与阶段推导），本方法只把企划窗口从 offset 分页
+     * 换成 (updated_at, id) 键集，供开放面顺序翻页。
+     */
+    @Override
+    public TaskPlazaKeysetResultBO getTaskPlazaKeyset(TaskPlazaKeysetParamsBO params) {
+        TaskPlazaSearchParamsBO searchParams = TaskPlazaSearchParamsBO.builder()
+                .orgId(params.orgId())
+                .baseTaskId(params.baseTaskId())
+                .matchPattern(buildMatchPattern(params.keyword()))
+                .stageScope(params.stageScope())
+                .build();
+        List<PlazaProjectSummaryBO> summaries = taskInstanceMapper.selectPlazaProjectSummariesKeyset(
+                searchParams, params.afterProjectUpdatedAt(), params.afterProjectId(),
+                params.limit() + 1);
+        boolean hasMore = summaries.size() > params.limit();
+        List<PlazaProjectSummaryBO> window = hasMore ? summaries.subList(0, params.limit()) : summaries;
+        if (window.isEmpty()) {
+            return TaskPlazaKeysetResultBO.of(Collections.emptyList(), null, null, false);
+        }
+
+        List<Long> projectIds = window.stream().map(PlazaProjectSummaryBO::getProjectId).toList();
+        List<PlazaTaskRowBO> rows = taskInstanceMapper.selectPlazaTaskRows(searchParams, projectIds);
+
+        List<Long> itemIds = rows.stream().map(PlazaTaskRowBO::getItemId).distinct().toList();
+        Map<Long, List<Integer>> itemSorts = itemIds.isEmpty()
+                ? Collections.emptyMap()
+                : itemService.listItemStageSorts(itemIds).stream()
+                        .collect(Collectors.groupingBy(ItemStageSortResultBO::getItemId,
+                                Collectors.collectingAndThen(
+                                        Collectors.mapping(ItemStageSortResultBO::getSort,
+                                                Collectors.toCollection(TreeSet::new)),
+                                        List::copyOf)));
+        Map<Long, List<ItemStageNodeStatusBO>> nodesByItem = itemIds.isEmpty()
+                ? Map.of()
+                : taskInstanceMapper.selectItemStageNodeStatuses(itemIds).stream()
+                        .collect(Collectors.groupingBy(ItemStageNodeStatusBO::getItemId));
+
+        List<PlazaProjectGroupResultBO> groups = taskPlazaAssembler.assembleGroups(
+                window, rows, itemSorts,
+                loadImageUrls(window, PlazaProjectSummaryBO::getCoverFileId),
+                resizeThumbnailUrls(loadImageUrls(window, PlazaProjectSummaryBO::getThumbnailFileId)),
+                nodesByItem, params.baseTaskId());
+        PlazaProjectSummaryBO last = window.get(window.size() - 1);
+        return TaskPlazaKeysetResultBO.of(groups, last.getProjectId(), last.getUpdatedAt(), hasMore);
     }
 
     /** 与企划列表一致：按名称精确匹配当前组织下启用中的类型，未命中视为参数错误 */

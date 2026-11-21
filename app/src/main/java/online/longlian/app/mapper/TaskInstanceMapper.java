@@ -11,6 +11,7 @@ import online.longlian.app.pojo.entity.TaskInstance;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -38,6 +39,12 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstance> {
      */
     List<PlazaTaskRowBO> selectPlazaTaskRows(@Param("params") TaskPlazaSearchParamsBO params,
                                              @Param("projectIds") List<Long> projectIds);
+
+    /** 任务广场开放面：按企划 (updated_at, id) 升序的缺人企划聚合行，键集条件见 XML。 */
+    List<PlazaProjectSummaryBO> selectPlazaProjectSummariesKeyset(@Param("params") TaskPlazaSearchParamsBO params,
+                                                                   @Param("afterUpdatedAt") LocalDateTime afterUpdatedAt,
+                                                                   @Param("afterProjectId") Long afterProjectId,
+                                                                   @Param("size") int size);
 
     /**
      * 我的待办：当前用户在当前组织内已接取（CLAIMED）的任务，按接取时间排序。
