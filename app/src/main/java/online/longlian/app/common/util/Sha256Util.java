@@ -23,8 +23,8 @@ public final class Sha256Util {
                 builder.append(Character.forDigit(b & 0xF, 16));
             }
             return builder.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 不可用", e);
+        } catch (NoSuchAlgorithmException e) { // skipcq: TCV-001
+            throw new IllegalStateException("SHA-256 不可用", e); // skipcq: TCV-001
         }
     }
 
