@@ -11,6 +11,8 @@ longlian:
   display-name: "longlian-oa"
   server-url: https://api.test.longlian.online
   web-url: https://oa.test.longlian.online
+  captcha:
+    enabled: false
   datasource:
     type: mariadb
   cache:

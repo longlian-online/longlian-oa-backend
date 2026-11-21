@@ -2,6 +2,7 @@
 #
 # 部署 Atlas 迁移、后端和 VictoriaLogs。MariaDB、Redis、邮件等由外部提供，
 # 本文件不创建这些组件。
+# FCaptcha 可选，独立部署见 docker-compose.fcaptcha.yml。
 #
 # 准备：
 #   cp devops/application-prod.yml.example devops/application-prod.yml

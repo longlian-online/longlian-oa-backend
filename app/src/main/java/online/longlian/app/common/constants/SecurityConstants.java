@@ -10,6 +10,8 @@ import java.util.List;
 public class SecurityConstants {
     private static final List<RequestMatcher> PERMIT_ALL_MATCHERS = List.of(
             new AntPathRequestMatcher("/common/system/info", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/common/captcha/config", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/admin/captcha/config", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/app/session/pwd", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/app/session/email", HttpMethod.POST.name()),
             new AntPathRequestMatcher("/admin/session", HttpMethod.POST.name()),

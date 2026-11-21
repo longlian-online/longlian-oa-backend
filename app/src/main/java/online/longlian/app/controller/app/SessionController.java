@@ -6,8 +6,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import online.longlian.app.common.annotation.RequireCaptcha;
 import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
+import online.longlian.app.common.enumeration.CaptchaAction;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.security.CurrentUserContext;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
@@ -40,6 +42,7 @@ public class SessionController {
 
     @Operation(summary = "密码登录", description = "使用用户名+密码登录", security = {})
     @PostMapping("/pwd")
+    @RequireCaptcha(CaptchaAction.APP_LOGIN_PWD)
     @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("登录成功")
     public LoginVO loginByPwd(@RequestBody @Valid LoginByPwdDTO loginByPwdDTO) {
@@ -56,6 +59,7 @@ public class SessionController {
 
     @Operation(summary = "验证码登录", description = "使用邮箱+验证码登录", security = {})
     @PostMapping("/email")
+    @RequireCaptcha(CaptchaAction.APP_LOGIN_EMAIL)
     @UserSession(OrganizationDeclaration.NONE)
     @ResponseMessage("登录成功")
     public LoginVO loginByCode(@RequestBody @Valid LoginByCodeDTO loginByCodeDTO) {

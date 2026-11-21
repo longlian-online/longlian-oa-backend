@@ -26,6 +26,19 @@ longlian:
     type: mariadb
   cache:
     type: redis
+  captcha:
+    enabled: false
+    server-url: https://captcha.example.com
+    # 浏览器加载 fcaptcha.js 的完整地址；脚本托管在别处时填写，缺省用 server-url 拼接。
+    # script-url: https://cdn.example.com/fcaptcha.js
+    site-key: longlian-oa-prod
+    verify-url: http://fcaptcha:3000/siteverify
+    verify-secret: ""
+    allowed-hostnames: [oa.longlian.online]
+    connect-timeout: 2s
+    read-timeout: 5s
+    # 仅在可信代理已还原访客地址后开启；FCaptcha 必须得到同一地址。
+    bind-ip: false
 
 spring:
   application:
