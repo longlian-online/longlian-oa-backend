@@ -266,11 +266,12 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         attachment.setSizeText("1KB");
         blankAssignee.setSubmission(new TaskInstanceDetailResultBO.TaskSubmissionResultBO("submitted", LocalDateTime.now(),
                 List.of(new TaskInstanceDetailResultBO.TaskTextFieldResultBO("k", "标签", "text", "内容"),
-                        new TaskInstanceDetailResultBO.TaskFileFieldResultBO("f", "附件", "file", attachment))));
+                        new TaskInstanceDetailResultBO.TaskFileFieldResultBO("f", "附件", "file", attachment),
+                        new TaskInstanceDetailResultBO.TaskFileFieldResultBO("f2", "附件2", "file", null))));
         when(taskInstanceService.getTaskInstanceDetail(any(TaskInstanceDetailParamsBO.class))).thenReturn(blankAssignee);
 
         OpenTaskDetailBO withFile = service.getTaskDetail(new OpenTaskDetailParamsBO(1L, ORG_ID));
-        assertThat(withFile.submission().values()).hasSize(2);
+        assertThat(withFile.submission().values()).hasSize(3);
 
         // 版本列表：无提交人、提交人 ID 为空串
         when(taskInstanceService.listSubmissionVersions(any(TaskSubmissionVersionsParamsBO.class))).thenReturn(List.of(
@@ -447,5 +448,141 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
                 .statusCode(200)
                 .body("data.list.size()", equalTo(0))
                 .body("data.hasMore", equalTo(false));
+    }
+
+    @Test
+    void shouldCoverNotReadableEnumBranchesAndInternalFallback() {
+        var handler = new online.longlian.app.common.handler.GlobalExceptionHandler();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/open/v1/tasks/1/claim");
+
+        // 枚举反序列化失败分支：InvalidFormatException 指向枚举目标
+        com.fasterxml.jackson.databind.exc.InvalidFormatException ife =
+                mock(com.fasterxml.jackson.databind.exc.InvalidFormatException.class);
+        when(ife.getTargetType()).thenReturn((Class) online.longlian.app.common.enumeration.MyTaskBucket.class);
+        when(ife.getValue()).thenReturn("BAD");
+        handler.handleHttpMessageNotReadableException(
+                new org.springframework.http.converter.HttpMessageNotReadableException("解析失败", ife), request);
+
+        // 消息含 enum 的兜底分支
+        handler.handleHttpMessageNotReadableException(
+                new org.springframework.http.converter.HttpMessageNotReadableException(
+                        "cannot deserialize enum", (Throwable) null),
+                request);
+
+        // 开放面内部异常兜底（无堆栈外泄，真实 500 信封）
+        var openHandler = new online.longlian.app.common.handler.OpenApiExceptionHandler(
+                mock(online.longlian.app.common.metrics.ApiResultMetrics.class));
+        var response = openHandler.handleException(new RuntimeException("boom"), request);
+        assertThat(response.getStatusCode().value()).isEqualTo(500);
+    }
+
+    @Test
+    void shouldCoverUserServiceImplGuardBranches() {
+        var passwordEncoder = mock(org.springframework.security.crypto.password.PasswordEncoder.class);
+        var organizationMapper = mock(online.longlian.app.mapper.OrganizationMapper.class);
+        var organizationMemberMapper = mock(online.longlian.app.mapper.OrganizationMemberMapper.class);
+        var organizationJoinOtpMapper = mock(online.longlian.app.mapper.OrganizationJoinOtpMapper.class);
+        var groupApplicationMapper = mock(online.longlian.app.mapper.GroupApplicationMapper.class);
+        var resourceService = mock(online.longlian.app.service.resource.ResourceService.class);
+        var userMapper = mock(online.longlian.app.mapper.UserMapper.class);
+        var organizationMembershipService = mock(online.longlian.app.service.organization.OrganizationMembershipService.class);
+        var otpServiceFactory = mock(online.longlian.app.service.otp.OTPServiceFactory.class);
+        var sessionService = mock(online.longlian.app.service.app.session.SessionService.class);
+        var tokenBlacklistService = mock(online.longlian.app.service.auth.TokenBlacklistService.class);
+        var adminReviewNotificationPublisher = mock(online.longlian.app.service.app.notification.AdminReviewNotificationPublisher.class);
+        var openApiKeyService = mock(online.longlian.app.service.open.OpenApiKeyService.class);
+        var service = new online.longlian.app.service.app.user.impl.UserServiceImpl(
+                passwordEncoder, organizationMapper, organizationMemberMapper, organizationJoinOtpMapper,
+                groupApplicationMapper, resourceService, userMapper, organizationMembershipService,
+                otpServiceFactory, Clock.systemDefaultZone(), sessionService, tokenBlacklistService,
+                adminReviewNotificationPublisher, openApiKeyService);
+
+        // 改密时用户不存在
+        when(userMapper.selectById(4242L)).thenReturn(null);
+        assertThatThrownBy(() -> service.changePassword(
+                online.longlian.app.pojo.bo.app.user.UserChangePasswordParamsBO.builder()
+                        .userId(4242L).oldPassword("a").newPassword("b").build()))
+                .isInstanceOf(online.longlian.app.common.exception.AppException.class);
+
+        // 通知收件人：用户不存在返回 null
+        assertThat(service.getEmailNotificationRecipient(4242L)).isNull();
+
+        // displayNames：null 入参、过滤后为空、无昵称回退用户名、无用户回退 ID 字符串
+        assertThat(service.displayNames(null)).isEmpty();
+        assertThat(service.displayNames(java.util.Arrays.asList((Long) null))).isEmpty();
+        online.longlian.app.pojo.entity.User fallback = new online.longlian.app.pojo.entity.User();
+        fallback.setId(1L);
+        fallback.setNickname("");
+        fallback.setUsername("u1");
+        when(userMapper.selectList(any())).thenReturn(List.of(fallback));
+        assertThat(service.displayNames(List.of(1L, 2L)))
+                .containsEntry(1L, "u1")
+                .containsEntry(2L, "2");
+
+        // 组织列表：同组织两条成员记录触发合并取左
+        online.longlian.app.pojo.entity.OrganizationMember first =
+                new online.longlian.app.pojo.entity.OrganizationMember();
+        first.setOrgId(7L);
+        first.setOrgRole("ORG_USER");
+        online.longlian.app.pojo.entity.OrganizationMember second =
+                new online.longlian.app.pojo.entity.OrganizationMember();
+        second.setOrgId(7L);
+        second.setOrgRole("ORG_ADMIN");
+        when(organizationMemberMapper.selectList(any())).thenReturn(List.of(first, second));
+        online.longlian.app.pojo.entity.Organization organization =
+                new online.longlian.app.pojo.entity.Organization();
+        organization.setId(7L);
+        organization.setName("组织");
+        organization.setStatus(online.longlian.common.enumeration.Status.ENABLED);
+        when(organizationMapper.selectBatchIds(anyList())).thenReturn(List.of(organization));
+
+        assertThat(service.getMyOrganizations(1L)).hasSize(1);
+    }
+
+    @Test
+    void shouldCoverItemCompleteRaceAndEmptyStageSorts() {
+        var projectMapper = mock(ProjectMapper.class);
+        var itemMapper = mock(online.longlian.app.mapper.ItemMapper.class);
+        var itemTaskFlowMapper = mock(online.longlian.app.mapper.ItemTaskFlowMapper.class);
+        var itemTaskNodeMapper = mock(online.longlian.app.mapper.ItemTaskNodeMapper.class);
+        var taskTemplateMapper = mock(online.longlian.app.mapper.TaskTemplateMapper.class);
+        var taskTemplateNodeMapper = mock(online.longlian.app.mapper.TaskTemplateNodeMapper.class);
+        var baseTaskMapper = mock(online.longlian.app.mapper.BaseTaskMapper.class);
+        var taskInstanceMapper = mock(TaskInstanceMapper.class);
+        var taskSubmissionMapper = mock(TaskSubmissionMapper.class);
+        var itemQueryBuilder = mock(online.longlian.app.service.app.item.impl.ItemQueryBuilder.class);
+        var itemAssembler = mock(online.longlian.app.service.app.item.impl.ItemAssembler.class);
+        var projectService = mock(online.longlian.app.service.app.project.ProjectService.class);
+        var organizationMembershipService = mock(online.longlian.app.service.organization.OrganizationMembershipService.class);
+        var inboxNotificationService = mock(online.longlian.app.service.app.notification.InboxNotificationService.class);
+        var service = new online.longlian.app.service.app.item.impl.ItemServiceImpl(
+                projectMapper, itemMapper, itemTaskFlowMapper, itemTaskNodeMapper, taskTemplateMapper,
+                taskTemplateNodeMapper, baseTaskMapper, taskInstanceMapper, taskSubmissionMapper,
+                Clock.systemDefaultZone(), itemQueryBuilder, itemAssembler, projectService,
+                organizationMembershipService, inboxNotificationService);
+
+        // 空清单直接返回，不查节点表
+        assertThat(service.listItemStageSorts(List.of())).isEmpty();
+
+        // 完成项目时乐观更新落空：回查状态未变，按并发冲突拒绝
+        when(projectService.lockEnabledProject(any())).thenReturn(
+                online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO.builder()
+                        .creatorId(USER_ID).build());
+        Item item = new Item();
+        item.setId(6L);
+        item.setProjectId(5L);
+        item.setStatus(online.longlian.common.enumeration.ItemStatus.IN_PROGRESS);
+        when(itemMapper.selectById(6L)).thenReturn(item);
+        when(itemTaskFlowMapper.selectOne(any())).thenReturn(new online.longlian.app.pojo.entity.ItemTaskFlow());
+        TaskInstance done = new TaskInstance();
+        done.setStatus(online.longlian.common.enumeration.TaskInstanceStatus.COMPLETED);
+        when(taskInstanceMapper.selectList(any())).thenReturn(List.of(done));
+        when(itemMapper.update(any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.completeProjectItem(
+                online.longlian.app.pojo.bo.app.item.ItemCompleteParamsBO.builder()
+                        .projectId(5L).itemId(6L).orgId(ORG_ID).userId(USER_ID).build()))
+                .isInstanceOf(online.longlian.app.common.exception.AppException.class)
+                .hasMessageContaining("状态已变化");
     }
 }
