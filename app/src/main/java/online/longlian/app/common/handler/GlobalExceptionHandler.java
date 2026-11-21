@@ -6,7 +6,11 @@ import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.result.OpenResult;
+import online.longlian.app.common.result.OpenResultCode;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -72,11 +76,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     @ResponseBody
-    public <T> Result<T> handleNotFoundException(Exception e, HttpServletRequest request) {
+    public ResponseEntity<?> handleNotFoundException(Exception e, HttpServletRequest request) {
         log.warn("请求资源不存在 | uri={} | method={}",
                 request.getRequestURI(),
                 request.getMethod());
-        return Result.fail(ResultCode.NOT_FOUND);
+        // 无 handler 的开放路径命中不了 controller.open 限界的异常处理器，这里直接写开放信封
+        if (request.getServletPath().startsWith("/open/")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(OpenResult.fail(OpenResultCode.NOT_FOUND));
+        }
+        return ResponseEntity.ok(Result.fail(ResultCode.NOT_FOUND));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

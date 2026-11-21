@@ -33,8 +33,13 @@ public class SwaggerConfig {
                                 .bearerFormat("JWT")
                                 .in(SecurityScheme.In.HEADER)
                                 .name("Authorization")
+                )
+                .addSecuritySchemes("XApiKey",
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.APIKEY)
+                                .in(SecurityScheme.In.HEADER)
+                                .name("X-Api-Key")
                 );
-
         return new OpenAPI()
                 .info(new Info()
                         .title("longlian接口文档")
@@ -79,6 +84,19 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("公共端")
                 .packagesToScan("online.longlian.app.controller.common")
+                .build();
+    }
+
+    /**
+     * 开放接口分组：密钥认证，独立于站内 Bearer JWT。
+     */
+    @Bean
+    public GroupedOpenApi openApi() {
+        return GroupedOpenApi.builder()
+                .group("开放接口")
+                .packagesToScan("online.longlian.app.controller.open")
+                .addOpenApiCustomizer(openApi -> openApi
+                        .addSecurityItem(new SecurityRequirement().addList("XApiKey")))
                 .build();
     }
 }

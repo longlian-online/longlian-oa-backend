@@ -11,6 +11,8 @@ import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.beans.factory.annotation.Value;
+import online.longlian.app.common.result.OpenResult;
+import online.longlian.app.common.result.OpenResultCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -38,6 +40,14 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
 
         if (request.getServletPath().equals(mcpEndpoint)) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
+            return;
+        }
+        // 开放接口不走全站 200 惯例，直接写真实 403 与 10xxx 信封
+        if (request.getServletPath().startsWith("/open/")) {
+            response.setContentType(CommonConstants.CONTENT_TYPE);
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            apiResultMetrics.record(request, OpenResultCode.FORBIDDEN.getCode());
+            response.getWriter().write(JSON.toJSONString(OpenResult.fail(OpenResultCode.FORBIDDEN)));
             return;
         }
 
