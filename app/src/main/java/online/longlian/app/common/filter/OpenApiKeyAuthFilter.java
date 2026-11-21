@@ -10,6 +10,7 @@ import online.longlian.app.common.exception.OpenAppException;
 import online.longlian.app.common.handler.OpenApiResponseWriter;
 import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.constants.OpenApiConstants;
 import online.longlian.app.common.security.OpenApiPrincipal;
 import online.longlian.app.pojo.bo.open.OpenApiKeyAuthResultBO;
 import online.longlian.app.service.open.OpenApiKeyService;
@@ -77,7 +78,7 @@ public class OpenApiKeyAuthFilter extends OncePerRequestFilter {
 
         OpenApiPrincipal principal = new OpenApiPrincipal(auth.keyId(), auth.userId(), auth.orgId());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                principal, null, List.of(new SimpleGrantedAuthority(OpenApiPrincipal.OPEN_API_AUTHORITY))));
+                principal, null, List.of(new SimpleGrantedAuthority(OpenApiConstants.OPEN_API_AUTHORITY))));
 
         openApiKeyService.touchLastUsedAsync(auth.keyId());
 

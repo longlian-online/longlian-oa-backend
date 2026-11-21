@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
-import online.longlian.app.common.security.OpenApiPrincipal;
+import online.longlian.app.common.constants.OpenApiConstants;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvider;
 import online.longlian.app.common.security.AdminUserDetails;
@@ -72,7 +72,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SecurityConstants.getPermitAllMatchers(springdocApiDocsEnabled).toArray(new RequestMatcher[0])).permitAll()
                         // 开放接口只认密钥认证主体；密钥本身即认证方式，不进白名单
-                        .requestMatchers("/open/**").hasAuthority(OpenApiPrincipal.OPEN_API_AUTHORITY)
+                        .requestMatchers("/open/**").hasAuthority(OpenApiConstants.OPEN_API_AUTHORITY)
                         .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()
                 )

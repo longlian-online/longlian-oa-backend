@@ -18,7 +18,8 @@ public class OpenApiCachedBodyRequestWrapper extends HttpServletRequestWrapper {
 
     public OpenApiCachedBodyRequestWrapper(HttpServletRequest request, byte[] body) {
         super(request);
-        this.body = body;
+        // 防御拷贝：避免调用方在请求处理期间改动同一数组
+        this.body = body.clone();
     }
 
     public byte[] getBody() {

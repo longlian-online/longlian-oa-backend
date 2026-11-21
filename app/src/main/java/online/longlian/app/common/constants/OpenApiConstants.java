@@ -14,6 +14,9 @@ public final class OpenApiConstants {
     /** /open/** 路径前缀（带尾斜杠） */
     public static final String OPEN_PATH_PREFIX = "/open/";
 
+    /** 开放接口认证主体携带的唯一权限标识，SecurityConfig 授权规则与过滤器共用 */
+    public static final String OPEN_API_AUTHORITY = "OPEN_API";
+
     /** 请求体缓存过滤器写入的请求属性：原始请求体的 SHA-256 十六进制 */
     public static final String BODY_HASH_ATTRIBUTE = "openApiBodyHash";
 
