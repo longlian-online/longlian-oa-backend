@@ -45,11 +45,11 @@ public class OpenTaskPlazaServiceImpl implements OpenTaskPlazaService {
                 params.orgId(), params.baseTaskId(), params.keyword(), params.stageScope(),
                 afterUpdatedAt, afterProjectId, params.limit()));
         if (!page.hasMore() || page.lastProjectId() == null) {
-            return OpenPageResultBO.of(page.groups(), null, false);
+            return new OpenPageResultBO<>(page.groups(), null, false);
         }
         String nextCursor = OpenCursorCodec.encode(new OpenCursorBO(
                 page.lastProjectId(), toMillis(page.lastProjectUpdatedAt())));
-        return OpenPageResultBO.of(page.groups(), nextCursor, true);
+        return new OpenPageResultBO<>(page.groups(), nextCursor, true);
     }
 
     private LocalDateTime toDateTime(Long epochMillis) {

@@ -20,6 +20,7 @@ import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailParamsBO;
 import online.longlian.app.pojo.bo.open.OpenTaskDetailBO;
 import online.longlian.app.pojo.bo.open.OpenTaskDetailParamsBO;
 import online.longlian.app.pojo.bo.open.OpenTaskParticipantBO;
+import online.longlian.app.pojo.bo.open.OpenTaskSubmissionBO;
 import online.longlian.app.pojo.bo.open.OpenTaskSubmissionsParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
@@ -83,7 +84,7 @@ public class OpenTaskQueryServiceImpl implements OpenTaskQueryService {
                 instance.getStatus(),
                 instance.getRevision(),
                 toParticipant(task.assignee()),
-                new OpenTaskDetailBO.SubmissionBO(
+                new OpenTaskSubmissionBO(
                         submission.state(), submission.submittedAt(), toFields(submission.fields())),
                 submissionCount == null ? 0 : submissionCount);
     }

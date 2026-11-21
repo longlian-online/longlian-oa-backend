@@ -30,12 +30,15 @@ public class OpenProjectMemberServiceImpl implements OpenProjectMemberService {
         Long afterUserId = cursor == null ? null : cursor.afterId();
         ProjectMemberKeysetResultBO page = projectService.getProjectMembersKeyset(
                 new ProjectMemberKeysetParamsBO(params.projectId(), params.orgId(), afterUserId, params.limit()));
-        List<OpenProjectMemberBO> items = OpenProjectMemberBO.from(page.list());
+        List<OpenProjectMemberBO> items = page.list().stream()
+                .map(item -> new OpenProjectMemberBO(item.userId(), item.nickname(), item.joinedAt(),
+                        item.creator(), item.completedCount(), item.lastSubmittedAt()))
+                .toList();
         if (!page.hasMore() || page.lastUserId() == null) {
-            return OpenPageResultBO.of(items, null, false);
+            return new OpenPageResultBO<>(items, null, false);
         }
         // 成员按 userId 键集，游标不带时间分量
         String nextCursor = OpenCursorCodec.encode(new OpenCursorBO(page.lastUserId(), null));
-        return OpenPageResultBO.of(items, nextCursor, true);
+        return new OpenPageResultBO<>(items, nextCursor, true);
     }
 }

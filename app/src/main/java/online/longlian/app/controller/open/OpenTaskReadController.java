@@ -13,6 +13,7 @@ import online.longlian.app.pojo.bo.open.OpenSubmissionVersionBO;
 import online.longlian.app.pojo.bo.open.OpenTaskDetailBO;
 import online.longlian.app.pojo.bo.open.OpenTaskDetailParamsBO;
 import online.longlian.app.pojo.bo.open.OpenTaskSubmissionsParamsBO;
+import online.longlian.app.pojo.bo.open.OpenTaskSubmissionBO;
 import online.longlian.app.pojo.vo.open.OpenReadUrlVO;
 import online.longlian.app.pojo.vo.open.OpenSubmissionVersionVO;
 import online.longlian.app.pojo.vo.open.OpenTaskDetailVO;
@@ -94,7 +95,7 @@ public class OpenTaskReadController {
         if (bo.assignee() != null) {
             vo.setAssignee(new OpenTaskDetailVO.TaskAssigneeVO(bo.assignee().userId(), bo.assignee().nickname()));
         }
-        OpenTaskDetailBO.SubmissionBO submission = bo.submission();
+        OpenTaskSubmissionBO submission = bo.submission();
         vo.setSubmission(new OpenTaskDetailVO.TaskSubmissionVO(
                 submission.state(), submission.submittedAt(), toFieldVOs(submission.values())));
         vo.setSubmissionCount(bo.submissionCount());

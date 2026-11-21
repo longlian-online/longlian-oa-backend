@@ -116,7 +116,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
         boolean hasMore = summaries.size() > params.limit();
         List<PlazaProjectSummaryBO> window = hasMore ? summaries.subList(0, params.limit()) : summaries;
         if (window.isEmpty()) {
-            return TaskPlazaKeysetResultBO.of(Collections.emptyList(), null, null, false);
+            return new TaskPlazaKeysetResultBO(Collections.emptyList(), null, null, false);
         }
 
         List<Long> projectIds = window.stream().map(PlazaProjectSummaryBO::getProjectId).toList();
@@ -142,7 +142,7 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
                 resizeThumbnailUrls(loadImageUrls(window, PlazaProjectSummaryBO::getThumbnailFileId)),
                 nodesByItem, params.baseTaskId());
         PlazaProjectSummaryBO last = window.get(window.size() - 1);
-        return TaskPlazaKeysetResultBO.of(groups, last.getProjectId(), last.getUpdatedAt(), hasMore);
+        return new TaskPlazaKeysetResultBO(groups, last.getProjectId(), last.getUpdatedAt(), hasMore);
     }
 
     /** 与企划列表一致：按名称精确匹配当前组织下启用中的类型，未命中视为参数错误 */

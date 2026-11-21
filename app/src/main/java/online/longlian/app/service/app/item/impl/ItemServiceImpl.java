@@ -137,12 +137,12 @@ public class ItemServiceImpl implements ItemService {
             items = items.subList(0, params.limit());
         }
         if (items.isEmpty()) {
-            return ItemKeysetListResultBO.of(Collections.emptyList(), null, null, false);
+            return new ItemKeysetListResultBO(Collections.emptyList(), null, null, false);
         }
         List<ProjectItemListResultBO> list = itemAssembler.assembleList(items);
         markSubmissionRecords(list);
         Item last = items.get(items.size() - 1);
-        return ItemKeysetListResultBO.of(list, last.getId(), last.getUpdatedAt(), hasMore);
+        return new ItemKeysetListResultBO(list, last.getId(), last.getUpdatedAt(), hasMore);
     }
 
     @Override

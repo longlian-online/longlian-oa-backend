@@ -46,11 +46,11 @@ public class OpenMyTaskServiceImpl implements OpenMyTaskService {
                 params.userId(), params.orgId(), params.bucket(), afterClaimedAt, afterInstanceId, params.limit()));
         List<OpenMyTaskBO> items = page.list().stream().map(this::toBO).toList();
         if (!page.hasMore() || page.lastInstanceId() == null) {
-            return OpenPageResultBO.of(items, null, false);
+            return new OpenPageResultBO<>(items, null, false);
         }
         String nextCursor = OpenCursorCodec.encode(new OpenCursorBO(
                 page.lastInstanceId(), toMillis(page.lastClaimedAt())));
-        return OpenPageResultBO.of(items, nextCursor, true);
+        return new OpenPageResultBO<>(items, nextCursor, true);
     }
 
     private OpenMyTaskBO toBO(MyTaskKeysetItemBO item) {

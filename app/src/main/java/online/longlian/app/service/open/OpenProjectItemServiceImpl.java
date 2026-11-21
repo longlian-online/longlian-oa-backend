@@ -49,11 +49,11 @@ public class OpenProjectItemServiceImpl implements OpenProjectItemService {
                 .map(this::toBO)
                 .toList();
         if (!page.hasMore() || page.lastId() == null) {
-            return OpenPageResultBO.of(items, null, false);
+            return new OpenPageResultBO<>(items, null, false);
         }
         String nextCursor = OpenCursorCodec.encode(
                 new OpenCursorBO(page.lastId(), toMillis(page.lastUpdatedAt())));
-        return OpenPageResultBO.of(items, nextCursor, true);
+        return new OpenPageResultBO<>(items, nextCursor, true);
     }
 
     private OpenProjectItemBO toBO(ProjectItemListResultBO row) {

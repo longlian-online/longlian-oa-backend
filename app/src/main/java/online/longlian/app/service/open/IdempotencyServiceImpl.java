@@ -42,15 +42,15 @@ public class IdempotencyServiceImpl implements IdempotencyService {
                 .eq(IdempotencyRecord::getIdempotencyKey, params.idempotencyKey())
                 .last("LIMIT 1"));
         if (record == null) {
-            return IdempotencyCheckResultBO.miss();
+            return new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.MISS, null);
         }
         boolean sameRequest = Objects.equals(record.getMethod(), params.method())
                 && Objects.equals(record.getPath(), params.path())
                 && Objects.equals(record.getBodyHash(), params.bodyHash());
         if (!sameRequest) {
-            return IdempotencyCheckResultBO.conflict();
+            return new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.CONFLICT, null);
         }
-        return IdempotencyCheckResultBO.hit(
+        return new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.HIT,
                 record.getSnapshot() == null ? null : JSON.parse(record.getSnapshot()));
     }
 

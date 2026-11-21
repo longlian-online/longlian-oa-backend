@@ -8,9 +8,4 @@ import java.util.List;
  */
 public record ItemKeysetListResultBO(List<ProjectItemListResultBO> list,
                                      Long lastId, LocalDateTime lastUpdatedAt, boolean hasMore) {
-
-    public static ItemKeysetListResultBO of(List<ProjectItemListResultBO> list,
-                                            Long lastId, LocalDateTime lastUpdatedAt, boolean hasMore) {
-        return new ItemKeysetListResultBO(list, lastId, lastUpdatedAt, hasMore);
-    }
 }

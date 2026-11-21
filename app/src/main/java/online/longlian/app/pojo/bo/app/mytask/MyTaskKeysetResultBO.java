@@ -8,9 +8,4 @@ import java.util.List;
  */
 public record MyTaskKeysetResultBO(List<MyTaskKeysetItemBO> list,
                                    LocalDateTime lastClaimedAt, Long lastInstanceId, boolean hasMore) {
-
-    public static MyTaskKeysetResultBO of(List<MyTaskKeysetItemBO> list,
-                                         LocalDateTime lastClaimedAt, Long lastInstanceId, boolean hasMore) {
-        return new MyTaskKeysetResultBO(list, lastClaimedAt, lastInstanceId, hasMore);
-    }
 }

@@ -8,10 +8,4 @@ import java.util.List;
  */
 public record TaskPlazaKeysetResultBO(List<PlazaProjectGroupResultBO> groups,
                                        Long lastProjectId, LocalDateTime lastProjectUpdatedAt, boolean hasMore) {
-
-    public static TaskPlazaKeysetResultBO of(List<PlazaProjectGroupResultBO> groups,
-                                             Long lastProjectId, LocalDateTime lastProjectUpdatedAt,
-                                             boolean hasMore) {
-        return new TaskPlazaKeysetResultBO(groups, lastProjectId, lastProjectUpdatedAt, hasMore);
-    }
 }

@@ -110,7 +110,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .orderByAsc(ProjectWorkshop::getUserId)
                 .orderByAsc(ProjectWorkshop::getId));
         if (workshopRows.isEmpty()) {
-            return ProjectMemberKeysetResultBO.of(List.of(), null, false);
+            return new ProjectMemberKeysetResultBO(List.of(), null, false);
         }
         // 与 getProjectMembers 同口径：先过滤已删除的组织成员及用户，再按键集取窗
         Map<Long, ProjectWorkshop> joinedByUser = new LinkedHashMap<>();
@@ -126,7 +126,7 @@ public class ProjectServiceImpl implements ProjectService {
         boolean hasMore = window.size() > params.limit();
         List<OrganizationMemberDetailsResultBO> page = hasMore ? window.subList(0, params.limit()) : window;
         if (page.isEmpty()) {
-            return ProjectMemberKeysetResultBO.of(List.of(), null, false);
+            return new ProjectMemberKeysetResultBO(List.of(), null, false);
         }
         Map<Long, ProjectMemberSubmissionStatBO> stats = projectMemberSubmissionStats.forMembers(
                 params.projectId(), page.stream().map(OrganizationMemberDetailsResultBO::userId).toList());
@@ -139,7 +139,7 @@ public class ProjectServiceImpl implements ProjectService {
                     stat == null ? 0 : stat.completedCount(),
                     stat == null ? null : stat.lastSubmittedAt());
         }).toList();
-        return ProjectMemberKeysetResultBO.of(items, page.get(page.size() - 1).userId(), hasMore);
+        return new ProjectMemberKeysetResultBO(items, page.get(page.size() - 1).userId(), hasMore);
     }
 
     @Override

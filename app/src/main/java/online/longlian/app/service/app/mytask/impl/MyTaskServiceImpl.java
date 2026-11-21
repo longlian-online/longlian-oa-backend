@@ -68,7 +68,7 @@ public class MyTaskServiceImpl implements MyTaskService {
         // 与站内一致全量载入后分组（单用户同时接取的任务量有限），键集切片在内存完成
         List<MyTaskRowBO> rows = taskInstanceMapper.selectMyClaimedTasks(params.userId(), params.orgId(), false);
         if (rows.isEmpty()) {
-            return MyTaskKeysetResultBO.of(List.of(), null, null, false);
+            return new MyTaskKeysetResultBO(List.of(), null, null, false);
         }
         List<Long> itemIds = rows.stream().map(MyTaskRowBO::getItemId).distinct().toList();
         Map<Long, List<ItemStageNodeStatusBO>> nodesByItem = taskInstanceMapper.selectItemStageNodeStatuses(itemIds)
@@ -97,7 +97,7 @@ public class MyTaskServiceImpl implements MyTaskService {
         boolean hasMore = window.size() > params.limit();
         List<Prepared> page = hasMore ? window.subList(0, params.limit()) : window;
         if (page.isEmpty()) {
-            return MyTaskKeysetResultBO.of(List.of(), null, null, false);
+            return new MyTaskKeysetResultBO(List.of(), null, null, false);
         }
         List<MyTaskKeysetItemBO> items = page.stream()
                 .map(entry -> new MyTaskKeysetItemBO(
@@ -114,7 +114,7 @@ public class MyTaskServiceImpl implements MyTaskService {
                         entry.result().getWaitingStageName() != null ? MyTaskBucket.WAITING : MyTaskBucket.SUBMITTABLE))
                 .toList();
         MyTaskRowBO last = page.get(page.size() - 1).row();
-        return MyTaskKeysetResultBO.of(items, last.getClaimedAt(), last.getInstanceId(), hasMore);
+        return new MyTaskKeysetResultBO(items, last.getClaimedAt(), last.getInstanceId(), hasMore);
     }
 
     private MyTaskResultBO toResultBO(MyTaskRowBO row, List<ItemStageNodeStatusBO> itemNodes) {

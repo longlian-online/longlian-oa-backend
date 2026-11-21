@@ -59,19 +59,19 @@ public class OpenProjectServiceImpl implements OpenProjectService {
             rows = rows.subList(0, params.limit());
         }
         if (rows.isEmpty()) {
-            return OpenPageResultBO.of(List.of(), null, false);
+            return new OpenPageResultBO<>(List.of(), null, false);
         }
         Map<Long, String> readUrls = batchReadUrls(rows);
         List<OpenProjectBO> items = rows.stream()
                 .map(project -> toBO(project, readUrls, params.userId()))
                 .toList();
         if (!hasMore) {
-            return OpenPageResultBO.of(items, null, false);
+            return new OpenPageResultBO<>(items, null, false);
         }
         Project last = rows.get(rows.size() - 1);
         String nextCursor = OpenCursorCodec.encode(
                 new OpenCursorBO(last.getId(), toMillis(last.getUpdatedAt())));
-        return OpenPageResultBO.of(items, nextCursor, true);
+        return new OpenPageResultBO<>(items, nextCursor, true);
     }
 
     private LocalDateTime toDateTime(Long epochMillis) {

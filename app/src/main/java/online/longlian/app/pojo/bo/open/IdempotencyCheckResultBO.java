@@ -10,16 +10,4 @@ public record IdempotencyCheckResultBO(Outcome outcome, Object data) {
     public enum Outcome {
         MISS, HIT, CONFLICT
     }
-
-    public static IdempotencyCheckResultBO miss() {
-        return new IdempotencyCheckResultBO(Outcome.MISS, null);
-    }
-
-    public static IdempotencyCheckResultBO hit(Object data) {
-        return new IdempotencyCheckResultBO(Outcome.HIT, data);
-    }
-
-    public static IdempotencyCheckResultBO conflict() {
-        return new IdempotencyCheckResultBO(Outcome.CONFLICT, null);
-    }
 }
