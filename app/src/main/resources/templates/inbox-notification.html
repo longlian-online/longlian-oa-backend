@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${displayName}</title>
+    <title>协作通知</title>
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
     <style>
         body, table, td, a {
@@ -28,21 +28,6 @@
             <![endif]-->
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width: 100%; max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
                 <tr>
-                    <td style="padding: 32px 36px; border-bottom: 1px solid #edf0f5;">
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; table-layout: fixed;">
-                            <tr>
-                                <td width="64" valign="middle" style="width: 64px;">
-                                    <img src="https://longlian-oa-sit-1308050490.cos.ap-guangzhou.myqcloud.com/logo.jpg" alt="${displayName} Logo" width="48" height="48" style="display: block; width: 48px; height: 48px; border: 0; border-radius: 10px; color: #64748b; font-size: 12px;">
-                                </td>
-                                <td valign="middle" style="word-break: break-word; overflow-wrap: anywhere;">
-                                    <p style="margin: 0 0 4px; color: #0f172a; font-size: 17px; font-weight: 600; line-height: 24px;">${displayName}</p>
-                                    <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 18px; letter-spacing: 2px;">协作通知</p>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-                <tr>
                     <td style="padding: 36px;">
                         <h1 style="margin: 0 0 24px; color: #0f172a; font-size: 26px; font-weight: 600; line-height: 36px;">你有一条新通知</h1>
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f7fc" style="width: 100%; table-layout: fixed; background-color: #f5f7fc; border-radius: 10px;">
@@ -63,8 +48,19 @@
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding: 22px 36px; border-top: 1px solid #edf0f5; color: #64748b; font-size: 12px; line-height: 22px; word-break: break-word; overflow-wrap: anywhere;">
-                        <p style="margin: 0;">本邮件由 ${displayName} 自动发送，请勿回复。</p>
+                    <td style="padding: 24px 36px 28px; border-top: 1px solid #edf0f5; color: #64748b; font-size: 12px; line-height: 22px; word-break: break-word; overflow-wrap: anywhere;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; table-layout: fixed;">
+                            <tr>
+                                <td width="44" valign="middle" style="width: 44px;">
+                                    <img src="https://longlian-oa-sit-1308050490.cos.ap-guangzhou.myqcloud.com/logo.jpg" alt="${displayName} Logo" width="32" height="32" style="display: block; width: 32px; height: 32px; border: 0; border-radius: 8px; color: #64748b; font-size: 12px;">
+                                </td>
+                                <td valign="middle" style="word-break: break-word; overflow-wrap: anywhere;">
+                                    <p style="margin: 0 0 2px; color: #0f172a; font-size: 14px; font-weight: 600; line-height: 20px;">${displayName}</p>
+                                    <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 18px; letter-spacing: 2px;">协作通知</p>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin: 14px 0 0;">本邮件由 ${displayName} 自动发送，请勿回复。</p>
                     </td>
                 </tr>
             </table>

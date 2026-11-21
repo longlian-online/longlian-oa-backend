@@ -134,6 +134,7 @@ class CaptchaApiTest extends BaseApiTest {
 
     @Test
     void shouldNotAddVerificationToEmailSendingOrRefresh() {
+        createTestUser(1L, "captcha_user", "123456", "captcha@test.com");
         request().body(Map.of("email", "captcha@test.com", "businessType", "LOGIN"))
                 .post("/app/session/email/code").then().body("code", equalTo(ResultCode.SUCCESS.getCode()));
         request().body(Map.of("refreshToken", "not-a-refresh-token"))

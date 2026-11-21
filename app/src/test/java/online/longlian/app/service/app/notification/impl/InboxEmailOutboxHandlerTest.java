@@ -76,9 +76,12 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent.sender()).isEqualTo(FROM);
         assertThat(sent.receiver()).isEqualTo("user@example.com");
         assertThat(sent.receiverName()).isEqualTo(DISPLAY_NAME);
-        assertThat(sent.title()).isEqualTo(DISPLAY_NAME + " 可以开始");
-        assertThat(sent.content()).contains("<title>" + HtmlUtils.htmlEscape(DISPLAY_NAME) + "</title>");
-        assertThat(sent.content()).doesNotContain("<title>" + DISPLAY_NAME + "</title>");
+        assertThat(sent.title()).isEqualTo("可以开始");
+        assertThat(sent.content()).contains("<title>协作通知</title>");
+        assertThat(sent.content()).contains("本邮件由 " + HtmlUtils.htmlEscape(DISPLAY_NAME) + " 自动发送，请勿回复。");
+        assertThat(sent.content()).doesNotContain("本邮件由 " + DISPLAY_NAME + " 自动发送");
+        assertThat(sent.content().indexOf("你有一条新通知"))
+                .isLessThan(sent.content().indexOf(HtmlUtils.htmlEscape(DISPLAY_NAME)));
         assertThat(sent.content()).contains("<p>" + HtmlUtils.htmlEscape(message) + "</p>");
         assertThat(sent.content()).contains("href=\"" + HtmlUtils.htmlEscape(link(InboxNotificationKind.TASK_READY, 202L)) + "\"");
         assertThat(sent.content()).doesNotContain("企划<A>");
@@ -94,7 +97,7 @@ class InboxEmailOutboxHandlerTest {
         when(userService.getEmailNotificationRecipient(4L)).thenReturn(recipient());
         handler.deliver(message(InboxNotificationKind.TASK_READY, 202L), EXECUTE_TIME);
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(ready));
-        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 可以开始");
+        assertThat(sent().title()).isEqualTo("可以开始");
         assertThat(InboxEmailCopy.slotLabel(new NotificationTaskSlotBO("翻译", 1, 1, 0))).isEqualTo("翻译");
 
         when(resolver.resolve(any())).thenReturn(Map.of(9L, source("企划", "项目", null)));
@@ -103,7 +106,7 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(completed));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(link(InboxNotificationKind.ITEM_COMPLETED, 100L)) + "\"");
         assertThat(sent().content()).doesNotContain("taskInstanceId");
-        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 项目完成");
+        assertThat(sent().title()).isEqualTo("项目完成");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.ITEM_COMPLETED,
                 new NotificationSourceResultBO(1L, "企划", 7L, "项目", null))).isEqualTo(completed);
     }
@@ -119,7 +122,7 @@ class InboxEmailOutboxHandlerTest {
 
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(assigned));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(link(InboxNotificationKind.TASK_ASSIGNED, 202L)) + "\"");
-        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 任务分配");
+        assertThat(sent().title()).isEqualTo("任务分配");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_ASSIGNED, new NotificationSourceResultBO(
                 1L, "企划", 7L, "项目", new NotificationTaskSlotBO("翻译", 2, 2, null)))).isEqualTo(assigned);
     }
@@ -139,7 +142,7 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(rejected));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
                 "https://oa.example/go?type=TASK_REJECTED&orgId=1&projectId=1&itemId=7&taskInstanceId=303&notificationId=9") + "\"");
-        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 任务打回");
+        assertThat(sent().title()).isEqualTo("任务打回");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.TASK_REJECTED, source)).isEqualTo(rejected);
     }
 
@@ -213,7 +216,7 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(joined));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
                 "https://oa.example/go?type=JOIN_APPLICATION&orgId=1&applicationId=77&notificationId=9") + "\"");
-        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 入组申请");
+        assertThat(sent().title()).isEqualTo("入组申请");
 
         String deleted = "「管理员」申请删除项目「第一章」。";
         when(resolver.resolve(any())).thenReturn(Map.of(9L, new NotificationResolvedSourceBO(
@@ -223,7 +226,7 @@ class InboxEmailOutboxHandlerTest {
         assertThat(sent().content()).contains(HtmlUtils.htmlEscape(deleted));
         assertThat(sent().content()).contains("href=\"" + HtmlUtils.htmlEscape(
                 "https://oa.example/go?type=DELETION_REQUEST&orgId=1&requestId=56&notificationId=9") + "\"");
-        assertThat(sent().title()).isEqualTo(DISPLAY_NAME + " 删除申请");
+        assertThat(sent().title()).isEqualTo("删除申请");
         assertThat(InboxEmailCopy.message(InboxNotificationKind.DELETION_REQUEST, NotificationSourceResultBO.builder()
                 .requesterName("管理员").targetType("PROJECT").targetTitle("作品").build()))
                 .isEqualTo("「管理员」申请删除企划「作品」。");
@@ -241,7 +244,7 @@ class InboxEmailOutboxHandlerTest {
         named.deliver(message(InboxNotificationKind.ITEM_COMPLETED, 100L), EXECUTE_TIME);
 
         MailUtil.SendParam sent = sent();
-        assertThat(sent.content()).contains("<title>名${displayName}</title>");
+        assertThat(sent.content()).contains("本邮件由 名${displayName} 自动发送，请勿回复。");
         assertThat(sent.content()).contains("企划${message}");
         assertThat(sent.content()).contains("项目${displayName}");
         assertThat(sent.content()).doesNotContain("名名");
@@ -391,7 +394,7 @@ class InboxEmailOutboxHandlerTest {
         String content = sent().content();
         assertThat(content).contains(
                 "<img src=\"https://umami.longlian.online/p/tJgx6dhuK\" alt=\"\" width=\"1\" height=\"1\" style=\"display:block;width:1px;height:1px;border:0;\">");
-        assertThat(content).contains("<title>${inboxNotificationPixel}</title>");
+        assertThat(content).contains("本邮件由 ${inboxNotificationPixel} 自动发送，请勿回复。");
     }
 
     @Test
