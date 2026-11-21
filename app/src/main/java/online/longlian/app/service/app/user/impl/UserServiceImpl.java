@@ -44,6 +44,7 @@ import online.longlian.app.service.auth.TokenBlacklistService;
 import online.longlian.app.service.app.session.SessionService;
 import online.longlian.app.service.app.user.UserService;
 import online.longlian.app.service.app.notification.AdminReviewNotificationPublisher;
+import online.longlian.app.service.open.OpenApiKeyService;
 import online.longlian.common.enumeration.ApplicationStatus;
 import online.longlian.common.enumeration.InboxNotificationKind;
 import online.longlian.common.enumeration.ApplicationType;
@@ -89,6 +90,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final SessionService sessionService;
     private final TokenBlacklistService tokenBlacklistService;
     private final AdminReviewNotificationPublisher adminReviewNotificationPublisher;
+    private final OpenApiKeyService openApiKeyService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -573,6 +575,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 先作废刷新会话，再写入访问凭证截点。截点取在刷新锁释放之后，并发换发的新访问凭证也会落在截点之前。
         sessionService.revokeRefreshSessions(user.getId());
         tokenBlacklistService.blacklistAllUserTokens(TokenType.User, user.getId(), "密码变更");
+        // 密码变更后 OpenAPI 密钥的凭证基础等同失效，全部吊销，需要时由用户重建
+        openApiKeyService.revokeAllForUser(user.getId());
     }
 
     private User createUser(UserRegisterByInviteParamsBO params, LocalDateTime now) {

@@ -96,6 +96,8 @@ class UserServiceImplTest {
     private TokenBlacklistService tokenBlacklistService;
     @Mock
     private AdminReviewNotificationPublisher adminReviewNotificationPublisher;
+    @Mock
+    private online.longlian.app.service.open.OpenApiKeyService openApiKeyService;
 
     private UserServiceImpl service;
 
@@ -117,7 +119,8 @@ class UserServiceImplTest {
                 Clock.systemUTC(),
                 sessionService,
                 tokenBlacklistService,
-                adminReviewNotificationPublisher
+                adminReviewNotificationPublisher,
+                openApiKeyService
         );
     }
 
