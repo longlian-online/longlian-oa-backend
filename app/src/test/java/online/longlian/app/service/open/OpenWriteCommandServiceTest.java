@@ -4,6 +4,7 @@ import online.longlian.app.common.exception.OpenAppException;
 import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
+import online.longlian.app.pojo.bo.open.IdempotencyCheckOutcome;
 import online.longlian.app.pojo.bo.open.IdempotencyRecordParamsBO;
 import online.longlian.common.enumeration.IdempotencySource;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +42,7 @@ class OpenWriteCommandServiceTest {
     @Test
     void shouldReplaySnapshotWithoutRerunningBusinessOnHit() {
         Object snapshot = Map.of("autoJoinedProject", true);
-        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.HIT, snapshot));
+        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.HIT, snapshot));
         AtomicInteger executions = new AtomicInteger();
 
         Object result = service.execute(checkParams(), executions::incrementAndGet);
@@ -54,7 +55,7 @@ class OpenWriteCommandServiceTest {
     /** 快照超限的 HIT：data 为 null，同样不重复执行业务。 */
     @Test
     void shouldReturnNullDataForTruncatedSnapshotHit() {
-        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.HIT, null));
+        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.HIT, null));
         AtomicInteger executions = new AtomicInteger();
 
         Object result = service.execute(checkParams(), executions::incrementAndGet);
@@ -66,7 +67,7 @@ class OpenWriteCommandServiceTest {
     /** CONFLICT：同键不同请求体，拒绝执行业务，也不写记录。 */
     @Test
     void shouldRejectBusinessOnConflict() {
-        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.CONFLICT, null));
+        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.CONFLICT, null));
         AtomicInteger executions = new AtomicInteger();
 
         assertThatThrownBy(() -> service.execute(checkParams(), executions::incrementAndGet))
@@ -81,7 +82,7 @@ class OpenWriteCommandServiceTest {
     /** MISS：执行业务一次，并把业务结果作为快照写入同事务幂等记录。 */
     @Test
     void shouldRunBusinessAndRecordSnapshotOnMiss() {
-        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.MISS, null));
+        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.MISS, null));
         Object data = Map.of("versionNo", 1);
 
         Object result = service.execute(checkParams(), () -> data);
@@ -103,7 +104,7 @@ class OpenWriteCommandServiceTest {
     /** 业务返回 null（如放弃任务）时仍写幂等记录，快照为空只代表无业务数据。 */
     @Test
     void shouldRecordMissEvenWhenBusinessReturnsNull() {
-        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.MISS, null));
+        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.MISS, null));
 
         Object result = service.execute(checkParams(), () -> null);
 
@@ -117,7 +118,7 @@ class OpenWriteCommandServiceTest {
     /** 业务抛异常时不写幂等记录，调用方可换新键原样重试。 */
     @Test
     void shouldNotRecordWhenBusinessFails() {
-        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.MISS, null));
+        when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.MISS, null));
 
         assertThatThrownBy(() -> service.execute(checkParams(), () -> {
             throw new OpenAppException(OpenResultCode.PARAM_ERROR, "该任务不可接取");

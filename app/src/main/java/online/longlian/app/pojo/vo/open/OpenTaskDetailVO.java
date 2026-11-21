@@ -80,7 +80,7 @@ public class OpenTaskDetailVO {
         }
     }
 
-    @Data
+    @lombok.Getter
     @NoArgsConstructor
     @Schema(description = "当前提交")
     public static class TaskSubmissionVO {

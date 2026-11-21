@@ -6,6 +6,7 @@ import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.mapper.IdempotencyRecordMapper;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
+import online.longlian.app.pojo.bo.open.IdempotencyCheckOutcome;
 import online.longlian.app.pojo.bo.open.IdempotencyRecordParamsBO;
 import online.longlian.app.pojo.entity.IdempotencyRecord;
 import online.longlian.common.enumeration.IdempotencySource;
@@ -56,7 +57,7 @@ class IdempotencyServiceImplTest {
         when(mapper.selectOne(any())).thenReturn(null);
 
         assertThat(service.check(checkParams("POST", "/open/v1/tasks/1/claim", "h")).outcome())
-                .isEqualTo(IdempotencyCheckResultBO.Outcome.MISS);
+                .isEqualTo(IdempotencyCheckOutcome.MISS);
     }
 
     @Test
@@ -65,7 +66,7 @@ class IdempotencyServiceImplTest {
 
         IdempotencyCheckResultBO result = service.check(checkParams("POST", "/open/v1/tasks/1/claim", "h"));
 
-        assertThat(result.outcome()).isEqualTo(IdempotencyCheckResultBO.Outcome.HIT);
+        assertThat(result.outcome()).isEqualTo(IdempotencyCheckOutcome.HIT);
         assertThat(((JSONObject) result.data()).get("id")).isEqualTo(7);
     }
 
@@ -75,7 +76,7 @@ class IdempotencyServiceImplTest {
 
         IdempotencyCheckResultBO result = service.check(checkParams("POST", "/open/v1/tasks/1/claim", "h"));
 
-        assertThat(result.outcome()).isEqualTo(IdempotencyCheckResultBO.Outcome.HIT);
+        assertThat(result.outcome()).isEqualTo(IdempotencyCheckOutcome.HIT);
         assertThat(result.data()).isNull();
     }
 
@@ -84,7 +85,7 @@ class IdempotencyServiceImplTest {
         when(mapper.selectOne(any())).thenReturn(record("POST", "/open/v1/tasks/1/claim", "h1", "{\"id\":7}"));
 
         assertThat(service.check(checkParams("POST", "/open/v1/tasks/1/claim", "h2")).outcome())
-                .isEqualTo(IdempotencyCheckResultBO.Outcome.CONFLICT);
+                .isEqualTo(IdempotencyCheckOutcome.CONFLICT);
     }
 
     @Test
@@ -92,9 +93,9 @@ class IdempotencyServiceImplTest {
         when(mapper.selectOne(any())).thenReturn(record("POST", "/open/v1/tasks/1/claim", "h", "{\"id\":7}"));
 
         assertThat(service.check(checkParams("POST", "/open/v1/tasks/2/claim", "h")).outcome())
-                .isEqualTo(IdempotencyCheckResultBO.Outcome.CONFLICT);
+                .isEqualTo(IdempotencyCheckOutcome.CONFLICT);
         assertThat(service.check(checkParams("PUT", "/open/v1/tasks/1/claim", "h")).outcome())
-                .isEqualTo(IdempotencyCheckResultBO.Outcome.CONFLICT);
+                .isEqualTo(IdempotencyCheckOutcome.CONFLICT);
     }
 
     @Test

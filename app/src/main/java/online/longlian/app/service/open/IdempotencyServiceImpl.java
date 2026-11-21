@@ -7,6 +7,7 @@ import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.mapper.IdempotencyRecordMapper;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
+import online.longlian.app.pojo.bo.open.IdempotencyCheckOutcome;
 import online.longlian.app.pojo.bo.open.IdempotencyRecordParamsBO;
 import online.longlian.app.pojo.entity.IdempotencyRecord;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -42,15 +43,15 @@ public class IdempotencyServiceImpl implements IdempotencyService {
                 .eq(IdempotencyRecord::getIdempotencyKey, params.idempotencyKey())
                 .last("LIMIT 1"));
         if (record == null) {
-            return new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.MISS, null);
+            return new IdempotencyCheckResultBO(IdempotencyCheckOutcome.MISS, null);
         }
         boolean sameRequest = Objects.equals(record.getMethod(), params.method())
                 && Objects.equals(record.getPath(), params.path())
                 && Objects.equals(record.getBodyHash(), params.bodyHash());
         if (!sameRequest) {
-            return new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.CONFLICT, null);
+            return new IdempotencyCheckResultBO(IdempotencyCheckOutcome.CONFLICT, null);
         }
-        return new IdempotencyCheckResultBO(IdempotencyCheckResultBO.Outcome.HIT,
+        return new IdempotencyCheckResultBO(IdempotencyCheckOutcome.HIT,
                 record.getSnapshot() == null ? null : JSON.parse(record.getSnapshot()));
     }
 
