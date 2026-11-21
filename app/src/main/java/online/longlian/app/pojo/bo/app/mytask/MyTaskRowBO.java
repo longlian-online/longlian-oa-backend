@@ -18,4 +18,5 @@ public class MyTaskRowBO {
     private Long nodeId;
     private Integer stageSort;
     private LocalDateTime claimedAt;
-}
+    private Long revision;
+ }

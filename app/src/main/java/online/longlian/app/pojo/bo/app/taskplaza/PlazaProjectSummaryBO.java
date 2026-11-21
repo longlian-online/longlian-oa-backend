@@ -31,4 +31,7 @@ public class PlazaProjectSummaryBO {
 
     /** 组内最新创建的缺人任务时间 */
     private LocalDateTime latestCreatedAt;
+
+    /** 企划更新时间；开放面键集分页的排序键 */
+    private LocalDateTime updatedAt;
 }
