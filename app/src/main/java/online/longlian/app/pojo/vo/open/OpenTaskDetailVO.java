@@ -97,7 +97,7 @@ public class OpenTaskDetailVO {
         public TaskSubmissionVO(String state, LocalDateTime submittedAt, List<TaskFieldValueVO> values) {
             this.state = state;
             this.submittedAt = submittedAt;
-            this.values = values == null ? null : List.copyOf(values);
+            this.values = List.copyOf(values == null ? List.<TaskFieldValueVO>of() : values);
         }
     }
 

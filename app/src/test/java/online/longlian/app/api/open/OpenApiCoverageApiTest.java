@@ -504,6 +504,17 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
                         .userId(4242L).oldPassword("a").newPassword("b").build()))
                 .isInstanceOf(online.longlian.app.common.exception.AppException.class);
 
+        // 绑定邮箱时用户不存在
+        var emailVerifyService = mock(online.longlian.app.service.otp.OTPStrategyService.class);
+        when(otpServiceFactory.get(online.longlian.common.enumeration.OTPType.EmailVerify))
+                .thenReturn(emailVerifyService);
+        when(emailVerifyService.getValid(any(online.longlian.app.pojo.bo.common.OTPValidateContextBO.class)))
+                .thenReturn(new online.longlian.app.pojo.entity.OneTimePassword());
+        assertThatThrownBy(() -> service.bindEmail(
+                online.longlian.app.pojo.bo.app.user.UserBindEmailParamsBO.builder()
+                        .userId(4242L).email("bind@example.com").code("A1B2C3").build()))
+                .isInstanceOf(online.longlian.app.common.exception.AppException.class);
+
         // 通知收件人：用户不存在返回 null
         assertThat(service.getEmailNotificationRecipient(4242L)).isNull();
 
