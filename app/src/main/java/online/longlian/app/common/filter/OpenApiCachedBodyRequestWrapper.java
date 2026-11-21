@@ -5,8 +5,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * 缓存整个请求体的包装请求：@RequestBody 反序列化可反复读，
@@ -20,14 +18,6 @@ public class OpenApiCachedBodyRequestWrapper extends HttpServletRequestWrapper {
         super(request);
         // 防御拷贝：避免调用方在请求处理期间改动同一数组
         this.body = body.clone();
-    }
-
-    public byte[] getBody() {
-        return body.clone();
-    }
-
-    public String getBodyText() {
-        return new String(body, StandardCharsets.UTF_8);
     }
 
     @Override
@@ -54,12 +44,6 @@ public class OpenApiCachedBodyRequestWrapper extends HttpServletRequestWrapper {
                 return buffer.read();
             }
         };
-    }
-
-    @Override
-    public java.io.BufferedReader getReader() {
-        return new java.io.BufferedReader(
-                new java.io.InputStreamReader(getInputStream(), StandardCharsets.UTF_8));
     }
 
     @Override

@@ -38,10 +38,7 @@ public class OpenResult<T> {
         this.requestId = requestId;
     }
 
-    public static <T> OpenResult<T> success(T data) {
-        return new OpenResult<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMsg(), data, null,
-                TraceIdUtil.getTraceId());
-    }
+
 
     public static <T> OpenResult<T> fail(OpenResultCode resultCode) {
         return fail(resultCode, resultCode.getMsg());

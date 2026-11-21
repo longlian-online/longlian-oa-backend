@@ -8,9 +8,6 @@ import online.longlian.app.common.result.OpenResultCode;
  */
 public class OpenAppException extends AppException {
 
-    public OpenAppException(OpenResultCode resultCode) {
-        this(resultCode, resultCode.getMsg());
-    }
 
     public OpenAppException(OpenResultCode resultCode, String msg) {
         super(msg);

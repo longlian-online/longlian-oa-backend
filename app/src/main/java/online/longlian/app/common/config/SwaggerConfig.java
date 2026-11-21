@@ -95,8 +95,6 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("开放接口")
                 .packagesToScan("online.longlian.app.controller.open")
-                .addOpenApiCustomizer(openApi -> openApi
-                        .addSecurityItem(new SecurityRequirement().addList("XApiKey")))
                 .build();
     }
 }
