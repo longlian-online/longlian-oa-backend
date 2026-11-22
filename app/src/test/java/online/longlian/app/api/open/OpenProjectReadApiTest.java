@@ -241,8 +241,9 @@ public class OpenProjectReadApiTest extends OpenApiFoundationApiTestSupport {
                 "INSERT INTO `project_attachment` (id, project_id, file_id, uploader_id) VALUES (?, ?, ?, ?)",
                 40022L, 41006L, fileId, USER_ID);
 
+        // 列表回 fileId，read-url 按 fileId 解析，两步自洽
         given().header("X-Api-Key", key)
-                .get("/open/v1/projects/41006/attachments/40022/read-url").then()
+                .get("/open/v1/projects/41006/attachments/" + fileId + "/read-url").then()
                 .statusCode(200)
                 .body("code", equalTo(0))
                 .body("data.readUrl", notNullValue())

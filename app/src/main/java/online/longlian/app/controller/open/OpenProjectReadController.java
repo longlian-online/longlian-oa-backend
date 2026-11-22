@@ -149,16 +149,16 @@ public class OpenProjectReadController {
                 .toList();
     }
 
-    @Operation(summary = "企划附件读取链接", description = "按次签发，返回读取地址与到期时间")
-    @GetMapping("/{projectId}/attachments/{attachmentId}/read-url")
+    @Operation(summary = "企划附件读取链接", description = "按次签发，返回读取地址与到期时间；ID 为列表返回的 fileId")
+    @GetMapping("/{projectId}/attachments/{fileId}/read-url")
     public OpenReadUrlVO getProjectAttachmentReadUrl(
             @AuthenticationPrincipal OpenApiPrincipal principal,
             @PathVariable Long projectId,
-            @Parameter(description = "附件ID") @PathVariable Long attachmentId) {
-        ProjectAttachmentDownloadResultBO bo = projectAttachmentService.getProjectAttachmentDownload(
+            @Parameter(description = "文件ID") @PathVariable Long fileId) {
+        ProjectAttachmentDownloadResultBO bo = projectAttachmentService.getProjectAttachmentDownloadByFileId(
                 ProjectAttachmentDownloadParamsBO.builder()
                         .projectId(projectId)
-                        .attachmentId(attachmentId)
+                        .fileId(fileId)
                         .orgId(principal.orgId())
                         .build());
         return new OpenReadUrlVO(bo.getReadUrl(), bo.getExpireAt());
