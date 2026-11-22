@@ -1,7 +1,7 @@
 package online.longlian.app.common.util;
 
+import java.security.SecureRandom;
 import lombok.NoArgsConstructor;
-import java.util.Random;
 
 /**
  * 随机码工具类
@@ -9,7 +9,8 @@ import java.util.Random;
 @NoArgsConstructor
 public final class RandomCodeUtil {
 
-    private static final Random RANDOM = new Random();
+    // 一次性密码可被预测即失效，必须使用密码学安全的随机源
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final String CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     /**

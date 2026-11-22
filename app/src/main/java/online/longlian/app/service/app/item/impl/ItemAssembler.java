@@ -74,6 +74,7 @@ public class ItemAssembler {
         return ProjectItemListResultBO.builder()
                 .id(item.getId())
                 .title(item.getTitle())
+                .status(item.getStatus())
                 .createdAt(item.getCreatedAt())
                 .updatedAt(item.getUpdatedAt())
                 .progressPercent(totalNodes > 0 ? (int) (completedCount * 100 / totalNodes) : 0)

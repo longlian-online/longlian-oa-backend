@@ -26,7 +26,11 @@ public enum ResultCode {
 
     CAPTCHA_INVALID(10, "人机验证未通过，请重试"),
 
-    CAPTCHA_UNAVAILABLE(11, "人机验证暂时不可用，请稍后重试");
+    CAPTCHA_UNAVAILABLE(11, "人机验证暂时不可用，请稍后重试"),
+
+    OPEN_RATE_LIMITED(12, "请求过于频繁，请稍后重试"),
+
+    OPEN_IDEMPOTENCY_CONFLICT(13, "幂等键冲突或首笔仍在处理中，请稍后重试");
     private final int code;
     private final String msg;
     ResultCode(int code, String msg) {
