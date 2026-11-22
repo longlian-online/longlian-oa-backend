@@ -1,8 +1,8 @@
 package online.longlian.app.service.open;
 
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
 import online.longlian.app.pojo.bo.open.IdempotencyRecordParamsBO;
@@ -33,7 +33,7 @@ public class OpenWriteCommandService {
                 // 快照超限时 data 为 null：返回幂等命中（code 0）而非回放原响应
                 return existing.data();
             case CONFLICT:
-                throw new OpenAppException(OpenResultCode.IDEMPOTENCY_CONFLICT,
+                throw new AppException(ResultCode.OPEN_IDEMPOTENCY_CONFLICT,
                         "幂等键冲突或首笔仍在处理中，请稍后重试");
             case MISS:
             default:

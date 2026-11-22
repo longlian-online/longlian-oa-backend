@@ -1,7 +1,7 @@
 package online.longlian.app.service.open;
 
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckOutcome;
@@ -71,10 +71,10 @@ class OpenWriteCommandServiceTest {
         AtomicInteger executions = new AtomicInteger();
 
         assertThatThrownBy(() -> service.execute(checkParams(), executions::incrementAndGet))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("幂等键冲突")
                 .extracting("code")
-                .isEqualTo(OpenResultCode.IDEMPOTENCY_CONFLICT.getCode());
+                .isEqualTo(ResultCode.OPEN_IDEMPOTENCY_CONFLICT.getCode());
         assertThat(executions.get()).isZero();
         verify(idempotencyService, never()).record(any());
     }
@@ -121,8 +121,8 @@ class OpenWriteCommandServiceTest {
         when(idempotencyService.check(any())).thenReturn(new IdempotencyCheckResultBO(IdempotencyCheckOutcome.MISS, null));
 
         assertThatThrownBy(() -> service.execute(checkParams(), () -> {
-            throw new OpenAppException(OpenResultCode.PARAM_ERROR, "该任务不可接取");
-        })).isInstanceOf(OpenAppException.class);
+            throw new AppException(ResultCode.PARAM_ERROR, "该任务不可接取");
+        })).isInstanceOf(AppException.class);
 
         verify(idempotencyService, never()).record(any());
     }

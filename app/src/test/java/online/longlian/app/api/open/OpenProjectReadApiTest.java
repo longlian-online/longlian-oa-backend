@@ -99,9 +99,8 @@ public class OpenProjectReadApiTest extends OpenApiFoundationApiTestSupport {
         insertProject(41001L, "别人的企划", USER_ID, ORG_ID + 1, 0, "2026-01-01 08:00:00");
 
         given().header("X-Api-Key", key).get("/open/v1/projects/41001").then()
-                .statusCode(404)
-                .body("code", equalTo(10004))
-                .body("error", equalTo("OPEN_NOT_FOUND"));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test
@@ -206,8 +205,8 @@ public class OpenProjectReadApiTest extends OpenApiFoundationApiTestSupport {
         insertProject(41004L, "别组项目", USER_ID, ORG_ID + 1, 0, "2026-01-01 08:00:00");
 
         given().header("X-Api-Key", key).get("/open/v1/projects/41004/items").then()
-                .statusCode(404)
-                .body("code", equalTo(10004));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test
@@ -252,8 +251,8 @@ public class OpenProjectReadApiTest extends OpenApiFoundationApiTestSupport {
         // 不存在的附件：不泄露存在性
         given().header("X-Api-Key", key)
                 .get("/open/v1/projects/41006/attachments/40099/read-url").then()
-                .statusCode(404)
-                .body("code", equalTo(10004));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test
@@ -272,7 +271,7 @@ public class OpenProjectReadApiTest extends OpenApiFoundationApiTestSupport {
         given().header("X-Api-Key", key)
                 .queryParam("cursor", memberCursor)
                 .get("/open/v1/projects/41007/items").then()
-                .statusCode(400)
-                .body("code", equalTo(10002));
+                .statusCode(200)
+                .body("code", equalTo(2));
     }
 }

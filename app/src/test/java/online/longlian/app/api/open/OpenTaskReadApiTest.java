@@ -139,9 +139,8 @@ public class OpenTaskReadApiTest extends OpenApiFoundationApiTestSupport {
                         + "VALUES (42011, 41011, '别组项目', 0, 0, ?, 1, NOW(), '2026-01-01 09:00:00')", USER_ID);
 
         given().header("X-Api-Key", key).get("/open/v1/items/42011/flow").then()
-                .statusCode(404)
-                .body("code", equalTo(10004))
-                .body("error", equalTo("OPEN_NOT_FOUND"));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test
@@ -189,8 +188,8 @@ public class OpenTaskReadApiTest extends OpenApiFoundationApiTestSupport {
                         + "VALUES (43013, 41013, 42013, 0, 0, 1, 1, NOW(), NOW())");
 
         given().header("X-Api-Key", key).get("/open/v1/tasks/43013/detail").then()
-                .statusCode(404)
-                .body("code", equalTo(10004));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test
@@ -231,8 +230,8 @@ public class OpenTaskReadApiTest extends OpenApiFoundationApiTestSupport {
         // 未绑定到该任务的文件：不泄露存在性
         given().header("X-Api-Key", key)
                 .get("/open/v1/tasks/43016/attachments/40099/read-url").then()
-                .statusCode(404)
-                .body("code", equalTo(10004));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test

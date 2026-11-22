@@ -1,6 +1,6 @@
 package online.longlian.app.common.util;
 
-import online.longlian.app.common.exception.OpenAppException;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.pojo.bo.open.OpenCursorBO;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ class OpenCursorCodecTest {
     @Test
     void shouldRejectCursorThatIsNotBase64() {
         assertThatThrownBy(() -> OpenCursorCodec.decode("不是base64!!"))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("游标格式错误");
     }
 
@@ -46,11 +46,11 @@ class OpenCursorCodecTest {
                 .encodeToString("v1:abc:1".getBytes());
 
         assertThatThrownBy(() -> OpenCursorCodec.decode(wrongVersion))
-                .isInstanceOf(OpenAppException.class);
+                .isInstanceOf(AppException.class);
         assertThatThrownBy(() -> OpenCursorCodec.decode(wrongParts))
-                .isInstanceOf(OpenAppException.class);
+                .isInstanceOf(AppException.class);
         assertThatThrownBy(() -> OpenCursorCodec.decode(nonNumeric))
-                .isInstanceOf(OpenAppException.class);
+                .isInstanceOf(AppException.class);
     }
 
     @Test

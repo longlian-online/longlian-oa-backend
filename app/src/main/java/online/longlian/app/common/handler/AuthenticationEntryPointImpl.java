@@ -11,8 +11,6 @@ import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.RequestAuthenticationException;
-import online.longlian.app.common.result.OpenResult;
-import online.longlian.app.common.result.OpenResultCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
@@ -45,14 +43,6 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
         // MCP 使用 functional route，不在 RequestMappingHandlerMapping 中，也不使用 REST Result。
         if (request.getServletPath().equals(mcpEndpoint)) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return;
-        }
-        // 开放接口与站内一致：业务失败统一 HTTP 200，code 用 10xxx 区分
-        if (request.getServletPath().startsWith("/open/")) {
-            response.setContentType(CommonConstants.CONTENT_TYPE);
-            response.setStatus(HttpStatus.OK.value());
-            apiResultMetrics.record(request, OpenResultCode.UNAUTHENTICATED.getCode());
-            response.getWriter().write(JSON.toJSONString(OpenResult.fail(OpenResultCode.UNAUTHENTICATED)));
             return;
         }
 

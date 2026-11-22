@@ -89,18 +89,15 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
     @Test
     void shouldFailOpenWithoutKey() {
         openGet("/open/v1/projects", null).then()
-                .statusCode(401)
-                .body("code", equalTo(10001))
-                .body("error", equalTo("OPEN_UNAUTHENTICATED"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(1));
     }
 
     @Test
     void shouldFailOpenWithUnknownKey() {
         openGet("/open/v1/projects", "oa_does_not_exist").then()
-                .statusCode(401)
-                .body("code", equalTo(10001))
-                .body("error", equalTo("OPEN_UNAUTHENTICATED"));
+                .statusCode(200)
+                .body("code", equalTo(1));
     }
 
     @Test
@@ -109,9 +106,8 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
         String token = loginAs("openuser", "123456");
 
         given().header("Authorization", "Bearer " + token).get("/open/v1/projects").then()
-                .statusCode(403)
-                .body("code", equalTo(10003))
-                .body("error", equalTo("OPEN_FORBIDDEN"));
+                .statusCode(200)
+                .body("code", equalTo(3));
     }
 
     @Test
@@ -119,9 +115,8 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
         String key = createKeyForUser("脚本A");
 
         openGet("/open/v1/not-exist", key).then()
-                .statusCode(404)
-                .body("code", equalTo(10004))
-                .body("error", equalTo("OPEN_NOT_FOUND"));
+                .statusCode(200)
+                .body("code", equalTo(4));
     }
 
     @Test
@@ -141,9 +136,7 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
                 .body("data.list[0].id", equalTo(301))
                 .body("data.list[1].id", equalTo(302))
                 .body("data.hasMore", equalTo(true))
-                .body("data.nextCursor", notNullValue())
-                .body("error", nullValue())
-                .body("requestId", notNullValue());
+                .body("data.nextCursor", notNullValue());
 
         String cursor = page1.jsonPath().getString("data.nextCursor");
         given().header("X-Api-Key", key)
@@ -178,15 +171,14 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
         given().header("X-Api-Key", key)
                 .queryParam("cursor", "not-base64!!")
                 .get("/open/v1/projects").then()
-                .statusCode(400)
-                .body("code", equalTo(10002))
-                .body("error", equalTo("OPEN_PARAM_ERROR"));
+                .statusCode(200)
+                .body("code", equalTo(2));
 
         given().header("X-Api-Key", key)
                 .queryParam("updatedSince", "2026/01/01")
                 .get("/open/v1/projects").then()
-                .statusCode(400)
-                .body("code", equalTo(10002));
+                .statusCode(200)
+                .body("code", equalTo(2));
     }
 
     @Test
@@ -203,8 +195,8 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
 
         openGet("/open/v1/projects", key).then()
-                .statusCode(401)
-                .body("code", equalTo(10001));
+                .statusCode(200)
+                .body("code", equalTo(1));
     }
 
     @Test
@@ -219,7 +211,7 @@ public class OpenApiFoundationApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
 
         openGet("/open/v1/projects", key).then()
-                .statusCode(401)
-                .body("code", equalTo(10001));
+                .statusCode(200)
+                .body("code", equalTo(1));
     }
 }

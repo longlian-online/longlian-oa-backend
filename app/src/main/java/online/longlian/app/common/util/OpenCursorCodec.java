@@ -1,7 +1,7 @@
 package online.longlian.app.common.util;
 
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.open.OpenCursorBO;
 
 import java.nio.charset.StandardCharsets;
@@ -31,18 +31,18 @@ public final class OpenCursorCodec {
         try {
             payload = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
-            throw new OpenAppException(OpenResultCode.PARAM_ERROR, "游标格式错误");
+            throw new AppException(ResultCode.PARAM_ERROR, "游标格式错误");
         }
         String[] parts = payload.split(":");
         if (parts.length != 3 || !VERSION.equals(parts[0])) {
-            throw new OpenAppException(OpenResultCode.PARAM_ERROR, "游标格式错误");
+            throw new AppException(ResultCode.PARAM_ERROR, "游标格式错误");
         }
         try {
             Long afterId = Long.parseLong(parts[1]);
             Long afterUpdatedAtMillis = NO_TIMESTAMP.equals(parts[2]) ? null : Long.parseLong(parts[2]);
             return new OpenCursorBO(afterId, afterUpdatedAtMillis);
         } catch (NumberFormatException e) {
-            throw new OpenAppException(OpenResultCode.PARAM_ERROR, "游标格式错误");
+            throw new AppException(ResultCode.PARAM_ERROR, "游标格式错误");
         }
     }
 }

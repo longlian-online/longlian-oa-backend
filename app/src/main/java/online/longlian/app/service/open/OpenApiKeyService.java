@@ -15,7 +15,7 @@ public interface OpenApiKeyService {
 
     /**
      * 校验密钥并解出用户与组织。密钥不存在、已吊销，或用户已不在该组织/被停用时抛
-     * {@link online.longlian.app.common.exception.OpenAppException}（10001）。
+     * {@link online.longlian.app.common.exception.AppException}（code 1）。
      */
     OpenApiKeyAuthResultBO authenticate(String plaintextKey);
 

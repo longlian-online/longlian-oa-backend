@@ -2,8 +2,8 @@ package online.longlian.app.service.open;
 
 import com.alibaba.fastjson2.JSON;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.IdempotencyRecordMapper;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
@@ -77,7 +77,7 @@ public class IdempotencyServiceImpl implements IdempotencyService {
             idempotencyRecordMapper.insert(record);
         } catch (DuplicateKeyException e) {
             // 并发同键：首笔尚未提交，撞唯一索引，整笔事务随调用方回滚；稍后原样重试即得首次响应
-            throw new OpenAppException(OpenResultCode.IDEMPOTENCY_CONFLICT,
+            throw new AppException(ResultCode.OPEN_IDEMPOTENCY_CONFLICT,
                     "幂等键冲突或首笔仍在处理中，请稍后重试");
         }
     }

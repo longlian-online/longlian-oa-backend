@@ -1,8 +1,8 @@
 package online.longlian.app.service.open;
 
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.exception.AppException;
 import com.alibaba.fastjson2.JSONObject;
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.mapper.IdempotencyRecordMapper;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckParamsBO;
 import online.longlian.app.pojo.bo.open.IdempotencyCheckResultBO;
@@ -130,8 +130,8 @@ class IdempotencyServiceImplTest {
 
         assertThatThrownBy(() -> service.record(new IdempotencyRecordParamsBO(
                 IdempotencySource.OPEN_API, 5L, "uuid-1", "POST", "/open/v1/tasks/1/submit", "h", Map.of())))
-                .isInstanceOf(OpenAppException.class)
-                .satisfies(e -> assertThat(((OpenAppException) e).getCode())
-                        .isEqualTo(OpenResultCode.IDEMPOTENCY_CONFLICT.getCode()));
+                .isInstanceOf(AppException.class)
+                .satisfies(e -> assertThat(((AppException) e).getCode())
+                        .isEqualTo(ResultCode.OPEN_IDEMPOTENCY_CONFLICT.getCode()));
     }
 }

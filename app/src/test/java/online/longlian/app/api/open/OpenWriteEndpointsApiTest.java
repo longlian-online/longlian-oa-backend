@@ -123,9 +123,7 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
                 .body("data.uploadUrl", notNullValue())
                 .body("data.storageType", equalTo("LOCAL"))
                 // LOCAL 直传不携带 Content-Disposition，文件名还原仅对象存储链路承接（站内同口径，null 表示无需携带）
-                .body("data.contentDisposition", nullValue())
-                .body("error", nullValue())
-                .body("requestId", notNullValue());
+                .body("data.contentDisposition", nullValue());
         assertThat(first.body().asString()).doesNotContain("key\":");
         String fileId = first.jsonPath().getString("data.fileId");
 
@@ -147,10 +145,8 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
         body.put("bizType", "avatar");
 
         openPost(apiKey, UUID.randomUUID().toString(), "/open/v1/files", body).then()
-                .statusCode(400)
-                .body("code", equalTo(10002))
-                .body("error", equalTo("OPEN_PARAM_ERROR"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(2));
     }
 
     /** 接取成功自动入组；同幂等键同请求体（无 body）重发回放首次结果，任务仍被同一人持有。 */
@@ -187,10 +183,8 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
 
         openPost(apiKey, idempotencyKey, "/open/v1/files", uploadBody("b.docx")).then()
-                .statusCode(409)
-                .body("code", equalTo(10006))
-                .body("error", equalTo("OPEN_IDEMPOTENCY_CONFLICT"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(13));
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM resource", Integer.class)).isEqualTo(1);
@@ -206,19 +200,16 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
 
         openPost(apiKey, idempotencyKey, "/open/v1/tasks/1/submit", Map.of("values", Map.of())).then()
-                .statusCode(409)
-                .body("code", equalTo(10006))
-                .body("error", equalTo("OPEN_IDEMPOTENCY_CONFLICT"));
+                .statusCode(200)
+                .body("code", equalTo(13));
     }
 
     /** 写接口缺幂等键一律参数错误。 */
     @Test
     void shouldFailWriteWithoutIdempotencyKey() {
         openPost(apiKey, null, "/open/v1/tasks/1/claim", null).then()
-                .statusCode(400)
-                .body("code", equalTo(10002))
-                .body("error", equalTo("OPEN_PARAM_ERROR"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(2));
     }
 
     /** 跨组织访问统一 NOT_FOUND，不泄露存在性。 */
@@ -228,17 +219,15 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
                 "openother", "other-key");
 
         openPost(otherKey, UUID.randomUUID().toString(), "/open/v1/tasks/1/claim", null).then()
-                .statusCode(404)
-                .body("code", equalTo(10004))
-                .body("error", equalTo("OPEN_NOT_FOUND"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(6));
 
         assertThat(instanceStatus(1L)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT assignee_id FROM task_instance WHERE id=1", Long.class)).isNull();
     }
 
-    /** 状态机失败（对已接取任务换键再接取）映射为 4xx 开放信封，任务归属不变。 */
+    /** 已被认领的任务再认领按站内状态机拒绝（站内 OPERATION_FAIL，code 5）。 */
     @Test
     void shouldRejectClaimOnAlreadyClaimedTask() {
         openPost(apiKey, UUID.randomUUID().toString(), "/open/v1/tasks/1/claim", null).then()
@@ -246,11 +235,9 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
                 .body("code", equalTo(0));
 
         openPost(apiKey, UUID.randomUUID().toString(), "/open/v1/tasks/1/claim", null).then()
-                .statusCode(400)
-                .body("code", equalTo(10002))
-                .body("error", equalTo("OPEN_PARAM_ERROR"))
-                .body("msg", notNullValue())
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(5))
+                .body("msg", notNullValue());
 
         assertThat(instanceStatus(1L)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject(
@@ -304,7 +291,7 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
         assertThat(instanceRevision(1L)).isEqualTo(2);
     }
 
-    /** expectedRevision 不匹配当前修订号按站内规则拒绝，映射为 4xx 开放信封。 */
+    /** expectedRevision 不匹配当前修订号按站内规则拒绝（站内 OPERATION_FAIL，code 5）。 */
     @Test
     void shouldRejectAbandonWithStaleRevision() {
         openPost(apiKey, UUID.randomUUID().toString(), "/open/v1/tasks/1/claim", null).then()
@@ -313,10 +300,8 @@ public class OpenWriteEndpointsApiTest extends BaseApiTest {
 
         openPost(apiKey, UUID.randomUUID().toString(), "/open/v1/tasks/1/abandon", Map.of("expectedRevision", 0))
                 .then()
-                .statusCode(400)
-                .body("code", equalTo(10002))
-                .body("error", equalTo("OPEN_PARAM_ERROR"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(5));
 
         assertThat(instanceStatus(1L)).isEqualTo(2);
         assertThat(instanceRevision(1L)).isEqualTo(1);

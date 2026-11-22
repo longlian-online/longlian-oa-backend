@@ -1,8 +1,8 @@
 package online.longlian.app.service.open;
 
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.common.util.OpenCursorCodec;
 import online.longlian.app.pojo.bo.app.item.ItemKeysetListParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemKeysetListResultBO;
@@ -39,7 +39,7 @@ public class OpenProjectItemServiceImpl implements OpenProjectItemService {
         OpenCursorBO cursor = params.cursor();
         if (cursor != null && cursor.afterUpdatedAtMillis() == null) {
             // 交叉端点的游标缺少时间分量，按参数错误拒绝
-            throw new OpenAppException(OpenResultCode.PARAM_ERROR, "游标格式错误");
+            throw new AppException(ResultCode.PARAM_ERROR, "游标格式错误");
         }
         LocalDateTime afterUpdatedAt = cursor == null ? null : toDateTime(cursor.afterUpdatedAtMillis());
         Long afterId = cursor == null ? null : cursor.afterId();

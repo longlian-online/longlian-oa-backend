@@ -3,7 +3,6 @@ package online.longlian.app.service.open;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.exception.OpenAppException;
 import online.longlian.app.common.properties.OpenApiProperties;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.Sha256Util;
@@ -145,7 +144,7 @@ class OpenApiKeyServiceImplTest {
         when(openApiKeyMapper.selectOne(any())).thenReturn(null);
 
         assertThatThrownBy(() -> service.authenticate("oa_unknown"))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessage("密钥无效或已吊销");
     }
 
@@ -154,7 +153,7 @@ class OpenApiKeyServiceImplTest {
         when(openApiKeyMapper.selectOne(any())).thenReturn(key(OpenApiKeyStatus.REVOKED));
 
         assertThatThrownBy(() -> service.authenticate("oa_revoked"))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessage("密钥无效或已吊销");
     }
 
@@ -164,7 +163,7 @@ class OpenApiKeyServiceImplTest {
         when(organizationMemberMapper.selectOne(any())).thenReturn(null);
 
         assertThatThrownBy(() -> service.authenticate("oa_left"))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessage("密钥无效或已吊销");
     }
 
@@ -175,7 +174,7 @@ class OpenApiKeyServiceImplTest {
         when(organizationMapper.selectById(8L)).thenReturn(organization(Status.DISABLED));
 
         assertThatThrownBy(() -> service.authenticate("oa_disabled_org"))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessage("密钥无效或已吊销");
     }
 

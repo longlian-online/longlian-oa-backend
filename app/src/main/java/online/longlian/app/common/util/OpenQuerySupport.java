@@ -1,7 +1,7 @@
 package online.longlian.app.common.util;
 
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.pojo.bo.open.OpenCursorBO;
 
 import java.time.LocalDateTime;
@@ -42,7 +42,7 @@ public final class OpenQuerySupport {
         try {
             return LocalDateTime.parse(updatedSince, TIME_FORMATTER);
         } catch (DateTimeParseException e) {
-            throw new OpenAppException(OpenResultCode.PARAM_ERROR, "updatedSince 格式错误，应为 yyyy-MM-dd HH:mm:ss");
+            throw new AppException(ResultCode.PARAM_ERROR, "updatedSince 格式错误，应为 yyyy-MM-dd HH:mm:ss");
         }
     }
 

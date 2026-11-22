@@ -2,8 +2,8 @@ package online.longlian.app.service.open;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import online.longlian.app.common.exception.OpenAppException;
-import online.longlian.app.common.result.OpenResultCode;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.ItemMapper;
 import online.longlian.app.mapper.ProjectMapper;
 import online.longlian.app.mapper.TaskInstanceMapper;
@@ -90,7 +90,7 @@ public class OpenTaskCommandServiceImpl implements OpenTaskCommandService {
                         .orderByDesc(TaskSubmission::getVersionNo)
                         .last("LIMIT 1 FOR UPDATE"));
         if (latest == null || latest.getVersionNo() == null) {
-            throw new OpenAppException(OpenResultCode.INTERNAL, "提交记录缺失");
+            throw new AppException(ResultCode.FAIL, "提交记录缺失");
         }
         return new OpenTaskSubmitResultBO(latest.getVersionNo());
     }
@@ -101,17 +101,17 @@ public class OpenTaskCommandServiceImpl implements OpenTaskCommandService {
     private void requireOrgVisibleInstance(Long instanceId, Long orgId) {
         TaskInstance instance = taskInstanceMapper.selectById(instanceId);
         if (instance == null || instance.getDeletedAt() != null) {
-            throw new OpenAppException(OpenResultCode.NOT_FOUND, "任务不存在");
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务不存在");
         }
         Item item = itemMapper.selectById(instance.getItemId());
         if (item == null || item.getDeletedAt() != null) {
-            throw new OpenAppException(OpenResultCode.NOT_FOUND, "任务不存在");
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务不存在");
         }
         Project project = projectMapper.selectById(item.getProjectId());
         if (project == null || project.getDeletedAt() != null
                 || !Objects.equals(project.getOrgId(), orgId)
                 || project.getResourceStatus() != Status.ENABLED) {
-            throw new OpenAppException(OpenResultCode.NOT_FOUND, "任务不存在");
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "任务不存在");
         }
     }
 

@@ -1,8 +1,8 @@
 package online.longlian.app.api.open;
 
+import online.longlian.app.common.exception.AppException;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
-import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.common.util.OpenCursorCodec;
 import online.longlian.app.common.util.OpenIdempotencySupport;
 import online.longlian.app.pojo.bo.app.mytask.MyTaskKeysetParamsBO;
@@ -22,7 +22,6 @@ import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.ItemTaskNode;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.TaskInstance;
-import online.longlian.app.common.exception.OpenAppException;
 import online.longlian.app.common.properties.OpenApiProperties;
 import online.longlian.app.common.security.OpenApiPrincipal;
 import online.longlian.app.controller.open.OpenTaskReadController;
@@ -104,10 +103,8 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
 
         given().header("X-Api-Key", key).get("/open/v1/projects").then().statusCode(200);
         given().header("X-Api-Key", key).get("/open/v1/projects").then()
-                .statusCode(429)
-                .body("code", equalTo(10005))
-                .body("error", equalTo("OPEN_RATE_LIMITED"))
-                .body("requestId", notNullValue());
+                .statusCode(200)
+                .body("code", equalTo(12));
     }
 
     @Test
@@ -118,13 +115,13 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         given().header("X-Api-Key", key)
                 .queryParam("cursor", idOnlyCursor)
                 .get("/open/v1/my-tasks").then()
-                .statusCode(400)
-                .body("code", equalTo(10002));
+                .statusCode(200)
+                .body("code", equalTo(2));
         given().header("X-Api-Key", createKey(USER_ID + 1, ORG_ID + 1, MEMBER_ID + 1, "coveruser2"))
                 .queryParam("cursor", idOnlyCursor)
                 .get("/open/v1/task-plaza").then()
-                .statusCode(400)
-                .body("code", equalTo(10002));
+                .statusCode(200)
+                .body("code", equalTo(2));
     }
 
     @Test
@@ -134,9 +131,8 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         given().header("X-Api-Key", key).header("X-Idempotency-Key", "cover-malformed")
                 .contentType("application/json").body("{bad json")
                 .post("/open/v1/files").then()
-                .statusCode(400)
-                .body("code", equalTo(10002))
-                .body("error", equalTo("OPEN_PARAM_ERROR"));
+                .statusCode(200)
+                .body("code", equalTo(2));
     }
 
     @Test
@@ -183,9 +179,8 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
 
         given().header("X-Api-Key", key).header("X-Idempotency-Key", "cover-missing")
                 .post("/open/v1/tasks/999999/claim").then()
-                .statusCode(404)
-                .body("code", equalTo(10004))
-                .body("error", equalTo("OPEN_NOT_FOUND"));
+                .statusCode(200)
+                .body("code", equalTo(6));
     }
 
     @Test
@@ -199,28 +194,22 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldMapUncoveredStationCodesToOpenSemantics() {
-        assertThat(OpenResultCode.of(3)).isEqualTo(OpenResultCode.FORBIDDEN);
-        assertThat(OpenResultCode.of(999)).isEqualTo(OpenResultCode.INTERNAL);
-    }
-
-    @Test
     void shouldRejectMissingAndOversizedIdempotencyKey() {
         MockHttpServletRequest missing = new MockHttpServletRequest("POST", "/open/v1/tasks/1/claim");
         assertThatThrownBy(() -> OpenIdempotencySupport.buildParams(missing, IdempotencySource.OPEN_API, 1L))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("必须携带");
 
         MockHttpServletRequest oversized = new MockHttpServletRequest("POST", "/open/v1/tasks/1/claim");
         oversized.addHeader("X-Idempotency-Key", "x".repeat(65));
         assertThatThrownBy(() -> OpenIdempotencySupport.buildParams(oversized, IdempotencySource.OPEN_API, 1L))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("过长");
 
         MockHttpServletRequest noBodyHash = new MockHttpServletRequest("POST", "/open/v1/tasks/1/claim");
         noBodyHash.addHeader("X-Idempotency-Key", "valid-length-key");
         assertThatThrownBy(() -> OpenIdempotencySupport.buildParams(noBodyHash, IdempotencySource.OPEN_API, 1L))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("幂等上下文缺失");
     }
 
@@ -378,7 +367,7 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         when(itemMapper.selectById(3L)).thenReturn(null);
         assertThatThrownBy(() -> service.claimTask(new online.longlian.app.pojo.bo.open.OpenTaskClaimParamsBO(
                 1L, USER_ID, ORG_ID)))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("任务不存在");
 
         // 条目存在但组织不符，统一 NOT_FOUND 不泄露存在性
@@ -388,7 +377,7 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         when(projectMapper.selectById(2L)).thenReturn(Project.builder().id(2L).orgId(ORG_ID + 1).build());
         assertThatThrownBy(() -> service.claimTask(new online.longlian.app.pojo.bo.open.OpenTaskClaimParamsBO(
                 1L, USER_ID, ORG_ID)))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("任务不存在");
 
         // 提交后回查不到版本记录：整笔回滚语义下的内部一致性守卫
@@ -397,7 +386,7 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         when(taskSubmissionMapper.selectOne(any())).thenReturn(null);
         assertThatThrownBy(() -> service.submitTask(new online.longlian.app.pojo.bo.open.OpenTaskSubmitParamsBO(
                 1L, USER_ID, ORG_ID, Map.of())))
-                .isInstanceOf(OpenAppException.class)
+                .isInstanceOf(AppException.class)
                 .hasMessageContaining("提交记录缺失");
     }
 
@@ -468,13 +457,6 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
                 new org.springframework.http.converter.HttpMessageNotReadableException(
                         "cannot deserialize enum", (Throwable) null),
                 request);
-
-        // 开放面内部异常兜底（无堆栈外泄，真实 500 信封）
-        var openHandler = new online.longlian.app.common.handler.OpenApiExceptionHandler(
-                mock(online.longlian.app.common.metrics.ApiResultMetrics.class));
-        var response = openHandler.handleException(new RuntimeException("boom"), request);
-        assertThat(response.getCode()).isEqualTo(OpenResultCode.INTERNAL.getCode());
-        assertThat(response.getError()).isEqualTo(OpenResultCode.INTERNAL.getError());
     }
 
     @Test

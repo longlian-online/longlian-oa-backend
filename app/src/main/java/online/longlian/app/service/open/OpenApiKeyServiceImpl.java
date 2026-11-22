@@ -5,9 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.exception.AppException;
-import online.longlian.app.common.exception.OpenAppException;
+import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.OpenApiProperties;
-import online.longlian.app.common.result.OpenResultCode;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.Sha256Util;
 import online.longlian.app.mapper.OpenApiKeyMapper;
@@ -73,7 +72,7 @@ public class OpenApiKeyServiceImpl implements OpenApiKeyService {
                 .last("LIMIT 1"));
         // 密钥无效、吊销、成员资格失效、组织停用同语义返回，不区分原因，不泄露组织存在性
         if (key == null || key.getStatus() != OpenApiKeyStatus.ENABLED) {
-            throw new OpenAppException(OpenResultCode.UNAUTHENTICATED, "密钥无效或已吊销");
+            throw new AppException(ResultCode.UNAUTHORIZED, "密钥无效或已吊销");
         }
         OrganizationMember member = organizationMemberMapper.selectOne(
                 new LambdaQueryWrapper<OrganizationMember>()
@@ -82,11 +81,11 @@ public class OpenApiKeyServiceImpl implements OpenApiKeyService {
                         .eq(OrganizationMember::getStatus, Status.ENABLED)
                         .last("LIMIT 1"));
         if (member == null) {
-            throw new OpenAppException(OpenResultCode.UNAUTHENTICATED, "密钥无效或已吊销");
+            throw new AppException(ResultCode.UNAUTHORIZED, "密钥无效或已吊销");
         }
         Organization organization = organizationMapper.selectById(key.getOrgId());
         if (organization == null || organization.getStatus() != Status.ENABLED) {
-            throw new OpenAppException(OpenResultCode.UNAUTHENTICATED, "密钥无效或已吊销");
+            throw new AppException(ResultCode.UNAUTHORIZED, "密钥无效或已吊销");
         }
         return new OpenApiKeyAuthResultBO(key.getId(), key.getUserId(), key.getOrgId());
     }

@@ -7,7 +7,6 @@ import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.core.MethodParameter;
-import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
@@ -20,7 +19,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
  * <p>
  * 兼容策略：若 body 已是 Result 实例（如异常处理器返回的失败结果），直接返回不做二次包装。
  */
-@Order(100)
 @ControllerAdvice(basePackages = "online.longlian.app.controller")
 @RequiredArgsConstructor
 public class ResultResponseBodyAdvice implements ResponseBodyAdvice<Object> {
