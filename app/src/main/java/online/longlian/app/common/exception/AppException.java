@@ -12,16 +12,6 @@ public class AppException extends RuntimeException {
 
     private String msg;
 
-    public AppException() {
-        super();
-    }
-
-    /**
-     * 直接携带消息的构造，供子类把异常文本传给 RuntimeException（日志与 getMessage 可见）。
-     */
-    protected AppException(String msg) {
-        super(msg);
-    }
     /**
      * 基于ResultCode枚举构造
      */
