@@ -77,8 +77,7 @@ public class IdempotencyServiceImpl implements IdempotencyService {
             idempotencyRecordMapper.insert(record);
         } catch (DuplicateKeyException e) {
             // 并发同键：首笔尚未提交，撞唯一索引，整笔事务随调用方回滚；稍后原样重试即得首次响应
-            throw new AppException(ResultCode.OPEN_IDEMPOTENCY_CONFLICT,
-                    "幂等键冲突或首笔仍在处理中，请稍后重试");
+            throw new AppException(ResultCode.OPEN_IDEMPOTENCY_CONFLICT);
         }
     }
 }
