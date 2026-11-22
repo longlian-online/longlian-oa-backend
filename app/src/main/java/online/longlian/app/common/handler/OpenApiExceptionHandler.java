@@ -8,7 +8,6 @@ import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.OpenResult;
 import online.longlian.app.common.result.OpenResultCode;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -19,7 +18,8 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * 开放接口（controller.open）专用异常处理：10xxx 信封 + 真实 HTTP 状态码。
+ * 开放接口（controller.open）专用异常处理：与站内一致业务失败统一 HTTP 200，
+ * 差异仅在信封（10xxx code + error 标识 + requestId）。
  * 优先级高于 GlobalExceptionHandler，作用域限定开放面 Controller，不影响站内异常语义。
  */
 @Slf4j
@@ -31,7 +31,7 @@ public class OpenApiExceptionHandler {
     private final ApiResultMetrics apiResultMetrics;
 
     @ExceptionHandler(AppException.class)
-    public ResponseEntity<OpenResult<Void>> handleAppException(AppException e, HttpServletRequest request) {
+    public OpenResult<Void> handleAppException(AppException e, HttpServletRequest request) {
         OpenResultCode code = OpenResultCode.of(e.getCode());
         log.warn("开放接口业务失败 | code={} | msg={} | uri={} | method={}",
                 code.getCode(), e.getMsg(), request.getRequestURI(), request.getMethod());
@@ -39,8 +39,8 @@ public class OpenApiExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<OpenResult<Void>> handleValidation(MethodArgumentNotValidException e,
-                                                             HttpServletRequest request) {
+    public OpenResult<Void> handleValidation(MethodArgumentNotValidException e,
+                                             HttpServletRequest request) {
         String msg = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + " " + error.getDefaultMessage())
@@ -51,18 +51,18 @@ public class OpenApiExceptionHandler {
     @ExceptionHandler({MethodArgumentTypeMismatchException.class,
             MissingServletRequestParameterException.class,
             HttpMessageNotReadableException.class})
-    public ResponseEntity<OpenResult<Void>> handleBadRequest(Exception e, HttpServletRequest request) {
+    public OpenResult<Void> handleBadRequest(Exception e, HttpServletRequest request) {
         return fail(request, OpenResultCode.PARAM_ERROR, OpenResultCode.PARAM_ERROR.getMsg());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<OpenResult<Void>> handleException(Exception e, HttpServletRequest request) {
+    public OpenResult<Void> handleException(Exception e, HttpServletRequest request) {
         log.error("开放接口内部异常 | uri={} | method={}", request.getRequestURI(), request.getMethod(), e);
         return fail(request, OpenResultCode.INTERNAL, OpenResultCode.INTERNAL.getMsg());
     }
 
-    private ResponseEntity<OpenResult<Void>> fail(HttpServletRequest request, OpenResultCode code, String msg) {
+    private OpenResult<Void> fail(HttpServletRequest request, OpenResultCode code, String msg) {
         apiResultMetrics.record(request, code.getCode());
-        return ResponseEntity.status(code.getHttpStatus()).body(OpenResult.fail(code, msg));
+        return OpenResult.fail(code, msg);
     }
 }

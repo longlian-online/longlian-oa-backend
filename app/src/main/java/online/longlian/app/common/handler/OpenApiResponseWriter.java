@@ -9,7 +9,7 @@ import online.longlian.app.common.result.OpenResultCode;
 import java.io.IOException;
 
 /**
- * 开放接口（/open/**）失败响应直写工具。开放面不走全站 200 惯例，按语义写真实状态码。
+ * 开放接口（/open/**）失败响应直写工具。与站内一致：业务失败统一 HTTP 200，靠 code 区分。
  */
 public final class OpenApiResponseWriter {
 
@@ -18,7 +18,7 @@ public final class OpenApiResponseWriter {
 
     public static void write(HttpServletResponse response, OpenResultCode code, String msg) throws IOException {
         response.setContentType(CommonConstants.CONTENT_TYPE);
-        response.setStatus(code.getHttpStatus().value());
+        response.setStatus(HttpServletResponse.SC_OK);
         response.getWriter().write(JSON.toJSONString(OpenResult.fail(code, msg)));
     }
 }

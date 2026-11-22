@@ -473,7 +473,8 @@ public class OpenApiCoverageApiTest extends BaseApiTest {
         var openHandler = new online.longlian.app.common.handler.OpenApiExceptionHandler(
                 mock(online.longlian.app.common.metrics.ApiResultMetrics.class));
         var response = openHandler.handleException(new RuntimeException("boom"), request);
-        assertThat(response.getStatusCode().value()).isEqualTo(500);
+        assertThat(response.getCode()).isEqualTo(OpenResultCode.INTERNAL.getCode());
+        assertThat(response.getError()).isEqualTo(OpenResultCode.INTERNAL.getError());
     }
 
     @Test

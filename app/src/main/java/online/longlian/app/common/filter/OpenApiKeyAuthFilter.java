@@ -38,7 +38,6 @@ public class OpenApiKeyAuthFilter extends OncePerRequestFilter {
     public static final String API_KEY_HEADER = "X-Api-Key";
 
     private static final String OPEN_PATH_PREFIX = "/open/";
-    private static final String RETRY_AFTER_SECONDS = "60";
 
     private final OpenApiKeyService openApiKeyService;
     private final OpenApiRateLimitService openApiRateLimitService;
@@ -71,7 +70,6 @@ public class OpenApiKeyAuthFilter extends OncePerRequestFilter {
 
         if (!openApiRateLimitService.tryAcquire(auth.keyId())) {
             apiResultMetrics.record(request, OpenResultCode.RATE_LIMITED.getCode());
-            response.setHeader("Retry-After", RETRY_AFTER_SECONDS);
             OpenApiResponseWriter.write(response, OpenResultCode.RATE_LIMITED, "请求过于频繁，请稍后重试");
             return;
         }

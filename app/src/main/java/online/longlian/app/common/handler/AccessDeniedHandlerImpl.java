@@ -42,10 +42,10 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             return;
         }
-        // 开放接口不走全站 200 惯例，直接写真实 403 与 10xxx 信封
+        // 开放接口与站内一致：业务失败统一 HTTP 200，code 用 10xxx 区分
         if (request.getServletPath().startsWith("/open/")) {
             response.setContentType(CommonConstants.CONTENT_TYPE);
-            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setStatus(HttpStatus.OK.value());
             apiResultMetrics.record(request, OpenResultCode.FORBIDDEN.getCode());
             response.getWriter().write(JSON.toJSONString(OpenResult.fail(OpenResultCode.FORBIDDEN)));
             return;

@@ -80,10 +80,9 @@ public class GlobalExceptionHandler {
         log.warn("请求资源不存在 | uri={} | method={}",
                 request.getRequestURI(),
                 request.getMethod());
-        // 无 handler 的开放路径命中不了 controller.open 限界的异常处理器，这里直接写开放信封
+        // 无 handler 的开放路径命中不了 controller.open 限界的异常处理器，这里直接写开放信封（200 + 10xxx）
         if (request.getServletPath().startsWith("/open/")) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(OpenResult.fail(OpenResultCode.NOT_FOUND));
+            return ResponseEntity.ok(OpenResult.fail(OpenResultCode.NOT_FOUND));
         }
         return ResponseEntity.ok(Result.fail(ResultCode.NOT_FOUND));
     }

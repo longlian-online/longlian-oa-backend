@@ -47,10 +47,10 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             return;
         }
-        // 开放接口不走全站 200 惯例，直接写真实状态码与 10xxx 信封
+        // 开放接口与站内一致：业务失败统一 HTTP 200，code 用 10xxx 区分
         if (request.getServletPath().startsWith("/open/")) {
             response.setContentType(CommonConstants.CONTENT_TYPE);
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            response.setStatus(HttpStatus.OK.value());
             apiResultMetrics.record(request, OpenResultCode.UNAUTHENTICATED.getCode());
             response.getWriter().write(JSON.toJSONString(OpenResult.fail(OpenResultCode.UNAUTHENTICATED)));
             return;
