@@ -20,8 +20,11 @@ import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
 import online.longlian.app.pojo.bo.app.notification.NotificationCreateBO;
-import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.notification.NotificationBatchCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemKeysetListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemKeysetListResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderEntryResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
@@ -105,6 +108,41 @@ public class ItemServiceImpl implements ItemService {
         List<ProjectItemListResultBO> list = itemAssembler.assembleList(items);
         markSubmissionRecords(list);
         return new PageResultBO<>(list, itemPage.getTotal());
+    }
+
+    @Override
+    public ItemKeysetListResultBO listProjectItemsKeyset(ItemKeysetListParamsBO params) {
+        Project project = projectMapper.selectById(params.projectId());
+        if (project == null || !project.getOrgId().equals(params.orgId())
+                || project.getResourceStatus() != Status.ENABLED) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT);
+        }
+
+        LambdaQueryWrapper<Item> wrapper = new LambdaQueryWrapper<Item>()
+                .eq(Item::getProjectId, params.projectId())
+                .orderByAsc(Item::getUpdatedAt)
+                .orderByAsc(Item::getId)
+                .last("LIMIT " + (params.limit() + 1));
+        if (params.updatedSince() != null) {
+            wrapper.ge(Item::getUpdatedAt, params.updatedSince());
+        }
+        if (params.afterUpdatedAt() != null) {
+            wrapper.and(w -> w.gt(Item::getUpdatedAt, params.afterUpdatedAt())
+                    .or(inner -> inner.eq(Item::getUpdatedAt, params.afterUpdatedAt())
+                            .gt(Item::getId, params.afterId())));
+        }
+        List<Item> items = itemMapper.selectList(wrapper);
+        boolean hasMore = items.size() > params.limit();
+        if (hasMore) {
+            items = items.subList(0, params.limit());
+        }
+        if (items.isEmpty()) {
+            return new ItemKeysetListResultBO(Collections.emptyList(), null, null, false);
+        }
+        List<ProjectItemListResultBO> list = itemAssembler.assembleList(items);
+        markSubmissionRecords(list);
+        Item last = items.get(items.size() - 1);
+        return new ItemKeysetListResultBO(list, last.getId(), last.getUpdatedAt(), hasMore);
     }
 
     @Override

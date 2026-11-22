@@ -5,10 +5,13 @@ import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.constants.SecurityConstants;
 import online.longlian.app.common.filter.JwtAuthenticationFilter;
 import online.longlian.app.common.filter.TraceIdFilter;
+import online.longlian.app.common.constants.OpenApiConstants;
 import online.longlian.app.common.security.EmailCodeAuthenticationProvider;
 import online.longlian.app.common.security.MyUsernamePasswordAuthenticationProvider;
 import online.longlian.app.common.security.AdminUserDetails;
 import online.longlian.app.common.security.UserDetailsServiceImpl;
+import online.longlian.app.common.filter.OpenApiKeyAuthFilter;
+import online.longlian.app.common.filter.OpenApiRequestBodyCachingFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,6 +35,8 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 @EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
+    private final OpenApiKeyAuthFilter openApiKeyAuthFilter;
+    private final OpenApiRequestBodyCachingFilter openApiRequestBodyCachingFilter;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthenticationEntryPoint authenticationEntryPoint;
     private final AccessDeniedHandler accessDeniedHandler;
@@ -66,6 +71,8 @@ public class SecurityConfig {
                         // 预检请求统一放行，避免被鉴权逻辑拦截，CORS 头仍由 CorsFilter 写入
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SecurityConstants.getPermitAllMatchers(springdocApiDocsEnabled).toArray(new RequestMatcher[0])).permitAll()
+                        // 开放接口只认密钥认证主体；密钥本身即认证方式，不进白名单
+                        .requestMatchers("/open/**").hasAuthority(OpenApiConstants.OPEN_API_AUTHORITY)
                         .requestMatchers("/admin/**").hasAuthority(AdminUserDetails.SYSTEM_ADMIN_AUTHORITY)
                         .anyRequest().authenticated()
                 )
@@ -76,7 +83,9 @@ public class SecurityConfig {
                 //添加 JWT 过滤器
                 .addFilterBefore(traceIdFilter,UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(openApiKeyAuthFilter, JwtAuthenticationFilter.class)
+                .addFilterBefore(openApiRequestBodyCachingFilter, OpenApiKeyAuthFilter.class);
 
         return http.build();
     }
