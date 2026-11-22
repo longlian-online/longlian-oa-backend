@@ -92,6 +92,50 @@
         </if>
     </select>
 
+    <!--
+      开放面任务广场：按企划 (updated_at, id) 键集升序的企划聚合行。
+      键集条件放在 WHERE：p.updated_at/p.id 不参与聚合，直接过滤即可。
+    -->
+    <select id="selectPlazaProjectSummariesKeyset" resultType="online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO">
+        SELECT p.id AS projectId,
+               p.title AS title,
+               pt.name AS typeName,
+               p.cover_file_id AS coverFileId,
+               p.thumbnail_file_id AS thumbnailFileId,
+               p.updated_at AS updatedAt,
+               COUNT(ti.id) AS pendingCount,
+               COUNT(DISTINCT ti.item_id) AS itemCount
+        FROM task_instance ti
+        JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL
+        JOIN item i ON i.id = ti.item_id AND i.deleted_at IS NULL
+        JOIN project p ON p.id = ti.project_id AND p.deleted_at IS NULL
+            AND p.resource_status = 1 AND p.status = 1
+        LEFT JOIN project_type pt ON pt.id = p.type_id AND pt.deleted_at IS NULL
+        <include refid="currentStageJoin"/>
+        WHERE ti.deleted_at IS NULL
+          AND ti.status = 1
+          AND ti.assignee_id IS NULL
+          AND p.org_id = #{params.orgId}
+        <if test="params.baseTaskId != null">
+            AND n.base_task_id = #{params.baseTaskId}
+        </if>
+        <if test="params.typeId != null">
+            AND p.type_id = #{params.typeId}
+        </if>
+        <if test="params.matchPattern != null">
+            AND (p.title LIKE #{params.matchPattern} ESCAPE '!'
+              OR i.title LIKE #{params.matchPattern} ESCAPE '!'
+              OR n.name LIKE #{params.matchPattern} ESCAPE '!')
+        </if>
+        <if test="afterUpdatedAt != null">
+            AND (p.updated_at &gt; #{afterUpdatedAt}
+              OR (p.updated_at = #{afterUpdatedAt} AND p.id &gt; #{afterProjectId}))
+        </if>
+        GROUP BY p.id, p.title, pt.name, p.cover_file_id, p.thumbnail_file_id, p.updated_at
+        ORDER BY p.updated_at ASC, p.id ASC
+        LIMIT #{size}
+    </select>
+
     <!-- 同阶段的其它槽位必须保留：先计算槽位编号和数量，再按任务类型过滤。 -->
     <select id="selectPlazaTaskRows" resultType="online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO">
         SELECT ti.id AS instanceId,
@@ -141,6 +185,7 @@
                n.name AS nodeName,
                n.id AS nodeId,
                n.sort AS stageSort,
+               ti.revision AS revision,
                ti.claimed_at AS claimedAt
         FROM task_instance ti
         JOIN item_task_node n ON n.id = ti.item_task_node_id AND n.deleted_at IS NULL

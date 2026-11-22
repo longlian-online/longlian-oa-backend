@@ -40,12 +40,26 @@ class UserSessionMappingTest {
                 List<UserSession> declarations = UserSessionDeclarations.of(method);
                 List<String> paths = combine(pathsOf(typeMapping), pathsOf(methodMapping));
                 boolean admin = paths.stream().allMatch(UserSessionMappingTest::isAdminPath);
+                boolean open = paths.stream().allMatch(UserSessionMappingTest::isOpenPath);
                 boolean permitAll = isPermitAll(paths, verbsOf(methodMapping));
                 String where = type.getSimpleName() + "." + method.getName() + " " + paths;
 
                 if (admin) {
                     if (!declarations.isEmpty()) {
                         failures.add(where + " 是管理端接口，不能声明用户组织");
+                    }
+                    continue;
+                }
+                if (open) {
+                    long principals = java.util.Arrays.stream(method.getParameters())
+                            .filter(p -> p.isAnnotationPresent(
+                                    org.springframework.security.core.annotation.AuthenticationPrincipal.class))
+                            .count();
+                    if (principals != 1) {
+                        failures.add(where + " 是开放接口，必须正好有一个 @AuthenticationPrincipal，实际 " + principals);
+                    }
+                    if (!declarations.isEmpty()) {
+                        failures.add(where + " 是开放接口，不能声明用户会话");
                     }
                     continue;
                 }
@@ -77,6 +91,10 @@ class UserSessionMappingTest {
 
     private static boolean isAdminPath(String path) {
         return "/admin".equals(path) || path.startsWith("/admin/");
+    }
+
+    private static boolean isOpenPath(String path) {
+        return path.startsWith("/open");
     }
 
     private static List<String> combine(List<String> typePaths, List<String> methodPaths) {

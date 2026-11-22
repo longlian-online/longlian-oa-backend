@@ -12,9 +12,6 @@ public class AppException extends RuntimeException {
 
     private String msg;
 
-    public AppException() {
-        super();
-    }
     /**
      * 基于ResultCode枚举构造
      */

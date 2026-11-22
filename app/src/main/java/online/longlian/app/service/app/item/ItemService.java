@@ -3,6 +3,8 @@ package online.longlian.app.service.app.item;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemKeysetListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemKeysetListResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderEntryResultBO;
 import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
@@ -39,6 +41,13 @@ public interface ItemService {
      * @return 分页的项目列表
      */
     PageResultBO<ProjectItemListResultBO> listProjectItems(ItemListParamsBO params);
+
+    /**
+     * 企划下项目的键集分页：口径与 {@link #listProjectItems(ItemListParamsBO)} 一致
+     * （进度、当前节点、提交记录标记），按 (updated_at, id) 升序，取 limit+1 行判定 hasMore。
+     * 供开放面顺序翻页与增量拉取使用。
+     */
+    ItemKeysetListResultBO listProjectItemsKeyset(ItemKeysetListParamsBO params);
 
     /**
      * 查询项目内全部阶段序号，按项目、序号升序返回。任务广场据此推导阶段位次与总数。

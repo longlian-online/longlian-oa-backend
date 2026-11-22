@@ -70,6 +70,23 @@ CREATE TABLE `group_application` (
   INDEX `idx_group_application_otp_id` (`otp_id`),
   INDEX `idx_group_application_org_status_email` (`org_id`, `status`, `email`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "入组申请表";
+-- Create "idempotency_record" table
+CREATE TABLE `idempotency_record` (
+  `id` bigint NOT NULL,
+  `source` tinyint NOT NULL COMMENT "来源 1-OPEN_API",
+  `caller_id` bigint NOT NULL COMMENT "来源内调用方标识，OPEN_API 时为 open_api_key.id",
+  `idempotency_key` varchar(64) NOT NULL COMMENT "调用方生成的幂等键",
+  `method` varchar(10) NOT NULL COMMENT "HTTP 方法",
+  `path` varchar(255) NOT NULL COMMENT "接口路径，不含查询串",
+  `body_hash` char(64) NOT NULL COMMENT "请求体原文的 SHA-256",
+  `snapshot` json NULL COMMENT "首次成功响应的完整 Result 信封；超 64KB 不存正文",
+  `snapshot_truncated` tinyint NOT NULL DEFAULT 0 COMMENT "1-响应超限未存正文，重复请求只返回命中标记",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_idempotency_key` (`source`, `caller_id`, `idempotency_key`),
+  INDEX `idx_idempotency_created` (`created_at`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "写请求幂等记录表，按来源区分调用方";
 -- Create "item" table
 CREATE TABLE `item` (
   `id` bigint NOT NULL,
@@ -133,6 +150,22 @@ CREATE TABLE `one_time_password` (
   PRIMARY KEY (`id`),
   INDEX `idx_code_expired_at` (`code`, `expired_at`)
 ) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "一次性密码（otp）表";
+-- Create "open_api_key" table
+CREATE TABLE `open_api_key` (
+  `id` bigint NOT NULL COMMENT "密钥ID",
+  `org_id` bigint NOT NULL COMMENT "所属组织ID",
+  `user_id` bigint NOT NULL COMMENT "所属用户ID",
+  `name` varchar(50) NOT NULL COMMENT "密钥名称",
+  `key_hash` char(64) NOT NULL COMMENT "密钥明文的 SHA-256 十六进制，明文不落库",
+  `status` tinyint NOT NULL DEFAULT 1 COMMENT "状态 1-启用 0-吊销",
+  `last_used_at` datetime NULL COMMENT "最近一次成功认证时间，异步更新",
+  `revoked_at` datetime NULL COMMENT "吊销时间",
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_open_api_key_hash` (`key_hash`),
+  INDEX `idx_open_api_key_org_user` (`org_id`, `user_id`, `status`)
+) CHARSET utf8mb4 COLLATE utf8mb4_unicode_520_ci COMMENT "OpenAPI 密钥表";
 -- Create "organization" table
 CREATE TABLE `organization` (
   `id` bigint NOT NULL COMMENT "组织ID",
