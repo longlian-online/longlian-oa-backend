@@ -228,6 +228,39 @@ class ProjectAttachmentServiceImplTest {
     }
 
     @Test
+    void getProjectAttachmentDownloadByFileId_signsMatchedRow() {
+        when(projectService.requireVisibleProject(any())).thenReturn(new ProjectAccessResultBO(2L));
+        when(projectAttachmentMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(attachment(200L, 20L, 2L));
+        ActivatedResourceResultBO resource = activated(20L, "企划设定.pdf");
+        when(resourceService.findActivated("project_attachment", 100L, 1L, List.of(20L)))
+                .thenReturn(Map.of(20L, resource));
+        when(resourceService.signDownload(resource)).thenReturn(new ActivatedResourceReadResultBO(
+                20L, "企划设定.pdf", 3L, "application/pdf",
+                "/common/file/local?key=project_attachment/20.pdf&expires=1", 1_800L));
+
+        ProjectAttachmentDownloadResultBO result = service.getProjectAttachmentDownloadByFileId(
+                ProjectAttachmentDownloadParamsBO.builder()
+                        .projectId(100L).fileId(20L).orgId(1L).build());
+
+        assertThat(result.getReadUrl()).isEqualTo("/common/file/local?key=project_attachment/20.pdf&expires=1");
+        assertThat(result.getExpireAt()).isEqualTo(1_800L);
+    }
+
+    @Test
+    void getProjectAttachmentDownloadByFileId_missingRowThrows() {
+        when(projectService.requireVisibleProject(any())).thenReturn(new ProjectAccessResultBO(2L));
+        when(projectAttachmentMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getProjectAttachmentDownloadByFileId(
+                ProjectAttachmentDownloadParamsBO.builder()
+                        .projectId(100L).fileId(20L).orgId(1L).build()))
+                .isInstanceOfSatisfying(AppException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ResultCode.DATA_NOT_EXIT.getCode()));
+
+        verify(resourceService, never()).signDownload(any());
+    }
+
+    @Test
     void getProjectAttachmentDownload_unavailableResourceThrows() {
         when(projectService.requireVisibleProject(any())).thenReturn(new ProjectAccessResultBO(2L));
         when(projectAttachmentMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(attachment(200L, 20L, 2L));
