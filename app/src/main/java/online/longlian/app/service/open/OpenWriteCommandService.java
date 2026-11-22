@@ -33,8 +33,7 @@ public class OpenWriteCommandService {
                 // 快照超限时 data 为 null：返回幂等命中（code 0）而非回放原响应
                 return existing.data();
             case CONFLICT:
-                throw new AppException(ResultCode.OPEN_IDEMPOTENCY_CONFLICT,
-                        "幂等键冲突或首笔仍在处理中，请稍后重试");
+                throw new AppException(ResultCode.OPEN_IDEMPOTENCY_CONFLICT);
             case MISS:
             default:
                 Object result = business.get();
