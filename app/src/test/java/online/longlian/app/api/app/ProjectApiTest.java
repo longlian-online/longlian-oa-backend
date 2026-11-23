@@ -1242,7 +1242,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,企划已存在项目，请提交删除申请"));
+                .body("msg", equalTo("参数错误，企划已存在项目，请提交删除申请"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
     }
@@ -1330,7 +1330,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,企划已存在项目，请提交删除申请"));
+                .body("msg", equalTo("参数错误，企划已存在项目，请提交删除申请"));
         authRequest(ownerToken)
                 .body(Map.of("reason", "由所有者提交"))
                 .post("/app/projects/1/deletion-requests")
@@ -1363,7 +1363,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,您在该组织中的成员状态已被禁用"));
+                .body("msg", equalTo("操作失败，您在该组织中的成员状态已被禁用"));
     }
 
     @Test
@@ -1380,7 +1380,7 @@ public class ProjectApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()))
-                .body("msg", equalTo("无权操作,仅企划负责人可删除企划"));
+                .body("msg", equalTo("无权操作，仅企划负责人可删除企划"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM `project` WHERE id = 1 AND deleted_at IS NULL", Integer.class)).isEqualTo(1);
     }

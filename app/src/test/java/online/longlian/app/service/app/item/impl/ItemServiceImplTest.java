@@ -625,7 +625,7 @@ class ItemServiceImplTest {
         assertThatThrownBy(() -> service.deleteProjectItem(deleteParams(1L)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
-                    assertThat(ex.getMsg()).isEqualTo("参数错误,项目存在提交记录，请提交删除申请");
+                    assertThat(ex.getMsg()).isEqualTo("参数错误，项目存在提交记录，请提交删除申请");
                 });
         verify(itemMapper, never()).update(isNull(), any());
     }

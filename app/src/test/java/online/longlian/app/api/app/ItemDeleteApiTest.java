@@ -89,7 +89,7 @@ public class ItemDeleteApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                .body("msg", equalTo("参数错误,项目存在提交记录，请提交删除申请"));
+                .body("msg", equalTo("参数错误，项目存在提交记录，请提交删除申请"));
 
         assertThat(deletedAt("item", 1L)).isNull();
         assertThat(jdbcTemplate.queryForObject("SELECT ref_count FROM task_template WHERE id = 1", Integer.class)).isEqualTo(1);
@@ -129,7 +129,7 @@ public class ItemDeleteApiTest extends BaseApiTest {
             deletion.get(15, TimeUnit.SECONDS).then()
                     .statusCode(200)
                     .body("code", equalTo(ResultCode.PARAM_ERROR.getCode()))
-                    .body("msg", equalTo("参数错误,项目存在提交记录，请提交删除申请"));
+                    .body("msg", equalTo("参数错误，项目存在提交记录，请提交删除申请"));
         }
         assertThat(deletedAt("item", 1L)).isNull();
         assertThat(deletedAt("item_task_flow", 1L)).isNull();
