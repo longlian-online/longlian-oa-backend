@@ -13,6 +13,9 @@ import online.longlian.app.mapper.ProjectTypeMapper;
 import online.longlian.app.mapper.ProjectWorkshopMapper;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectProgressBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberKeysetItemBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberKeysetParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberKeysetResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberSubmissionStatBO;
@@ -53,6 +56,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -99,6 +103,46 @@ public class ProjectServiceImpl implements ProjectService {
                     stat == null ? null : stat.lastSubmittedAt(), stat == null ? 0 : stat.completedCount());
         }).toList();
         return new PageResultBO<>(results, (long) members.size());
+    }
+
+    @Override
+    public ProjectMemberKeysetResultBO getProjectMembersKeyset(ProjectMemberKeysetParamsBO params) {
+        Project project = getVisibleProject(params.projectId(), params.orgId());
+        List<ProjectWorkshop> workshopRows = projectWorkshopMapper.selectList(new LambdaQueryWrapper<ProjectWorkshop>()
+                .eq(ProjectWorkshop::getProjectId, params.projectId())
+                .orderByAsc(ProjectWorkshop::getUserId)
+                .orderByAsc(ProjectWorkshop::getId));
+        if (workshopRows.isEmpty()) {
+            return new ProjectMemberKeysetResultBO(List.of(), null, false);
+        }
+        // 与 getProjectMembers 同口径：先过滤已删除的组织成员及用户，再按键集取窗
+        Map<Long, ProjectWorkshop> joinedByUser = new LinkedHashMap<>();
+        for (ProjectWorkshop row : workshopRows) {
+            joinedByUser.putIfAbsent(row.getUserId(), row);
+        }
+        List<OrganizationMemberDetailsResultBO> members = organizationMembershipService.listMemberProfiles(
+                params.orgId(), List.copyOf(joinedByUser.keySet()));
+        List<OrganizationMemberDetailsResultBO> window = members.stream()
+                .filter(member -> params.afterUserId() == null || member.userId() > params.afterUserId())
+                .limit((long) params.limit() + 1)
+                .toList();
+        boolean hasMore = window.size() > params.limit();
+        List<OrganizationMemberDetailsResultBO> page = hasMore ? window.subList(0, params.limit()) : window;
+        if (page.isEmpty()) {
+            return new ProjectMemberKeysetResultBO(List.of(), null, false);
+        }
+        Map<Long, ProjectMemberSubmissionStatBO> stats = projectMemberSubmissionStats.forMembers(
+                params.projectId(), page.stream().map(OrganizationMemberDetailsResultBO::userId).toList());
+        List<ProjectMemberKeysetItemBO> items = page.stream().map(member -> {
+            ProjectMemberSubmissionStatBO stat = stats.get(member.userId());
+            ProjectWorkshop joined = joinedByUser.get(member.userId());
+            return new ProjectMemberKeysetItemBO(member.userId(), member.nickname(),
+                    joined == null ? null : joined.getCreatedAt(),
+                    project.getCreatorId().equals(member.userId()),
+                    stat == null ? 0 : stat.completedCount(),
+                    stat == null ? null : stat.lastSubmittedAt());
+        }).toList();
+        return new ProjectMemberKeysetResultBO(items, page.get(page.size() - 1).userId(), hasMore);
     }
 
     @Override
@@ -224,6 +268,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .alias(project.getAlias())
                 .coverUrl(coverUrl)
                 .thumbnailUrl(thumbnailUrl)
+                .typeId(project.getTypeId())
                 .typeName(typeName)
                 .metadata(project.getMetadata())
                 .description(project.getDescription())
@@ -236,6 +281,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .canManage(isPlanningManager(project.getCreatorId(), userId, orgId))
                 .hasItems(hasItems)
                 .createdAt(project.getCreatedAt())
+                .updatedAt(project.getUpdatedAt())
                 .build();
     }
 

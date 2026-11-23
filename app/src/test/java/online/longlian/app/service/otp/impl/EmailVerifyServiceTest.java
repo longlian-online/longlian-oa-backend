@@ -4,6 +4,7 @@ import online.longlian.app.common.exception.AppException;
 import online.longlian.app.mapper.EmailVerifyOtpMapper;
 import online.longlian.app.mapper.UserMapper;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.EmailVerifyOtp;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.service.otp.OneTimePasswordService;
@@ -11,15 +12,21 @@ import online.longlian.common.enumeration.EmailVerifyBusinessType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -46,7 +53,9 @@ class EmailVerifyServiceTest {
 
     @Test
     void shouldSendEmailOnlyAfterTransactionCommit() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
         assignEmailVerifyOtpId();
@@ -62,6 +71,7 @@ class EmailVerifyServiceTest {
 
     @Test
     void shouldRejectGenerateWithoutTransactionSynchronization() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
@@ -101,18 +111,34 @@ class EmailVerifyServiceTest {
         verify(emailVerifyOtpMapper).insert(any(EmailVerifyOtp.class));
     }
 
-    @Test
-    void shouldAllowForgotPasswordCodeWithoutCheckingRegistration() {
+    @ParameterizedTest
+    @EnumSource(value = EmailVerifyBusinessType.class, names = {"LOGIN", "FORGOT_PASSWORD"})
+    void shouldAllowCodeForRegisteredEmail(EmailVerifyBusinessType businessType) {
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
         when(oneTimePasswordService.generateOTP(any()))
                 .thenReturn(OneTimePassword.builder().id(1L).build());
         assignEmailVerifyOtpId();
 
         TransactionSynchronizationManager.initSynchronization();
-        service().generate(params(EmailVerifyBusinessType.FORGOT_PASSWORD));
+        service().generate(params(businessType));
 
-        verify(userMapper, never()).selectCount(any());
         verify(oneTimePasswordService).generateOTP(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EmailVerifyBusinessType.class, names = {"LOGIN", "FORGOT_PASSWORD"})
+    void shouldRejectCodeForUnregisteredEmailBeforeCreatingOtp(EmailVerifyBusinessType businessType) {
+        when(userMapper.selectCount(any())).thenReturn(0L);
+
+        assertThatThrownBy(() -> service().generate(params(businessType)))
+                .isInstanceOf(AppException.class)
+                .hasMessage("该邮箱尚未注册，请先注册");
+
+        verify(emailVerifyOtpMapper, never()).selectCount(any());
+        verify(oneTimePasswordService, never()).generateOTP(any());
+        verify(emailVerifyOtpMapper, never()).insert(any(EmailVerifyOtp.class));
+        verify(emailVerifyCodeAsyncSender, never()).send(any(), anyString(), anyString());
     }
 
     @Test
@@ -140,6 +166,41 @@ class EmailVerifyServiceTest {
 
         verify(oneTimePasswordService).generateOTP(any());
         verify(emailVerifyOtpMapper).insert(any(EmailVerifyOtp.class));
+    }
+
+    @Test
+    void shouldRevokePreviousCodeForSameReceiverAndBusinessWhenResending() {
+        EmailVerifyOtp previous = EmailVerifyOtp.builder().otpId(11L).receiver("user@example.com").build();
+        when(userMapper.selectCount(any())).thenReturn(1L);
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(emailVerifyOtpMapper.selectList(any())).thenReturn(List.of(previous));
+        when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("ABC123");
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params());
+
+        verify(oneTimePasswordService).revokeOTP(11L);
+    }
+
+    @Test
+    void shouldPersistUniqueCodeGeneratedByOtpService() {
+        when(userMapper.selectCount(any())).thenReturn(1L);
+        when(emailVerifyOtpMapper.selectCount(any())).thenReturn(0L);
+        when(oneTimePasswordService.generateUniqueCode(anyInt(), any())).thenReturn("UNIQ01");
+        when(oneTimePasswordService.generateOTP(any()))
+                .thenReturn(OneTimePassword.builder().id(1L).build());
+        assignEmailVerifyOtpId();
+
+        TransactionSynchronizationManager.initSynchronization();
+        service().generate(params());
+
+        ArgumentCaptor<OneTimePasswordCreateParamsBO> captor =
+                ArgumentCaptor.forClass(OneTimePasswordCreateParamsBO.class);
+        verify(oneTimePasswordService).generateOTP(captor.capture());
+        assertThat(captor.getValue().getCode()).isEqualTo("UNIQ01");
     }
 
     private EmailVerifyService service() {

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.common.util.RandomCodeUtil;
 import online.longlian.app.mapper.OneTimePasswordMapper;
 import online.longlian.app.pojo.bo.common.OneTimePasswordCreateParamsBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
@@ -23,6 +24,8 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
 
     private final OneTimePasswordMapper oneTimePasswordMapper;
     private final Clock clock;
+
+    private static final int CODE_CONFLICT_RETRY = 5;
 
     @Override
     public OneTimePassword generateOTP(OneTimePasswordCreateParamsBO params) {
@@ -47,6 +50,26 @@ public class OneTimePasswordServiceImpl extends ServiceImpl<OneTimePasswordMappe
                 .build();
         oneTimePasswordMapper.insert(oneTimePassword);
         return oneTimePassword;
+    }
+
+    @Override
+    public String generateUniqueCode(int length, OTPType bizType) {
+        for (int attempt = 0; attempt < CODE_CONFLICT_RETRY; attempt++) {
+            String code = RandomCodeUtil.generateCode(length);
+            // 校验按 (code, bizType) 取最新一条有效记录，同码并存会互相干扰，生成时必须排除冲突
+            boolean conflict = oneTimePasswordMapper.selectCount(
+                    new LambdaQueryWrapper<OneTimePassword>()
+                            .eq(OneTimePassword::getCode, code)
+                            .eq(OneTimePassword::getBizType, bizType)
+                            .eq(OneTimePassword::getStatus, OTPStatus.PENDING)
+                            .and(w -> w.gt(OneTimePassword::getExpiredAt, LocalDateTime.now(clock))
+                                    .or().isNull(OneTimePassword::getExpiredAt))
+            ) > 0;
+            if (!conflict) {
+                return code;
+            }
+        }
+        throw new AppException(ResultCode.OPERATION_FAIL, "验证码生成冲突，请稍后重试");
     }
 
     private LocalDateTime requireFutureExpiry(LocalDateTime expiredAt) {

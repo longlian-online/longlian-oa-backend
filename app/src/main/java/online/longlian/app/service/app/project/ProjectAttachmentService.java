@@ -51,4 +51,13 @@ public interface ProjectAttachmentService {
      * @return 原文件名读取地址及签名到期时间（Unix 秒）
      */
     ProjectAttachmentDownloadResultBO getProjectAttachmentDownload(ProjectAttachmentDownloadParamsBO params);
+
+    /**
+     * 按文件 ID 解析附件行并签发下载链接。开放面列表只暴露 fileId，
+     * 读取链接必须与列表对齐才能自洽使用；站内路径继续用 attachmentId。
+     *
+     * @param params 包含企划 ID、fileId 和组织 ID 的下载参数
+     * @return 原文件名读取地址及签名到期时间（Unix 秒）
+     */
+    ProjectAttachmentDownloadResultBO getProjectAttachmentDownloadByFileId(ProjectAttachmentDownloadParamsBO params);
 }

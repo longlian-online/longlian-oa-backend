@@ -110,7 +110,7 @@ public class InboxEmailOutboxHandler implements OutboxHandler {
         String html = htmlTemplate.replace(InboxEmailLink.PLACEHOLDER, HtmlUtils.htmlEscape(href))
                 .replace("${message}", HtmlUtils.htmlEscape(body));
         mailUtil.send(new MailUtil.SendParam(fromEmail, email.trim(), displayName,
-                displayName + " " + payload.kind().getDesc(), html));
+                payload.kind().getDesc(), html));
     }
 
     private NotificationSourceResultBO source(InboxEmailPayload payload) {

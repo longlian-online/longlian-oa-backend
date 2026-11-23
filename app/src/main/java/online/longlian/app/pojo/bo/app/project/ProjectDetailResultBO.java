@@ -18,6 +18,7 @@ public class ProjectDetailResultBO {
     private String alias;
     private String coverUrl;
     private String thumbnailUrl;
+    private Long typeId;
     private String typeName;
     private String metadata;
     private String description;
@@ -30,4 +31,5 @@ public class ProjectDetailResultBO {
     private Boolean canManage;
     private Boolean hasItems;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

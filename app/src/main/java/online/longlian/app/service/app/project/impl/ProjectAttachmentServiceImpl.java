@@ -109,8 +109,19 @@ public class ProjectAttachmentServiceImpl implements ProjectAttachmentService {
     public ProjectAttachmentDownloadResultBO getProjectAttachmentDownload(ProjectAttachmentDownloadParamsBO params) {
         projectService.requireVisibleProject(new ProjectAccessParamsBO(params.getProjectId(), params.getOrgId()));
         ProjectAttachment attachment = requireAttachment(params.getProjectId(), params.getAttachmentId());
+        return signAttachmentDownload(attachment, params.getProjectId(), params.getOrgId());
+    }
+
+    @Override
+    public ProjectAttachmentDownloadResultBO getProjectAttachmentDownloadByFileId(ProjectAttachmentDownloadParamsBO params) {
+        projectService.requireVisibleProject(new ProjectAccessParamsBO(params.getProjectId(), params.getOrgId()));
+        ProjectAttachment attachment = requireAttachmentByFileId(params.getProjectId(), params.getFileId());
+        return signAttachmentDownload(attachment, params.getProjectId(), params.getOrgId());
+    }
+
+    private ProjectAttachmentDownloadResultBO signAttachmentDownload(ProjectAttachment attachment, Long projectId, Long orgId) {
         Map<Long, ActivatedResourceResultBO> matched = resourceService.findActivated(
-                BIZ_TYPE, params.getProjectId(), params.getOrgId(), List.of(attachment.getFileId()));
+                BIZ_TYPE, projectId, orgId, List.of(attachment.getFileId()));
         ActivatedResourceResultBO resource = matched.get(attachment.getFileId());
         if (resource == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
@@ -126,6 +137,17 @@ public class ProjectAttachmentServiceImpl implements ProjectAttachmentService {
         ProjectAttachment attachment = projectAttachmentMapper.selectOne(new LambdaQueryWrapper<ProjectAttachment>()
                 .eq(ProjectAttachment::getId, attachmentId)
                 .eq(ProjectAttachment::getProjectId, projectId));
+        if (attachment == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
+        }
+        return attachment;
+    }
+
+    private ProjectAttachment requireAttachmentByFileId(Long projectId, Long fileId) {
+        ProjectAttachment attachment = projectAttachmentMapper.selectOne(new LambdaQueryWrapper<ProjectAttachment>()
+                .eq(ProjectAttachment::getProjectId, projectId)
+                .eq(ProjectAttachment::getFileId, fileId)
+                .last("LIMIT 1"));
         if (attachment == null) {
             throw new AppException(ResultCode.DATA_NOT_EXIT, "附件不存在");
         }

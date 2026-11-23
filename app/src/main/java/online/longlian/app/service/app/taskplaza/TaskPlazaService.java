@@ -1,5 +1,7 @@
 package online.longlian.app.service.app.taskplaza;
 
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaKeysetParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaKeysetResultBO;
 import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
@@ -23,4 +25,10 @@ public interface TaskPlazaService {
      * @return 按企划分组的缺人任务分页结果，total 为缺人企划数
      */
     PageResultBO<PlazaProjectGroupResultBO> getTaskPlaza(TaskPlazaParamsBO params);
+
+    /**
+     * 缺人任务的键集分页：筛选语义与 {@link #getTaskPlaza(TaskPlazaParamsBO)} 一致，
+     * 按企划 (updated_at, id) 升序取 limit+1 组判定 hasMore。供开放面顺序翻页使用。
+     */
+    TaskPlazaKeysetResultBO getTaskPlazaKeyset(TaskPlazaKeysetParamsBO params);
 }
