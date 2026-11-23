@@ -10,7 +10,7 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.security.AuthenticationStrategy;
 import online.longlian.app.common.security.RequestAuthenticationException;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.service.TokenBlacklistService;
+import online.longlian.app.service.auth.TokenBlacklistService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

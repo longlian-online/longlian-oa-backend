@@ -9,11 +9,11 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminGetOrganizationInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminUpdateOrganizationInfoParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminGetOrganizationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminUpdateOrganizationInfoParamsBO;
 import online.longlian.app.pojo.dto.orgadmin.OrgAdminUpdateOrganizationInfoDTO;
-import online.longlian.app.pojo.vo.orgadmin.OrgAdmintOrganizationInfoVO;
-import online.longlian.app.service.orgadmin.OrgAdminOrganizationService;
+import online.longlian.app.pojo.vo.orgadmin.OrgAdminOrganizationInfoVO;
+import online.longlian.app.service.orgadmin.organization.OrgAdminOrganizationService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -34,11 +34,11 @@ public class OrgAdminOrganizationController {
     @Operation(summary = "获取组织信息", description = "获取组织管理员所在组织的头像、组名和简介")
     @GetMapping("")
     @ResponseMessage("查询成功")
-    public OrgAdmintOrganizationInfoVO getOrganizationInfo(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
+    public OrgAdminOrganizationInfoVO getOrganizationInfo(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
         OrgAdminGetOrganizationInfoResultBO resultBO = orgAdminOrganizationService.getOrganizationInfo(
                 sessionContext.orgId());
 
-        return OrgAdmintOrganizationInfoVO.builder()
+        return OrgAdminOrganizationInfoVO.builder()
                 .id(resultBO.getId())
                 .name(resultBO.getName())
                 .avatarUrl(resultBO.getAvatarUrl())

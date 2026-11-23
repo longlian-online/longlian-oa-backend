@@ -1,6 +1,5 @@
 package online.longlian.app.pojo.dto.app;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -16,7 +15,6 @@ public class UpdateMyInfoDTO {
     @Schema(description = "用户昵称", requiredMode = Schema.RequiredMode.REQUIRED)
     private String nickname;
 
-    @JsonLongIdString
     @Schema(type = "string", description = "用户头像文件ID")
     private Long avatarFileId;
 }

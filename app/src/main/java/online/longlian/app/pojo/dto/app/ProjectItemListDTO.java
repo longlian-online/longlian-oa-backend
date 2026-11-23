@@ -17,7 +17,7 @@ public class ProjectItemListDTO extends PageRequestDTO {
     @Schema(description = "项目标题关键词（模糊匹配）")
     private String keyword;
 
-    @Schema(description = "完成情况筛选：IN_PROGRESS-进行中（没有任务或存在未完成任务），COMPLETED-已完成（至少有一个任务且全部已完成）；默认进行中")
+    @Schema(description = "完成情况筛选：IN_PROGRESS-进行中，COMPLETED-已完成；按项目保存的状态筛选，不按任务是否完成计算；默认进行中")
     private ItemStatus status = ItemStatus.IN_PROGRESS;
 
     @Schema(description = "项目排序，默认自定义顺序")

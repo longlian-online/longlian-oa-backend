@@ -249,6 +249,7 @@ kubectl exec -it deploy/mariadb -n longlian-oa -- \
 
 - 端点：`http://victorialogs:9428/insert/opentelemetry/v1/logs`
 - `OTEL_TRACES_EXPORTER` / `OTEL_METRICS_EXPORTER` 为 `none`
+- 应用按响应体 `Result.code` 记录 `app.result`。指标导出仍是 `none`，接到 Prometheus 的变量见 `docs/otel-agent.md`
 - 不需要日志导出时，删除 `JAVA_TOOL_OPTIONS` 与 `OTEL_*` 整段环境变量即可
   （使用不含 agent 的镜像时 Dockerfile 会自动剔除 `-javaagent` 参数，不会启动失败）。
 

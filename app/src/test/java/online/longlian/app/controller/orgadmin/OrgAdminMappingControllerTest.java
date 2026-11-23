@@ -2,19 +2,19 @@ package online.longlian.app.controller.orgadmin;
 
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgAdminApplicationInfoResultBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountItemBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgMemberBaseTaskSubmitCountResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListNodeResultBO;
-import online.longlian.app.pojo.bo.orgadmin.TaskTemplateListResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgAdminApplicationInfoResultBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberBaseTaskSubmitCountItemBO;
+import online.longlian.app.pojo.bo.orgadmin.member.OrgMemberBaseTaskSubmitCountResultBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListNodeResultBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateListResultBO;
 import online.longlian.app.pojo.dto.orgadmin.ApplicationListDTO;
 import online.longlian.app.pojo.dto.orgadmin.TaskTemplateListDTO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
 import online.longlian.app.pojo.vo.orgadmin.ApplicationInfoVO;
 import online.longlian.app.pojo.vo.orgadmin.OrgMemberBaseTaskSubmitCountVO;
 import online.longlian.app.pojo.vo.orgadmin.TaskTemplateListVO;
-import online.longlian.app.service.orgadmin.OrganizationMemberService;
-import online.longlian.app.service.orgadmin.TaskTemplateService;
+import online.longlian.app.service.orgadmin.member.OrganizationMemberService;
+import online.longlian.app.service.orgadmin.tasktemplate.TaskTemplateService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

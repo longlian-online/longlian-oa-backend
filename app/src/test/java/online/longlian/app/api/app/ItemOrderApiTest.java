@@ -3,12 +3,12 @@ package online.longlian.app.api.app;
 import io.restassured.response.Response;
 import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.result.ResultCode;
-import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectAccessParamsBO;
-import online.longlian.app.service.app.ItemService;
-import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
+import online.longlian.app.service.app.item.ItemService;
+import online.longlian.app.service.app.project.ProjectService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -57,7 +57,7 @@ public class ItemOrderApiTest extends BaseApiTest {
     @Test
     void shouldFilterTheGlobalOrderBeforePagination() {
         String token = seed();
-        jdbcTemplate.update("INSERT INTO task_instance (id, project_id, item_id, item_task_node_id, task_flow_id, status) VALUES (1,1,3,1,1,3)");
+        jdbcTemplate.update("UPDATE item SET status = 2 WHERE id = 3");
         save(token, INITIAL, REORDERED).then().body("code", equalTo(0));
 
         authRequest(token).queryParam("status", "IN_PROGRESS").queryParam("pageSize", 4)

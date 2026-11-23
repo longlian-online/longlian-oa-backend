@@ -18,7 +18,7 @@ import online.longlian.app.pojo.dto.admin.AdminCreateDTO;
 import online.longlian.app.pojo.dto.admin.AdminListDTO;
 import online.longlian.app.pojo.vo.admin.AdminVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.admin.AdminManagementService;
+import online.longlian.app.service.admin.account.AdminManagementService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

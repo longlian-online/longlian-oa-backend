@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import online.longlian.common.enumeration.ItemStatus;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -68,6 +69,20 @@ public class Item implements Serializable {
     @TableField("creator_id")
     @ApiModelProperty("创建人ID")
     private Long creatorId;
+
+    /**
+     * 状态 1-进行中 2-已完成
+     */
+    @TableField("status")
+    @ApiModelProperty("状态 1-进行中 2-已完成")
+    private ItemStatus status;
+
+    /**
+     * 标记完成时间，进行中时为空
+     */
+    @TableField("completed_at")
+    @ApiModelProperty("标记完成时间，进行中时为空")
+    private LocalDateTime completedAt;
 
     @TableField("created_at")
     private LocalDateTime createdAt;

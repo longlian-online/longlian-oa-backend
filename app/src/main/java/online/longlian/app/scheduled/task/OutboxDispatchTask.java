@@ -1,6 +1,6 @@
 package online.longlian.app.scheduled.task;
 
-import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinitionBO;
 import online.longlian.app.scheduled.ScheduledTask;
 import online.longlian.app.service.outbox.OutboxDispatcher;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Component
 public class OutboxDispatchTask implements ScheduledTask {
-    private static final ScheduledTaskDefinition DEFINITION = new ScheduledTaskDefinition(
+    private static final ScheduledTaskDefinitionBO DEFINITION = new ScheduledTaskDefinitionBO(
             "outbox-dispatch", "投递到期的 outbox 消息", "0/15 * * * * ?", true);
 
     private final OutboxDispatcher dispatcher;
@@ -23,7 +23,7 @@ public class OutboxDispatchTask implements ScheduledTask {
     }
 
     @Override
-    public ScheduledTaskDefinition getDefinition() {
+    public ScheduledTaskDefinitionBO getDefinition() {
         return DEFINITION;
     }
 

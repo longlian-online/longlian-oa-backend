@@ -99,6 +99,13 @@ public class OrgAdminPresetFieldApiTest extends BaseApiTest {
                 "INSERT INTO organization_preset_field (id, org_id, name, creator_id) VALUES (1, 1, '作者', 1)");
         jdbcTemplate.update(
                 "INSERT INTO project_type_custom_field (id, org_id, type_id, preset_field_id, required, sort) VALUES (1, 1, 1, 1, 1, 0)");
+        createOrganization(2L, "其他组织");
+        jdbcTemplate.update(
+                "INSERT INTO project_type (id, org_id, name, status, creator_id) VALUES (2, 2, '其他类型', 1, 1)");
+        jdbcTemplate.update(
+                "INSERT INTO organization_preset_field (id, org_id, name, creator_id) VALUES (2, 2, '其他字段', 1)");
+        jdbcTemplate.update(
+                "INSERT INTO project_type_custom_field (id, org_id, type_id, preset_field_id, required, sort) VALUES (2, 2, 2, 2, 1, 0), (3, 1, 1, NULL, 0, 1)");
         jdbcTemplate.update(
                 "INSERT INTO project (id, org_id, type_id, title, creator_id, metadata) VALUES (1, 1, 1, '作品', 1, ?)",
                 "{\"tags\":[],\"fields\":[{\"name\":\"作者\",\"value\":\"山田\"}]}");
@@ -114,6 +121,9 @@ public class OrgAdminPresetFieldApiTest extends BaseApiTest {
                 "SELECT deleted_at IS NOT NULL FROM organization_preset_field WHERE id = 1", Boolean.class)).isTrue();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT deleted_at IS NOT NULL FROM project_type_custom_field WHERE id = 1", Boolean.class)).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM project_type_custom_field WHERE id IN (2, 3) AND deleted_at IS NULL",
+                Integer.class)).isEqualTo(2);
     }
 
     @Test

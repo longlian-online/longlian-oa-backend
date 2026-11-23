@@ -8,9 +8,13 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.app.TaskTemplateOptionsParamsBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionNodeResultBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionResultBO;
+import online.longlian.app.pojo.bo.app.tasktemplate.TaskTemplateOptionsParamsBO;
+import online.longlian.app.pojo.vo.app.TaskTemplateOptionNodeVO;
 import online.longlian.app.pojo.vo.app.TaskTemplateOptionVO;
-import online.longlian.app.service.app.TaskTemplateService;
+import online.longlian.app.service.app.tasktemplate.TaskTemplateService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,10 +35,20 @@ public class TaskTemplateController {
     @GetMapping("/options")
     @ResponseMessage("查询成功")
     public List<TaskTemplateOptionVO> listTaskTemplateOptions(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
-        return taskTemplateService.listOptions(
+        List<TaskTemplateOptionResultBO> resultBOList = taskTemplateService.listOptions(
                 TaskTemplateOptionsParamsBO.builder()
                         .orgId(sessionContext.orgId())
                         .userId(sessionContext.userId())
                         .build());
+        return resultBOList.stream().map(bo -> {
+            TaskTemplateOptionVO optionVO = new TaskTemplateOptionVO();
+            BeanUtils.copyProperties(bo, optionVO, "nodes");
+            optionVO.setNodes(bo.getNodes().stream().map(nodeBO -> {
+                TaskTemplateOptionNodeVO nodeVO = new TaskTemplateOptionNodeVO();
+                BeanUtils.copyProperties(nodeBO, nodeVO);
+                return nodeVO;
+            }).toList());
+            return optionVO;
+        }).toList();
     }
 }

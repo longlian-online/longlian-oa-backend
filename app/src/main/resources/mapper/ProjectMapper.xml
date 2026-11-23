@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="online.longlian.app.mapper.ProjectMapper">
 
-    <resultMap id="searchResult" type="online.longlian.app.pojo.bo.app.ProjectSearchResultBO">
+    <resultMap id="searchResult" type="online.longlian.app.pojo.bo.app.project.ProjectSearchResultBO">
         <id property="projectId" column="id"/>
         <result property="matchedMetadataPaths" column="matched_metadata_paths"/>
         <association property="project" javaType="online.longlian.app.pojo.entity.Project" autoMapping="true"/>

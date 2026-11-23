@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import online.longlian.app.common.exception.AppException;
 import online.longlian.app.common.properties.StorageProperties;
 import online.longlian.app.mapper.ResourceMapper;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
@@ -421,15 +421,15 @@ class ResourceServiceExtendedTest {
 
     @Test
     void signActivated_empty_returnsEmpty() {
-        assertThat(resourceService.signActivated(List.<ActivatedResource>of())).isEmpty();
+        assertThat(resourceService.signActivated(List.<ActivatedResourceResultBO>of())).isEmpty();
     }
 
     /** CDN 开启时按复用窗口时间戳签发下载链接，到期时间为鉴权期上限。 */
     @Test
     void signDownload_cdnEnabled_returnsCdnUrlAndExpiry() {
-        ActivatedResource resource = activatedResource(1L, StorageType.OSS, "avatar/1.png", "企划说明.pdf");
+        ActivatedResourceResultBO resource = activatedResource(1L, StorageType.OSS, "avatar/1.png", "企划说明.pdf");
 
-        ActivatedResourceRead read = resourceService.signDownload(resource);
+        ActivatedResourceReadResultBO read = resourceService.signDownload(resource);
 
         assertThat(read.readUrl())
                 .matches("https://cdn.example/avatar/1.png\\?token=[0-9a-f]{32}&t=1721029680");
@@ -452,7 +452,7 @@ class ResourceServiceExtendedTest {
         when(storageService.getResourceReadUrl(eq("avatar/1.png"), any()))
                 .thenReturn("https://cos.example/avatar/1.png?sign=native");
 
-        ActivatedResourceRead read = plain.signDownload(
+        ActivatedResourceReadResultBO read = plain.signDownload(
                 activatedResource(1L, StorageType.OSS, "avatar/1.png", "企划说明.pdf"));
 
         assertThat(read.readUrl()).isEqualTo("https://cos.example/avatar/1.png?sign=native");
@@ -469,8 +469,8 @@ class ResourceServiceExtendedTest {
         assertThat(ResourceService.isAttachmentBusiness(null)).isFalse();
     }
 
-    private ActivatedResource activatedResource(Long id, StorageType storageType, String key, String fileName) {
-        return new ActivatedResource(id, fileName, 3L, "application/pdf", storageType, key, 1L);
+    private ActivatedResourceResultBO activatedResource(Long id, StorageType storageType, String key, String fileName) {
+        return new ActivatedResourceResultBO(id, fileName, 3L, "application/pdf", storageType, key, 1L);
     }
 
     @Test

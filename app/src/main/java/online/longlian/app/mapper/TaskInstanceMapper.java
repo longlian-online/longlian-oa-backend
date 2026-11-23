@@ -1,13 +1,12 @@
 package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import online.longlian.app.pojo.bo.app.ClaimedTaskLoadRowBO;
-import online.longlian.app.pojo.bo.app.ItemStageNodeStatusBO;
-import online.longlian.app.pojo.bo.app.MyTaskRowBO;
-import online.longlian.app.pojo.bo.app.PlazaItemStageBO;
-import online.longlian.app.pojo.bo.app.PlazaProjectSummaryBO;
-import online.longlian.app.pojo.bo.app.PlazaTaskRowBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaSearchParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.ClaimedTaskLoadRowBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemStageNodeStatusBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectSummaryBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaTaskRowBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaSearchParamsBO;
 import online.longlian.app.pojo.entity.TaskInstance;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -33,14 +32,16 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstance> {
     /** 任务广场：符合筛选条件的缺人企划总数 */
     long selectPlazaProjectCount(@Param("params") TaskPlazaSearchParamsBO params);
 
-    /** 任务广场：指定企划匹配阶段范围内的实例行（含已占用槽位） */
+    /**
+     * 任务广场：指定企划匹配阶段范围内的实例行（含已占用槽位）。
+     * 需要保留同阶段其他槽位再过滤任务类型，跨多表且与分页查询共用阶段关联。
+     */
     List<PlazaTaskRowBO> selectPlazaTaskRows(@Param("params") TaskPlazaSearchParamsBO params,
                                              @Param("projectIds") List<Long> projectIds);
 
-    /** 任务广场：指定条目内全部阶段的 sort 值（推导阶段位次与总数） */
-    List<PlazaItemStageBO> selectPlazaItemStages(@Param("itemIds") List<Long> itemIds);
-
-    /** 我的待办：当前用户在当前组织内已接取（CLAIMED）的任务，按接取时间排序 */
+    /**
+     * 我的待办：当前用户在当前组织内已接取（CLAIMED）的任务，按接取时间排序。
+     */
     List<MyTaskRowBO> selectMyClaimedTasks(@Param("userId") Long userId,
                                            @Param("orgId") Long orgId,
                                            @Param("desc") boolean desc);

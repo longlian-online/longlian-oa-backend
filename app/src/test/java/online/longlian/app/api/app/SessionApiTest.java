@@ -6,7 +6,7 @@ import online.longlian.app.api.BaseApiTest;
 import online.longlian.app.common.constants.RedisConstants;
 import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.common.util.JwtUtil;
-import online.longlian.app.service.impl.TokenRevocationStore;
+import online.longlian.app.service.auth.impl.TokenRevocationStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;

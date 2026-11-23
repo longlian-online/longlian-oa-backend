@@ -1,0 +1,132 @@
+package online.longlian.app.service.admin.organization.impl;
+
+import org.springframework.transaction.annotation.Transactional;
+
+import online.longlian.app.common.enumeration.AdminRole;
+
+import online.longlian.app.pojo.entity.Admin;
+
+import online.longlian.app.mapper.AdminMapper;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
+import online.longlian.app.common.constants.InviteConstants;
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.OrganizationMapper;
+import online.longlian.app.pojo.bo.admin.*;
+import online.longlian.app.pojo.bo.common.PageResultBO;
+import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
+import online.longlian.app.pojo.entity.OneTimePassword;
+import online.longlian.app.pojo.entity.Organization;
+import online.longlian.app.service.admin.organization.OrganizationService;
+import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.resource.ResourceService;
+import online.longlian.common.enumeration.OTPType;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+
+import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaUpdate;
+import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
+
+@Service
+@AllArgsConstructor
+public class OrganizationServiceImpl implements OrganizationService {
+    private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(InviteConstants.DEFAULT_DATE_TIME_PATTERN);
+
+    private final OrganizationMapper organizationMapper;
+    private final AdminMapper adminMapper;
+    private final ResourceService resourceService;
+    private final OTPServiceFactory otpServiceFactory;
+
+    public PageResultBO<AdminOrganizationListResultBO> getOrgListInfo(@NonNull AdminOrganizationListParamsBO params) {
+        Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
+                .select(
+                        Organization::getId,
+                        Organization::getName,
+                        Organization::getAvatarFileId,
+                        Organization::getStatus,
+                        Organization::getCreatedAt
+                )
+                .like(StringUtils.hasText(params.getOrgName()), Organization::getName, params.getOrgName())
+                .ge(params.getStartCreateTime() != null, Organization::getCreatedAt, params.getStartCreateTime())
+                .le(params.getEndCreateTime() != null, Organization::getCreatedAt, params.getEndCreateTime());
+        Page<Organization> organizationPage = organizationMapper.selectPage(page, queryWrapper);
+
+        List<Organization> organizations = organizationPage.getRecords();
+        long total = organizationPage.getTotal();
+
+        List<Long> avatarIds = organizations.stream()
+                .map(Organization::getAvatarFileId)
+                .filter(id -> id != null && id > 0)
+                .toList();
+        Map<Long, ResourceReadUrlGetResultBO> resourceMap = resourceService.getResourceReadUrls(avatarIds);
+
+        ResourceReadUrlGetResultBO defaultResource = new ResourceReadUrlGetResultBO("", 0L, "");
+        List<AdminOrganizationListResultBO> list = organizations.stream().map(organization -> new AdminOrganizationListResultBO(organization.getId(),
+                organization.getName(),
+                resourceMap.getOrDefault(organization.getAvatarFileId(), defaultResource).getUrl(),
+                organization.getStatus(),
+                organization.getCreatedAt()
+        )).toList();
+
+        return new PageResultBO<>(list, total);
+    }
+
+    @Override
+    public PageResultBO<AdminOrganizationIdentityBO> pageIdentities(@NonNull AdminOrganizationListParamsBO params) {
+        Page<Organization> page = new Page<>(params.getPage().getPageNum(), params.getPage().getPageSize());
+        LambdaQueryWrapper<Organization> queryWrapper = new LambdaQueryWrapper<Organization>()
+                .select(Organization::getId, Organization::getName, Organization::getStatus)
+                .like(StringUtils.hasText(params.getOrgName()), Organization::getName, params.getOrgName())
+                .orderByDesc(Organization::getId);
+        Page<Organization> organizationPage = organizationMapper.selectPage(page, queryWrapper);
+        List<AdminOrganizationIdentityBO> list = organizationPage.getRecords().stream()
+                .map(organization -> new AdminOrganizationIdentityBO(
+                        organization.getId(), organization.getName(), organization.getStatus()))
+                .toList();
+        return new PageResultBO<>(list, organizationPage.getTotal());
+    }
+
+    @Override
+    public AdminGenerateInviteCodeResultBO generateCreateOrgInviteCode(@NonNull AdminGenerateCreateOrgInviteCodeParamsBO params) {
+        requireRoot(params.getCreatorId());
+        OneTimePassword otp = otpServiceFactory.get(OTPType.OrganizationInvite).generate(
+                OTPGenerateContextBO.builder()
+                        .creatorId(params.getCreatorId())
+                        .expiredAt(params.getExpiredAt())
+                        .build()
+        );
+        return AdminGenerateInviteCodeResultBO.builder()
+                .inviteCode(otp.getCode())
+                .expireAt(otp.getExpiredAt().format(DEFAULT_DATE_TIME_FORMATTER))
+                .build();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void updateOrgStatus(@NonNull AdminOrganizationUpdateStatusParamsBO params) {
+        requireRoot(params.getOperatorAdminId());
+        Organization organization = organizationMapper.selectOne(lambdaQuery(Organization.class)
+                .eq(Organization::getId, params.getOrganizationId()).last("FOR UPDATE"));
+        if (organization == null) {
+            throw new AppException(ResultCode.DATA_NOT_EXIT, "组织不存在");
+        }
+        LambdaUpdateWrapper<Organization> wrapper = lambdaUpdate(Organization.class).eq(Organization::getId, params.getOrganizationId()).set(Organization::getStatus, params.getStatus());
+        organizationMapper.update(null, wrapper);
+    }
+    private void requireRoot(Long operatorId) {
+        Admin operator = adminMapper.selectById(operatorId);
+        if (operator == null || !AdminRole.ROOT.getValue().equals(operator.getRole())) {
+            throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "只有root管理员可以管理平台组织");
+        }
+    }
+}

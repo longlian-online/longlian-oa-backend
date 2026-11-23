@@ -4,13 +4,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 @Data
 @Schema(description = "企划类型默认自定义表单中的一项")
 public class ProjectTypeCustomFieldDTO {
 
-    @JsonLongIdString
     @Schema(type = "string", description = "预置表单字段ID；自行编辑的字段不传")
     private Long presetFieldId;
 

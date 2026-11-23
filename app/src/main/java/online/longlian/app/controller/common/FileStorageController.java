@@ -13,8 +13,9 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.LocalFileReadParamsBO;
-import online.longlian.app.pojo.bo.common.LocalFileReadResult;
+import online.longlian.app.pojo.bo.common.LocalFileReadResultBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
+import online.longlian.app.pojo.bo.common.ResourceCreateResultBO;
 import online.longlian.app.pojo.dto.common.CreateFileReqDTO;
 import online.longlian.app.pojo.dto.common.LocalFileReadDTO;
 import online.longlian.app.pojo.vo.common.ResourceCreateVO;
@@ -60,7 +61,14 @@ public class FileStorageController {
                 createFileReqDTO.getFileMime(),
                 createFileReqDTO.getBizType()
         );
-        return resourceService.create(params);
+        ResourceCreateResultBO resultBO = resourceService.create(params);
+        ResourceCreateVO resourceCreateVO = new ResourceCreateVO(
+                resultBO.getFileId(),
+                resultBO.getUploadUrl(),
+                resultBO.getKey(),
+                resultBO.getStorageType(),
+                resultBO.getContentDisposition());
+        return resourceCreateVO;
     }
 
     @Operation(
@@ -92,7 +100,7 @@ public class FileStorageController {
     public ResponseEntity<Resource> readLocalFile(@Valid @ModelAttribute LocalFileReadDTO dto,
                                                   @RequestParam(value = "t", required = false) Long cdnTimestamp) {
         ResponseEntity.BodyBuilder response = ResponseEntity.ok();
-        LocalFileReadResult result = localFileIngress.read(
+        LocalFileReadResultBO result = localFileIngress.read(
                 new LocalFileReadParamsBO(dto.getKey(), dto.getExpires(), dto.getSignature()));
         if (result.contentDisposition() != null) {
             response.header(HttpHeaders.CONTENT_DISPOSITION, result.contentDisposition());

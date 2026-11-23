@@ -8,7 +8,7 @@ import online.longlian.app.mapper.ResourceMapper;
 import online.longlian.app.pojo.bo.common.PresignedUploadUrlParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.common.ResourceCreateVO;
+import online.longlian.app.pojo.bo.common.ResourceCreateResultBO;
 import online.longlian.app.service.resource.impl.OssStorageService;
 import org.mockito.ArgumentCaptor;
 import online.longlian.common.enumeration.StorageType;
@@ -82,7 +82,7 @@ public class ResourceServiceTest {
                             .build();
                 });
 
-        ResourceCreateVO vo = resourceService.create(params);
+        ResourceCreateResultBO vo = resourceService.create(params);
 
         ArgumentCaptor<PresignedUploadUrlParamsBO> uploadParams =
                 ArgumentCaptor.forClass(PresignedUploadUrlParamsBO.class);
@@ -109,7 +109,7 @@ public class ResourceServiceTest {
                             .build();
                 });
 
-        ResourceCreateVO vo = resourceService.create(params);
+        ResourceCreateResultBO vo = resourceService.create(params);
 
         assertThat(vo.getContentDisposition()).isNull();
     }

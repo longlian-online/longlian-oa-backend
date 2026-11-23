@@ -12,21 +12,25 @@ import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ItemCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ItemDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ItemListParamsBO;
-import online.longlian.app.pojo.bo.app.ItemOrderQueryParamsBO;
-import online.longlian.app.pojo.bo.app.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemListParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemOrderQueryParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemReorderParamsBO;
+import online.longlian.app.pojo.bo.app.item.ProjectItemListResultBO;
+import online.longlian.app.pojo.bo.app.item.ItemCompleteParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemReorderDTO;
 import online.longlian.app.pojo.vo.app.ProjectItemOrderEntryVO;
-import online.longlian.app.pojo.bo.app.ItemNodeCreateParamsBO;
+import online.longlian.app.pojo.bo.app.item.ItemNodeCreateParamsBO;
 import online.longlian.app.pojo.dto.app.ProjectItemCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectItemListDTO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
-import online.longlian.app.service.app.DeletionRequestService;
+import online.longlian.app.service.deletion.DeletionRequestService;
 import online.longlian.app.pojo.vo.app.ProjectItemListVO;
+import online.longlian.app.pojo.vo.app.ProjectItemNodeVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.app.ItemService;
+import online.longlian.app.service.app.item.ItemService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,7 +47,7 @@ public class ItemController {
 
     @Operation(
         summary = "分页查询项目列表",
-        description = "支持标题模糊搜索、完成情况筛选与自定义或时间排序。默认展示进行中并按负责人维护的自定义顺序展示。进行中包含没有任务或仍有未完成任务的项目；已完成指至少有一个任务且全部任务已完成。"
+        description = "支持标题模糊搜索、完成情况筛选与自定义或时间排序。默认展示进行中并按负责人维护的自定义顺序展示。进行中和已完成都按项目保存的状态筛选，不按任务是否完成计算。"
     )
     @Parameter(name = "projectId", description = "企划ID")
     @GetMapping("")
@@ -52,7 +56,7 @@ public class ItemController {
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long projectId,
             @ModelAttribute @Valid ProjectItemListDTO projectItemListDTO) {
-        PageResultBO<ProjectItemListVO> resultBO = itemService.listProjectItems(
+        PageResultBO<ProjectItemListResultBO> resultBO = itemService.listProjectItems(
                 ItemListParamsBO.builder()
                         .projectId(projectId)
                         .orgId(sessionContext.orgId())
@@ -62,7 +66,20 @@ public class ItemController {
                         .page(new PageParamsBO(projectItemListDTO.getPageNum(), projectItemListDTO.getPageSize()))
                         .build());
 
-        return new PageResultVO<>(resultBO.getList(), resultBO.getTotal());
+        List<ProjectItemListVO> itemListVOList = resultBO.getList().stream()
+                .map(bo -> {
+                    ProjectItemListVO itemListVO = new ProjectItemListVO();
+                    BeanUtils.copyProperties(bo, itemListVO, "nodes");
+                    itemListVO.setNodes(bo.getNodes().stream().map(nodeBO -> {
+                        ProjectItemNodeVO nodeVO = new ProjectItemNodeVO();
+                        BeanUtils.copyProperties(nodeBO, nodeVO);
+                        return nodeVO;
+                    }).toList());
+                    return itemListVO;
+                })
+                .toList();
+
+        return new PageResultVO<>(itemListVOList, resultBO.getTotal());
     }
 
     @Operation(summary = "创建项目", description = "创建项目并按请求中的步骤和执行人生成流程，不按模板补齐")
@@ -119,6 +136,26 @@ public class ItemController {
                 .operatorId(sessionContext.userId())
                 .expectedItemIds(dto.getExpectedItemIds())
                 .itemIds(dto.getItemIds())
+                .build());
+    }
+
+    @Operation(
+        summary = "完成项目",
+        description = "企划负责人、组织所有者或组织管理员将项目标为已完成，并记录完成时间。必须已有任务且全部任务已完成。已完成时再次调用保持已完成和原完成时间。"
+    )
+    @Parameter(name = "projectId", description = "企划ID")
+    @Parameter(name = "itemId", description = "项目ID")
+    @PostMapping("/{itemId}/complete")
+    @ResponseMessage("项目已完成")
+    public void completeProjectItem(
+            @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
+            @PathVariable Long projectId,
+            @PathVariable Long itemId) {
+        itemService.completeProjectItem(ItemCompleteParamsBO.builder()
+                .projectId(projectId)
+                .itemId(itemId)
+                .orgId(sessionContext.orgId())
+                .userId(sessionContext.userId())
                 .build());
     }
 

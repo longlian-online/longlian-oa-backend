@@ -1,6 +1,6 @@
 package online.longlian.common.enumeration;
 
-/** 组织文件页批量下载的选中目标。 */
+/** 组织文件页展开的选中目标。 */
 public enum OrgFileBatchTargetKind {
     /** 一条当前有效提交文件 */
     FILE,
@@ -9,5 +9,7 @@ public enum OrgFileBatchTargetKind {
     /** 一个企划下的全部当前有效提交文件 */
     PROJECT,
     /** 一个企划类型下的全部当前有效提交文件 */
-    TYPE
+    TYPE,
+    /** 一个企划下同一任务的全部当前有效提交文件 */
+    TASK
 }

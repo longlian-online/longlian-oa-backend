@@ -2,8 +2,8 @@ package online.longlian.app.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import online.longlian.app.pojo.entity.Item;
-import online.longlian.app.pojo.bo.app.ItemSortUpdateBO;
-import online.longlian.app.pojo.bo.orgadmin.OrgFileTypeItemBO;
+import online.longlian.app.pojo.bo.app.item.ItemSortUpdateBO;
+import online.longlian.app.pojo.bo.orgadmin.file.OrgFileTypeItemBO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -22,7 +22,9 @@ import java.util.List;
 @Mapper
 public interface ItemMapper extends BaseMapper<Item> {
 
-    // 普通 Wrapper 不能在一条 UPDATE 中为各项目绑定不同的顺序值。
+    /**
+     * 普通 Wrapper 不能在一条 UPDATE 中为各项目绑定不同的顺序值。
+     */
     @Update("""
             <script>
             UPDATE item
@@ -41,6 +43,9 @@ public interface ItemMapper extends BaseMapper<Item> {
             """)
     int updateSorts(@Param("projectId") Long projectId, @Param("items") List<ItemSortUpdateBO> items);
 
+    /**
+     * 按企划类型分页列出项目，需联表 project 做组织与类型过滤，且分页与排序跨两表，LambdaQueryWrapper 无法表达。
+     */
     @Select("""
             SELECT i.id AS item_id,
                    i.title AS item_title,

@@ -17,7 +17,7 @@ import online.longlian.app.pojo.bo.productrelease.ProductReleaseSaveParamsBO;
 import online.longlian.app.pojo.bo.productrelease.ProductReleaseUpdateParamsBO;
 import online.longlian.app.pojo.entity.ProductRelease;
 import online.longlian.app.pojo.entity.UserProductReleaseState;
-import online.longlian.app.service.common.LockService;
+import online.longlian.app.service.lock.LockService;
 import online.longlian.common.enumeration.ProductReleaseStatus;
 import online.longlian.common.service.DistributedLockService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;

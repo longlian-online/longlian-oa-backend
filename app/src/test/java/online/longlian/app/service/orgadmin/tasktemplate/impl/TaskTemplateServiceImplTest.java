@@ -1,0 +1,118 @@
+package online.longlian.app.service.orgadmin.tasktemplate.impl;
+
+import online.longlian.app.common.exception.AppException;
+import online.longlian.app.common.result.ResultCode;
+import online.longlian.app.mapper.TaskTemplateMapper;
+import online.longlian.app.mapper.TaskTemplateNodeMapper;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateChangeStatusParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateCreateParamsBO;
+import online.longlian.app.pojo.bo.orgadmin.tasktemplate.TaskTemplateNodeCreateParamsBO;
+import online.longlian.app.pojo.entity.TaskTemplate;
+import online.longlian.app.service.lock.LockService;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
+import online.longlian.common.enumeration.Status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Clock;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class TaskTemplateServiceImplTest {
+
+    @Mock
+    private TaskTemplateMapper taskTemplateMapper;
+    @Mock
+    private BaseTaskService baseTaskService;
+    @Mock
+    private TaskTemplateNodeMapper taskTemplateNodeMapper;
+    @Mock
+    private TaskTemplateQueryBuilder taskTemplateQueryBuilder;
+    @Mock
+    private TaskTemplateAssembler taskTemplateAssembler;
+    @Mock
+    private TaskTemplateHandler taskTemplateHandler;
+    @Mock
+    private LockService lockService;
+
+    private TaskTemplateServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        service = new TaskTemplateServiceImpl(
+                taskTemplateMapper,
+                baseTaskService,
+                taskTemplateNodeMapper,
+                Clock.systemUTC(),
+                taskTemplateQueryBuilder,
+                taskTemplateAssembler,
+                taskTemplateHandler,
+                lockService);
+    }
+
+    @Test
+    void createTaskTemplate_baseTaskMissingAtLock_rejectsWithoutNodeChanges() {
+        doThrow(new AppException(ResultCode.PARAM_ERROR)).when(baseTaskService).lockBaseTasks(eq(1L), any());
+
+        assertThatThrownBy(() -> service.createTaskTemplate(TaskTemplateCreateParamsBO.builder()
+                .orgId(1L)
+                .creatorId(3L)
+                .name("组织模板")
+                .description("说明")
+                .nodes(List.of(node(20L, 1), node(10L, 2)))
+                .build()))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.PARAM_ERROR.getCode());
+                });
+
+        verifyNoInteractions(taskTemplateNodeMapper);
+    }
+
+    @Test
+    void changeTaskTemplateStatus_otherOrganization_rejectsWithoutUpdate() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(2L).status(Status.ENABLED).build());
+
+        assertThatThrownBy(() -> service.changeTaskTemplateStatus(TaskTemplateChangeStatusParamsBO.builder()
+                .templateId(8L).orgId(1L).status(Status.DISABLED).build()))
+                .isInstanceOfSatisfying(AppException.class, ex ->
+                        assertThat(ex.getCode()).isEqualTo(ResultCode.UNAUTHORIZED_OPERATION.getCode()));
+
+        verify(taskTemplateMapper, never()).update(any(), any());
+    }
+
+    @Test
+    void getTaskTemplateDetail_disabledTemplate_rejects() {
+        when(taskTemplateMapper.selectById(8L)).thenReturn(TaskTemplate.builder()
+                .id(8L).orgId(1L).status(Status.DISABLED).build());
+
+        assertThatThrownBy(() -> service.getTaskTemplateDetail(8L, 1L))
+                .isInstanceOfSatisfying(AppException.class, ex -> {
+                    assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
+                    assertThat(ex.getMessage()).contains("任务模板已被禁用");
+                });
+
+        verifyNoInteractions(taskTemplateAssembler);
+    }
+
+    private static TaskTemplateNodeCreateParamsBO node(Long baseTaskId, int sort) {
+        return TaskTemplateNodeCreateParamsBO.builder()
+                .baseTaskId(baseTaskId)
+                .sort(sort)
+                .parallelSort(1)
+                .build();
+    }
+}

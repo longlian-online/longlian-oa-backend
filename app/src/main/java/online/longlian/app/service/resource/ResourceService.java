@@ -18,10 +18,10 @@ import online.longlian.app.pojo.bo.common.ResourceCreateParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceUsageSummaryBO;
 import online.longlian.app.pojo.bo.common.ResourceProbeParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
-import online.longlian.app.pojo.bo.common.ActivatedResource;
-import online.longlian.app.pojo.bo.common.ActivatedResourceRead;
+import online.longlian.app.pojo.bo.common.ActivatedResourceResultBO;
+import online.longlian.app.pojo.bo.common.ActivatedResourceReadResultBO;
 import online.longlian.app.pojo.entity.Resource;
-import online.longlian.app.pojo.vo.common.ResourceCreateVO;
+import online.longlian.app.pojo.bo.common.ResourceCreateResultBO;
 import online.longlian.app.common.util.ContentDispositionUtil;
 import online.longlian.common.enumeration.FileProcessStatus;
 import online.longlian.common.enumeration.StorageType;
@@ -56,7 +56,7 @@ public class ResourceService {
     private final StorageProperties storageProperties;
     private final Clock clock;
 
-    public ResourceCreateVO create(ResourceCreateParamsBO params) {
+    public ResourceCreateResultBO create(ResourceCreateParamsBO params) {
         rejectOversized(params);
         if (isImageBusiness(params.getBizType()) && !params.getFileMime().startsWith("image/")) {
             throw new AppException(ResultCode.PARAM_ERROR, "头像、封面和缩略图只能上传图片");
@@ -95,7 +95,7 @@ public class ResourceService {
 
         resourceMapper.insert(file);
 
-        return new ResourceCreateVO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(),
+        return new ResourceCreateResultBO(fileId, uploadBO.getUploadUrl(), uploadBO.getKey(),
                 file.getStorageType(), uploadBO.getContentDisposition());
     }
 
@@ -182,12 +182,12 @@ public class ResourceService {
     }
 
     /** 查询某个业务对象下已激活的资源。不匹配的 ID 不返回，也不签名。 */
-    public Map<Long, ActivatedResource> findActivated(String bizType, Long bizId, Long orgId, List<Long> resourceIds) {
+    public Map<Long, ActivatedResourceResultBO> findActivated(String bizType, Long bizId, Long orgId, List<Long> resourceIds) {
         if (resourceIds == null || resourceIds.isEmpty()) {
             return Map.of();
         }
         Map<Long, Resource> resources = loadResources(resourceIds);
-        Map<Long, ActivatedResource> matched = new HashMap<>();
+        Map<Long, ActivatedResourceResultBO> matched = new HashMap<>();
         for (Long resourceId : resourceIds) {
             Resource resource = resources.get(resourceId);
             if (resource == null || !Objects.equals(resource.getOrgId(), orgId)
@@ -196,7 +196,7 @@ public class ResourceService {
                     || resource.getProcessStatus() != FileProcessStatus.Activated) {
                 continue;
             }
-            matched.put(resourceId, new ActivatedResource(
+            matched.put(resourceId, new ActivatedResourceResultBO(
                     resource.getId(), resource.getFileName(), resource.getFileSize(), resource.getFileMime(),
                     resource.getStorageType(), resource.getStorageKey(), resource.getOrgId()));
         }
@@ -204,7 +204,7 @@ public class ResourceService {
     }
 
     /** 为调用方已经授权的已激活资源签名；存在资源时必须启用 CDN。 */
-    public Map<Long, ActivatedResourceRead> signActivated(Collection<ActivatedResource> resources) {
+    public Map<Long, ActivatedResourceReadResultBO> signActivated(Collection<ActivatedResourceResultBO> resources) {
         if (resources.isEmpty()) {
             return Map.of();
         }
@@ -213,13 +213,13 @@ public class ResourceService {
         }
         long timestamp = currentCdnTimestamp();
         long expiresAt = Math.addExact(timestamp, storageProperties.getCdn().getAuthTtlSeconds());
-        Map<Long, ActivatedResourceRead> reads = new HashMap<>();
-        for (ActivatedResource item : resources) {
+        Map<Long, ActivatedResourceReadResultBO> reads = new HashMap<>();
+        for (ActivatedResourceResultBO item : resources) {
             Resource resource = Resource.builder()
                     .storageType(item.storageType())
                     .storageKey(item.storageKey())
                     .build();
-            reads.put(item.id(), new ActivatedResourceRead(
+            reads.put(item.id(), new ActivatedResourceReadResultBO(
                     item.id(), item.fileName(), item.fileSize(), item.fileMime(),
                     getCdnReadUrl(resource, timestamp), expiresAt));
         }
@@ -231,7 +231,7 @@ public class ResourceService {
      * <p>CDN 关闭时回退存储原生链接（对象存储携带原文件名响应头，本地由读取接口回写），
      * 有效期按预签名 TTL 估算。
      */
-    public ActivatedResourceRead signDownload(ActivatedResource resource) {
+    public ActivatedResourceReadResultBO signDownload(ActivatedResourceResultBO resource) {
         if (isCdnEnabled()) {
             long timestamp = currentCdnTimestamp();
             long expiresAt = Math.addExact(timestamp, storageProperties.getCdn().getAuthTtlSeconds());
@@ -239,14 +239,14 @@ public class ResourceService {
                     .storageType(resource.storageType())
                     .storageKey(resource.storageKey())
                     .build();
-            return new ActivatedResourceRead(resource.id(), resource.fileName(), resource.fileSize(),
+            return new ActivatedResourceReadResultBO(resource.id(), resource.fileName(), resource.fileSize(),
                     resource.fileMime(), getCdnReadUrl(forUrl, timestamp), expiresAt);
         }
         long expiresAt = Math.addExact(clock.instant().getEpochSecond(),
                 storageProperties.getPresignedUrlTtlSeconds());
         String readUrl = storageFactory.get(resource.storageType())
                 .getResourceReadUrl(resource.storageKey(), ContentDispositionUtil.attachment(resource.fileName()));
-        return new ActivatedResourceRead(resource.id(), resource.fileName(), resource.fileSize(),
+        return new ActivatedResourceReadResultBO(resource.id(), resource.fileName(), resource.fileSize(),
                 resource.fileMime(), readUrl, expiresAt);
     }
 

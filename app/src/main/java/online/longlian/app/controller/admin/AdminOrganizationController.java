@@ -13,12 +13,12 @@ import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.dto.admin.OrgListDTO;
-import online.longlian.app.pojo.dto.common.GenerateInviteCodeDTO;
+import online.longlian.app.pojo.dto.admin.GenerateInviteCodeDTO;
 import online.longlian.app.pojo.dto.common.ChangeStatusDTO;
 import online.longlian.app.pojo.vo.admin.OrgDetailInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.pojo.vo.orgadmin.InviteCodeVO;
-import online.longlian.app.service.admin.OrganizationService;
+import online.longlian.app.pojo.vo.common.InviteCodeVO;
+import online.longlian.app.service.admin.organization.OrganizationService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

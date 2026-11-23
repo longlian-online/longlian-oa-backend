@@ -1,6 +1,5 @@
 package online.longlian.app.pojo.dto.orgadmin;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -18,7 +17,6 @@ public class OrgAdminUpdateOrganizationInfoDTO {
     private String name;
 
     @PositiveOrZero(message = "组织头像文件ID不能为负数")
-    @JsonLongIdString
     @Schema(type = "string", description = "组织头像文件ID；不传表示保持原头像，0 表示清空头像")
     private Long avatarFileId;
 

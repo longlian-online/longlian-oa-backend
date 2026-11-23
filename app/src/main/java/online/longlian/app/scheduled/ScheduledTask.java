@@ -1,6 +1,6 @@
 package online.longlian.app.scheduled;
 
-import online.longlian.app.pojo.bo.common.ScheduledTaskDefinition;
+import online.longlian.app.pojo.bo.common.ScheduledTaskDefinitionBO;
 
 import java.time.LocalDateTime;
 
@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public interface ScheduledTask {
 
     /** 返回任务生命周期内不变的定义。 */
-    ScheduledTaskDefinition getDefinition();
+    ScheduledTaskDefinitionBO getDefinition();
 
     void execute(LocalDateTime executeTime);
 }

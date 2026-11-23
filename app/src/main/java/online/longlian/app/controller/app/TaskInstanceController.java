@@ -10,18 +10,18 @@ import online.longlian.app.common.annotation.ResponseMessage;
 import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
-import online.longlian.app.pojo.bo.app.TaskClaimResultBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceDetailParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceListParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceOperateParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAbandonParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceAssignParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceRejectParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceSubmitParamsBO;
-import online.longlian.app.pojo.bo.app.TaskInstanceProxySubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskClaimResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceListParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceOperateParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAbandonParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceAssignParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceRejectParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceSubmitParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceProxySubmitParamsBO;
 import online.longlian.app.pojo.dto.app.TaskProxySubmitDTO;
-import online.longlian.app.pojo.bo.app.MyTaskParamsBO;
-import online.longlian.app.pojo.bo.app.TaskPlazaParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskParamsBO;
+import online.longlian.app.pojo.bo.app.taskplaza.TaskPlazaParamsBO;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
 import online.longlian.app.pojo.dto.app.MyTaskListDTO;
 import online.longlian.app.pojo.dto.app.TaskSubmitDTO;
@@ -30,22 +30,32 @@ import online.longlian.app.pojo.dto.app.TaskAssignDTO;
 
 import online.longlian.app.pojo.dto.app.TaskPlazaListDTO;
 import online.longlian.app.pojo.dto.app.TaskRejectDTO;
-import online.longlian.app.pojo.bo.app.TaskSubmissionVersionsParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionsParamsBO;
+import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskInstanceDetailResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO;
+import online.longlian.app.pojo.bo.app.mytask.MyTaskResultBO;
+import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
+import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.pojo.vo.app.ItemTaskInstanceVO;
 import online.longlian.app.pojo.vo.app.MyTaskVO;
 import online.longlian.app.pojo.vo.app.PlazaProjectGroupVO;
+import online.longlian.app.pojo.vo.app.PlazaTaskVO;
+import online.longlian.app.pojo.vo.app.TaskAttachmentVO;
 import online.longlian.app.pojo.vo.app.TaskClaimResultVO;
-import online.longlian.app.pojo.bo.app.ProjectAttachmentDownloadResultBO;
-import online.longlian.app.pojo.bo.app.TaskAttachmentDownloadParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectAttachmentDownloadResultBO;
+import online.longlian.app.pojo.bo.app.taskinstance.TaskAttachmentDownloadParamsBO;
 import online.longlian.app.pojo.vo.app.ProjectAttachmentDownloadVO;
 import online.longlian.app.pojo.vo.app.TaskInstanceDetailVO;
 import online.longlian.app.pojo.vo.app.TaskSubmissionVersionVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.app.MyTaskService;
-import online.longlian.app.service.app.TaskInstanceService;
-import online.longlian.app.service.app.TaskPlazaService;
-import online.longlian.app.service.orgadmin.BaseTaskService;
+import online.longlian.app.service.app.mytask.MyTaskService;
+import online.longlian.app.service.app.taskinstance.TaskInstanceService;
+import online.longlian.app.service.app.taskplaza.TaskPlazaService;
+import online.longlian.app.service.orgadmin.basetask.BaseTaskService;
 import online.longlian.app.pojo.vo.app.PlazaTaskTypeOptionVO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -72,7 +82,7 @@ public class TaskInstanceController {
     public PageResultVO<MyTaskVO> listMyTasks(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @ModelAttribute @Valid MyTaskListDTO listDTO) {
-        return myTaskService.listMyTasks(
+        PageResultBO<MyTaskResultBO> resultBO = myTaskService.listMyTasks(
                 MyTaskParamsBO.builder()
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
@@ -80,6 +90,13 @@ public class TaskInstanceController {
                         .sortDirection(listDTO.getSortDirection())
                         .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
                         .build());
+
+        List<MyTaskVO> myTaskVOList = resultBO.getList().stream().map(bo -> {
+            MyTaskVO myTaskVO = new MyTaskVO();
+            BeanUtils.copyProperties(bo, myTaskVO);
+            return myTaskVO;
+        }).toList();
+        return new PageResultVO<>(myTaskVOList, resultBO.getTotal());
     }
 
 
@@ -93,7 +110,7 @@ public class TaskInstanceController {
     public PageResultVO<PlazaProjectGroupVO> getTaskPlaza(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @ModelAttribute @Valid TaskPlazaListDTO listDTO) {
-        return taskPlazaService.getTaskPlaza(
+        PageResultBO<PlazaProjectGroupResultBO> resultBO = taskPlazaService.getTaskPlaza(
                 TaskPlazaParamsBO.builder()
                         .orgId(sessionContext.orgId())
                         .keyword(listDTO.getKeyword())
@@ -103,6 +120,18 @@ public class TaskInstanceController {
                         .stageScope(listDTO.getStageScope())
                         .page(new PageParamsBO(listDTO.getPageNum(), listDTO.getPageSize()))
                         .build());
+
+        List<PlazaProjectGroupVO> groupVOList = resultBO.getList().stream().map(bo -> {
+            PlazaProjectGroupVO groupVO = new PlazaProjectGroupVO();
+            BeanUtils.copyProperties(bo, groupVO, "tasks");
+            groupVO.setTasks(bo.getTasks().stream().map(taskBO -> {
+                PlazaTaskVO taskVO = new PlazaTaskVO();
+                BeanUtils.copyProperties(taskBO, taskVO);
+                return taskVO;
+            }).toList());
+            return groupVO;
+        }).toList();
+        return new PageResultVO<>(groupVOList, resultBO.getTotal());
     }
 
     @Operation(summary = "任务大厅任务类型选项", description = "当前组织启用的原子任务及已有流程仍引用的停用原子任务")
@@ -123,12 +152,17 @@ public class TaskInstanceController {
     @ResponseMessage("查询成功")
     public List<ItemTaskInstanceVO> listItemTaskInstances(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                            @PathVariable Long itemId) {
-        return taskInstanceService.listItemTaskInstances(
+        List<ItemTaskInstanceResultBO> resultBOList = taskInstanceService.listItemTaskInstances(
                 TaskInstanceListParamsBO.builder()
                         .itemId(itemId)
                         .userId(sessionContext.userId())
                         .orgId(sessionContext.orgId())
                         .build());
+        return resultBOList.stream().map(bo -> {
+            ItemTaskInstanceVO itemTaskInstanceVO = new ItemTaskInstanceVO();
+            BeanUtils.copyProperties(bo, itemTaskInstanceVO);
+            return itemTaskInstanceVO;
+        }).toList();
     }
 
     @Operation(
@@ -140,12 +174,13 @@ public class TaskInstanceController {
     @ResponseMessage("查询成功")
     public TaskInstanceDetailVO getTaskInstanceDetail(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
                                                        @PathVariable Long instanceId) {
-        return taskInstanceService.getTaskInstanceDetail(
+        TaskInstanceDetailResultBO resultBO = taskInstanceService.getTaskInstanceDetail(
                 TaskInstanceDetailParamsBO.builder()
                         .instanceId(instanceId)
                         .orgId(sessionContext.orgId())
                         .userId(sessionContext.userId())
                         .build());
+        return toTaskInstanceDetailVO(resultBO);
     }
 
     @Operation(summary = "获取任务附件读取链接", description = "点击预览或下载时新取签名，详情和版本列表不返回读取地址")
@@ -179,11 +214,14 @@ public class TaskInstanceController {
     public List<TaskSubmissionVersionVO> listSubmissionVersions(
             @UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext,
             @PathVariable Long instanceId) {
-        return taskInstanceService.listSubmissionVersions(
+        List<TaskSubmissionVersionResultBO> resultBOList = taskInstanceService.listSubmissionVersions(
                 TaskSubmissionVersionsParamsBO.builder()
                         .instanceId(instanceId)
                         .orgId(sessionContext.orgId())
                         .build());
+        return resultBOList.stream()
+                .map(this::toTaskSubmissionVersionVO)
+                .toList();
     }
 
     @Operation(
@@ -364,5 +402,76 @@ public class TaskInstanceController {
                         .build());
     }
 
+    private TaskInstanceDetailVO toTaskInstanceDetailVO(TaskInstanceDetailResultBO resultBO) {
+        TaskInstanceDetailVO detailVO = new TaskInstanceDetailVO();
+        TaskInstanceDetailResultBO.TaskSummaryResultBO task = resultBO.getTask();
+        if (task != null) {
+            detailVO.setTask(new TaskInstanceDetailVO.TaskSummaryVO(
+                    task.id(), task.name(), task.stage(), task.status(), toTaskAssigneeVO(task.assignee())));
+        }
+        TaskInstanceDetailResultBO.TaskSubmissionResultBO submission = resultBO.getSubmission();
+        if (submission != null) {
+            detailVO.setSubmission(new TaskInstanceDetailVO.TaskSubmissionVO(
+                    submission.state(), submission.submittedAt(), toDisplayFieldVOs(submission.fields())));
+        }
+        TaskInstanceDetailResultBO.TaskDraftResultBO draft = resultBO.getDraft();
+        if (draft != null) {
+            detailVO.setDraft(new TaskInstanceDetailVO.TaskDraftVO(
+                    draft.updatedAt(), toDisplayFieldVOs(draft.fields()), draft.unreadable()));
+        }
+        return detailVO;
+    }
+
+    private TaskInstanceDetailVO.TaskAssigneeVO toTaskAssigneeVO(
+            TaskInstanceDetailResultBO.TaskAssigneeResultBO assigneeBO) {
+        if (assigneeBO == null) {
+            return null;
+        }
+        return new TaskInstanceDetailVO.TaskAssigneeVO(
+                assigneeBO.id(), assigneeBO.nickname(), assigneeBO.avatarUrl());
+    }
+
+    private List<TaskInstanceDetailVO.TaskDisplayFieldVO> toDisplayFieldVOs(
+            List<TaskInstanceDetailResultBO.TaskDisplayFieldResultBO> fields) {
+        if (fields == null) {
+            return List.of();
+        }
+        return fields.stream().<TaskInstanceDetailVO.TaskDisplayFieldVO>map(field -> switch (field) {
+            case TaskInstanceDetailResultBO.TaskTextFieldResultBO textField ->
+                    new TaskInstanceDetailVO.TaskTextFieldVO(
+                            textField.key(), textField.label(), textField.type(), textField.text());
+            case TaskInstanceDetailResultBO.TaskFileFieldResultBO fileField ->
+                    new TaskInstanceDetailVO.TaskFileFieldVO(
+                            fileField.key(), fileField.label(), fileField.type(),
+                            toTaskAttachmentVO(fileField.file()));
+        }).toList();
+    }
+
+    private TaskAttachmentVO toTaskAttachmentVO(TaskAttachmentResultBO attachmentBO) {
+        if (attachmentBO == null) {
+            return null;
+        }
+        TaskAttachmentVO attachmentVO = new TaskAttachmentVO();
+        BeanUtils.copyProperties(attachmentBO, attachmentVO);
+        return attachmentVO;
+    }
+
+    private TaskSubmissionVersionVO toTaskSubmissionVersionVO(TaskSubmissionVersionResultBO resultBO) {
+        TaskSubmissionVersionVO versionVO = new TaskSubmissionVersionVO();
+        BeanUtils.copyProperties(resultBO, versionVO, "submitter", "reviewer", "fields");
+        versionVO.setSubmitter(toTaskParticipantVO(resultBO.getSubmitter()));
+        versionVO.setReviewer(toTaskParticipantVO(resultBO.getReviewer()));
+        versionVO.setFields(toDisplayFieldVOs(resultBO.getFields()));
+        return versionVO;
+    }
+
+    private TaskSubmissionVersionVO.TaskParticipantVO toTaskParticipantVO(
+            TaskSubmissionVersionResultBO.TaskParticipantResultBO participantBO) {
+        if (participantBO == null) {
+            return null;
+        }
+        return new TaskSubmissionVersionVO.TaskParticipantVO(
+                participantBO.id(), participantBO.nickname(), participantBO.avatarUrl());
+    }
 
 }

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import online.longlian.app.common.constants.CommonConstants;
+import online.longlian.app.common.metrics.ApiResultMetrics;
 import online.longlian.app.common.result.Result;
 import online.longlian.app.common.result.ResultCode;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,9 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
 
     @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/mcp}")
     private String mcpEndpoint = "/mcp";
+
+    private final ApiResultMetrics apiResultMetrics;
+
     @Override
     public void handle(HttpServletRequest request,
                        HttpServletResponse response,
@@ -48,10 +52,8 @@ public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
         response.setContentType(CommonConstants.CONTENT_TYPE);
         response.setStatus(HttpStatus.OK.value());
 
-        // 封装统一返回
         Result<Void> result = Result.fail(ResultCode.UNAUTHORIZED_OPERATION);
-
-        // 写入响应体
+        apiResultMetrics.record(request, result.getCode());
         response.getWriter().write(JSON.toJSONString(result));
     }
 }

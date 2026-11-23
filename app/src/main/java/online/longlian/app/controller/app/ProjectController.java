@@ -11,29 +11,31 @@ import online.longlian.app.common.annotation.UserSession;
 import online.longlian.app.common.enumeration.OrganizationDeclaration;
 import online.longlian.app.common.resolver.SessionContext;
 import online.longlian.app.pojo.bo.common.PageParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectMemberListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectMemberResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
 import online.longlian.app.pojo.dto.common.PageRequestDTO;
 import online.longlian.app.pojo.vo.app.ProjectMemberVO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.app.ProjectCreateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectDeleteParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectDetailResultBO;
-import online.longlian.app.pojo.bo.app.ProjectListParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectListResultBO;
-import online.longlian.app.pojo.bo.app.ProjectUpdateParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopAddParamsBO;
-import online.longlian.app.pojo.bo.app.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectCreateParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectDeleteParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectDetailResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListParamsBO;
+import online.longlian.app.pojo.bo.app.project.ProjectListResultBO;
+import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
+import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopRemoveParamsBO;
 import online.longlian.app.pojo.dto.app.DeletionReasonDTO;
-import online.longlian.app.service.app.DeletionRequestService;
+import online.longlian.app.service.deletion.DeletionRequestService;
 import online.longlian.app.pojo.dto.app.ProjectCreateDTO;
 import online.longlian.app.pojo.dto.app.ProjectListDTO;
 import online.longlian.app.pojo.dto.app.ProjectUpdateDTO;
+import online.longlian.app.pojo.bo.app.project.ProjectTypeInfoResultBO;
 import online.longlian.app.pojo.vo.app.ProjectDetailInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectInfoVO;
 import online.longlian.app.pojo.vo.app.ProjectTypeInfoVO;
 import online.longlian.app.pojo.vo.common.PageResultVO;
-import online.longlian.app.service.app.ProjectService;
+import online.longlian.app.pojo.vo.common.ProjectTypeCustomFieldVO;
+import online.longlian.app.service.app.project.ProjectService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -95,7 +97,7 @@ public class ProjectController {
         return vo;
     }
 
-    @Operation(summary = "分页查询企划当前成员", description = "仅返回未退出成员，按用户 ID 升序；建议 pageSize=12")
+    @Operation(summary = "分页查询企划当前成员", description = "仅返回未退出成员，按用户 ID 升序。completedCount 是当前仍有效的提交所对应的任务数，同一任务只计一次；lastSubmittedAt 是这些提交里最晚的时间。已打回或已重置的提交不计入。建议 pageSize=12")
     @GetMapping("/{projectId}/members")
     @ResponseMessage("查询成功")
     public PageResultVO<ProjectMemberVO> getProjectMembers(
@@ -118,7 +120,17 @@ public class ProjectController {
     @GetMapping("/types")
     @ResponseMessage("查询成功")
     public List<ProjectTypeInfoVO> getProjectTypes(@UserSession(OrganizationDeclaration.REQUIRED) SessionContext sessionContext) {
-        return projectService.getProjectTypes(sessionContext.orgId());
+        List<ProjectTypeInfoResultBO> resultBOList = projectService.getProjectTypes(sessionContext.orgId());
+        return resultBOList.stream().map(bo -> {
+            ProjectTypeInfoVO projectTypeInfoVO = new ProjectTypeInfoVO();
+            BeanUtils.copyProperties(bo, projectTypeInfoVO, "customFields");
+            projectTypeInfoVO.setCustomFields(bo.getCustomFields().stream().map(fieldBO -> {
+                ProjectTypeCustomFieldVO fieldVO = new ProjectTypeCustomFieldVO();
+                BeanUtils.copyProperties(fieldBO, fieldVO);
+                return fieldVO;
+            }).toList());
+            return projectTypeInfoVO;
+        }).toList();
     }
 
     @Operation(summary = "创建企划", description = "创建后自动加入当前用户的个人工坊")

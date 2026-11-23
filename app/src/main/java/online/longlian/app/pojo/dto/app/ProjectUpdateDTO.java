@@ -1,6 +1,5 @@
 package online.longlian.app.pojo.dto.app;
 
-import online.longlian.app.common.annotation.JsonLongIdString;
 import online.longlian.common.enumeration.ProjectStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,7 +19,6 @@ public class ProjectUpdateDTO {
     @Schema(description = "别名", requiredMode = Schema.RequiredMode.REQUIRED)
     private String alias;
 
-    @JsonLongIdString
     @Schema(type = "string", description = "企划类型ID；省略时保留原类型")
     private Long typeId;
 
@@ -32,11 +30,9 @@ public class ProjectUpdateDTO {
     @Schema(description = "企划简介", requiredMode = Schema.RequiredMode.REQUIRED)
     private String description;
 
-    @JsonLongIdString
     @Schema(type = "string", description = "封面文件ID；省略时保留原封面")
     private Long coverFileId;
 
-    @JsonLongIdString
     @Schema(type = "string", description = "缩略图文件ID；省略时保留原缩略图")
     private Long thumbnailFileId;
 
