@@ -678,7 +678,7 @@ class ItemServiceImplTest {
         assertThatThrownBy(() -> service.completeProjectItem(completeParams(1L)))
                 .isInstanceOfSatisfying(AppException.class, ex -> {
                     assertThat(ex.getCode()).isEqualTo(ResultCode.OPERATION_FAIL.getCode());
-                    assertThat(ex.getMsg()).isEqualTo("操作失败,项目中所有任务完成后才能标记完成");
+                    assertThat(ex.getMsg()).isEqualTo("操作失败，项目中所有任务完成后才能标记完成");
                 });
         verify(itemMapper, never()).update(isNull(), any());
     }
