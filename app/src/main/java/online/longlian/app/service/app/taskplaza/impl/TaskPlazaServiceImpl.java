@@ -22,6 +22,7 @@ import online.longlian.app.pojo.bo.app.taskplaza.PlazaProjectGroupResultBO;
 import online.longlian.app.pojo.bo.common.PageResultBO;
 import online.longlian.app.service.app.item.ItemService;
 import online.longlian.app.service.app.taskplaza.TaskPlazaService;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -39,9 +40,6 @@ import java.util.function.Function;
 @Service
 @RequiredArgsConstructor
 public class TaskPlazaServiceImpl implements TaskPlazaService {
-
-    /** 任务大厅缩略图按 EdgeOne 图片即时处理参数缩放到 144x144。 */
-    private static final String THUMBNAIL_RESIZE_PARAM = "eo-img.resize=w/144/h/144";
 
     private final TaskInstanceMapper taskInstanceMapper;
     private final ProjectTypeMapper projectTypeMapper;
@@ -195,10 +193,6 @@ public class TaskPlazaServiceImpl implements TaskPlazaService {
             return urls;
         }
         return urls.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> resizeThumbnailUrl(entry.getValue())));
-    }
-
-    private static String resizeThumbnailUrl(String url) {
-        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> ImageResizePreset.THUMBNAIL.apply(entry.getValue())));
     }
 }

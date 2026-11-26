@@ -68,7 +68,7 @@ class MemberAssemblerTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNickname()).isEqualTo("Alice");
-        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://cdn/avatar.png");
+        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://cdn/avatar.png?eo-img.resize=w/64/h/64");
         assertThat(result.get(0).getSubmitCount()).isEqualTo(5);
         assertThat(result.get(0).getClaimedTaskCount()).isEqualTo(2);
     }
@@ -112,7 +112,7 @@ class MemberAssemblerTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNickname()).isEqualTo("Bob");
-        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://cdn/bob.png");
+        assertThat(result.get(0).getAvatarUrl()).isEqualTo("https://cdn/bob.png?eo-img.resize=w/64/h/64");
     }
 
     @Test

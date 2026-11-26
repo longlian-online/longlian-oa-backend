@@ -43,6 +43,8 @@ import static org.mockito.Mockito.doAnswer;
 /** API assertions deliberately read committed rows, including the audit and membership side effects. */
 public class TaskOwnerReviewApiTest extends BaseApiTest {
 
+    private static final String REASON = "请修正成果后重新提交";
+
     @SpyBean
     private ItemTaskFlowMapper itemTaskFlowMapper;
 
@@ -909,6 +911,158 @@ public class TaskOwnerReviewApiTest extends BaseApiTest {
             assertCode(pending.get(15, TimeUnit.SECONDS), ResultCode.OPERATION_FAIL);
             assertThat(snapshot()).isEqualTo(relocated);
         }
+    }
+
+    /** 未完成任务不能随退出遗留，删除成员关联和暂存均须回滚或保留。 */
+    @Test
+    void shouldRejectLeavingWithClaimedTaskAndKeepMembershipAndDraft() {
+        Tokens tokens = createWorkflow();
+        jdbcTemplate.update("UPDATE task_instance SET draft_metadata = '{}', draft_updated_at = NOW() WHERE id = 1");
+
+        assertCode(leave(tokens.worker()), ResultCode.OPERATION_FAIL);
+
+        assertWorkshopMembership(2L, true);
+        assertInstance(1, 2, 2L, 0);
+        assertThat(instance(1).get("draft_metadata")).isEqualTo("{}");
+    }
+
+    /** 等前置阶段的任务仍是未完成责任，不得通过退出规避。 */
+    @Test
+    void shouldRejectLeavingWithTaskWaitingForPreviousStage() {
+        Tokens tokens = createWorkflow();
+        jdbcTemplate.update("UPDATE item_task_node SET sort = 2 WHERE id = 1");
+        insertSlot(2, 1, 1, 1, null);
+
+        assertCode(leave(tokens.worker()), ResultCode.OPERATION_FAIL);
+        assertWorkshopMembership(2L, true);
+    }
+
+    /** 其他人的任务不应阻止当前成员退出。 */
+    @Test
+    void shouldAllowLeavingWhenOnlyOtherMemberHasClaimedTasks() {
+        Tokens tokens = createWorkflow();
+        jdbcTemplate.update("UPDATE task_instance SET assignee_id = 1 WHERE id = 1");
+
+        assertCode(leave(tokens.worker()), ResultCode.SUCCESS);
+
+        assertWorkshopMembership(2L, false);
+        assertInstance(1, 2, 1L, 0);
+    }
+
+    /** 同一用户在其他企划承担的任务不应阻止退出当前企划。 */
+    @Test
+    void shouldAllowLeavingWithClaimedTaskInAnotherProject() {
+        Tokens tokens = createWorkflow();
+        createOtherProject();
+        jdbcTemplate.update("UPDATE task_instance SET project_id = 2, item_id = 2, item_task_node_id = 2, task_flow_id = 2 WHERE id = 1");
+
+        assertCode(leave(tokens.worker()), ResultCode.SUCCESS);
+
+        assertWorkshopMembership(2L, false);
+        assertInstance(1, 2, 2L, 0);
+    }
+
+    /** 退出后被打回仍由本人选择返修，重新提交不自动恢复企划成员关系。 */
+    @Test
+    void shouldAllowFormerMemberToResubmitRejectedTaskWithoutRejoining() {
+        Tokens tokens = createWorkflow();
+        assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
+        assertCode(leave(tokens.worker()), ResultCode.SUCCESS);
+        assertCode(operate(tokens.owner(), "reject", revision(), REASON), ResultCode.SUCCESS);
+        assertWorkshopMembership(2L, false);
+        assertTodoCount(tokens.worker(), 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_notification WHERE recipient_user_id = 2 AND kind = 6",
+                Integer.class)).isEqualTo(1);
+
+        assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
+
+        assertWorkshopMembership(2L, false);
+        assertInstance(1, 3, 2L, 3);
+        assertTodoCount(tokens.worker(), 0);
+        assertThat(submissions()).hasSize(2);
+        assertThat(submissions().getFirst().get("submitter_id")).isEqualTo(2L);
+        assertCount(5);
+    }
+
+    /** 放弃只释放责任；旧成果、附件和打回意见可交给新执行人参考，版本署名不转移。 */
+    @Test
+    void shouldKeepRejectedWorkWhenFormerMemberAbandonsAndAnotherMemberClaims() {
+        Tokens tokens = createWorkflow();
+        String fields = "[{\"key\":\"result\",\"label\":\"成果\",\"type\":\"text\",\"required\":false},"
+                + "{\"key\":\"file\",\"label\":\"附件\",\"type\":\"file\",\"required\":false}]";
+        jdbcTemplate.update("UPDATE item_task_node SET meta_schema = ? WHERE id = 1", fields);
+        jdbcTemplate.update("INSERT INTO resource "
+                + "(id, org_id, storage_type, storage_key, file_name, file_ext, file_size, file_mime, "
+                + "biz_type, biz_id, process_status, creator_id) "
+                + "VALUES (901, 1, 3, 'task_submit/901.txt', '成果.txt', 'txt', 10, 'text/plain', 'task_submit', 0, 3, 2)");
+        assertCode(authRequest(tokens.worker()).body(Map.of("values", Map.of(
+                "result", "原执行人的成果", "file", Map.of("fileId", "901")))).post(path("submit")), ResultCode.SUCCESS);
+        assertCode(leave(tokens.worker()), ResultCode.SUCCESS);
+        assertCode(operate(tokens.owner(), "reject", revision(), REASON), ResultCode.SUCCESS);
+        List<Map<String, Object>> rejectedWork = submissions();
+        jdbcTemplate.update("UPDATE task_instance SET draft_metadata = '{}', draft_updated_at = NOW() WHERE id = 1");
+
+        assertCode(cancel(tokens.worker(), revision()), ResultCode.SUCCESS);
+
+        assertInstance(1, 1, null, 3);
+        assertThat(instance(1).get("claimed_at")).isNull();
+        assertThat(instance(1).get("draft_metadata")).isNull();
+        assertThat(instance(1).get("draft_updated_at")).isNull();
+        assertThat(submissions()).isEqualTo(rejectedWork);
+        assertWorkshopMembership(2L, false);
+        assertCount(4);
+        assertTodoCount(tokens.worker(), 0);
+        createTestUser(3L, "successor", "123456", "successor@example.com");
+        createOrganizationMember(3L, 1L, 3L, "ORG_USER");
+        String successor = loginAs("successor", "123456");
+        assertCode(authRequest(successor).post(path("claim")), ResultCode.SUCCESS);
+        assertInstance(1, 2, 3L, 4);
+        assertWorkshopMembership(3L, true);
+        authRequest(successor).get(path("submissions")).then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data[0].status", equalTo("REJECTED"))
+                .body("data[0].submitter.id", equalTo("2"))
+                .body("data[0].reviewComment", equalTo(REASON))
+                .body("data[0].fields[1].file.availability", equalTo("available"));
+        authRequest(successor).get(path("attachments/901/download")).then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()));
+        assertCode(submit(successor, 1), ResultCode.SUCCESS);
+        assertThat(submissions()).hasSize(2);
+        assertThat(submissions().getFirst()).isEqualTo(rejectedWork.getFirst());
+        assertThat(submissions().getLast().get("submitter_id")).isEqualTo(3L);
+        assertWorkshopMembership(2L, false);
+    }
+
+    /** 退出后的重置沿用返修规则，不重新加入企划，也不妨碍随后放弃。 */
+    @Test
+    void shouldAllowFormerMemberToResetAndAbandonWithoutRejoining() {
+        Tokens tokens = createWorkflow();
+        assertCode(submit(tokens.worker(), 1), ResultCode.SUCCESS);
+        assertCode(leave(tokens.worker()), ResultCode.SUCCESS);
+
+        assertCode(authRequest(tokens.worker()).post(path("reset")), ResultCode.SUCCESS);
+        assertWorkshopMembership(2L, false);
+        assertCode(cancel(tokens.worker(), revision()), ResultCode.SUCCESS);
+        assertInstance(1, 1, null, 3);
+        assertThat(submissions()).hasSize(1);
+        assertCount(4);
+    }
+
+    private Response leave(String token) {
+        return authRequest(token).delete("/app/projects/1/workshop");
+    }
+
+    private void assertTodoCount(String token, int expected) {
+        authRequest(token).queryParam("bucket", "SUBMITTABLE").get("/app/task/instance/mine").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .body("data.total", equalTo(expected));
+    }
+
+    private void assertWorkshopMembership(long userId, boolean expected) {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM project_workshop WHERE project_id = 1 AND user_id = ? AND deleted_at IS NULL",
+                Integer.class, userId)).isEqualTo(expected ? 1 : 0);
     }
 
     private Tokens createWorkflow() {

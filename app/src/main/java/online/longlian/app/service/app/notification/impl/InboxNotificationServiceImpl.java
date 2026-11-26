@@ -18,6 +18,7 @@ import online.longlian.app.pojo.bo.app.notification.NotificationSourceResolvePar
 import online.longlian.app.pojo.bo.app.notification.NotificationStatusParamsBO;
 import online.longlian.app.pojo.bo.app.notification.NotificationStatusResultBO;
 import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -90,8 +91,7 @@ public class InboxNotificationServiceImpl extends ServiceImpl<UserNotificationMa
                     .map(ResourceReadUrlGetResultBO::getUrl).filter(url -> url != null && !url.isBlank())
                     .findFirst().orElse(null);
             return new NotificationResultBO(row.getId(), row.getKind(), row.getSourceId(), row.getCreatedAt(),
-                    row.getReadAt(), source.getSource(), thumbnail == null ? null
-                    : thumbnail + (thumbnail.contains("?") ? "&" : "?") + "eo-img.resize=w/144/h/144");
+                    row.getReadAt(), source.getSource(), ImageResizePreset.THUMBNAIL.apply(thumbnail));
         }).toList();
         return new NotificationPageResultBO(list, hasNext, unreadCount);
     }

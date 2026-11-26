@@ -14,6 +14,7 @@ import online.longlian.app.pojo.bo.app.project.ProjectMemberSubmissionStatBO;
 import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectWorkshop;
+import online.longlian.app.service.app.mytask.ClaimedTaskLoadService;
 import online.longlian.app.service.app.taskinstance.impl.ProjectMemberSubmissionStats;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.projecttype.ProjectTypeCustomFormService;
@@ -72,7 +73,8 @@ class ProjectServiceImplMemberKeysetTest {
         service = new ProjectServiceImpl(projectMapper, projectTypeMapper, projectWorkshopMapper,
                 itemMapper, resourceService, projectQueryBuilder, projectAssembler,
                 projectProgressHandler, projectTypeCustomFormService, projectAttachmentHandler,
-                organizationMembershipService, projectMemberSubmissionStats, Clock.systemUTC());
+                organizationMembershipService, mock(ClaimedTaskLoadService.class),
+                projectMemberSubmissionStats, Clock.systemUTC());
     }
 
     private ProjectWorkshop workshop(long userId) {

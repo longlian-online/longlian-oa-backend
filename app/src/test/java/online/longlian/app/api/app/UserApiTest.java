@@ -639,7 +639,7 @@ public class UserApiTest extends BaseApiTest {
         userRequest(token).body(Map.of("oldPassword", "wrong1", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,原密码错误"));
+                .body("msg", equalTo("操作失败，原密码错误"));
         request().body(Map.of("oldPassword", "123456", "newPassword", "River!82Maple"))
                 .patch("/app/user/password")
                 .then().statusCode(200).body("code", equalTo(ResultCode.UNAUTHORIZED.getCode()));
@@ -824,7 +824,7 @@ public class UserApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,邮箱已绑定"));
+                .body("msg", equalTo("操作失败，邮箱已绑定"));
 
         assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 1", String.class))
                 .isEqualTo("bound@example.com");
@@ -845,7 +845,7 @@ public class UserApiTest extends BaseApiTest {
                 .then()
                 .statusCode(200)
                 .body("code", equalTo(ResultCode.OPERATION_FAIL.getCode()))
-                .body("msg", equalTo("操作失败,邮箱已存在"));
+                .body("msg", equalTo("操作失败，邮箱已存在"));
 
         assertThat(jdbcTemplate.queryForObject("SELECT email FROM `user` WHERE id = 1", String.class)).isNull();
         assertThat(jdbcTemplate.queryForObject(

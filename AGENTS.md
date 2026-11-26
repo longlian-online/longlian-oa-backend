@@ -49,6 +49,7 @@ Controller → Service(interface) → ServiceImpl → Mapper(interface)（优先
 4. 完全信任 Controller 预处理后的入参，Service 层不做重复非空判断、不做分页参数兜底、不做防御性编码
 5. 多入参时定义独立入参类（如 service 层使用 BO 类），以便后续扩展
 6. 注释应说明「为什么这样做」而非「做了什么」（逻辑简单时无需注释）
+7. 返回头像、缩略图、列表封面等需要即时缩放的图片链接时，**必须**通过 `ImageResizePreset`（`AVATAR` / `THUMBNAIL` / `COVER`）配合 `ResourceService.getResourceReadUrl(s)` 统一附加缩放参数，禁止在业务代码中手写 `eo-img.resize=...` 拼接；用户头像与组织头像在所有接口中一律使用 `ImageResizePreset.AVATAR`（`w/64/h/64`），以保证跨页面 URL 一致并复用浏览器缓存；仅详情页原图与附件下载才直接返回未缩放链接
 
 ## 通用返回格式
 
@@ -71,7 +72,7 @@ Result<T>  // code=0 成功, 非0 异常; msg 提示; data 业务数据
 | 异步执行 | `@Async` + 虚拟线程（`VirtualThreadTaskExecutor`），如邮件发送 |
 | 认证鉴权 | `JwtAuthenticationFilter` 从 Header 解析 JWT；支持邮箱验证码 + 用户名密码两种登录 |
 | JWT 黑名单 | 登出时 JWT 加入 MariaDB 黑名单表 `token_blacklist` (`TokenBlacklistService`)，按 `expired_at` 实现 TTL 过期 |
-| 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地 |
+| 文件上传 | `ResourceService` 统一入口，`StorageServiceFactory` 根据配置自动选 OSS/本地；图片读取链接缩放统一使用 `ImageResizePreset`（`AVATAR` / `THUMBNAIL` / `COVER`） |
 | 通知 | `NotificationManager` + `EmailNotificationService`，异步发送邮件 |
 | 链路追踪 | `TraceIdFilter` 生成 TraceId，OpenTelemetry 自动埋点；API 结果计数是 `ApiResultMetrics`（`app.result`） |
 | 定时任务 | `ScheduledTask` 接口定义任务，`ScheduledTaskEngine` 调度引擎（Spring Cron），手动触发通过 `admin/ScheduledTaskController` |

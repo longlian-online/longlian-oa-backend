@@ -19,7 +19,6 @@ import online.longlian.app.pojo.bo.app.project.ProjectMemberKeysetResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberListParamsBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectMemberSubmissionStatBO;
-import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.bo.common.OrganizationMemberDetailsResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectAccessParamsBO;
 import online.longlian.app.pojo.bo.app.project.ProjectAccessResultBO;
@@ -33,6 +32,7 @@ import online.longlian.app.pojo.bo.app.project.ProjectUpdateParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddParamsBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopAddResultBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.ProjectWorkshopRemoveParamsBO;
+import online.longlian.app.pojo.bo.app.mytask.ProjectClaimedTaskParamsBO;
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Item;
 import online.longlian.app.pojo.entity.Project;
@@ -41,9 +41,11 @@ import online.longlian.app.pojo.entity.ProjectWorkshop;
 import online.longlian.app.pojo.bo.orgadmin.projecttype.ProjectTypeCustomFieldResultBO;
 import online.longlian.app.pojo.bo.app.project.ProjectTypeInfoResultBO;
 import online.longlian.app.service.app.project.ProjectService;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.app.service.orgadmin.projecttype.ProjectTypeCustomFormService;
 import online.longlian.app.service.app.taskinstance.impl.ProjectMemberSubmissionStats;
+import online.longlian.app.service.app.mytask.ClaimedTaskLoadService;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ProjectStatus;
 import online.longlian.common.enumeration.Status;
@@ -74,6 +76,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectTypeCustomFormService projectTypeCustomFormService;
     private final ProjectAttachmentHandler projectAttachmentHandler;
     private final OrganizationMembershipService organizationMembershipService;
+    private final ClaimedTaskLoadService claimedTaskLoadService;
     private final ProjectMemberSubmissionStats projectMemberSubmissionStats;
     private final Clock clock;
 
@@ -89,14 +92,14 @@ public class ProjectServiceImpl implements ProjectService {
         List<OrganizationMemberDetailsResultBO> page = members.stream().skip(offset).limit(params.getPage().getPageSize()).toList();
         List<Long> avatarIds = page.stream().map(OrganizationMemberDetailsResultBO::avatarFileId)
                 .filter(id -> id != null && id > 0).distinct().toList();
-        Map<Long, ResourceReadUrlGetResultBO> avatars = resourceService.getResourceReadUrls(avatarIds);
+        Map<Long, String> avatars = ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarIds));
         Map<Long, ProjectMemberSubmissionStatBO> submissionStats = projectMemberSubmissionStats.forMembers(
                 params.getProjectId(), page.stream().map(OrganizationMemberDetailsResultBO::userId).toList());
         List<ProjectMemberResultBO> results = page.stream().map(member -> {
-            ResourceReadUrlGetResultBO avatar = member.avatarFileId() == null ? null : avatars.get(member.avatarFileId());
+            String avatarUrl = member.avatarFileId() == null ? null : avatars.get(member.avatarFileId());
             ProjectMemberSubmissionStatBO stat = submissionStats.get(member.userId());
             return new ProjectMemberResultBO(member.userId(), member.nickname(),
-                    avatar == null ? null : avatar.getUrl(), project.getCreatorId().equals(member.userId()),
+                    avatarUrl, project.getCreatorId().equals(member.userId()),
                     stat == null ? null : stat.lastSubmittedAt(), stat == null ? 0 : stat.completedCount());
         }).toList();
         return new PageResultBO<>(results, (long) members.size());
@@ -392,12 +395,17 @@ public class ProjectServiceImpl implements ProjectService {
         if (project.getCreatorId().equals(params.getUserId())) {
             throw new AppException(ResultCode.UNAUTHORIZED_OPERATION, "企划负责人不能退出企划");
         }
+        // 先锁定成员关联，再当前读检查责任；接取/分配在同一事务中确认关联，避免退出漏掉并发接取。
         projectWorkshopMapper.update(null,
                 new LambdaUpdateWrapper<ProjectWorkshop>()
                         .eq(ProjectWorkshop::getProjectId, params.getProjectId())
                         .eq(ProjectWorkshop::getUserId, params.getUserId())
                         .set(ProjectWorkshop::getDeletedAt, LocalDateTime.now(clock))
         );
+        if (claimedTaskLoadService.hasClaimedTasksInProject(ProjectClaimedTaskParamsBO.builder()
+                .projectId(params.getProjectId()).assigneeId(params.getUserId()).build())) {
+            throw new AppException(ResultCode.OPERATION_FAIL, "还有未完成的任务，请先提交或放弃后再退出企划");
+        }
     }
 
 

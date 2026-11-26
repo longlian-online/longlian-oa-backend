@@ -15,6 +15,7 @@ import online.longlian.app.pojo.bo.app.projectworkshop.ProjectLatestSubmissionBO
 import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopProjectInfoResultBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateNodeResultBO;
 import online.longlian.app.pojo.bo.app.projectworkshop.WorkshopTaskTemplateResultBO;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 
@@ -27,9 +28,6 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class WorkshopAssembler {
-
-    /** 工坊卡片缩略图按 EdgeOne 图片即时处理参数缩放到 144x144。 */
-    private static final String THUMBNAIL_RESIZE_PARAM = "eo-img.resize=w/144/h/144";
 
     private final UserMapper userMapper;
     private final BaseTaskMapper baseTaskMapper;
@@ -57,8 +55,7 @@ public class WorkshopAssembler {
                 .map(Project::getThumbnailFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> thumbnailUrlMap = thumbnailFileIds.isEmpty()
                 ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(thumbnailFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                : ImageResizePreset.THUMBNAIL.apply(resourceService.getResourceReadUrls(thumbnailFileIds));
 
         List<Long> creatorIds = projects.stream().map(Project::getCreatorId).distinct().toList();
         Map<Long, User> userMap = userMapper.selectBatchIds(creatorIds).stream()
@@ -68,8 +65,7 @@ public class WorkshopAssembler {
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
                 ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                : ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarFileIds));
 
         return projects.stream()
                 .map(project -> {
@@ -78,8 +74,7 @@ public class WorkshopAssembler {
                     projectInfoResultBO.setId(project.getId());
                     projectInfoResultBO.setTitle(project.getTitle());
                     projectInfoResultBO.setCoverUrl(coverUrlMap.get(project.getCoverFileId()));
-                    projectInfoResultBO.setThumbnailUrl(
-                            resizeThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId())));
+                    projectInfoResultBO.setThumbnailUrl(thumbnailUrlMap.get(project.getThumbnailFileId()));
                     if (creator != null && creator.getAvatarFileId() != null) {
                         projectInfoResultBO.setCreatorAvatarUrl(avatarUrlMap.get(creator.getAvatarFileId()));
                     }
@@ -91,13 +86,6 @@ public class WorkshopAssembler {
                     return projectInfoResultBO;
                 })
                 .toList();
-    }
-
-    private static String resizeThumbnailUrl(String url) {
-        if (url == null) {
-            return null;
-        }
-        return url + (url.contains("?") ? "&" : "?") + THUMBNAIL_RESIZE_PARAM;
     }
 
     public List<WorkshopTaskTemplateResultBO> assembleTemplateList(List<TaskTemplate> templates, Long currentUserId) {

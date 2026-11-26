@@ -78,7 +78,9 @@ class TaskDetailApiTest extends BaseApiTest {
                 .body("code", equalTo(ResultCode.SUCCESS.getCode()))
                 .body("data.task.status", equalTo("COMPLETED"))
                 .body("data.task.assignee.id", equalTo("1"))
-                .body("data.task.assignee.avatarUrl", startsWith("https://static.example.com/avatar/101.png?token="))
+                .body("data.task.assignee.avatarUrl", allOf(
+                        startsWith("https://static.example.com/avatar/101.png?token="),
+                        containsString("&eo-img.resize=w/64/h/64")))
                 .body("data.submission.state", equalTo("submitted"))
                 .body("data.submission.submittedAt", notNullValue())
                 .body("data.submission.fields.key", contains("optional", "count", "notes", "category", "attachment"))

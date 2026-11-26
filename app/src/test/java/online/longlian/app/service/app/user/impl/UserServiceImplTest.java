@@ -601,7 +601,7 @@ class UserServiceImplTest {
 
         UserSwitchOrgResultBO result = service.switchOrg(UserSwitchOrgParamsBO.builder().userId(1L).orgId(2L).build());
 
-        assertThat(result.getAvatarUrl()).isEqualTo("http://avatar");
+        assertThat(result.getAvatarUrl()).isEqualTo("http://avatar?eo-img.resize=w/64/h/64");
     }
 
     @Test
