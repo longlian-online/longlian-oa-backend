@@ -99,7 +99,7 @@ class ProjectAssemblerTest {
         assertEquals("漫画", bo.getProjectType());
         assertEquals(ProjectStatus.IN_PROGRESS, bo.getProjectStatus());
         assertEquals("https://cdn/cover.png?eo-img.resize=w/400/h/600", bo.getCoverUrl());
-        assertEquals("https://cdn/avatar.png", bo.getCreatorAvatarUrl());
+        assertEquals("https://cdn/avatar.png?eo-img.resize=w/64/h/64", bo.getCreatorAvatarUrl());
     }
 
     @Test

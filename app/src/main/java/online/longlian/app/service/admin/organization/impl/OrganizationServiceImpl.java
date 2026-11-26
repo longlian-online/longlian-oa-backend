@@ -19,12 +19,12 @@ import online.longlian.app.common.result.ResultCode;
 import online.longlian.app.mapper.OrganizationMapper;
 import online.longlian.app.pojo.bo.admin.*;
 import online.longlian.app.pojo.bo.common.PageResultBO;
-import online.longlian.app.pojo.bo.common.ResourceReadUrlGetResultBO;
 import online.longlian.app.pojo.bo.common.OTPGenerateContextBO;
 import online.longlian.app.pojo.entity.OneTimePassword;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.admin.organization.OrganizationService;
 import online.longlian.app.service.otp.OTPServiceFactory;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.OTPType;
 import org.springframework.stereotype.Service;
@@ -69,12 +69,11 @@ public class OrganizationServiceImpl implements OrganizationService {
                 .map(Organization::getAvatarFileId)
                 .filter(id -> id != null && id > 0)
                 .toList();
-        Map<Long, ResourceReadUrlGetResultBO> resourceMap = resourceService.getResourceReadUrls(avatarIds);
+        Map<Long, String> avatarUrlMap = ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarIds));
 
-        ResourceReadUrlGetResultBO defaultResource = new ResourceReadUrlGetResultBO("", 0L, "");
         List<AdminOrganizationListResultBO> list = organizations.stream().map(organization -> new AdminOrganizationListResultBO(organization.getId(),
                 organization.getName(),
-                resourceMap.getOrDefault(organization.getAvatarFileId(), defaultResource).getUrl(),
+                avatarUrlMap.getOrDefault(organization.getAvatarFileId(), ""),
                 organization.getStatus(),
                 organization.getCreatedAt()
         )).toList();

@@ -93,7 +93,7 @@ class WorkshopAssemblerTest {
         assertEquals(1L, vo.getId());
         assertEquals("Project A", vo.getTitle());
         assertEquals("https://cdn/cover.png", vo.getCoverUrl());
-        assertEquals("https://cdn/avatar.png", vo.getCreatorAvatarUrl());
+        assertEquals("https://cdn/avatar.png?eo-img.resize=w/64/h/64", vo.getCreatorAvatarUrl());
     }
 
     @Test
@@ -137,7 +137,7 @@ class WorkshopAssemblerTest {
     }
 
     @Test
-    void assembleProjectList_thumbnailUrlResized_coverAndAvatarStayOriginal() {
+    void assembleProjectList_thumbnailAndAvatarResized_coverStaysOriginal() {
         Project plain = Project.builder()
                 .id(1L)
                 .title("Plain")
@@ -167,7 +167,7 @@ class WorkshopAssemblerTest {
 
         assertEquals("https://cdn/thumb.png?eo-img.resize=w/144/h/144", result.get(0).getThumbnailUrl());
         assertEquals("https://cdn/cover.png", result.get(0).getCoverUrl());
-        assertEquals("https://cdn/avatar.png", result.get(0).getCreatorAvatarUrl());
+        assertEquals("https://cdn/avatar.png?eo-img.resize=w/64/h/64", result.get(0).getCreatorAvatarUrl());
         assertEquals("https://cdn/thumb.png?token=abc&t=1&eo-img.resize=w/144/h/144",
                 result.get(1).getThumbnailUrl());
         assertNull(result.get(1).getCoverUrl());

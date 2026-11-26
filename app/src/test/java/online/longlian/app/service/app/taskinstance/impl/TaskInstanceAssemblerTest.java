@@ -115,7 +115,7 @@ class TaskInstanceAssemblerTest {
         assertEquals("9223372036854775807", vo.getRevision());
         assertEquals(10L, vo.getAssigneeId());
         assertEquals("alice", vo.getAssigneeNickname());
-        assertEquals("https://cdn/avatar.png", vo.getAssigneeAvatarUrl());
+        assertEquals("https://cdn/avatar.png?eo-img.resize=w/64/h/64", vo.getAssigneeAvatarUrl());
         assertEquals("翻译", vo.getName());
         assertEquals(2, vo.getSort());
         assertEquals(1, vo.getParallelSort());
@@ -375,7 +375,7 @@ class TaskInstanceAssemblerTest {
                 assembler.assembleSubmissionVersions(
                         instance, node, List.of(withAvatar, ownerlessReviewer, reviewerAbsent), 10L);
 
-        assertEquals("https://cdn.test/77", versions.get(0).getSubmitter().avatarUrl());
+        assertEquals("https://cdn.test/77?eo-img.resize=w/64/h/64", versions.get(0).getSubmitter().avatarUrl());
         assertEquals("阿苏", versions.get(0).getSubmitter().nickname());
         online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultBO rejected = versions.get(1);
         assertEquals("999", rejected.getReviewer().id());

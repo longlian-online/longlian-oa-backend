@@ -17,6 +17,7 @@ import online.longlian.app.pojo.bo.app.taskinstance.TaskSubmissionVersionResultB
 
 import online.longlian.app.service.taskform.TaskFormService;
 import online.longlian.app.pojo.bo.app.taskinstance.ItemTaskInstanceResultBO;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 import online.longlian.common.enumeration.TaskSubmissionStatus;
@@ -63,8 +64,7 @@ public class TaskInstanceAssembler {
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
                 ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                : ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarFileIds));
 
         return instances.stream()
                 .map(instance -> {
@@ -105,8 +105,8 @@ public class TaskInstanceAssembler {
             User user = userMapper.selectById(instance.getAssigneeId());
             if (user != null) {
                 String avatarUrl = user.getAvatarFileId() != null && user.getAvatarFileId() > 0
-                        ? resourceService.getResourceReadUrls(List.of(user.getAvatarFileId()))
-                            .values().stream().map(value -> value.getUrl()).findFirst().orElse(null)
+                        ? ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(List.of(user.getAvatarFileId())))
+                            .values().stream().findFirst().orElse(null)
                         : null;
                 assignee = new TaskInstanceDetailResultBO.TaskAssigneeResultBO(
                         user.getId().toString(), user.getNickname(), avatarUrl);
@@ -234,8 +234,7 @@ public class TaskInstanceAssembler {
         if (avatarFileIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        return resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+        return ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarFileIds));
     }
 
     private TaskSubmissionVersionResultBO.TaskParticipantResultBO participant(

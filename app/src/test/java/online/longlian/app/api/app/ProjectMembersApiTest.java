@@ -32,7 +32,9 @@ class ProjectMembersApiTest extends BaseApiTest {
                 .body("data.list", hasSize(2))
                 .body("data.list[0].userId", equalTo(1))
                 .body("data.list[0].nickname", equalTo("昵称"))
-                .body("data.list[0].avatarUrl", containsString("avatar/10.png"))
+                .body("data.list[0].avatarUrl", allOf(
+                        containsString("avatar/10.png"),
+                        containsString("&eo-img.resize=w/64/h/64")))
                 .body("data.list[0].isCreator", equalTo(true))
                 .body("data.list[1].nickname", equalTo("member2"))
                 .body("data.list[1].isCreator", equalTo(false));

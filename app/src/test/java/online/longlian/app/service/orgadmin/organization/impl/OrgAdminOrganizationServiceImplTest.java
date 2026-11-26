@@ -52,7 +52,7 @@ class OrgAdminOrganizationServiceImplTest {
         OrgAdminGetOrganizationInfoResultBO result = service.getOrganizationInfo(1L);
 
         assertThat(result.getAvatarFileId()).isEqualTo(12345L);
-        assertThat(result.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
+        assertThat(result.getAvatarUrl()).isEqualTo("https://example.com/avatar.png?eo-img.resize=w/64/h/64");
     }
 
     @Test
