@@ -10,6 +10,7 @@ import online.longlian.app.pojo.entity.GroupApplication;
 import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.app.mytask.ClaimedTaskLoadService;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.common.enumeration.ApplicationType;
 import org.springframework.stereotype.Component;
@@ -45,15 +46,13 @@ public class MemberAssembler {
                 .stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
-        // 头像通过 ResourceService 批量获取 URL
-        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(userMap.values().stream()
+        // 头像通过 ResourceService 批量获取 URL，统一按头像规格缩放
+        Map<Long, String> avatarUrlMap = ImageResizePreset.AVATAR.apply(
+                resourceService.getResourceReadUrls(userMap.values().stream()
                         .map(User::getAvatarFileId)
                         .filter(fileId -> fileId != null && fileId > 0)
                         .distinct()
-                        .toList())
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getUrl()));
+                        .toList()));
 
         // 当前接取任务数由任务域提供，批量取回后按接取人聚合，避免成员查询里再写任务统计 SQL
         Map<Long, Long> claimedCountByUser = claimedTaskLoadService.listClaimedTasks(
@@ -84,14 +83,12 @@ public class MemberAssembler {
                         .stream()
                         .collect(Collectors.toMap(User::getId, Function.identity()));
 
-        Map<Long, String> avatarUrlMap = resourceService.getResourceReadUrls(existingUserMap.values().stream()
+        Map<Long, String> avatarUrlMap = ImageResizePreset.AVATAR.apply(
+                resourceService.getResourceReadUrls(existingUserMap.values().stream()
                         .map(User::getAvatarFileId)
                         .filter(fileId -> fileId != null && fileId > 0)
                         .distinct()
-                        .toList())
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getUrl()));
+                        .toList()));
 
         return applications.stream()
                 .map(application -> toApplicationInfoResult(application, existingUserMap, avatarUrlMap))

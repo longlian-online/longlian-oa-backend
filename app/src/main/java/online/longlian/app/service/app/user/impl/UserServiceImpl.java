@@ -39,6 +39,7 @@ import online.longlian.app.pojo.entity.User;
 import online.longlian.app.service.organization.OrganizationMembershipService;
 import online.longlian.app.service.otp.OTPServiceFactory;
 import online.longlian.app.service.otp.OTPStrategyService;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import online.longlian.app.service.auth.TokenBlacklistService;
 import online.longlian.app.service.app.session.SessionService;
@@ -73,9 +74,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
-
-    /** 页头右上角用户头像、左上角当前组织头像按 EdgeOne 参数缩放到 64x64。 */
-    private static final String HEADER_AVATAR_RESIZE_PARAM = "eo-img.resize=w/64/h/64";
 
     private final PasswordEncoder passwordEncoder;
     private final OrganizationMapper organizationMapper;
@@ -188,7 +186,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .nickname(user.getNickname())
                 .defaultOrgId(user.getDefaultOrgId());
         if (user.getAvatarFileId() != null && user.getAvatarFileId() > 0) {
-            builder.avatarUrl(resizeHeaderAvatarUrl(resourceService.getResourceReadUrl(user.getAvatarFileId())));
+            builder.avatarUrl(ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrl(user.getAvatarFileId())));
         }
         return builder.build();
     }
@@ -282,8 +280,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .toList();
         Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
                 ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> resizeHeaderAvatarUrl(e.getValue().getUrl())));
+                : ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarFileIds));
         Map<Long, String> roles = members.stream()
                 .filter(member -> member.getOrgId() != null)
                 .collect(Collectors.toMap(
@@ -299,10 +296,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .role(roles.get(org.getId()))
                         .build())
                 .toList();
-    }
-
-    private static String resizeHeaderAvatarUrl(String url) {
-        return url + (url.contains("?") ? "&" : "?") + HEADER_AVATAR_RESIZE_PARAM;
     }
 
     @Override
@@ -341,7 +334,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Organization organization = organizationMapper.selectById(params.getOrgId());
         String avatarUrl = null;
         if (organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0) {
-            avatarUrl = resourceService.getResourceReadUrl(organization.getAvatarFileId());
+            avatarUrl = ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrl(organization.getAvatarFileId()));
         }
 
         return UserSwitchOrgResultBO.builder()

@@ -76,6 +76,37 @@ class CdnReadUrlApiTest extends BaseApiTest {
         assertThat(Long.parseLong(queryValue(URI.create(first).getRawQuery(), "t")) % 240).isZero();
     }
 
+    /** 同一用户在顶栏与企划列表返回的头像 URL 完全一致，确保浏览器跨组件复用缓存只发一次请求。 */
+    @Test
+    void shouldReturnIdenticalResizedAvatarUrlAcrossHeaderAndProjectList() {
+        createUserWithOrganization(1L, "user", "123456", "user@example.com", 1L, 1L, "ORG_ADMIN");
+        createResource(1L, 1L, 1L);
+        jdbcTemplate.update("UPDATE resource SET storage_type = 3 WHERE id = 1");
+        jdbcTemplate.update("UPDATE `user` SET avatar_file_id = 1 WHERE id = 1");
+        jdbcTemplate.update("INSERT INTO project_type (id, org_id, name, creator_id) VALUES (1, 1, '漫画', 1)");
+        jdbcTemplate.update("INSERT INTO project (id, org_id, type_id, title, creator_id) VALUES (1, 1, 1, '企划A', 1)");
+
+        String token = loginAs("user", "123456");
+        String headerAvatarUrl = userRequest(token).get("/app/user/").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .extract().path("data.avatarUrl");
+        String projectAvatarUrl = authRequest(token).get("/app/projects").then()
+                .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                .extract().path("data.list[0].creatorAvatarUrl");
+        if (!headerAvatarUrl.equals(projectAvatarUrl)) {
+            headerAvatarUrl = userRequest(token).get("/app/user/").then()
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .extract().path("data.avatarUrl");
+            projectAvatarUrl = authRequest(token).get("/app/projects").then()
+                    .body("code", equalTo(ResultCode.SUCCESS.getCode()))
+                    .extract().path("data.list[0].creatorAvatarUrl");
+        }
+
+        assertThat(projectAvatarUrl)
+                .isEqualTo(headerAvatarUrl)
+                .contains("&eo-img.resize=w/64/h/64");
+    }
+
     private String queryValue(String query, String name) {
         return java.util.Arrays.stream(query.split("&"))
                 .map(pair -> pair.split("=", 2))

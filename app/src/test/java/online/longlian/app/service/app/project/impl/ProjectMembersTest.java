@@ -62,7 +62,7 @@ class ProjectMembersTest {
         assertThat(result.getList()).singleElement().satisfies(member -> {
             assertThat(member.getUserId()).isEqualTo(2L);
             assertThat(member.getNickname()).isEqualTo("member");
-            assertThat(member.getAvatarUrl()).isEqualTo("avatar");
+            assertThat(member.getAvatarUrl()).isEqualTo("avatar?eo-img.resize=w/64/h/64");
             assertThat(member.getIsCreator()).isFalse();
             assertThat(member.getLastSubmittedAt()).isNull();
             assertThat(member.getCompletedCount()).isZero();

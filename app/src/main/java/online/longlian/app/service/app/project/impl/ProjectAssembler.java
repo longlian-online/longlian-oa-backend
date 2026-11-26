@@ -10,6 +10,7 @@ import online.longlian.app.pojo.entity.OrganizationMember;
 import online.longlian.app.pojo.entity.Project;
 import online.longlian.app.pojo.entity.ProjectType;
 import online.longlian.app.pojo.entity.User;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Component;
 
@@ -22,9 +23,6 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class ProjectAssembler {
-
-    /** 项目列表封面按 EdgeOne 图片即时处理参数缩放到 400x600。 */
-    private static final String COVER_RESIZE_PARAM = "eo-img.resize=w/400/h/600";
 
     private final ProjectTypeMapper projectTypeMapper;
     private final UserMapper userMapper;
@@ -55,15 +53,13 @@ public class ProjectAssembler {
                 .map(Project::getCoverFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> coverUrlMap = coverFileIds.isEmpty()
                 ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(coverFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                : ImageResizePreset.COVER.apply(resourceService.getResourceReadUrls(coverFileIds));
 
         List<Long> avatarFileIds = userMap.values().stream()
                 .map(User::getAvatarFileId).filter(id -> id != null && id > 0).distinct().toList();
         Map<Long, String> avatarUrlMap = avatarFileIds.isEmpty()
                 ? Collections.emptyMap()
-                : resourceService.getResourceReadUrls(avatarFileIds).entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getUrl()));
+                : ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrls(avatarFileIds));
 
         return projects.stream()
                 .map(project -> {
@@ -78,7 +74,7 @@ public class ProjectAssembler {
                             .title(project.getTitle())
                             .alias(project.getAlias())
                             .description(project.getDescription())
-                            .coverUrl(resizeCoverUrl(coverUrlMap.get(project.getCoverFileId())))
+                            .coverUrl(coverUrlMap.get(project.getCoverFileId()))
                             .projectType(typeNameMap.get(project.getTypeId()))
                             .projectStatus(project.getStatus())
                             .metadata(project.getMetadata())
@@ -88,12 +84,5 @@ public class ProjectAssembler {
                             .build();
                 })
                 .toList();
-    }
-
-    private String resizeCoverUrl(String url) {
-        if (url == null) {
-            return null;
-        }
-        return url + (url.contains("?") ? "&" : "?") + COVER_RESIZE_PARAM;
     }
 }

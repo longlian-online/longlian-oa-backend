@@ -77,7 +77,7 @@ public class ProjectApiTest extends BaseApiTest {
     }
 
     @Test
-    void shouldResizeOnlyListCoversAndKeepDetailAndAvatarsOriginal() {
+    void shouldResizeListCoversAndAvatarsAndKeepDetailOriginal() {
         createUserWithOrganization(1L, "orgadmin", "123456", "orgadmin@example.com", 1L, 1L, "ORG_ADMIN");
         createResource(1L, 1L, 1L);
         createResource(2L, 1L, 1L);
@@ -93,7 +93,7 @@ public class ProjectApiTest extends BaseApiTest {
         String coverUrl = list.path("data.list.find { it.id == '1' }.coverUrl");
         assertThat(coverUrl).contains("&eo-img.resize=w/400/h/600");
         String avatarUrl = list.path("data.list.find { it.id == '1' }.creatorAvatarUrl");
-        assertThat(avatarUrl).doesNotContain("eo-img.resize");
+        assertThat(avatarUrl).contains("&eo-img.resize=w/64/h/64");
         Object absentCover = list.path("data.list.find { it.id == '2' }.coverUrl");
         assertThat(absentCover).isNull();
 

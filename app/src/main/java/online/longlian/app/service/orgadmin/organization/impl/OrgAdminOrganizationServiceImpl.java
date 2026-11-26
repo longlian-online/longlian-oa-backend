@@ -11,6 +11,7 @@ import online.longlian.app.pojo.bo.orgadmin.organization.OrgAdminUpdateOrganizat
 import online.longlian.app.pojo.bo.common.ResourceBindParamsBO;
 import online.longlian.app.pojo.entity.Organization;
 import online.longlian.app.service.orgadmin.organization.OrgAdminOrganizationService;
+import online.longlian.app.service.resource.ImageResizePreset;
 import online.longlian.app.service.resource.ResourceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,7 @@ public class OrgAdminOrganizationServiceImpl implements OrgAdminOrganizationServ
                 .name(organization.getName())
                 .description(organization.getDescription())
                 .avatarUrl(organization.getAvatarFileId() != null && organization.getAvatarFileId() > 0
-                        ? resourceService.getResourceReadUrl(organization.getAvatarFileId())
+                        ? ImageResizePreset.AVATAR.apply(resourceService.getResourceReadUrl(organization.getAvatarFileId()))
                         : null)
                 .build();
     }
